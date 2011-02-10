@@ -1,0 +1,97 @@
+#!/usr/bin/perl
+##############################################################
+# REIMPLEMENTATION:                                          #
+#    THIS SCRIPT IS NOW FROZEN! (v1.5)                       #
+#       Please do not make edits to it.                      #
+#       Frozen by: tharris on 03.07.2008                     #   
+##############################################################
+
+use strict;
+use lib '../lib';
+use vars qw($cluster);
+use ElegansSubs qw(:DEFAULT GetEvidence Bestname format_references);
+use Ace::Browser::AceSubs qw(:DEFAULT Toggle);
+use CGI qw(:standard *table);
+use WormBase;
+
+use constant MAX_MATCHES => 10;
+
+END {
+  undef $cluster;
+};
+
+$cluster = OpenPageGetObject({Cluster=>'Cluster'});
+StartCache();
+
+if ($cluster) {
+  StartDataTable();
+  StartSection('Details');
+  SubSection('Cluster'      => $cluster);
+  SubSection('Description'  => $cluster->Description);
+  SubSection('Algorithm'    => $cluster->Algorithm);
+  SubSection('Remark'       => GetEvidence(-obj=>$cluster->Remark || '',-dont_link=>1));
+  SubSection('References',format_references(-references=>[$cluster->Reference],
+					    -format         => 'long',
+					    -pubmed_link    => 'image',
+					    -suppress_years => 'true'));
+  EndSection();
+
+  StartSection('Clustered data');
+  display_results('Microarray_results',
+		  $cluster->Microarray_results) if $cluster->Microarray_results;
+  display_results('SAGE_results',
+		  $cluster->SAGE_results) if $cluster->SAGE_results;
+
+  print end_table();
+
+}
+
+ClosePage();
+
+exit 0;
+
+
+
+sub display_results {
+  my ($tag,@data) = @_;
+  my $key = $tag;
+  $key =~ s/_/ /g;
+  my ($href,$show) = Toggle("show_$tag",
+			    "$key",scalar @data,1,1,MAX_MATCHES);
+  print start_table({-width=>'50%',-border=>1});
+  print TR(
+	   th({-class=>'datatitle',-align=>'LEFT',-colspan=>2},$href)
+	  );
+  if ($show) {
+  print TR(
+	   th({-class=>'datatitle',-align=>'LEFT'},"$key"),
+	   th({-class=>'datatitle',-align=>'LEFT'},'Gene')
+	  );
+    for my $entry (@data) {
+      my ($result,$gene) = make_link($entry);
+      print TR(
+	       td({-class=>'databody'},$result),
+	       td({-class=>'databody'},$gene)
+	      );
+    }
+  }
+  print end_table;
+}
+
+
+sub make_link {
+  my ($object) = shift;
+  my $gene = $object->Gene;
+  my $bestname = Bestname($gene) if $gene;
+  my $linked_gene;
+  my $molecular_id = $gene->Molecular_name if $gene;
+  $molecular_id =~ s/[a-z]{1}$//;
+  if ($bestname && $bestname eq $molecular_id) {
+    $linked_gene = ObjectLink($gene,$bestname);
+  } elsif ($bestname) {
+    $linked_gene = ObjectLink($gene,"$molecular_id ($bestname)");
+  } else {
+    $linked_gene = '';
+  }
+  return (ObjectLink($object),$linked_gene);
+}

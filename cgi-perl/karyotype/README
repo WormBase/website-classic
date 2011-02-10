@@ -1,0 +1,10 @@
+mkdir /usr/local/wormbase/website-classic/cgi-perl/karyotype
+perl -Mlocal::lib=./
+eval $(perl -Mlocal::lib=./)
+
+install GBrowse stable
+install Karyotype, using GBrowse GGB.def
+set up tmp files
+install cytoband files and config
+configure proxy (if necessary)
+

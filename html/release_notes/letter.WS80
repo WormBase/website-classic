@@ -1,0 +1,168 @@
+New release of acedb WS80, Wormpep80, and Wormrna80 14/06/2002 
+==============================================================
+
+This directory includes: 
+
+i) database.WS80.*.tar.gz - the compressed data for the new release 
+
+ii)  models.wrm.WS80          - the latest database schema (also 
+                                included in the above database files)
+
+iii) CHROMOSOMES/ subdir      - contains three files (DNA, GFF, and 
+                                agp) for each chromosome  
+
+iv)  WS79-WS80.dbcomp         - log file reporting differences between 
+                                   WS79 and WS80
+
+v)   wormpep80.tar.gz         - full Wormpep distribution corresponding 
+                                   to WS80
+
+vi)  wormrna80.tar.gz         - latest WormRNA release containing 
+                                   non-coding RNAs in the genome
+
+vii) confirmed_genes.WS80.gz  - DNA sequences of all genes confirmed by 
+                                either EST and/or cDNA
+Release notes on the web: 
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE 
+
+
+Primary databases used in this build: 
+-------------------------------------
+brigdb : 2002-05-30 - updated 
+camace : 2002-06-05 - updated
+citace : 2002-05-24 - updated
+cshace : 2002-05-07 - updated 
+genace : 2002-06-05 - updated
+stlace : 2002-06-03 - updated
+
+
+Genome sequence composition: 
+----------------------------
+6 sequences >= 0, 100,251,902
+
+  a 32,341,762    32 %
+  c 17,763,359    18 %
+  g 17,743,844    18 %
+  t 32,340,042    32 %
+  -     62,800     0 %
+  n         95     0 %
+
+Minor sequence corrections give a gross increase of 1 bp
+
+
+Remaining gaps: 
+---------------
+For more info mail worm@sanger.ac.uk 
+
+# Gaps are covered by a 950Kb SseI fragment 
+
+III      1005794   1028769   37  F    AC087078.1      1       22976  +
+III      1028770   1029769   38  N                             1000
+III      1029770   1075569   39  F    AC084156.1      1       45800  +
+
+# Gaps are covered by YAC clones in production at St Louis
+
+X              1      2649    1  F    AL031272.2      1       2649   +
+X           2650      3649    2  N                            1000
+X           3650     14860    3  F    AC087735.2      1       11211  +
+
+X         177585    194657    6  F    AC084160.2      1       17073  +
+X         194658    225057    7  N                            30400
+X         225058    254821    8  F    Z83097.1        1       29764  +
+
+X         225058    254821    8  F    Z83097.1        1       29764  +
+X         254822    285221    9  N                            30400
+X         285222    299761   10  F    AC024789.1      1       14540  +
+
+Also there is no right telomeric end for Chromosome II.   
+
+
+Wormpep data set: 
+-----------------
+
+
+There are 19,451 CDS in autoace, 20,535 when counting (1,084) alternate 
+splice_forms. The 20,535 sequences containing 9,041,456 base pairs in 
+total. 
+
+ Modified entries      74
+ Deleted entries       37
+ New entries           72
+ Reappeared entries     1
+ ------------------------
+ Net Change          + 36
+
+
+GeneModel correction progress: 
+------------------------------
+Number of confirmed introns not in a CDS gene model: 
+
+           +----------+---------+
+           | Introns  | Change  |
+           +----------+---------+
+Cambridge  |     2027 |  -    8 |
+St Louis   |     1310 |  -  131 |
+           +----------+---------+
+
+
+Members of known repeat families that overlap predicted exons: 
+
+           +----------+---------+
+           | Repeats  | Change  |
+           +----------+---------+
+Cambrige   |       28 |  +   0  |
+St Louis   |      187 |  -   2  |  
+           +----------+---------+
+
+Synchronisation with GenBank/EMBL: 
+----------------------------------
+
+No problems with agp files: 
+
+New data: 
+---------
+
+New Expression patterns from Caltech.
+
+
+New fixes: 
+----------
+
+
+Known problems: 
+---------------
+
+PCR_products and associated functional data (e.g. RNAi Expr_profile) 
+
+Mismapping of some WTP products. They will be remapped soon.
+	
+
+Other changes: 
+--------------
+
+Reformatting or Erich's functional data.
+
+
+Proposed changes / forthcoming data: 
+------------------------------------
+
+
+Quick installation guide for UNIX/Linux systems 
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase, 
+e.g. /users/yourname/wormbase 
+  
+2. Unpack and untar all of the database.*.tar.gz files into 
+this directory. You will need approximately 2-3 Gb of disk space. 
+ 
+3. Obtain and install a suitable acedb binary for your system 
+   (available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g. 
+type 'xace /users/yourname/wormbase' at the command prompt. 
+
+5. See the acedb website for more information about acedb and
+using xace. 
+

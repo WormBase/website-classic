@@ -1,0 +1,275 @@
+#!/usr/bin/perl
+
+use lib '../lib';
+
+use strict;
+use vars qw($DB);
+
+use Ace;
+use CGI qw/:standard :html3 escape *table/;
+use CGI::Carp qw/fatalsToBrowser/;
+use Ace::Browser::AceSubs qw(:DEFAULT DoRedirect Style);
+use Ace::Browser::SearchSubs;
+use ElegansSubs;
+
+use Time::Format;
+use Date::Manip;
+
+#use constant THIS_URL         =>  url(-full=>1);
+# Using squid to handle redirects
+#use constant DIRECT_TO        => Configuration->Aql2wormbase || $ENV{HTTP_HOST};
+
+my $query          = param('query_jack');
+my $search_class   = param('class');
+my $search_pattern = param('pattern');
+my $aql            = param('aql');
+my $offset         = AceSearchOffset();
+
+# For notifying myself about queries
+my $recipient = qq[Todd Harris <toddcron\@gmail.com>];
+
+# fetch database handle
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+my ($objs,$count,$msg);
+
+if ($query) {
+  ($objs,$count) = do_search($query,$offset);
+} elsif ($search_class) {
+  $search_pattern ||= '*';
+  ($objs,$count,$msg) = do_browse($search_class,$search_pattern || '*',$offset) if $search_class;
+}
+DoRedirect(@$objs) if $count==1;
+
+if ($aql && param('format') eq 'Text output') {
+  aql_text_dump($aql);
+  my $text = $aql;
+  $text =~ s/ /\n/g;
+#  email_query($text);
+  log_query($text);
+  exit 0;
+}
+
+PrintTop(undef,undef,undef,
+	 '-Title' =>'AQL Search',
+	 '-Style' => Style(),
+#	 '-Target' =>'_top',
+	 '-Class' =>'search');
+
+print $msg if defined $msg;
+display_search_form($query,$search_class,$aql);
+display_search($objs,$count,$offset,$query)     if $search_class || $query;
+display_aql($aql)                               if $aql;
+email_query($aql);
+log_query($aql);
+
+PrintBottom();
+
+sub display_search_form {
+  my ($query,$search_class,$aql) = @_;
+  my $none = !$query && !$search_class && !$aql;
+
+  # hack for working offline
+  my @classlist = $DB->classes;
+  #  my @classlist = qw(a b c d e);
+  # end hack for working offline
+
+  if ($none or $aql) {
+    DisplayInstructions('AQL Search',
+			'This search uses new AQL syntax to search Acedb.',
+			"Example 1: Find loci between positions 5 and 10 on chromosome IV".
+			pre(<<END),
+select l, pos from l in class Gene, 
+                    map in l->Map where map = "IV",
+                    pos in map[Position] where pos > 5.0 and pos < 10.0
+END
+                        'Example 2: Find primer pairs, the genes they overlap and their overlapping oligos'.
+                        pre(<<END),
+select l,l->Overlaps_CDS,l->Oligo->Sequence
+from l in class PCR_Product
+where exists l->Overlaps_CDS
+END
+			'See the Acedb web site for '.
+			a({-href=>'http://www.acedb.org/Software/whelp/AQL/',-target=>'_blank'},
+			  'documentation').' and ' .
+			a({-href=>'http://www.acedb.org/Software/whelp/AQL/examples_worm.shtml',-target=>'_blank'},
+			  'examples')
+		       );
+
+    # Mirrors may not have these configuration directives set...
+    #    my $target = Configuration->Wormbase2aql || $ENV{HTTP_HOST};
+#    # Now using squid to handle redirects
+#    print
+#      start_form(-action=>$target . '/db/searches/aql_query'),
+#	# url(-absolute=>1,-path_info=>1).'#results',%attributes),
+#	a({-name=>'search'},''),
+#	  table({-align=>'center'},
+#		textarea(-name=>'aql',-rows=>5,-cols=>60),
+#		submit(-label=>'Query ACeDB'),
+#		radio_group(-name=>'format',-value=>['HTML output','Text output'])),
+#		  end_form;
+    print
+      start_form(-action=>'/db/searches/aql_query'),
+	# url(-absolute=>1,-path_info=>1).'#results',%attributes),
+	a({-name=>'search'},''),
+	  table({-align=>'center'},
+		textarea(-name=>'aql',-rows=>5,-cols=>60),
+		submit(-label=>'Query ACeDB'),
+		radio_group(-name=>'format',-value=>['HTML output','Text output'])),
+		  end_form;
+
+  }
+}
+
+
+sub AceSearchTable_class_browser {
+  my ($title,@body) = @_;
+
+  # Now using squid to handle redirects
+#  print
+#    start_form(-action=>Configuration->Wormbase2aql . "/db/searches/aql_query"),
+#      a({-name=>'search'},''),
+#	table({-border=>0,-width=>'100%'},
+#	      TR(th({-class=>'searchtitle'},$title),
+#		 TR({-valign=>'CENTER'},
+#		    td({-class=>'searchbody'},@body)))),
+#		      end_form;
+
+  print
+    start_form(-action=>"/db/searches/aql_query"),
+      a({-name=>'search'},''),
+	table({-border=>0,-width=>'100%'},
+	      TR(th({-class=>'searchtitle'},$title),
+		 TR({-valign=>'CENTER'},
+		    td({-class=>'searchbody'},@body)))),
+		      end_form;
+}
+
+sub do_search {
+  my ($query,$offset) = @_;
+  my $count;
+  my (@objs) = $DB->find(-query=> $query,
+			 -count  => MAXOBJECTS,
+			 -offset => $offset,
+			 -total => \$count);
+  return unless @objs;
+  return (\@objs,$count);
+}
+
+sub display_search {
+  my ($objs,$count,$offset,$query) = @_;
+  unless ($count) {
+    print p(strong({-class=>'error'},"No objects found. Please try again."));
+    return;
+  }
+  my $title = p(strong($count),"objects satisfying the query",strong($query));
+  #    my @objects = map { a({-href=>Object2URL($_)},"$_") } @$objs;
+
+#  my @objects = map { a({-href=>DIRECT_TO . Object2URL($_)},"$_") } @$objs;
+  # Now using squid to handle redirects
+  my @objects = map { a({-href=>Object2URL($_)},"$_") } @$objs;
+  AceResultsTable(\@objects,$count,$offset,$title) if @objects;
+}
+
+sub do_browse {
+  my ($class,$pattern,$offset) = @_;
+  my ($count,$msg);
+  my (@objs) = $DB->fetch(-class=>$class,-pattern=>$pattern,
+			  -count=>MAXOBJECTS,-offset=>$offset,
+			  -total=>\$count);
+  if (!@objs && $pattern !~ /\*/) {
+    $msg = p({-class=>'error'},qq(No matching objects found with "$pattern".  Autocompleting to "*$pattern*"));
+    @objs = $DB->fetch(-class=>$class,-pattern=>"*$pattern*",
+		       -count=>MAXOBJECTS,-offset=>$offset,
+		       -total=>\$count);
+  }
+  return unless @objs;
+  return (\@objs,$count,$msg);
+}
+
+sub display_aql {
+  my $query = shift;
+  $DB->error('');
+  my @rows = $DB->aql($query);
+  print p(b({-class=>'error'},$DB->error)) if $DB->error;
+  my $count = @rows;
+  print a({-name=>'searchagain'},'&nbsp;');
+  print start_table({-border=>1,-width=>'50%'});
+  print caption("$count rows returned");
+  if (@rows) {
+    print TR(th([map {$_->class} @{$rows[0]}]));
+  }
+  for my $row (@rows) {
+#    my @cells = map { $_->isObject ? ObjectLink($_) : $_ } @$row;
+#      my @cells = map { $_->isObject ? (a({-href=>DIRECT_TO . Object2URL($_)},$_)) : $_ } @$row;
+      my @cells = map { $_->isObject ? (a({-href=>Object2URL($_)},$_)) : $_ } @$row;
+    print TR(td(\@cells));
+  }
+  print end_table;
+}
+
+sub aql_text_dump {
+  my $query = shift;
+  print header('text/plain');
+  $DB->error('');
+  my @rows = $DB->aql($query);
+  print $DB->error if $DB->error;
+  for my $row (@rows) {
+    print join "\t",@$row,"\n";
+  }
+}
+
+
+
+
+# Create a temporary log of the types of AQL queries that people are running
+sub email_query {
+  my $query = shift;
+  my $timestamp = timestamp();
+  my $hostname = get_hostname();
+  my $ua       = $ENV{HTTP_USER_AGENT};
+  my $remote_addr = $ENV{REMOTE_ADDR};
+  my $remote_host = $ENV{REMOTE_HOST};
+
+  open (MAIL,"| /usr/lib/sendmail -t") or die ("Cannot open sendmail for email alert!");
+  print MAIL <<END;
+From: $recipient
+To: $recipient
+Subject: AQL query submitted on $hostname
+
+Automated Message: An AQL query has been submitted!
+
+Time Stamp: $timestamp
+Hostname: $hostname
+
+Remote host : $remote_host ($remote_addr)
+User agent  : $ua
+
+  $query
+
+END
+    close MAIL or die "Cannot close sendmail: $!";
+    }
+
+
+sub log_query {
+  my $query = shift;
+  open OUT,">>/usr/local/wormbase/logs/queries/aql.log" or return;
+  my $timestamp = timestamp();
+  my $remote_addr = $ENV{REMOTE_ADDR};
+  print OUT "[$timestamp]\t$remote_addr\t$query\n";
+  close OUT;
+}
+
+
+sub timestamp {
+  my $time = time();
+  return time_format('dd/Mon/yyyy:hh:mm:ss tz', $time);
+}
+
+
+sub get_hostname {
+  my $hostname = `hostname` or die "Cannot determine hostname!\n";
+  chomp $hostname;
+  return $hostname;
+}

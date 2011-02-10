@@ -1,0 +1,1201 @@
+#!/usr/bin/perl
+
+# What remains to be fixed
+# 1. If fetching a single feature, we end up fetching all nested features.
+# (1 is now addressed by implementing filters but alternate ways of implementation may be considered later)
+
+use strict;
+use lib '../../lib';
+use CGI::Carp qw/fatalsToBrowser/;
+use CGI qw/:standard :html3 escape *table *TR *td *pre default/;
+use Ace::Browser::AceSubs qw(:DEFAULT Configuration ResolveUrl);
+use ElegansSubs qw(:DEFAULT FindPosition Bestname);
+use Bio::DB::GFF;
+use Bio::Graphics::Browser::Markup;
+use Bio::Graphics::FeatureFile;
+use vars qw($DB %examples);
+use Ace::Object::Wormbase;
+use Data::Dumper;
+
+use constant CONFIG          => '/usr/local/wormbase/conf/gbrowse.conf/c_elegans.conf';
+use constant CONFIG_BRIGGSAE => '/usr/local/wormbase/conf/gbrowse.conf/c_briggsae.conf';
+
+%examples = (elegans => join('&nbsp;&nbsp;',qw/AC3.8 M7 X IV III:1000..4000/),
+	     briggsae=> 'cb25.fpc2397');
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$DB->class('Ace::Object::Wormbase');
+
+my (@results,$recurse);
+# open appropriate database
+my ($DEBUGFF,$fmethod) = param('species') eq 'briggsae' ? openBriggsaeDB() : openElegansDB();
+
+# If trying to dump text, do not establish the header until I have retrieved some results
+# I'll print the header for recursive searching below.
+unless (param('dump') =~ /TEXT/ || param('DNA') eq 'paste features back for further searches') {
+  start_page();
+}
+
+if (param()) {
+  @results = dumper($DEBUGFF,$fmethod,param('DNA'));
+  if (param('DNA') eq 'paste features back for further searches') {
+    $recurse = join ",\n",@results;
+    warn join "\n", @results if (url_param('warnings'));
+  }
+}
+
+# Print the form if it's the first time loaded, no results were found 
+# or we clicked submit and did not select an item to dump
+if (!param() || !@results || !param('list') || $recurse) {
+  # start the page again if we were outputing text
+  start_page() if (param('dump') =~ /TEXT/ || param('DNA') eq 'paste features back for further searches') ;
+  print_warning() if (!@results && param());
+  print_HTML($fmethod);
+}
+
+PrintBottom();
+exit;
+########################### end of program    #################################
+
+
+sub openElegansDB{
+  my $DEBUGFF   = OpenGFFDB($DB,'c_elegans')   || AceError("Couldn't open GFF database.");
+  my $data = Bio::Graphics::FeatureFile->new(-file=>CONFIG) or die;
+  # Get info for the possible features
+  my %fmethod = ();
+  my @tracks = $data->configured_types;
+  
+  for my $track (@tracks) {
+    next unless $data->setting($track=>'feature') and
+      $data->setting($track=>'key');
+    my @low_level_features = split /\s+/,$data->setting($track=>'feature');
+    $fmethod{$data->setting($track=>'key')}=\@low_level_features;
+  }
+
+  # Add in several features not in the conf file
+  # This feature needs to be aggregated but it still wouldn't
+  # work since we fetch spans of sequences.
+  # And even since WS100 it hasn't worked...
+  # $fmethod{'Gene Models (protein coding only)'} = ["coding_exon:curated"];
+  # I could fetch an aggregated wormbase_cds and then pitch the introns...ugh...
+  # $fmethod{'Gene Models (protein coding only)'} = [ @{$fmethod{'Gene Models'}} ] ;  # We'll resolve this later...
+  #  $fmethod{'UTRs'} = ['UTR:curated'];
+  #  $fmethod{'5\' UTRs'} = ['5_UTR'];
+  #  $fmethod{'3\' UTRs'} = ['3_UTR'];
+  #  $fmethod{'5 UTRs'} = ['5_UTR:curated'];
+  #  $fmethod{'3 UTRs'} = ['3_UTR:curated'];
+  # [PC] As of 10/27/2004 5' & 3' UTRs are stored as follows in the GFF. Will keep it that way until it is changed.
+#<<<<<<< dumper
+#  $fmethod{'5 UTRs'} = ['five_prime_UTR:curated'];
+#  $fmethod{'3 UTRs'} = ['three_prime_UTR:curated'];
+#  # $fmethod{'5 UTRs'} = ['5_UTR:curated'];
+#  # $fmethod{'3 UTRs'} = ['3_UTR:curated'];
+#  
+#=======
+#  # $fmethod{'5 UTRs'} = ['five_prime_UTR:curated'];
+#  # $fmethod{'3 UTRs'} = ['three_prime_UTR:curated'];
+#  # [PC] As of 11/03/2004 5' & 3' UTRs are stored as follows in the GFF. Will keep it that way until it is changed.
+  $fmethod{'5 UTRs'} = ['five_prime_UTR:Coding_transcript'];
+  $fmethod{'3 UTRs'} = ['three_prime_UTR:Coding_transcript'];
+#  
+#>>>>>>> 1.86
+  return ($DEBUGFF,\%fmethod);
+}
+
+
+sub openBriggsaeDB{
+  my $DEBUGFF   = OpenGFFDB($DB,'c_briggsae')   || AceError("Couldn't open GFF database.");
+  my $data = Bio::Graphics::FeatureFile->new(-file=>CONFIG_BRIGGSAE) or die;
+
+  # Get info for the possible features
+  my %fmethod = ();
+  my @tracks = $data->configured_types;
+  
+  for my $track (@tracks) {
+    next unless $data->setting($track=>'feature') and
+      $data->setting($track=>'key');
+    my @low_level_features = split /\s+/,$data->setting($track=>'feature');
+    $fmethod{$data->setting($track=>'key')}=\@low_level_features;
+  }
+  return ($DEBUGFF,\%fmethod);
+}
+
+
+sub print_HTML {
+  my $fmethod = shift;
+  print start_multipart_form,
+    p('Species: ',
+	  popup_menu(-name=>'species',
+		 -value=>[qw/elegans briggsae/],
+		 -labels   => {elegans  => 'C. elegans',
+			       briggsae => 'C. briggsae'},
+		 -default  => 'elegans',
+		 -onChange => 'submit()',
+		)
+     ),
+       table({-width=>'100%',-cellspacing=>'4', -cellpadding=>'8'},
+	     TR({-class=>'searchtitle'}, 
+		th({-class=>'searchtitle', -width=>'35%', align => 'left'},'
+            1. Input Options'),th({-class=>'searchtitle', -width =>'30%', align => 'left'},'
+            2. Select one feature to retrieve'), th({-class=>'searchtitle', -width =>'35%', align => 'left'},'
+            3. Output options')),
+	     TR({-class=>'searchbody'},
+		td({-align=>'center', -valign=>'top'},
+		   table({-align =>'center'},
+			 TR(td(
+			       'Type in a list of sequence or chromosome names:',
+			       br,'e.g.','&nbsp',
+			       '"'.$examples{param('species') || 'elegans'}.'"')),
+			 TR(td(textarea(-name=>'list',
+					-rows=>13,
+					-cols=>30,
+					-wrap=>'off',
+					-value=>$recurse,
+					-force=>1
+				       ),)),
+			 TR(td(
+			       br,
+			       em('Or'),
+			       'upload a file with sequence or chromosome names separated by spaces:')),
+			 TR(td(filefield(-size=>20,
+					 -name=>'upload'
+					),)),
+			) #end mini table
+		  ),
+		
+		td({-align=>'left', -valign => 'top'},
+		   scrolling_list(-name=>'feature',
+				  -size=>21,
+				  -multiple=>0,
+				  -default => ['Gene Models'],
+				  -values=>[sort (keys(%$fmethod))])
+		  ),
+		
+		td({-class=>'searchbody', -valign=>'top'},
+		   b(i('What to output?')),
+		   br,
+		   radio_group(-name=>'DNA',
+			       -linebreak =>1,
+			       -values=>["feature coordinates only", 
+					 'feature and flanking sequences',
+					 'flanking sequences only',
+					 'paste features back for further searches'],
+			       -default=>'feature and flanking sequences'),
+		   '<b>Note: </b>The last option above allows users
+		   to paste results in the field in the <b>Input
+		   Options</b> panel for the next round of search.',
+		   br,br,
+		   b(i('Flanking sequence lengths:')),
+		   br,	
+		   textfield(-name=>'flank5',
+			     -size=>6,
+			     -maxlength=>6,
+			     -default=>0),'bp 5\' flank, ',
+		   textfield(-name=>'flank3',
+			     -size=>6,
+			     -maxlength=>6,
+			     -default=>0),'bp 3\' flank',
+		   br,br,
+		   b(i('Coordinates relative to:')),
+		   br,
+		   radio_group(-name=>'relative',
+			       -linebreak => 1,
+			       -values=>['Chromosome','Query sequence'],
+			       -default=>'Chromosome'),
+		   br,
+
+# uncomment this to debug relative strand addressing
+#                  b(i('Show DNA strand relative to:')),
+#                  br,
+#                  radio_group(-name=>'strand',
+#                              -linebreak => 1,
+#                              -values=>['Chromosome','Query sequence'],
+#                              -default=>'Query sequence'
+#                             ),
+#                  br,
+
+		   b(i('Sequence orientation:')),
+		   br,
+		   radio_group(-name=>'orientation',
+			       -linebreak => 1,
+			       -values=>['Relative to feature','Always on canonical strand'],
+			       -default=>'Relative to feature'),
+		   br,
+		   b(i('Output format:')),
+		   br,
+		   radio_group(-name=>'dump',
+			       -linebreak => 1,
+			       -values=>['Plain TEXT','HTML', 'Save to disk (Plain TEXT)'],
+			       -default=>'Plain TEXT'),br,
+		  )
+	       ),
+	     TR({-class =>'searchtitle'},
+		td(reset()),
+		#td(defaults('Reset')),
+		td({-align =>'CENTER',},submit("DUMP")),
+		td("&nbsp")
+	       ),
+	    ),
+	      endform;
+  print_caveat();
+  return;
+}
+
+#******************************************************************************
+sub dumper {
+  my $seqfac  = shift;	                #database
+  my $fmethod = shift;			#all sorts of features?
+  my $return  = shift;	                #'recursive' or not
+  my $match  = 0;
+  my ($feature) = param('feature');     #retrieve feature selected:
+                                        #only allow one at a time
+  # Get sequence items ......
+  my @items;
+  #first, users want to get prefabricated queries
+  #if (param('prefab') ne "NONE" && !param('list')){
+  #  my $items = parse_prefab(param('prefab')); 
+  #  @items = @$items;
+  #} # => param prefab must be none
+
+  #or, users want to upload a file
+  if (my $fh = param('upload')){   # Use uploaded file
+    while(<$fh>){
+      @items = split /\s+|\s*,\s*/s, $_;  # split on white sp, or comma
+    }
+  } # => param prefab is none, no file uploaded, => check list
+  
+  # or users want to type/paste a list of sequences
+  elsif (param('list')) {               # get info from list
+    @items = split /\s+|\s*,\s*/s, param('list');
+  }
+  return if !@items;
+
+  #****************************************************************************
+  # now deal with the @items retrieved above
+  
+  # Apply wildcard expansion to @items:
+  my @tmp_items;
+  foreach my $item (@items) {
+      if ($item =~ /[\*\?]/ || $item =~ /\w{3,4}\-\d+/) { 
+	  my @o = $DB->fetch(-query=>qq{find Gene_name $item});
+	  foreach (@o) {
+	      push @tmp_items, $_->Public_name_for || $_->Sequence_name_for || $_->Other_name_for;;
+	  }
+      } else {
+	  push @tmp_items, $item;
+      }
+  }
+  @items = @tmp_items;
+  my @returns;
+  my %grouped_segments;
+  # Get the segment(s) for each item
+  foreach my $item (@items){
+    my @tmp_segments;
+    my @prev_returns = @returns; # make a copy of prev item's @returns;
+
+    if(($item =~ /(\w+\.?\d?):(\d+)=>(\d+)/) or ($item =~ /(\w+\.?\d?):(\d+)\.\.(\d+)/)) {
+      @tmp_segments = $seqfac->segment($1, $2 => $3);
+    } else {
+      @tmp_segments = $seqfac->segment($item);
+    }
+    @tmp_segments = $seqfac->segment(Locus =>$item) unless (@tmp_segments);
+    @tmp_segments = $seqfac->segment(CDS   =>$item) unless (@tmp_segments);
+    @tmp_segments = $seqfac->segment(Transcript   =>$item) unless (@tmp_segments);
+	
+    # Now the UTR's are not included in CDS, We will expand the segment by 1 bp in each direction when retrieving UTR's - PC
+    if (param('feature') =~ /^(5|3) UTRs$/) {
+   	  foreach (@tmp_segments) {
+        my $strand = $_->strand;
+	    my $start = $strand == 1 ? $_->start() - 1 : $_->start() + 1;
+	    my $end = $strand == 1 ? $_->end() + 1 : $_->end() - 1;
+	    my $expanded_segment = $seqfac->segment(-class=>$_->class,-name=>$_->ref,
+			                 -start=>$start,-stop=>$end);
+	    $_ = $expanded_segment;
+	    }
+	  }	
+
+    if (param('strand') && param('strand') =~ /Chromosome/) {
+      foreach (@tmp_segments) {
+	    next unless $_->abs_strand < 0;  # noncanonical direction
+	    $_ = $seqfac->segment(-class=>$_->class,-name=>$_->ref,
+			  -start=>$_->stop,-stop=>$_->start);
+      }
+    }
+
+    push (@{$grouped_segments{$item}},\@tmp_segments) if @tmp_segments;
+  }
+  
+  # We have retrieved some results; establish the appropriate page header info
+  if (keys %grouped_segments) {
+    establish_page();
+  } else {
+    return;
+  }
+  
+  #**************************************************************************
+
+
+my %segment_idx;
+
+  foreach my $item (keys %grouped_segments) {
+    foreach my $segment_ref (@{$grouped_segments{$item}}) {
+		foreach my $segment (@$segment_ref) {
+
+my $segment_as_string = '[refseq: ' . $segment->refseq .'] [asString: ' . '[location: ' . $segment->refseq . ':' . $segment->abs_start . '-' . $segment->abs_end . $segment->asString . '] [strand: ' . $segment->abs_strand . '] [class: ' . $segment->class . ']';
+
+		if (exists $segment_idx{$segment->asString}) { next; };
+		$segment_idx{$segment->asString} = 1;
+
+my $type = 'chromosome';
+if (param('species') eq 'elegans' and ($item =~ /[^\.]\.\d/ or $item =~ /\-/)) { $type = 'sequence'; }
+if (param('species') eq 'briggsae' and $item =~ /^CBG\d+$/) { $type = 'sequence'; }
+
+my $customizer = new Customizer (-query => $item, -type => $type, -config => "$0.cfg") or die "Cannot create customizer"; # - PC
+
+
+      my @get_features;
+      if ($fmethod->{$feature}){
+        @get_features = @{$fmethod->{$feature}};
+	print @get_features if (url_param('warnings'));
+     }
+
+      if(!@get_features){
+	print "Select a feature to proceed.";
+	return;
+      }
+
+#       # Are we fetching absolute or relative coords?
+#       # This might be a good place to adjust this
+#       if (param('relative') eq 'Chromosome') {
+# 	$segment->absolute(1);
+#       }
+
+      # This no longer works for gene models since there are multiple coding_exons...
+      my $iterator;
+	  if ($customizer->requires_overlapping_features(param('feature'))) { $iterator = $segment->features(-type=>\@get_features,-iterator=>1); }# ->features modified to ->contained_features - 16Jul04/PC
+	  else { $iterator = $segment->contained_features(-type=>\@get_features,-iterator=>1); }	
+      while (my $feature = $iterator->next_seq) { # was next_feature
+	$feature->refseq($segment);
+
+#  - 16Jul04/PC
+# Filter out features 
+
+my $feature_as_string = '[feature: ' . $feature .']' . '[location: ' . $feature->refseq . ':' . $feature->abs_start . '-' . $feature->abs_end . '] [info: ' . $feature->info . '] [strand: ' . $feature->abs_strand . '] [method: ' . $feature->method . '] [class: ' . $feature->class . '] [group: ' . $feature->group . ']';
+
+# Remove irrelevant types
+unless (feature_is_valid($feature, \@get_features)) { next; }; 
+# Remove unequal strand features if relevant
+if ($customizer->requires_same_strand(param('feature')) and $segment->abs_strand and $segment->abs_strand != $feature->abs_strand) { next; }; 
+# Remove items if query_specific retrieval required
+if ($customizer->is_query_specific(param('feature')) and !names_are_equivalent($item, $feature, param('species'))) { next; };
+
+      # Are we fetching absolute or relative coords?
+      # This might be a good place to adjust this
+      if (param('relative') eq 'Chromosome') {
+	$segment->absolute(1);
+      }
+
+	my $flip_flag = param('strand') && param('strand') =~ /Chromosome/ && $feature->abs_strand < 0;
+	
+	# Fetching an iterator of the segment has an unintended consequence
+	# of fetching all nested features.
+	# For example, is a user searches for JC8.10a, JC8.10b is also fetched.
+	# That is, nested features of the appropriate type within the segment 
+	# are also fetched.
+	
+	# To escape this, we'll add in a short circuit:
+	# Does this segment match the desired item? If so, let's get outta dodge...
+	# This does not quite work as expected.
+	# next if (@items == 0 && ($segment->info ne $feature->info));
+
+	# Actually, correcting this behavior is not so simple.
+	# Very easy to break other things...
+	my $coords = get_coords($segment,$feature);
+	
+	# my $dna;
+	if (param('DNA') =~ /flanking/i) { # Fetch the dna for the feature and flanking sequences
+	  my $dna = get_dna($segment,$feature);
+	  # $dna = get_dna($segment,$feature,1,$flip_flag); LS's flip_flag
+	  # html and text markup should also be passed this flag...
+	  my $result = (param('dump') eq 'HTML')
+	    ? html_markup($dna,$segment,$feature,$coords)
+	      : text_markup($dna,$feature,$coords);
+	  $result ||= $coords;
+	  push @returns,$result;
+	} elsif (param('DNA') eq 'feature coordinates only') {	# This is the only other option
+	  my $label =  create_label($feature);
+	  my $result = (param('dump') eq 'HTML')
+	    ? print pre(">$label ($coords)\n")
+	      : print ">$label ($coords)\n";
+	  # This will act as a flag that data was returned...
+	  push @returns,$coords;
+	  next;
+	} else {}
+      }
+    } # end of foreach $segment
+  } # end of foreach $segments
+  }
+  return @returns;
+}
+sub feature_is_valid { # - PC
+	my ($feature, $ref_get_features) = @_;;
+	my $features = join(' ', ' ', @$ref_get_features, ' ');
+        my $type = $feature->type;
+	my ($primary_type) = split(':', $type);
+	return $features =~ / ($type|$primary_type) /i;
+	}
+
+sub names_are_equivalent { # - PC
+	my ($query, $feature, $species) = @_;
+	
+	if ($species eq 'elegans') {
+		unless ($query =~ /\./ or $query =~ /\-/) { return; } # Query is a region name, just return false (this is redundant but is kept in case some more customization is necessary)
+	
+		my $feature_name = $feature->info || $feature;
+	
+		if ($feature_name eq $query) { return 1; }
+	
+		my ($f_name, $f_number, $f_variant) = $feature_name =~ /^([^\.]+)\.(\d+)([a-z]*)$/;
+		my ($q_name, $q_number, $q_variant) = $query        =~ /^([^\.]+)\.(\d+)([a-z]*)$/;
+		if ($f_name eq $q_name and $f_number eq $q_number) {
+			if ($f_variant and $q_variant and $f_variant eq $q_variant) { return 1; }
+			elsif (!$q_variant)                                         { return 1; }
+			else                                                        { return 0; }
+			}
+
+		my $query_bestname;   if (my $cds = $DB->fetch(CDS=>$query))        { $query_bestname   = Bestname($cds->Gene); }
+		my $feature_bestname; if (my $cds = $DB->fetch(CDS=>$feature_name)) { $feature_bestname = Bestname($cds->Gene); }
+		if    ($query_bestname and $feature_bestname and $query_bestname eq $feature_bestname) { return 1; }
+		elsif ($feature_bestname and $query eq $feature_bestname)                              { return 1; }
+		elsif ($query_bestname   and $feature_name eq $query_bestname)                         { return 1; }
+		
+    	return;
+		}
+		
+	elsif ($species eq 'briggsae') {
+		unless ($query =~ /^CBG\d+$/) { return; } # Query is a region name
+
+		my $feature_name = $feature->info || $feature;
+
+		if ($feature_name eq $query) { return 1; }
+
+		return;
+		}
+	
+	else { die "Cannot determine name equivalency for this species"; }
+
+	}
+		
+sub establish_page {
+  unless (param('DNA') eq 'paste features back for further searches') {
+    if (param('dump') eq 'Save to disk (Plain TEXT)') {
+      print header(-attachment => 'wormbase_batch.txt',
+		   -type       => 'application/octet-stream');
+    } elsif (param('dump') eq 'Plain TEXT') {
+      print header('text/plain');
+    } elsif (param('dump') eq 'HTML') {
+      print h2('Search results:');
+      if (param('DNA') ne 'paste features back for further searches') {
+	print pre("Legend:
+            <font style=\"Background-color:pink\" >pink lowercase</font> = 5' (upstream with respect to feature strand) sequences
+            <font style=\"Background-color:cyan\">cyan lowercase</font> = 3' (downstream with respect to feature strand) sequences
+            <font style=\"Background-color:yellow\">YELLOW CAPITAL CASE</font> = exons
+      ");
+      }
+    }
+  }
+}
+
+
+sub create_label {
+  my $feature = shift;
+  my $label;
+  if (param('DUMP') eq 'HTML') {
+    $label = a({-href=>Object2URL($feature->group->name,$feature->group->class)},$feature->info || $feature);
+  } else {
+    $label = $feature->info || $feature;
+  }
+
+  if ($feature->info ne '') {  # Ooh - ugly hack - if this empty we will try a DB fetch of every CDS!
+    if (my $cds = $DB->fetch(CDS=>$feature->info)) {
+      my $locus = Bestname($cds->Gene);
+      $label .= " ($locus)" if ($locus && $locus ne $cds);
+    }
+  }
+  return $label;
+}
+
+
+
+###############################################################################
+# Markup the exons, taking into account that:
+# 1. The sequence may also have flanks associated with it
+# 2. The sequence may have been forced onto the + strand
+sub html_markup {
+  my ($dna,$segment,$feature,$query) = @_;
+  return undef if (param('DNA') eq 'paste features back for further searches');
+  # If we have fetched the feature from a segment (ie a clone), this does not
+  # always return all features...
+  #  my @exons = grep {$_->method eq 'coding_exon'} $feature->sub_SeqFeature;
+  my @exons = grep {$_->method eq 'coding_exon' && $_->name eq $feature->name} $feature->sub_SeqFeature();
+  my $offset = (param('flank5')) ? param('flank5') : 0;
+
+  my $markup = Bio::Graphics::Browser::Markup->new;
+  $markup->add_style('cds'	=>'UPPERCASE');
+  $markup->add_style('yellow'	=>'BGCOLOR yellow');
+  $markup->add_style('uc'   	=> 'UPPERCASE');
+  $markup->add_style('newline' 	=> "\n");
+  $markup->add_style('space'	=> ' ');
+  $markup->add_style('promoter5' => 'BGCOLOR pink');
+  $markup->add_style('promoter3' => 'BGCOLOR cyan');
+
+  my $length = length $dna;
+  my $style1 = 'yellow';
+  my $style2 = 'uc';
+  my ($flipflop,@markups);
+  if (param('DNA') eq 'feature and flanking sequences') {
+    foreach my $exon (@exons) {
+      $exon->ref($feature);
+      my ($start,$stop);	
+      # Are we placing everything onto the canonical strand?
+      # If so, is this feature on the - strand?
+      # Adjust coordinates appropriately.
+      if (param('orientation') =~ /canonical/) {
+	my $abs_start = $exon->abs_start;
+	my $abs_stop  = $exon->abs_stop;
+	if ($abs_start > $abs_stop) {
+	  # Flip the offset;
+	  $offset = param('flank3') + 1;
+	  # Calculate the non-flanked segment
+	  my $main_length = (length ($dna)) - param('flank5') - param('flank3');
+	  $stop   = $offset + ($main_length - $exon->start);
+	  $start  = $offset + ($main_length - $exon->stop) + 1;
+	  $flipflop++;  # Flag so I can change the markup of promoters
+	}
+      }
+      
+      # + strand features, or non-adjusted - strand
+      # Start and stop will always be defined (even if 0)
+      # can't use constructs like $start ||= ...
+      unless ($start ne '' && $stop ne '') {
+	$start = ($offset + $exon->start) - 1;  # 0-based
+	$stop  = ($offset + $exon->stop);
+      }
+      push @markups, [$style1,$start,$stop];
+      push @markups, [$style2,$start,$stop];
+    }
+  }
+  push @markups, map {['newline',100 * $_]} (1..length($dna)/100);
+  # Flip flop the promoter markup (that is, retain it in relation to the feature)
+  if ($flipflop) {
+    push @markups, ['promoter3',0,param('flank3')];
+    push @markups, ['promoter5',$length - param('flank5'),$length];
+  } else {
+    push @markups, ['promoter5',0,param('flank5')];
+    push @markups, ['promoter3',$length - param('flank3'),$length];
+  }
+  
+  #    push @markups, [($flipflop) ? 'promoter3' : 'promoter5',0,param('flank3')];
+  #    push @markups, [($flipflop) ? 'promoter5' : 'promoter3',$length - param('flank5'),$length];
+  $markup->markup(\$dna,\@markups);
+  my $label =  create_label($feature);
+  print pre(">$label ($query)\n$dna");
+  return $feature;
+}
+
+
+
+# TH: As of 3/2004, this has not been fully fixed.
+# There is no plain text markup at this point
+# (I did make the labels consistent with elsewhere)
+sub text_markup {
+  my ($dna,$feature,$query) = @_;
+  # Uppercase for coding sequence
+  my $flank = param('flank5') ? param('flank5') : 0;
+  my @subfeature = grep {$_->method eq 'CDS'} $feature->sub_SeqFeature;
+  my @subfeature_all = $feature->sub_SeqFeature;
+  my (%seen1, %seen2);
+  my $strand;
+
+  # figure out the 'base' coordinates
+  for my $as (@subfeature_all){
+    my ($st, $en) = ($as->abs_start, $as->abs_stop);
+    $strand = ($st >= $en) ?  '-' : '+';
+    $seen1{$st} = $as->length;
+  }
+  
+  my @sorted = sort {$a<=>$b}(keys %seen1);
+  my $base = ($strand eq '+')? $sorted[0]:$sorted[-1];
+
+  # Retrieve exon coordinates, only markup exons
+  my @exons = grep {$_->method eq 'coding_exon' && $_->name eq $feature->name} $feature->sub_SeqFeature(); # modified retrieval of exons to sub_seqfeature
+  for my $s (@exons) {
+    my ($st, $en) = ($s->abs_start, $s->abs_stop);
+    $seen2{$st} = $s->length;
+  }
+
+  # then markup exons
+  if (param('DNA') eq 'feature and flanking sequences'){
+    for my $k (keys %seen2){
+      my $start = $flank + abs($k - $base);
+      substr($dna,$start,$seen2{$k}) =~ tr/a-z/A-Z/;
+    }
+  }
+
+  return undef if (param('DNA') eq 'paste features back for further searches');
+  if (param('dump') eq 'Plain TEXT'){
+    print header('text/plain');
+  }
+
+  my $label =  create_label($feature);
+  print ">$label ($query)\n";
+
+  for (my $i=0; $i < length $dna; $i +=100){
+    print substr ($dna, $i, 100), "\n";
+  }
+  return $feature;
+}
+
+
+###############################################################################
+# TH:
+# This subroutine contains some strongly reactionary programming
+# to handle the many nuances for the current implementation.
+# Because of this, there is some code redundancy here.
+# Please DO NOT ADJUST unless you are prepared to test fully
+
+# For the future, the query ref sequence should be more
+# tightly managed initially, then features and coordinates
+# can be dumped without fear of maintaining the state of that sequence
+sub get_dna {
+  my ($segment,$feature) = @_;
+
+  my $flank5 = param('flank5') || 0;
+  my $flank3 = param('flank3') || 0;
+  my $fstart = $feature->start;
+  my $fstop  = $feature->stop;
+  my ($dna,$dna5,$dnaf,$dna3);
+
+  # Sometimes, the source of the refseq affects the coordinates
+  # of the features returned in unexpected ways.  It's a bizarre
+  # collision of both aggregation and strand conversion I think.
+  warn "Segment: $segment - Feature: $feature\n" if (url_param('warnings'));
+  if ($feature->abs_start > $feature->abs_stop) {
+    # Should we force all features onto the plus strand,
+    # or dump them relative to the feature strand?
+    if (param('orientation') =~ /canonical/i) {
+      warn "minus strand - attempting to force to canonical\n" if (url_param('warnings'));
+      # Sacrificing efficiency for accuracy, let's create an entire fragment
+      # including the flanks, avoiding refseq issues
+      my $seg = $DEBUGFF->segment($feature->abs_ref,$feature->abs_stop-$flank3=>$feature->abs_start+$flank5);
+      my $full_dna = $seg->dna;
+      $dnaf = $seg->subseq($flank3+1,length($seg->dna) - $flank5)->dna;
+      $dna3 = $seg->subseq(1,$flank3)->dna if ($flank3 > 0);
+      $dna5 = $seg->subseq((length $full_dna)-$flank5+1,length ($full_dna))->dna if ($flank5 > 0);
+      $dna = $dna3 . $dnaf . $dna5;  # Bizarre, I know, but these segs are on + strand...
+    } else { # We aren't trying to force onto the canonical strand
+      my $seg = $DEBUGFF->segment($feature->abs_ref,$feature->abs_start+$flank5=>$feature->abs_stop-$flank3);
+      my $full_dna = $seg->dna;
+      $dnaf = $seg->subseq($flank5+1,length($seg->dna) - $flank3)->dna;
+      $dna5 = $seg->subseq(1,$flank5)->dna if ($flank5 > 0);
+      $dna3 = $seg->subseq((length $full_dna)-$flank3+1 ,length ($full_dna))->dna if ($flank3 > 0);
+      $dna ||= $dna5 . $dnaf . $dna3;
+    }
+    warn "Flank5: $dna5" if (url_param('warnings'));
+    warn "Flank3: $dna3" if (url_param('warnings'));
+  }
+
+  # Fetching plus strand features is so *easy*
+  unless ($dna) {
+    $dnaf = $feature->dna unless (param('DNA') eq 'flanking sequences only');
+    $dna5 = $segment->subseq(($fstart - $flank5),
+			     $fstart-1)->dna if ($flank5 > 0 && !$dna5);  # sloppy, sloppy, sloppy
+    $dna3 = $segment->subseq($fstop + 1,
+			     ($fstop + 1 + ($flank3-1)))->dna if ($flank3 > 0 && !$dna3);
+    $dna = $dna5 . $dnaf . $dna3;
+  }
+
+  if (url_param('verify')) {
+    # Pass in the desired parameters
+    my $verify = Verify->new({dumped_name     => 'CHROMOSOME_' . $segment->abs_ref
+			      . '('. $feature->name .')',
+			      desired_strand  => (param('orientation') =~ /canonical/
+						  ? 'canonical' : 'relative'),
+			      dumped_sequence => $dna,
+			      desired_5_flank => $flank5,
+			      desired_3_flank => $flank3,
+			      #			      dumped_5_flank  => ($strand_flipped) ? reverse $dna3  : $dna5,
+			      #			      dumped_3_flank  => ($strand_flipped) ? reverse $dna5  : $dna3,
+			      dumped_5_flank  => $dna5,
+			      dumped_3_flank  => $dna3,
+			      format          => (param('dump') eq 'HTML') ? 'html' : 'text',
+			      warnings        => (url_param('warnings'))   ? 'on'   : undef,
+			     });
+  }
+
+  if (param('DNA') eq 'flanking sequences only') {
+    return $dna5 . $dna3;
+  } else {
+    $dna;
+  }
+}
+
+
+
+#sub get_dna_bak {
+#
+#  my($segment,$feature,$all_flag,$flip_flag) = @_;
+#  my $flank5 = param('flank5') or 0;
+#  my $flank3 = param('flank3') or 0;
+#  my $dna5 = $segment->subseq(($feature->start - ($flank5 - 1)),
+#			      $feature->start)->dna if $flank5;
+#  my $dna3 = $segment->subseq($feature->stop, 
+#			      ($feature->stop  + ($flank3-1)))->dna if $flank3;
+#  my $dnaed;#
+#
+#  # Fetching plus strand features is so *easy*
+#  unless ($dna) {
+#    $dnaf = $feature->dna unless (param('DNA') eq 'flanking sequences only');
+#    $dna5 = $segment->subseq(($fstart - $flank5),
+#			     $fstart-1)->dna if ($flank5 > 0 && !$dna5);  # sloppy, sloppy, sloppy
+#    $dna3 = $segment->subseq($fstop + 1,
+#			     ($fstop + 1 + ($flank3-1)))->dna if ($flank3 > 0 && !$dna3);
+#    $dna = $dna5 . $dnaf . $dna3;
+#  }
+#
+#  if (url_param('verify')) {
+#    # Pass in the desired parameters
+#    my $verify = Verify->new({dumped_name     => 'CHROMOSOME_' . $segment->abs_ref
+#			      . '('. $feature->name .')',
+#			      desired_strand  => (param('orientation') =~ /canonical/
+#						  ? 'canonical' : 'relative'),
+#			      dumped_sequence => $dna,
+#			      desired_5_flank => $flank5,
+#			      desired_3_flank => $flank3,
+#			      #			      dumped_5_flank  => ($strand_flipped) ? reverse $dna3  : $dna5,
+#			      #			      dumped_3_flank  => ($strand_flipped) ? reverse $dna5  : $dna3,
+#			      dumped_5_flank  => $dna5,
+#			      dumped_3_flank  => $dna3,
+#			      format          => (param('dump') eq 'HTML') ? 'html' : 'text',
+#			      warnings        => (url_param('warnings'))   ? 'on'   : undef,
+#			     });
+#  }
+#
+#
+#  $dna5  .= '';
+#  $dnaed .= '';
+#  $dna3  .= '';
+#
+#  my $dna;
+#
+#  if ($all_flag) {
+#    # Hack - not always returning full segment for CB
+#    # well, I think it is the the wormbase_cds aggregator is not
+#    # segmented in briggsae  - check this on WS118
+#    if (param('species') eq 'briggsae') {
+#      if ($dna5 == 0 && $dna3 == 0) {
+#	$dna =  $segment->dna;
+#      }
+#    } else {
+#      $dna =  $dna5 . $dnaed . $dna3;
+#    }
+#
+#  if (param('DNA') eq 'flanking sequences only') {
+#    return $dna5 . $dna3;
+#
+#  } else {
+#    $dna = $dna5 . $dna3;
+#  }#
+#
+#  if ($flip_flag) {
+#    $dna =~ tr/gatcGATC/ctagCTAG/;
+#    $dna = reverse $dna;
+#  }
+#  $dna;
+#}
+
+
+
+# The coordinates need to account for:
+# 1. flanking sequences
+# 2. orientation
+sub get_coords {
+  my ($segment,$feature) = @_;
+  my ($start,$stop,$segment_ref);
+  if (param('relative') eq 'Chromosome') {
+    $segment_ref = $segment->abs_ref;
+    $start      = $feature->abs_start;
+    $stop       = $feature->abs_stop;
+  } else {
+    $segment_ref = $feature->info;
+    $start      = $feature->start;
+    $stop       = $feature->stop;
+    # ($start,$stop) = ($stop,$start) if ($start > $stop); # kludge
+  }
+  # Adjust the qstart and qstop if we are also fetching flanks
+  # This will need to be adjusted for - strand features
+  $start = $start - param('flank5')  if param('flank5') > 0;
+  $stop  = $stop  + param('flank3')  if param('flank3') > 0;
+  my $formatted = "$segment_ref:$start..$stop";
+  return $formatted;
+}
+
+sub print_warning {
+  print h3 ("Note: ");
+  print pre("No sequences found for your search. Please check the following cases: 
+		1. You have changed the database, reenter your inputs and do the search again;
+		2. You did not select a feature track, select one to proceed;
+ 		3. Your search returns no hits, revise your input.");
+}
+
+sub start_page {
+  PrintTop(undef,
+	   undef,
+	   undef,
+	   '-Title'  => 'WormBase Batch Sequences Dump',
+#	   '-Target' => '_top',
+	   '-Class'  => 'search');
+  print h1('Batch Sequences');
+  print_deprecation_warning();
+}
+
+
+sub print_deprecation_warning {
+
+  print h3("Deprecation of the Batch Sequences script");
+
+  print p('Please note: The Batch Sequences page has been replaced by the data mining tool <a href="http://www.wormbase.org/biomart/martview">WormMart</a>.  WormMart offers superior speed and options.  This page is no longer actively maintained.  We encourage users to explore WormMart for their data mining and sequence retrieval tasks.');
+}
+
+sub print_caveat {
+  print h3('Bug fix: March 3, 2004');
+  print pre(
+"    Sequences retrieved prior to March 3, 2004 may have been affected by a calculation error. This
+    problem, limited to flanking sequences of minus strand features, caused the 5' and 3' flanks to
+    be reported in reverse relative to the feature, and in some cases, reported on the plus strand.
+    We apologize for any difficulties this may have caused.
+
+    Users relying on output from Batch Sequences for experimental design are encouraged to verify 
+    the data first. Please report any problems to help\@wormbase.org.
+");
+}
+
+
+
+# Verify the output of the number by blast'ing segments.
+# Simplistically, we will look for:
+#  - 100% match - only applicable to genomic spans
+#  - strandedness - does it match the "Sequence Orientation" param
+#  - number of blocks
+#  - sequence length (this isn't actually informative)
+
+package Verify;
+use strict;
+use IO::File;
+use IO::String;
+
+use vars qw/$TMPNAM/;
+use constant MAX_LENGTH       => 50_000;
+use constant BLAT_DB          => '/usr/local/wormbase/blat';
+use constant BLAT_CLIENT      => '/usr/local/blat/bin/gfClient localhost 2003';
+
+sub new {
+  my ($class,$params) = @_;
+  my $this = {};
+  bless $this,$class;
+
+  # Cutoffs and Max_hits
+  $this->{cutoff} = 10;
+  $this->{max_hits} = 10;
+  $this->{TMPDIR} = $ENV{TMPDIR} || $ENV{TMP} || $ENV{TEMP} || (-d '/usr/tmp') ? '/usr/tmp' : (-d '/tmp') ? '/tmp' : '';
+  foreach (keys %$params) {
+    $this->{$_} = $params->{$_};
+  }
+  $this->verify();
+  $this->compare();
+  return $this;
+}
+
+sub verify {
+  my $self = shift;
+  my $seq = $self->{dumped_sequence};
+  return 'Sequence longer than allowed length' if (length $seq > MAX_LENGTH);
+
+  # Create a temp file of the query sequence
+  my $name = 'tmp_query';
+  if ($seq !~/^>/) { $seq = ">$name\n" . $seq; }
+  
+  local(*B);
+  my $TMP_FILE = $self->tmpnam('.fasta');
+  $name = to_fasta($TMP_FILE,$seq,$name);
+  $self->run_blat($TMP_FILE);
+}
+
+sub run_blat {
+  my ($self,$TMP_FILE) = @_;
+  warn 'running blat...' if (defined $self->{warnings});
+  my $TMP_BLAT = $self->tmpnam('.psl');
+  
+  # The format of the command depends on how the blat server was started
+  # If it was started by:
+  #       cd /usr/local/wormbase/blat
+  #       /usr/local/blat/bin/gfServer start localhost 2003 *.nib &
+  #       Then line 1 should be used which provides full path to the *.nib files
+  # If it was started by:
+  #       /usr/local/blat/bin/gfServer start localhost 2003 /usr/local/wormbase/blat/*.nib &
+  #      then line 2 should be used which provides the path relative to the file system
+  # NOTE: update_wormbase.pl uses the second syntax
+  #my $command = BLAT_CLIENT . " " . BLAT_DB . " $TMP_FILE  $TMP_BLAT -nohead";  # line 1
+  my $command = BLAT_CLIENT . " / $TMP_FILE  $TMP_BLAT"; # -nohead"; # line2
+
+  #  open STDERR,">&STDOUT";
+  warn "Command: $command \n" if (defined $self->{warnings});
+  open (B,"-|") || do {
+    delete $ENV{REQUEST_METHOD};
+    exec $command or die "arrrgggh:exec failed  $!";
+  };
+  my $result = close B;
+  warn "blat done, result = $result...\n" if (defined $self->{warnings});
+  $self->parse_blat($TMP_BLAT);
+  unlink($TMP_FILE);
+  unlink($TMP_BLAT);
+}
+
+sub tmpnam {
+  my ($self,$suffix) = @_;
+  my $TMPDIR = $self->{TMPDIR};
+  while(1) {
+    my $tmpfile = "$TMPDIR/${$}" . $TMPNAM++ . $suffix;
+    warn $tmpfile if (defined $self->{warnings});
+    return $tmpfile if IO::File->new($tmpfile,O_EXCL|O_CREAT);
+  }
+}
+
+sub to_fasta {
+  my ($tmp,$sequence,$name) = @_;
+  if ($sequence=~/^>(.+)$/m) { #fasta format already
+    $name = $1;
+    $sequence=$';
+  }
+  $name ||= 'Untitled Sequence submitted by ' . remote_host();
+  $sequence=~tr/a-zA-Z//cd;
+  $sequence=~s/(.{80})/$1\n/g;
+  
+  my $file = IO::File->new(">$tmp") || die ("Couldn't open temporary file for writing sequence: $!");
+  print $file ">$name\n$sequence";
+  $file->close();
+  $name;
+}
+
+sub parse_blat {
+  my ($self,$result) = @_;
+  my $hit_count = 0;
+  open (*B,$result) or die "Couldn't open $result $!";
+
+  # Parse result file $TMP_BLAT
+  my $table;
+  while (<B>) {
+    next if $_ !~/^\d/;
+    $hit_count++;
+    my %hit;
+    my @line_heads = qw(matches mismatches repeated_matches num_N qgaps
+			qgap_bases hgaps hgap_bases strand qname qlength
+			qstart qend hname hlength hstart hend num_blocks
+			block_sizes qblock_start hblock_start
+		       );
+    my @eachline = split (/\t/, $_);          # split on \t
+    for my $value (@eachline){
+      my $key = shift @line_heads;
+      # Correct start and end query and hit positions for base zero
+      $value++ if $key =~/[qh]start|end/;
+      
+      # For block sizes, qblock_start, hblock_start, split values into @tmp
+      if ($key =~/block_/){
+	chomp ($value);
+	my @tmp_blocks = split (/,/,$value);
+	
+	# Correct the qblock_start and hblock_start positions for base zero
+	#debug, jack
+	if ($key =~/block_start/){
+	  foreach (@tmp_blocks) {++$_;}          # correct for 0 base
+	} #debug, jack
+	$hit{$key}=\@tmp_blocks;
+      }
+      
+      else {$hit{$key}=$value;}  # if an array is not built
+    } # end of for my $value
+    
+    # Sort out the name
+    #    my $qname = $name if $name;    # otherwise it will be from > line
+    my $qname    = "My_query" if (($hit{qname} eq ""));
+    
+    #************************************************************************
+    # Find Ranges
+    my @block_sizes = @{$hit{block_sizes}};
+
+    my $qlength_matched =sprintf("%.2f",(100* $hit{matches}/ $hit{qlength}));
+    my $hlength = $hit{mismatches} + $hit{matches}; 
+    push (@{$table->{$qlength_matched}},
+	  [ $hit{hname},
+	    $hit{strand},
+	    $qlength_matched,
+	    $hlength,
+	    sprintf("%.2f",(100* $hit{matches}/ $hlength)),
+	    $hit{num_blocks}]
+	 );
+    warn $hit{hname} if (defined $self->{warnings});
+  }
+  
+  # Save only the top hits for comparison
+  my $c;
+  foreach my $qlength_matched (sort {$b <=> $a} keys %$table){
+    $c++;
+    last if $c > 1;
+    foreach ( @{$table->{$qlength_matched}} )   {
+      push (@{$self->{results}},
+	    { hit_name      => $_->[0],
+	      hit_strand    => $_->[1],
+	      qmatch_length => $_->[2],
+	      hit_length    => $_->[3],
+	      perc_id       => $_->[4],
+	      num_blocks    => $_->[5]});
+    }
+  }
+}
+
+
+# Compare the desired parameters to the blat result
+sub compare {
+  my $self = shift;
+  my ($br,$join);
+  if ($self->{format} eq 'html') {
+    $br   = "<br>";
+    $join = "&nbsp;" x 5;
+    print "<pre>";
+  } else {
+    $br   = "\n";
+    $join = "\t";
+  }
+  foreach my $result (@{$self->{results}}) {
+    print "$br$br","BLAT-based verification of dumped sequences:$br";
+    print $join;
+    print join("$br$join",
+	       'Desired strand   : ' . $self->{desired_strand} . 
+	       (($self->{desired_strand} eq 'canonical') 
+		? ' (all dumped sequences should match the + strand)' 
+		: ' (strand-sensitive features reported on the appropriate strand)'),
+	       'Hit strand       : ' . $result->{hit_strand},
+	       (($self->{desired_strand} eq 'canonical' && $result->{hit_strand} ne '+')
+		? '------> WARNING: Disagreement between selected/dumped strand' : ''),
+	       'Dumped sequence  : ' . $self->{dumped_name},
+	       'Hit sequence     : ' . $result->{hit_name},
+	       (($result->{hit_name} !=~ $self->{dumped_name}) 
+		? '------> WARNING: Disagreement between dumped sequence and top hit by chromosome' : ''),
+	       'match length (%) : ' . $result->{qmatch_length},
+	       'identity (%)     : ' . $result->{perc_id},
+	       (($result->{qmatch_length} < 100.00 || $result->{perc_id} < 100.00)
+		? '------> WARNING: less than 100% match - possible problem generating segment' : ''),
+	       'Number of blocks : ' . $result->{num_blocks},
+	       (($result->{num_blocks} > 1)
+		? '------> WARNING: dumped sequence maps to multiple blocks' : ''),
+	       "Flanks - reported in 5'->3' orientation, relative to dumped segment, not feature",
+	       "5' flank         : " .
+		$self->{desired_5_flank} . 'bp requested/' . length ($self->{dumped_5_flank}) . 'bp dumped' .
+	       (length ($self->{dumped_5_flank}) < 50 ? ' (' . $self->{dumped_5_flank} . ')': ''),
+	       "3' flank         : " .
+	       $self->{desired_3_flank} . 'bp requested/' . length ($self->{dumped_3_flank}) . 'bp dumped' .
+	       (length ($self->{dumped_3_flank}) < 50 ? ' (' . $self->{dumped_3_flank} . ')': ''),
+	      ),
+		$br,$br;
+  }
+  print "</pre>" if ($self->{format} eq 'html');
+}
+
+1;
+
+# Object for custmizing retrieval behaivour based on the type of query speified and feature requested
+# Payan Canaran - Jul2004
+# Object relies on a specific config file (created for this implementation) which needs to be updated when feature list/phrasing is modified
+# Object uses the name of the query to determine its type (sequence/chromosome)
+
+package Customizer;
+
+use strict;
+use Data::Dumper;
+
+sub new {
+	my ($class, %params) = @_;
+
+	my %obj;
+
+	my $query  = $params{-query} or die "Customizer object requires a query!";
+	my $type   = $params{-type} or die "Customizer object requires a type!";
+	my $config = $params{-config} or die "Customizer object requires a config file!";
+	
+	unless ($type eq 'sequence' or $type eq 'chromosome') { die "Type must be sequence or chromosome (type=$type)!"; }
+	
+	# Determine type of query
+	my $column = 0; $column = 1 if $type eq 'chromosome'; 
+	
+	# Parse config file and assign
+	my %config;
+	open (CONFIG, "<$config") or die "Cannot parse config file ($config)!";
+	while (<CONFIG>) { 
+		next if /^#/;
+		my ($param, $value) = split('=', $_);
+		$param =~ s/^\s+//; $param =~ s/\s+$//;
+		$value =~ s/^\s+//; $value =~ s/\s+$//;
+		$config{$param} = $value;
+		}
+	close CONFIG;
+
+	foreach my $o (keys %config) {
+		my ($strand, $overlapping, $query_specific) = split(/\s+/, $config{$o});
+		
+		my %idx = ('strand' => $strand, 'overlapping' => $overlapping, 'query_specific' => $query_specific);
+
+		foreach my $key (keys %idx) {
+			my @ary = split(':', $idx{$key});
+			my $value = $ary[$column];
+			unless (
+				( $key eq 'strand' and ($value eq 'same' or $value eq 'both') )
+				or
+				( $key eq 'overlapping' and ($value eq 'overlapping' or $value eq 'contained') )
+				or
+				( $key eq 'query_specific' and ($value eq 'yes' or $value eq 'no') )
+				) 
+					{ die "Invalid config file ($config) option ($value)!"; }
+				
+			 $obj{$o}{$key} = $value;
+			}
+		
+		}
+	
+	bless \%obj, $class;
+	}
+
+sub requires_same_strand {
+	my ($self, $o) = @_;
+	$self->_check_option($o);
+	return $self->{$o}{strand} eq 'same' ? 1 : 0;
+	}
+
+sub requires_overlapping_features {
+	my ($self, $o) = @_;
+	$self->_check_option($o);
+	return $self->{$o}{overlapping} eq 'overlapping' ? 1 : 0;
+	}
+
+sub is_query_specific {
+	my ($self, $o) = @_;
+	$self->_check_option($o);
+	return $self->{$o}{query_specific} eq 'yes' ? 1 : 0;
+	}
+
+sub _check_option {
+	my ($self, $o) = @_;
+	die "Do not know anything about the option ($o)!" unless exists $self->{$o};
+	return 1;
+	}			
+	
+1;

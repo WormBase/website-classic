@@ -1,0 +1,1480 @@
+=head1 TOPIC
+
+WormBase Installation: The Definitive Guide
+
+=head1 PURPOSE
+
+A Detailed Description of How to Install a WormBase Mirror
+
+=head1 FOR THE IMPATIENT
+
+A parallel guide, which glosses over many of the install details, but
+presents all command line entries for an install, is available in the
+/docs/SOPs directory, INSTALL.genome_freeze.pod.  It is recommended
+only for the impatient or those with significant command-line and Unix
+experience.
+
+=head1 PREQUISITES
+
+This section describes the prerequisites for installing WormBase.
+
+=head2 Hardware Requirements
+
+WormBase runs on a Unix or Linux system.  A relatively fast system
+with generous memory is strongly recommended.  The minimum suggested
+hardware is:
+
+=over 4
+
+=item 900 Mhz Pentium III or higher
+
+=item 4 gigabyte RAM
+
+=item 4 gigabyte Swap
+
+=item 20 gigabytes free disk space
+
+=back
+
+Each database occupies approximately 5 gigabytes of disk space, and
+you will need at least twice that in order to stage and unpack new
+versions of the database.  In addition, count on having another
+gigabyte used by BLAST databases.
+
+WormBase is currently in a transition between an ACeDB-based system
+and one that runs on top of the MySQL relational database.  For this
+reason, it requires both ACeDB and MySQL to be installed.  The
+middleware layer for ACeDB is AcePerl, and the middleware layer for
+MySQL is the Bio::DB::GFF module, which comes with the BioPerl
+package.
+
+=head2 Software Requirements
+
+You will need the following software packages:
+
+=over 4
+
+=item acedb version 4.8j or higher
+
+	http://www.acedb.org/
+
+=item Perl version 5.6.1 or higher
+
+	http://www.perl.org/
+
+=item The following Perl modules, all of which are available at
+http://www.cpan.org, with the listed version or higher:
+
+        Required modules
+	----------------
+	Ace                  1.87
+	Bio::Das             0.20
+	CGI                  3.01
+	CGI::Cache           1.40
+	Cache::FileCache     0.09
+	DBD::mysql           2.1026
+	DBI                  1.35
+	Digest::MD5          2.24
+	GD                   1.19 (2.x recommended)
+	IO::Scalar           2.104
+	IO::String           1.02
+	LWP                  5.69
+	Net::FTP             2.67
+	Statistics::OLS      0.07
+	Storable             2.06
+	Text::Shellwords     1.00
+
+	Optional modules
+	----------------
+	GD::SVG              0.25
+	SVG                  2.28
+	XML::Dom             1.34
+	XML::Parser          2.31
+	XML::Twig            3.09
+	XML::Writer          0.4
+
+(Particularly make note of the CGI.pm version number; Bugs in older
+versions of CGI.pm can cause confusing problems with WormBase.)
+
+If the optional XML modules are present, the genome browser will be
+able to dump GAME and BSML versions of the sequence annotations. If
+the optional GD::SVG and SVG modules are present, the genome browser
+will be able to produce output in the Scalable Vector Graphics format.
+
+=item Apache 1.3.26 or higher
+
+	http://www.apache.org/
+
+=item Mod_Perl 1.27 or higher
+
+	http://perl.apache.org/
+
+=item Expat 1.95.1 or higher
+
+	http://expat.sourceforge.net/
+
+=item The WormBase Web software, matched to the data release version
+
+        ftp://www.wormbase.org/pub/wormbase/software or via CVS
+
+=item The Generic Genome Browser package, version 1.61 or higher
+
+        http://www.gmod.org/
+
+=item The BioPerl package, version 1.40 or higher
+
+        http://www.bioperl.org/
+
+=item Wublast 2.0 or higher (required for BLAST search pages)
+
+        http://blast.wustl.edu/
+
+=item BLAT 2.7 or higher (required for BLAST search pages)
+
+	http://www.soe.ucsc.edu/~kent/
+
+=item The MySQL database, version 3.23.39 or higher
+
+	http://www.mysql.com/
+
+=item Modified version of e-PCR (required for e-PCR search page)
+
+This is located in the directory "e-PCR" in the wormbase distribution.
+Just cd to that directory and type "make" and "make install".  The
+file README-Wormbase describes the changes that were made to the
+original e-PCR distribution.
+
+=back
+
+=head1 DOCUMENT CONVENTIONS
+
+The commands presented in this document are tailored for an
+out-of-the-box Red Hat Linux (version 7.3) installation.  These
+commands may vary on your system.
+
+The "#" prompt is used throughout this document to denote the root
+command-line prompt. These commands should be issued as the root user,
+typically via "sudo".  Normal user prompts are denoted as "%". Long
+lines that should be entered as a single line at the command line are
+split by '\' to increase legibility.  You can safely enter these
+backslashes at the command line as well.
+
+=head1 PREPARING DIRECTORIES AND USERS
+
+WormBase uses several user accounts for directory and server
+permissions.  You will need to create these users and several
+preliminary directories.
+
+=head2 User and group accounts
+
+These users should not have a login password.  They are to establish
+privileges only.
+
+=over 4
+
+=item acedb group
+
+This is the group that will have write privileges to the acedb
+directory tree.  Acedb administrators should be added to this group.
+
+=item acedb user
+
+This is the user that the acedb server will run as.  It should be a
+member of the acedb group.
+
+=item wormbase group
+
+This is a group that will have write privileges to the wormbase
+directory tree.  WormBase administrators and authors should be added
+to this group.
+
+=back
+
+Creating a new user and group varies among Unix flavors.  On most
+Linux systems, the following commands will create the new groups. You
+should have sudo privilege to execute these commands.
+
+ # /usr/sbin/groupadd acedb
+ # /usr/sbin/groupadd wormbase
+
+and this will create a new acedb user:
+
+ # /usr/sbin/useradd -g acedb -d /usr/local/acedb acedb
+
+This command also adds the new acedb user to the acedb group.  Note
+that the acedb user's home directory was set to /usr/local/acedb, a
+directory which will be created in the next step.
+
+=head2 Directories
+
+Create the following directories:
+
+=over 4
+
+=item /usr/local/acedb, owner=acedb group=acedb,mode=drwxrwsr-x
+
+ # mkdir /usr/local/acedb
+ # chown acedb /usr/local/acedb
+ # chgrp acedb /usr/local/acedb
+ # chmod 2775 /usr/local/acedb
+
+=item /usr/local/wormbase, owner=root group=wormbase mode=drwxrwsr-x
+
+ # mkdir /usr/local/wormbase
+ # chown root /usr/local/wormbase
+ # chgrp wormbase /usr/local/wormbase
+ # chmod 2775 /usr/local/wormbase
+
+=item /usr/local/wormbase/logs, owner=root group=wormbase mode=drwxrwsr-x
+
+ # mkdir /usr/local/wormbase/logs
+ # chown root /usr/local/wormbase/logs
+ # chgrp wormbase /usr/local/wormbase/logs
+ # chmod 2775 /usr/local/wormbase/logs
+
+=item ~ftp/pub/wormbase, owner=root group=wormbase mode=drwxrwsr-x
+
+ # mkdir ~ftp/pub/wormbase
+ # chown root ~ftp/pub/wormbase
+ # chgrp wormbase ~ftp/pub/wormbase
+ # chmod 2775 ~ftp/pub/wormbase
+
+You may ignore this step if you do not plan to mirror the WormBase FTP
+site. In the examples below, the -p option is used to create the intermediate
+parents of directories if they don't already exist.  If your mkdir
+doesn't support this option, you will need to create the intermediate
+directories manually.
+
+=item /usr/local/wublast, owner=root group=wormbase mode=drwxrwsr-x
+
+ # mkdir /usr/local/wublast
+ # chown root /usr/local/wublast
+ # chgrp wormbase /usr/local/wublast
+ # chmod 2775 /usr/local/wublast
+
+You may safely ignore this step if you do not plan to support the
+blast search page.
+
+=back
+
+The "s" bit in the group permissions for these directories ensures
+that new directories and files created within them will be owned by
+the same group as the directory.  This allows groups of administrators
+to have read/write access to project files.  For this to work,
+however, these individuals' default umask must be set to 002 when they
+log in.
+
+This would be a good time to add yourself to the acedb and wormbase
+groups.
+
+ # usermod -M acedb,wormbase [your_login_name]
+
+You may need to re-login for these changes to take effect. Use the
+groups command to check which groups you are a member of:
+
+ % groups
+
+=head1 INSTALLING THE WORMBASE FILES
+
+You have two options for installing the WormBase files, by CVS, or
+from an archived tarball or via CVS. Both methods are presented.
+WormBase is a dynamic resource; the CVS version will allow you to
+remain on the bleeding edge.  However, scripts in CVS are not
+guaranteed to be functional.  For this reason, it is recommended to
+use the tarball install.
+
+=over 4
+
+=item Installing from a tarball release
+
+Fetch and unpack the file wormbase-site-X.XX.tar.gz into somewhere safe.  
+
+ % cd ~/build  # a temporary build directory in your home for example
+ % curl -O ftp://ftp.wormbase.org/software/wormbase-site-current.tar.gz
+ % gunzip -cd wormbase-site-current.tar.gz | tar xvf -
+
+Now move its contents into /usr/local/wormbase:
+
+ % cd wormbase-site*
+ # cp -r * /usr/local/wormbase/.
+
+=item Installing via CVS
+
+Using anonymous CVS will enable you to update the WormBase software
+easily.
+
+Set your CVSROOT environment variable:
+ tcsh syntax:
+ %setenv CVSROOT :pserver:anonymous@gorgonzola.cshl.org:/usr/local/cvs
+
+ Bash syntax: 
+ %export CVSROOT=:pserver:anonymous@gorgonzola.cshl.org:/usr/local/cvs
+
+ % cd /usr/local/wormbase
+ % cvs -d:pserver:anonymous@gorgonzola.cshl.org:/usr/local/cvs \
+       co wormbase-site
+ % mv wormbase-site/* .
+
+=back
+
+Right now, the only directory you need to worry about is wspec, which
+contains the skeleton of the Acedb password and configuration files
+that you will need to get Acedb up and running.
+
+=head1 INSTALLING ACEDB
+
+You must have a working Acedb socket server running.  For best results
+the server should be running on the same machine as the WormBase web
+site.  This process is explained in detail because it is the trickiest
+part of installing a WormBase site.  You may install Acedb from source
+or binary packages.
+
+=over 4
+
+=item Installing Acedb from a binary package
+
+The following commands will fetch the latest version (here 4_9t) of
+Acedb into a temporary build directory.
+
+ % cd ~/build
+ % mkdir acedb ; cd acedb
+ % curl -O http://www.acedb.org/Software/Downloads/SUPPORTED/ACEDB-STATIC_serverLINUX.4_9t.tar.gz
+ % curl -O http://www.acedb.org/Software/Downloads/SUPPORTED/ACEDB-STATIC_binaryLINUX.4_9t.tar.gz
+ % gunzip -c ACEDB-* | tar xvf -
+      If this fails, try unpacking each item independently
+        % zcat /usr/local/TGZ/ACEDB-STATIC_binaryLINUX.4_9t.tar.gz | tar xf -
+        % zcat /usr/local/TGZ/ACEDB-STATIC_serverLINUX.4_9t.tar.gz | tar xf -
+ % mv ACEDB-* ~/mirror/src/.   # Stow the source if you'd prefer
+
+Now copy the unpacked binaries to the acedb bin, directory, altering
+the permissions as appropriate.
+ # mkdir ~/acedb/bin
+ # mv * ~/acedb/bin/.
+ # chown root ~acedb/bin/*
+ # chgrp root ~acedb/bin/*
+
+=item Installing Acedb from source
+
+Download the most recent release of Acedb, which is
+ACEDB-source.4_9m.tar.gz at this moment. from http://www.acedb.org
+site. Note that you should not unpack the tar.gz source file, which
+will be uncompressed and untarred automatically by the INSTALL script
+(see later for details). Also download the following files:
+
+  NOTE 
+  README (brief list/description of files)
+  INSTALL (a ksh script, first time installation script)
+
+Place all the .tar.gz files you need plus INSTALL into this directory
+~acedb/. The INSTALL script will install packages in your current
+working directory.
+
+  # sudo chmod u+x INSTALL
+  # ./INSTALL
+  Note: make the .tar.gz files readable by acedb group
+				
+On the terminal, you will see:
+  ... 
+  directory permissions OK... 
+  Files will be owned by: "nchen" 
+  Files will be installed in: /usr/local/acedb 
+  
+It will install the package as a subdirectory of the current
+directory. If such a directory exists you will be given a chance to
+not install that package or abort the install altogether.
+
+IMPORTANT: DO NOT INSTALL AS ROOT: this would create a security loophole.
+
+building Acedb with the system wide copies of the GNU software 
+
+  # cd source 
+  # setenv ACEDB_MACHINE LINUX_4 
+  # make all 
+  
+You can find all binaries in the bin.LINUX_4 directory. 
+
+Create the directory /usr/local/acedb/bin (referred to as ~acedb/bin
+later, provided that you created an acedb user).  Copy the following
+files to this directory:
+
+   saceserver
+   saceclient
+   sgifaceserver
+   tace
+   giface
+   xace
+   makeUserPasswd
+
+Make sure that these files are executable and owned by root:
+
+   # chown root ~acedb/bin/
+   # chgrp root ~acedb/bin/*
+
+=back
+
+=head2 Installing A Preliminary Database And Testing Acedb
+
+You will need a database to test whether acedb is installed correctly.
+This will eventually be done automatically by the update_wormbase.pl
+script, but it is best to do it manually the first time to ensure that 
+Acedb runs correctly.
+
+It will take a while, but it is best to download the current
+C. elegans distribution from 
+
+   ftp://ftp.sanger.ac.uk/pub/wormbase/current_release
+
+Download all files into a suitable temp directory, such as /usr/tmp.
+Get all the files named database.*.tar.gz, where the * contains the
+current data release and software version number.
+
+    % ftp -i ftp.sanger.ac.uk
+    ftp> type in "anonymous" as username
+    ftp> ce /pub/wormbase/current_release
+    ftp> mget database.*.gz
+
+You will now unpack the database into a subdirectory of
+/usr/local/acedb.  There will eventually be multiple Acedb database
+releases here with a symbolic link pointing to the most current
+version.  By convention, the release directory name is "elegans_WSXX",
+where XX is the release number, and the symbolic link "elegans" points
+at the most recent one:
+
+ lrwxrwxrwx    1 lstein   acedb          29 Jul 23 12:06 elegans ->elegans_WS46/
+ drwxrwsr-x    8 lstein   acedb        4096 May 20 20:42 elegans_WS41/
+ drwxrwsr-x    8 lstein   acedb        4096 May 26 01:31 elegans_WS42/
+ drwxrwsr-x    8 lstein   acedb        4096 Jun 14 14:37 elegans_WS43/
+ drwxrwsr-x    8 lstein   acedb        4096 Jun 22 10:55 elegans_WS44/
+ drwxrwsr-x    8 lstein   acedb        4096 Jul 13 17:55 elegans_WS45/
+ drwxrwsr-x    8 lstein   acedb        4096 Jul 20 01:34 elegans_WS46/
+
+Create the correct release directory and unpack the database tar
+files:
+
+ % cd ~acedb
+ % mkdir elegans_WSXX           -- replace "XX" with the release number
+ % ln -s elegans_WSXX elegans
+
+Notice that these commands are run under normal user privileges.  This
+will work if you have added yourself to the acedb group and configured
+the directory permissions as described above.
+
+Now unpack the tar files.  Assuming that you downloaded them into
+/usr/tmp, the following will do the trick:
+
+Bash syntax:
+
+ cd ~acedb/elegans
+ for i in /usr/tmp/database*.gz; do gunzip -c $i | tar xvf -;
+
+C-shell syntax:
+	
+ cd ~acedb/elegans
+ foreach i (/usr/tmp/database*.gz)
+   gunzip -c $i | tar xvf -
+ end
+
+This will unpack the database files into ~acedb/elegans.  
+
+You will now need to add four configuration files to
+~acedb/elegans/wspec.  They are:
+
+   passwd.wrm        controls local access to the acedb data files
+   server.wrm        legacy configuration file for the RPC server
+   serverconfig.wrm  configuration information for the socket server
+   serverpasswd.wrm  controls remote access to the acedb data files
+
+You will find skeletons of these files in /usr/local/wormbase/wspec,
+but they will need to be updated with your local account information.
+Make the following changes to the original files in
+/usr/local/wormbase/wspec, and then copy them into
+~acedb/elegans/wspec.  It is important to make the changes to the
+originals in /usr/local/wormbase/wspec, because these files are used
+by the WormBase update script to autogenerate new Acedb releases.
+
+=over 4
+
+=item passwd.wrm
+
+This file contains the account names of local users who have write
+access to the database.  Erase what's there (user "lstein") and
+replace it with the administrator's (your!) login name.  If you want
+to be able to update the database via the socket server, add user
+"acedb" to the list:
+
+   // passwd.wrm
+   your_name
+   acedb
+
+=item serverpasswd.wrm
+
+This file contains usernames and passwords for those who have write
+access to the database.  Erase these lines:
+
+  admin: admin lstein
+  write: lstein nchen
+
+Replace them with this line:
+
+  admin: admin
+  write: your_login1 your_login2
+
+This means that someone who logs in with username "admin" and a valid
+password will be granted administrative access to the database
+(ability to change passwords and shut down the server).  Someone who
+logs in with username "your_login1" or "your_login2" will have write
+access to the database.
+
+You will now use the makeUserPasswd program to create some passwords.
+Each time you run this program, it will print out a password line,
+which should be manually copied and pasted into the bottom of
+serverpasswd.wrm:
+
+  % ~acedb/bin/makeUserPasswd admin
+  // Please enter passwd: *******
+  // Please re-enter passwd: *******
+  // The following line is a valid entry for wspec/serverpasswd.wrm
+  admin 5b11966a419e057ef0b7b917746e934c
+
+You should do this once for the administrator, and once for each of
+the users who have write access.  When you are done, serverpasswd.wrm
+will look like this:
+
+  // serverpasswd.wrm
+  admin: admin
+  write: your_login1 your_login2
+  admin 5b11966a419e057ef0b7b917746e934c
+  your_login1 2640075535f3fe296b6797d77bd6a714
+  your_login2 05db4280d9f3b1c1aa6e10479aef4243
+
+=item server.wrm
+
+No extra configuration needed.  Just copy it to ~acedb/elegans/wspec/
+
+=item serverconfig.wrm
+
+No extra configuration needed.  Just copy it to ~acedb/elegans/wspec/
+
+=back
+
+Be sure to copy these changes from the templates in
+/usr/local/wormbase/wspec to the live database in
+~acedb/elegans/wspec!
+
+At this point, you can test whether the socket server runs correctly.
+Provided that you have added yourself to the acedb group, you can run
+the following command:
+
+  % ~acedb/bin/sgifaceserver ~acedb/elegans
+  // Database directory: /usr/local/acedb/elegans
+  // Shared files: /usr/local/acedb
+  // #### Server started at 2001-07-23_16:42:31
+  // #### host=mondseer.cshl.org  listening port=23100
+  // #### Database dir=/usr/local/acedb/elegans
+  // ####  Working dir=/usr/local/acedb/elegans
+  // #### clientTimeout=600 serverTimeout=600 maxKbytes=0 autoSaveInterval=600
+
+  // Server listening socket 28 created
+
+The line "listening port=23100" indicates that the server is listening
+to port 23100.  Open a new terminal window and use saceclient to
+confirm that you can communicate with the server:
+
+ % ~acedb/bin/saceclient localhost -port 23100
+ Please enter userid: anonymous
+ Please enter passwd: 
+ acedb@localhost> find Sequence
+ // Response: 65 bytes.
+
+ // Found 236493 objects in this class
+ // 236493 Active Objects
+ acedb@localhost> quit
+ // Closing connection to server.
+ // Client sent termination signal by server.
+ // Response: 13 bytes.
+ // A bientot
+ // Please report problems to acedb@sanger.ac.uk
+ // Bye
+
+The command-line syntax for saceclient is "saceclient <host> -port
+<port>".  When prompted for the userid, enter "anonymous" and just hit 
+return when prompted for a password.  We then issued a "find Sequence" 
+command to count the number of sequences in the database (a lot), and
+"quit" to terminate the connection.
+
+Now test that the admin password works:
+
+ ~acedb/bin/saceclient localhost -port 23100
+ Please enter userid: admin
+ Please enter passwd: ******
+ acedb@localhost> shutdown now
+ // Client sending shutdown to server
+ // Client sent termination signal by server.
+ // Response: 87 bytes.
+ // 0 Active Objects
+ // Sorry, emergency shutdown of server now executing
+ // A bientot
+ // Please report problems to acedb@sanger.ac.uk
+ // Bye
+
+When prompted for the userid, we entered "admin" and gave the correct
+password.  The command "shutdown now" causes the server to exit.  If
+we did not have administrative privileges, we would have gotten an
+"unknown command" error at this stage.
+
+=head2 Installing Acedb to start automatically
+
+The final step is to arrange for the Acedb socket server to be started
+automatically when it is needed.  The most typical way of doing this
+is to use inetd to launch the server.
+
+Locate the file /etc/inetd.conf, and add the following line to the
+end:
+
+ 2005 stream tcp wait acedb /usr/local/acedb/bin/sgifaceserver \
+      sock.acedb /usr/local/acedb/elegans  1200:1200:0
+
+Note that this line has been broken at the end (with a backslash), but
+that in the real configuration file, neither the linebreak nor the
+backslash should appear.  The first column indicates the port number
+to listen to.  2005 is the default used by the WormBase configuration
+files.
+
+Tell inetd to reload its configuration file by sending it a HUP
+signal.
+
+ # ps -elf | grep inetd
+ 140 S root       500     1  0  60   0    -   329 do_sel Jul17 ? inetd
+ # killall -HUP 140
+
+You should now be able to talk to the database using saceclient (as a
+anonymous user):
+
+ % ~acedb/bin/saceclient localhost -port 2005
+
+=head2 Installing Acedb under xinetd
+
+What?  You don't have /etc/inetd.conf?  You are probably using
+new-fangled RedHat system that has replaced the tried-and-true inetd
+daemon with the (supposedly more secure, but probably buggy) xinetd
+daemon.
+
+First, make sure that xinetd is even installed (look for the presence
+of /usr/sbin/xinetd).  If not, use the RPM manager (gnorpm or
+equivalent) to install the xinetd package.  (Or better yet, install
+the traditional inetd).  After installing xinetd, make sure that it is
+run in the system's default run level.  Use the RedHat control-panel
+for this purpose.
+
+The version of xinetd that is installed in RedHat 7.1 will not work.
+Go to RedHat's "upgrade" RPM site and install xinetd-2.3.7-4.7x.  
+Once xinetd is installed, you will now need to create an xinetd
+configuration file for Acedb.  Create a new file named
+/etc/xinetd.d/acedb with the following contents:
+
+ # file: /etc/xinetd.d/acedb
+ # default: on
+ # description: wormbase acedb database
+ service acedb
+ {
+        protocol                = tcp
+        socket_type             = stream
+        port                    = 2005
+        flags                   = REUSE
+        wait                    = yes
+        user                    = acedb
+        group                   = acedb
+        log_on_success          += USERID DURATION
+        log_on_failure          += USERID HOST
+        server                  = /usr/local/acedb/bin/sgifaceserver
+        server_args             = /usr/local/acedb/elegans 1200:1200:0
+ }
+
+Edit /etc/services. Although xinetd is not supposed to use
+/etc/services, the following line must be added:
+
+ acedb           2005/tcp
+
+Restart xinetd with the following command:
+
+ # /etc/rc.d/init.d/xinetd reload (or restart)
+
+To kill xinetd, first find the process id and then:
+
+ # kill -SIGUSR2 process#
+
+You should now be able to talk to the database using saceclient:
+
+ % ~acedb/bin/saceclient localhost -port 2005
+
+Note: to know if the server is listening at port 2005, run the
+following command:
+
+  # netstat -ant | grep LISTEN
+  or, for more readable output,
+  # netstat -vatp | grep LISTEN  
+
+If an error occurs, check /var/log/messages, and the serverlog.worm
+and log.wrm files in the current database directory.  Common errors
+include insufficient disk space and inapprorpriate permissions for the
+latter two log files.  Remember, the acedb server must be able to
+write to these files.
+
+=head1 INSTALLING MYSQL
+
+MySQL is extremely well documented.  Just follow the installation
+instructions and set it up to start automatically when the server is
+booted. 
+
+Run mysql server by:
+
+  # /etc/rc.d/init.d/mysqld start
+  
+First, set up password for root like this:
+
+  # mysqladmin -uroot password PASSWORD
+
+WormBase requires three sets of mysql databases.  In the first set of
+databases, one is called "elegans" and is the live database.  The
+other is called "elegans_load", and is a temporary database used while
+loading new releases. This convention is followed for databases named
+briggsae/briggsae_load and elegans/elegans_load.
+
+In the following walkthrough, the mysql administrator's name is "root"
+and the password is "PASSWORD".  The current user's login name is
+assumed to be "me". Substitute for these values as appropriate
+
+=over 4
+
+=item Step 1. Create the elegans database
+
+ mysqladmin -uroot -pPASSWORD create elegans
+
+=item Step 2. Create the elegans_load database
+
+ mysqladmin -uroot -pPASSWORD create elegans_load
+
+=item Step 3. Give yourself write permission for the databases
+
+ mysql -uroot -pPASSWORD elegans
+ mysql> grant all privileges on elegans.* to me@localhost;
+ mysql> grant all privileges on elegans_load.* to me@localhost;
+ mysql> grant file on *.* to me@localhost;
+
+Note that this is set up so that you do not have to type a password to
+upload information into these databases provided that you are logged
+into the database machine.  If you want a password, you will need to
+make changes to the file
+/usr/local/wormbase/update_scripts/update_wormbase.pl (look for the
+MYSQL_USER and MYSQL_PASS constants).
+
+=item Step 4. Give the "nobody" user read permission for the elegans
+database
+
+ mysql> grant select on elegans.* to nobody@localhost;
+
+=back
+
+Repeat Step 1-4 first to establish MySQL databases "briggsae" and
+"briggsae_load", and then once again for "elegans_pmap" and
+"elegans_pmap_load".
+
+All three primary databases will be populated the first time you run
+the update_wormbase.pl script. On subsequent updates, the *_load will
+become temporarily populated.
+
+Also note that after setting up these databases, some steps have to be 
+taken to make them working for wormbase. For example:
+
+Note: The default directory for MySQL databases in RedHat Linux 7.3 is
+/var/lib/mysql. Make sure that there is enough space in /var
+drive. Otherwise, you should do one of the following:
+
+  1. Place databases in a different path using symbolic links to /var/lib/mysql. 
+  2. Change the default directory to a different path in the my.cnf file.
+
+=head1 INSTALLING PERL MODULES
+
+The easiest way to install the required Perl modules is with the CPAN
+shell at your home directory:
+
+  # perl -MCPAN -e shell
+
+The first time you run this, it will go through some configuration
+steps.  After this you will be presented with the "cpan>" prompt.
+Type "?" to get some help.  To install modules, type "install
+<module_name>".  For example, here's how to install the "Bundle::CPAN" 
+module, which bundles together a number of modules recommended by
+CPAN:
+
+  cpan> install Bundle::CPAN
+
+You will want to run the following commands:
+
+  cpan> install LWP
+  cpan> install Net::FTP
+  cpan> install Digest::MD5
+  cpan> install Ace
+  cpan> install XML::Parser
+
+The Ace module is the most recent version of AcePerl.  When you
+install it, you will be asked whether to build the pure Perl version,
+an optimized version for sockets only, or an optimized version that
+works with sockets and the older RPC-based server.  Choose either
+option (2) or (3).
+
+When you install Ace for the first time it will also ask you whether
+you want to install AceBrowser.  Answer "yes" the very first time you
+install it (you do not need to answer in the affirmative for
+subsequent updates).  It will then ask you to choose paths for its
+configuration files.  For WormBase installs, these are the right
+values to choose:
+
+   Site-specific configuration files:  /usr/local/wormbase/conf
+                            CGI path:  /usr/local/wormbase/cgi-bin
+                           HTML path:  /usr/local/wormbase/html
+
+The XML::Parser module requires that you download and install the
+expat XML parsing libraries first.  This is well described in the
+documentation that accompanies the expat library.
+
+The current GD module is a challenge to install because of its
+requirements on the libgd external library.  However, because of bad
+versioning, there are many different versions of libgd floating
+around, and some do not work correctly with GD.  I suggest that you
+install an older version of the GD module that comes with its own
+stable built-in library.  To install the older version, run this
+command:
+
+  cpan> install LDS/GD-1.19.tar.gz
+
+Install other perl modules listed before.
+
+=head1 INSTALLING BIOPERL
+
+You may install BioPerl either using anonymous CVS or by downloading
+and installing the most recent stable core.
+
+Install BioPerl from the current stable release (recommended)
+
+ % wget http://bioperl.org/DIST/current_core_stable.tar.gz
+ % gunzip -c cur* | tar xvf -
+ % cd bioperl-1.4
+ % perl Makefile.PL
+ % make
+ % make test
+ % sudo make install
+
+Installing from CVS will give you the latest version of BioPerl, but
+may also include unresolved bugs and experimental code.
+
+ % cvs -d :pserver:cvs@cvs.open-bio.org:/home/repository/bioperl login
+    when prompted for the password, type 'cvs'
+ % cvs -d:pserver:cvs:cvs@cvs.open-bio.org:/home/repository/bioperl co bioperl-live
+ % cd bioperl-live
+ % perl Makefile.PL
+ % make
+ % make test
+ % sudo make install
+
+This will create a directory named bioperl-live.  In the future, when
+you wish to update to the most recent version, simply type "cvs
+update" in the bioperl-live directory.
+
+Install BioPerl in the usual way, by running "perl Makefile.PL",
+"make", "make test" and "make install".  
+
+=head1 INSTALLING GENERIC GENOME BROWSER
+
+This is a CGI script and some Perl modules that use Bio::DB::GFF and
+Bio::Graphics to create the main WormBase genome display.  It lives at
+www.gmod.org. Like BioPerl, GBrowse can be installed via anonymous CVS
+or from the current stable release.
+
+  Via CVS:
+ % cvs -d:pserver:anonymous@cvs.gmod.sourceforge.net:/cvsroot/gmod login
+ When prompted for a password for anonymous, simply press the Enter key.
+ % cvs -d:pserver:anonymous@cvs.gmod.sourceforge.net:/cvsroot/gmod \ 
+         co Generic-Genome-Browser
+
+ Via the latest stable release:
+  % wget http://umn.dl.sourceforge.net/sourceforge/gmod/Generic-Genome-Browser-X.XX.tar.gz
+    Where X.XX is the latest stable release.
+  % gunzip -c Gene* | tar xvf -
+
+Enter the unpacked directory or that fetched by CVS and run the
+following incantation to install it in the proper place for WormBase:
+
+  perl Makefile.PL HTDOCS=/usr/local/wormbase/html \
+                   CGIBIN=/usr/local/wormbase/cgi-perl/seq \
+                   CONF=/usr/local/wormbase/conf \
+  make
+  make install
+
+(Sorry for the long incantation; I suggest you cut and paste from this 
+document into the command line.)
+
+=head1 INSTALLING APACHE AND MOD_PERL
+
+To a large extent, installing Apache/mod_perl is exactly as described
+in the documentation that accompanies these packages.  However, you
+must be careful to use mod_perl's Makefile.PL to configure and build
+Apache, as it deactivates the built-in expat library that comes with
+Apache.  Otherwise, you will be unable to run the WormBase pages that
+rely on XML parsing.
+
+Unpack Apache and mod_perl into two side-by-side directories:
+
+ %ls
+ drwxr-xr-x    8 lstein   lstein       4096 Jul 16 15:42 apache_1.3.17/
+ drwxr-xr-x   24 lstein   lstein       4096 Jul 16 14:45 mod_perl-1.25/
+
+Enter the mod_perl directory, and run this command:
+
+ % perl Makefile.PL DO_HTTPD=1 USE_APACI=1 EVERYTHING=1 \
+        APACHE_PREFIX=/usr/local/apache \
+        APACI_ARGS='--enable-shared=info --enable-shared=status'
+
+The primary installation site of WormBase also needs the proxy module
+and uses this configuration command.
+
+  % perl Makefile.PL DO_HTTPD=1 USE_APACI=1 EVERYTHING=1 \
+        APACHE_PREFIX=/usr/local/apache \
+        APACI_ARGS='--enable-shared=info --enable-shared=status \
+                    --enable-shared=proxy --enable-shared=proxy-http \ 
+		    --enable-module=rewrite'
+
+The APACI_ARGS option in this command turns on two Apache modules that
+give status information.  They are not strictly necessary for
+WormBase.
+
+You will get a bunch of diagnostic information.  Now run the following
+two commands:
+
+  % make
+  % make test
+
+The LWP library must be installed before you "make test".  If the
+tests are successful, become root and run:
+
+  # make install
+
+This will install Apache into the directory /usr/local/apache.
+
+Note: if you have trouble in installing Apache/mod_perl, you may want to try
+older version of there software. Apache_1.3.26 and mod_perl-1.27 work well on 
+Red Hat 7.3.
+
+=head1 CONFIGURING WORMBASE
+
+=head2 Configuring httpd.conf
+
+In /usr/local/wormbase/conf/httpd.conf, you will find an Apache
+configuration file containing WormBase-specific definitions.  You can
+cut-and-paste this file into the main configuration file
+(/usr/local/apache/conf/httpd.conf), replacing the directives already
+there, or, better, use an Include directive to bring these directives
+in.
+
+If WormBase is going to be the only website hosted by this server,
+then remove from the main configuration file all DocumentRoot and
+<Directory> sections.  Change the Port directive to "Port 80", and
+insert the following at the bottom of the file:
+
+  Include /usr/local/wormbase/conf/httpd.conf
+
+If WormBase is going to be a virtual host (one of several web sites
+hosted by the server), then you must create an appropriate
+<VirtualHost> section.  Here is a template to follow:
+
+  <VirtualHost 143.48.220.84:80>
+    ServerName www.wormbase.org
+    UseCanonicalName on
+    Include /usr/local/wormbase/conf/httpd.conf
+  </VirtualHost>
+
+The IP address in the <VirtualHost> tag must be replaced by the
+correct IP address for the server.  Likewise, the ServerName must be
+replaced by a DNS name that will correctly resolve to this IP address.
+Do not use "www.wormbase.org!" This name is already taken.
+
+The directives in /usr/local/wormbase/conf/httpd.conf will do the
+following:
+
+  1. Set /usr/local/wormbase/html to be the document root for static
+	HTML files.
+
+  2. Set /usr/local/wormbase/db to be a script directory under the 
+       control of mod_perl's Apache::Registry.
+  
+  3. Create transfer and error logs in /usr/local/wormbase/logs
+
+  4. Create an ordinary cgi-bin directory in
+     /usr/local/wormbase/cgi-bin
+
+  5. Put all static .html files under the control of
+     Apache::AddWormbaseBanner, a module that appends
+     the standard WormBase header and footer on all HTML files.
+
+/usr/local/wormbase/conf/httpd.conf should not need any adjustment,
+except in one respect: the location of the staging directory for
+dynamically-generated images.  This involves the following directive:
+
+  Alias /ace_images  /var/tmp/ace_images
+
+The ace_images directory will be created automatically the first time
+WormBase needs it, but the directory that it contains, in this case
+/var/tmp, must be writable by the Apache user (usually "nobody").  The
+images will eventually occupy approximately 10 megs. If /var/tmp is
+not appropriate for your system, change the second argument to some
+location that is more suitable.
+
+=head2 Installing Analog and Report Magic (optional)
+
+If you are running a mirror site or would like to analyze accesses to
+your logs, you should also install Analog and ReportMagic.  These
+software packages will be used to automatically analyze the access
+logs on a running basis.
+
+Fetch analog:
+
+ wget http://www.analog.cx/analog-6.0.tar.gz
+ tar xzf analog-6.0.tar.gz
+ cd analog-6.0
+ make
+
+Copy analog to somewhere in your path
+
+  sudo cp analog /usr/local/bin/.
+
+Install Report Magic
+
+ wget http://www.reportmagic.org/rmagic-2.21.tar.gz
+ tar xzf rmagic-2.21.tar.gz
+ 
+Edit Install.PL to place the report magic files in /usr/local/wormbase.
+
+  sudo Perl Install.PL
+
+Be sure to place analog and Report Magic in your path.
+
+=head2 Configuring WormBase: elegans.pm and localdefs.pm
+
+WormBase uses two main configarutation files, elegans.pm and
+localdefs.pm, located at /usr/local/wormbase/conf.
+
+The first, elegans.pm, contains a variety of Perl definitions that are
+used by the various WormBase mod_perl scripts.  You will want to look
+through this file, but you probably will not need to make any
+changes. The sole item you might wish to change controls the location
+of temporary files:
+
+=over 4
+
+=item @PICTURES
+
+This is the location of a temporary staging directory for
+dynamically-generated images as indicated in conf/httpd.conf.  Its
+value is a list in which the first item is where the images will
+appear on the Web server (in URL space) and the second item is where
+they will appear on the filesystem:
+
+   @PICTURES = ('/ace_images' => '/var/tmp/ace_images');
+
+If you changed the location of the staging directory in httpd.conf,
+you must make the corresponding change here.
+
+=back
+
+The second file, localdefs.pm, contains site-specific hostnames,
+ports, and passwords.  You will find a template for this file at
+/usr/local/wormbase/conf/localdefs.pm.template. Rename this file
+localdefs.pm and edit the following options as appropriate for your
+site.
+
+=over 4
+
+=item $HOST
+
+This is the name of the host where the socket server runs.  It is set
+to "localhost" by default.
+
+=item $PORT
+
+This is the port on which the socket server runs, 2005 by default.
+
+=item $ACEPASS, $USERNAME, $PASSWORD
+
+These three items define the acedb username and password.
+
+=item $MYSQL_HOST, $MYSQL_USER, $MYSQL_PASS
+
+These three items define the mysql host, username, and password.
+
+=item $MASTER
+
+This is used only for the WormBase master site.  Should be set to 0.
+
+=item $MIRROR
+
+Whether or not the site is a mirror. Should be set to the name of the mirror.
+
+=item $DEVELOPMENT
+
+Whether or not the site is a development site. Internally, this
+controls the nature of caching on the site.  Should be set to 0.
+
+=item $BLAST2WORMBASE, $WORMBASE2BLAST
+
+These two options control where the blast script directs queries, and
+where those queries are returned.  This is provided in the event that
+a second standalone blast server is provided. If not, these two
+options should point to:
+
+ $WORMBASE2BLAST=http://yoursite.tv
+
+=back
+
+=head2 Restarting WormBase
+
+When the configuration files have been checked and adjusted, restart
+Apache with the following command:
+
+  # /usr/local/apache/bin/apachectl restart
+
+Look in /usr/local/wormbase/logs/error_log (Wormbase-specific errors)
+and /usr/local/apache/logs/error_log (general errors) for any error
+messages.  If there are none, try fetching the main page.  You should
+see a WormBase banner and footer.  The various database searches
+should also work.  However, the precomputed "genome dump" pages wll
+not work yet because they haven't been generated.
+
+=head2 If it doesn't work
+
+There are a number of common problems to check:
+
+=over 4
+
+=item Is the acedb socket server starting?
+
+Run "ps" to determine whether the server is indeed starting.  If not,
+go back to the acedb configuration section and confirm that everything 
+is where it should be.  Make sure that the
+/usr/local/acedb/elegans/database directory is writable by the acedb
+user.
+
+The two acedb logs to check for error messages are both in
+/usr/local/acedb/elegans/database.  Examine log.wrm and serverlog.wrm.
+
+=item Is the acedb socket server crashing?
+
+It is possible that the server is crashing soon after it starts.  The
+symptom of this is that the system gets very busy for a while, and
+"top" or "ps" shows the server restarting repeatedly.  Eventually
+inetd (or xinetd) will disable the server and issue a syslog message
+to the effect that it is disabling a "looping" service.
+
+Again, check that acedb is installed properly and that the database
+directory is writable.  Check log.wrm and serverlog.wrm.
+
+=item "Internal Server Error"
+
+This is typically a symptom that mod_perl isn't installed correctly, a
+required Perl library is missing, or something is wrong with the
+configuration.  Check the two error_log files (in
+/usr/local/apache/log and /usr/local/wormbase/log) for clues.
+
+=item The banner displays but the decorative worm images are broken
+
+On some versions of Linux running the libc 2.2 library there is a bug
+in readdir(), which is the function called to read the contents of a
+directory.  You can check what version of glibc you have by looking at
+the contents of /lib:
+
+ % ls -l /libc-*
+ -rwxr-xr-x    1 root  root  4101324 Feb 29  2000 /lib/libc-2.1.3.so*
+
+Versions that are at risk will show libc-2.2.so installed.  The
+solution is to upgrade to a more recent version of libc.  libc 2.2.3
+is known to work correctly.
+
+=back
+
+If you are stuck, send copies of the error logs and anything else you
+think might be useful to lstein@cshl.org and I'll try to help.
+
+=head1 INSTALLING BLAST
+
+The Blast page requires Wu-BLAST.  This page can be deactivated if you 
+don't want to run a Blast search.
+
+By default, WormBase expects Wu-BLAST to be installed in
+/usr/local/wublast.  This is the directory structure used by WormBase:
+
+ % ls -l /usr/local/wublast
+ ls -l /usr/local/wublast
+ total 72
+ lrwxrwxrwx  1 root  root     18 May  7 12:26  BLOSUM62 -> matrix/aa/BLOSUM62
+ -rw-r--r--  1 root  root  46789 Feb  5  1998  HISTORY
+ -rw-r--r--  1 root  root   6648 Mar  4  1997  README
+ drwxr-xr-x  2 root  root   4096 May  7  12:46 bin/
+ lrwxrwxrwx  1 root  root     25 Jul 24  08:20 databases -> /usr/local/wormbase/blast/
+ drwxr-xr-x  2 root  root   4096 Jan 27  2000  filter/
+ drwxr-xr-x  4 root  root   4096 Oct  4  1998  matrix/
+
+The important thing to note is that the databases directory is a
+symbolic link to /usr/local/wormbase/blast. This is where the
+update_wormbase.pl script (described in the next section) dumps its
+BLAST databases.
+
+=head1 INSTALL BLAT
+
+Jim Kent's BLAT (blast-like alignment tool) is a fast nucleotide
+aligner used by the blast search page. If you do not plan to support
+blast searches, you may safely skip this step.
+
+ # mkdir /usr/local/blat ; cd /usr/local/blat
+ % wget http://www.soe.ucsc.edu/~kent/exe/linuxRedhat7.3/blatSuite.27.zip
+ % unzip blatSuite.27.zip
+ % mkdir bin
+ % mv * bin/.
+
+Start the blat server by:
+
+ %/usr/local/blat/bin/gfServer start localhost 2003 \ 
+     /usr/local/wormbase/blat/*.nib & > /dev/null 2>&1
+
+=head1 INSTALLING SCRIPTS TO VERIFY SERVERS ARE RUNNING
+
+Two scripts in the WormBase directory can be used to ensure that the
+mysql and blat servers are running. To install, them:
+
+ % sudo cp /usr/localwormbase/util/admin/blat_server.initd \
+           /etc/rc.d/init.d/blat_server
+
+Place the restart scripts under cron control of a privileged user.
+These commands will check every hour to see that the servers are
+running.
+
+  % sudo crontab -u root -e
+
+ 0 * * * * /usr/local/wormbase/util/admin/restart_mysqld.pl
+ 0 * * * * /usr/local/wormbase/util/admin/restart_blat.pl
+
+At the same time, you might also wish to automate the rotatation of
+logs to prevent them from growing to an unwieldy size. You'll find an
+appropriate log rotation configuration stanza in
+util/rotate_wormbase_logs and a log rotate script in
+/usr/local/wormbase/bin/rotatelogs.pl.  You will need both.
+
+ # Rotate httpd logs
+ 10 1 * * * /usr/local/wormbase/bin/rotatelogs.pl
+ # Rotate acedb logs
+ 10 1 * * * logrotate /usr/local/wormbase/util/rotate_wormbase_logs 
+
+This stanza will check that the acedb server logs do not grow larger
+than 100 MB.
+
+=head1 THE UPDATE_WORMBASE.PL SCRIPT
+
+Located in /usr/local/wormbase/update_scripts directory is a script
+called update_wormbase.pl.  Its job is to check the Sanger Centre FTP
+site at intervals and download new versions of the C. elegans database
+as they become available.  After downloading the database, it unpacks
+it, updates the acedb password and configuration files using the
+contents of /usr/local/wormbase/wspec, and then creates several dump
+files used by the web and FTP sites.
+
+=head2 Files touched by update_wormbase.pl
+  
+   The following files and directories are managed by this script:
+
+=over 4
+
+=item /usr/local/wormbase/mirrored_data
+
+Databases mirrored from the Sanger FTP and WormBase FTP sites are
+stored here, sorted by species and release number. Following updates,
+you can safely remove these files if you need to reclaim disk space.
+
+=item /usr/local/wormbase/blast_WSXX
+
+This is a directory that contains indexed BLAST files for use by the
+Blast search script.  The update script will create a link named
+"blast" pointing to the most recent version.
+
+This directory contains three BLAST databases:
+
+  EST_Elegans      C. elegans ESTs
+  Elegans          C. elegans genomic
+  WormPep          C. elegans proteins
+
+Since it is needed in two places, the WormPep database is a symbolic
+link to /usr/local/wormbase/html/mirrored_data/wormpepXX.
+
+=item ~ftp/pub/wormbase/elegans, ~ftp/pub/wormbase/briggsae
+
+Mirrored and post-processed data is copied to these paths on the FTP
+site, and stored in directories corresponding to the current release.
+
+=item The MySQL "elegans", "briggsae", and "elegans_pmap" databases
+
+These databases are updated using a complicated process that combines
+information from the .gff files located in the FTP area and locus
+information from the new ACeDB database.  These data are run through a
+filter script called ace2gff.pl and piped into the bulk_load_gff.pl
+script for incorporation into the database.
+
+=item /usr/local/wormbase/html/release_notes
+
+This directory is updated with a copy of the current release notes.
+
+=back
+
+=head2 Configuring update_wormbase.pl
+
+In the best of worlds, you will not need to modify update_wormbase.pl, 
+but this is not the best of worlds.  At the top of the file, there are 
+three constants that define the location of important paths.  These
+paths can be changed by setting environment variables before the
+script is run, or by editing the script directly.
+
+  Constant        Environment Variable      Default
+ 
+  WORMBASE        WORMBASE                  /usr/local/wormbase
+  ACEDB           ACEDB                     /usr/local/acedb
+  FTP_SITE	  WORMBASE_FTP		    ~ftp/pub/wormbase
+
+As the last example shows, ~username interpolation is allowed.  Change 
+these if needed.
+
+Just below the top of the file a line sets the default PATH
+environment variable.  This determines where the script will
+search for the various acedb and BLAST executables.  Change this if
+necessary.
+
+Below this is a series of constant flags that enable and disable
+various steps in the process.  It looks like this:
+
+ use constant CHECKNR        => 1;  # check for new releases
+ use constant MIRROR         => 1;  # copy from Sanger to tmp directory
+ use constant MIRROR_CB      => 1;  # copy from dev.wormbase.org to tmp directory
+ use constant UNTAR          => 1;  # unpack database
+ use constant SKEL           => 1;  # add local users to database login
+ use constant COPY_TO_FTP    => 1;  # copy mirrored files to FTP directories
+ use constant CHROMTABLE     => 0;  # dump CHROMOSOME*.html files  NO LONGER NEEDED
+ use constant INTERPOLATED   => 0;  # dump interpolated positions  NO LONGER NEEDED
+ use constant BLAST_NUC      => 1;  # create BLAST database for genome
+ use constant BLAST_PEP      => 1;  #   "      "     "      "   wormpep
+ use constant BLAST_EST      => 1;  #   "      "     "      "   ESTs
+ use constant BLAST_BRIG     => 1;  #   "      "     "      "   briggsae
+ use constant GFFDB_LOAD     => 1;  # load the elegans GFF database
+ use constant CB_GFFDB_LOAD  => 1;  # load the briggsae GFF database, off by default since briggsae rarely changes
+ use constant PMAP_GFFDB_LOAD=> 1;  # load the elegans_pmap GFF database
+ use constant EPCR_LOAD      => 1;  # load the PCR/OLIGO database
+ use constant INDEX_UPDATE   => 1;  # update home page with new release
+ use constant MAKE_GENENAME  => 1;  # make the gene name table dump
+ use constant BUILD_BLAT     => 1;  # rebuild the blat database
+ use constant DUMP_BRIEF_IDS => 0;  # create a file of concise descriptions for genes
+
+ # The following options fine tune the behavior of the script
+ use constant REMOVE_MIRRORED => 0; # remove mirrored data after copying to FTP site
+
+If you wish to disable a particular step (for example, creating the
+BLAST indexes), then change the corresponding flag to a value of 0.
+
+Below this are two constants that can be used to set the username and
+password for the MySQL database:
+
+ # change this if you have a mysql user and password
+ use constant MYSQL_USER        => '';
+ use constant MYSQL_PASS        => '';
+
+Change these if you need to.
+
+The remainder of the script contains no user-serviceable parts.
+
+=head2 Running update_wormbase.pl
+
+When run from the command line, update_wormbase.pl sends progress
+messages to standard error:
+
+[Note: update_wormbase.pl scripts sends a message to
+wormbase@wormbase.org after a successful update. For your own mirror
+site, you might not want to send a message to this address, rather you
+might want to have the message sent to yourself. Make changes in the
+script accordingly.]
+
+ % update_wormbase.pl
+ Thu Oct 26 00:00:01 2000 checking for new release
+ Thu Oct 26 00:00:03 2000 mirroring from Sanger
+ Getting directory current_release/
+ Getting directory CHROMOSOMES/
+ Getting file CHROMOSOME_I.dna.gz
+ Getting file CHROMOSOME_I.gff.gz
+ Getting file CHROMOSOME_II.dna.gz
+ ...
+ Thu Oct 26 01:17:16 2000 untarring directory
+ wgf
+ wgf/cds.hex
+ wgf/newnem.atg
+ wgf/newnem.codon
+ wgf/newnem.gene
+ ...
+
+If the script is successful, the last line will read "You need to
+restart server".  This is an indication that it is safe to log into
+the socket server as admin and run the "shutdown now" command.  When
+acedb restarts, it will be using the new data.  Note that the new
+database will also be loaded whenever acedb shuts down (or crashes)
+spontaneously, which happens relatively frequently!
+
+If the local Acedb release is as new as the Sanger version, then you
+will get the following messagesk
+
+ Tue Jul 24 09:32:37 2001 checking for new release
+ Tue Jul 24 09:32:39 2001 No new release. Quitting.
+
+If you wish to fetch a particular C. elegans release and force it to
+be installed, use the -wsversion option.  This is useful for
+backtracking to a known working version of the database:
+
+ % update_wormbase.pl -wsversion WS40
+
+=head2 Dealing with Partial Updates
+
+It occasionally happens that update_wormbase.pl will not complete its
+job.  The two common cases are running out of disk space when
+unpacking the database, and acedb crashing while creating the dump
+files.  
+
+To force a rebuild without re-mirroring the data, use the -rebuild
+option.  This command will rebuild the most current release, creating
+the dump files and updating the web site:
+
+ % update_wormbase.pl -rebuild 0 
+
+This command will rebuild the specified release:
+
+ % update_wormbase.pl -rebuild WS46
+
+=head2 Running as a Cron Job
+
+You will probably want to run update_wormbase.pl as a Cron job, using
+a crontab line like this one:
+
+ 0 1 * * * /usr/local/wormbase/update_scripts/update_wormbase.pl
+
+This tells cron to run the script once a day at 1 after midnight.  The
+output of the script will be mailed to the owner of the cron table. Be
+sure that the script is run under an account that has write permission
+to the various directories that the update script touches.
+
+=head1 COPYRIGHT INFORMATION
+
+Material in this document is copyright 2003 by the California
+Institute of Technology, Cold Spring Harbor Laboratory, Washington
+University at St. Louis, and The Wellcome Trust Sanger Institute. This
+information is provided "AS-IS" without any warranty, expressed or
+implied.
+

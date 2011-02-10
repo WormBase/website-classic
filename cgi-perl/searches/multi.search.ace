@@ -1,0 +1,953 @@
+#!/usr/bin/perl
+
+use strict;
+use CGI qw/:standard *table/;
+#use Ace::Browser::AceSubs qw/:DEFAULT AceRedirect/;
+###use AceDBFetchSubs qw/FetchGene FetchPeople/;
+use lib '/usr/local/wormbase/cgi-perl/lib';
+use WormBase::Autocomplete;
+use JSON;
+
+use vars qw/@CLASSES $DB $QUERY $CLASS $DATABASE $FORMAT/;
+
+use constant DEBUG  => 0;
+use constant AUTOCOMPLETE_DB => 'autocomplete';
+use constant SEARCH => '/db/searches/multi';
+use constant GET    => '/db/get';
+
+# Should the detailed results be returned in JSON or as html?
+use constant DETAILED_RESULTS_IN_JSON => 0;
+
+
+#$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+$QUERY     = param('query');
+$CLASS     = param('class');
+$DATABASE  = param('database');
+$FORMAT    = param('format');
+
+# Classes not (yet) supported by the autocomplete database
+my @AUTOCOMPLETE_NOT_SUPPORTED = qw/
+    Expr_pattern
+    Laboratory
+    Life_stage
+    Mass_spec_experiment
+    Mass_spec_peptide
+    Oligo
+    /;
+
+my %AUTOCOMPLETE_NOT_SUPPORTED = map { $_ => 1 } @AUTOCOMPLETE_NOT_SUPPORTED;
+
+
+####acedb_search()        if $DATABASE eq 'acedb_shallow';
+####acedb_search()        if $DATABASE eq 'acedb_deep';
+####autocomplete_search() if $DATABASE eq 'autocomplete';
+autocomplete_search();
+
+
+sub results_to_json {
+  my ($class,@objects) = @_;
+  
+  # Multiple results? Link back to the search page for display
+  my $target = SEARCH;
+  my $count = scalar @objects;
+  $count ||= 0;
+  
+  my $object;
+  
+  # Config option:  Only return objects that have hits?
+  ##    unless ($url eq "0" && !param('style')) {
+  # but return all for the table display
+  #####  return if $count == 0 && !param('style');
+
+  # Object meta data (this is all that is returned with count reports)
+  $object = { class => $CLASS,
+	      count => $count};
+  
+  # don't bother returning all objects if we just want a simple count
+  unless ($FORMAT eq 'count') {
+      if (DETAILED_RESULTS_IN_JSON) {
+	  foreach (sort { ($a->[4] || $a->[1]) cmp ($b->[4] || $b->[1]) } (@objects)) {
+	      # Here, $meta_hit can be thought of as akin to 
+	      # the matching text. It may come from an alias or a meta hit
+	      my ($meta_hit,$canonical,$description,$entity_class,$display_name) = @$_;
+	      
+	      # Use the default display name for the canonical entity.  In this way, we can
+	      # consistently name items and hide nasty WBIDs from users at the same time.
+	      my $text;
+	      if ($meta_hit && $description) {
+		  $text= join("; ",$meta_hit,$description);
+	      } else {
+		  $text = $description;
+		  $text ||= $meta_hit;
+	      }
+	      
+	      push @{$object->{entries}},{ matching_text => $meta_hit,
+					   canonical     => $canonical,	
+					   href_target   => ($display_name) ? $display_name : $canonical,
+					   description   => $text };
+	  }
+      } else {
+	  
+	  # For now, let's just return the results in HTML. This should be paged.
+	  my $html = start_table({-border=>1});
+####	  $html .= TR(th($class),
+####		      #td("Matching text"),
+####		      th('Description'));
+	  foreach (sort { ($a->[4] || $a->[1]) cmp ($b->[4] || $b->[1]) } (@objects)) {
+	      if (ref $_ eq 'ARRAY') {
+		  # Here, $meta_hit can be thought of as akin to 
+		  # the matching text. It may come from an alias or a meta hit
+		  my ($meta_hit,$entity,$description,$entity_class,$display_name) = @$_;
+		  
+		  # Use the default display name for the canonical entity.  In this way, we can
+		  # consistently name items and had nasty WBIDs from users at the same time.
+		  my $target = ($display_name) ? $display_name : $entity;
+		  #	$display_name;
+		  #	if ($DATABASE =~ /acedb/) {
+		  #	  $html .= TR(td(a({-href=>GET . '?class='
+		  #			    . $entity->class
+		  #			    . '&name='
+		  #			    . $entity},$target)),
+		  #		      #				td($meta_hit),
+		  #		      td($description));
+		  #	} else {
+		  my $text;
+		  if ($meta_hit && $description) {
+		      $text= join("; ",$meta_hit,$description);
+		  } else {
+		      $text = $description;
+		      $text ||= $meta_hit;
+		  }
+		  $html .= TR(td(a({-href=>GET . '?class='
+					. $CLASS
+					. '&name='
+					. $entity},$target)),
+			      #				td($meta_hit),
+			      td($text));
+	      }
+	  }
+	  #    }
+	  $html .= end_table();
+	  return $html;
+      }
+  }
+  
+  my $json     = objToJson($object);
+  return $json;
+}
+
+
+#############################
+# Do search via autocomplete
+#############################
+sub autocomplete_search {
+  my $auto   = WormBase::Autocomplete->new(AUTOCOMPLETE_DB) or die "$!";
+
+  # May want max values for paging / offset
+  my ($hits) = $auto->lookup_deep($CLASS,$QUERY) || [];
+#  my ($hits,$related) = $auto->lookup_deep($CLASS,$QUERY);
+      
+  if (DEBUG) {
+    warn "autocomplete class=$CLASS query=$QUERY\n";
+
+#    for (@{$related}[0..1]) {
+#      $_ or last;
+#      warn join("\t",'result',@$_)."\n";
+#    }
+  }
+  if (defined $AUTOCOMPLETE_NOT_SUPPORTED{$CLASS}) {
+    print 'not supported';
+    return;
+  }
+
+  # Filter out meta hits that map to the same entity
+  my %seen;
+#  my @return = grep { ! $seen{$_->[1]}++ } @{$hits},@{$related};
+#  warn @$hits;
+  my @return = grep { ! $seen{$_->[1]}++ } @{$hits};
+#  push @return, grep { ! $seen{$_->[1]}++ } @{$related};
+  
+  # Should split this into hits and related
+  my $json = results_to_json($CLASS,@return);
+  print $json;
+}
+
+
+
+
+
+#########################################################
+# ACEDB SEARCH SUBS
+#########################################################
+#######################################################
+# Do "shallow" acedb searches
+# These are restricted to class names, with the
+# exception of classes that have a companion
+# "*_name" class.  In these cases, thename alias
+# class is also searched.
+#######################################################
+###### DEPRECATED
+sub acedb_search {
+    my @objects;
+    if ($CLASS eq 'Gene') {
+
+	if ($DATABASE eq 'acedb_deep') {
+	    @objects = FetchGene($DB,$QUERY);
+	} elsif ($QUERY =~ /^WBG.*\d+/) {
+	    @objects = $DB->fetch(-class=>'Gene',-name=>$QUERY);
+	} else {
+	    @objects = search_name_class($DB,'Gene_name',[qw/
+							  Public_name_for
+							  CGC_name_for
+							  Sequence_name_for
+							  Molecular_name_for
+							  Other_name_for
+							  Former_member_of
+							  /]);
+	}
+	
+	@objects = map { [$_,
+			  $_->Public_name || $_->CGC_name || $_->Molecular_name,
+			  $_->Concise_description || $_->Provisional_description] } 
+	@objects if @objects;
+
+    } elsif ($CLASS eq 'Paper') {
+	if ($DATABASE eq 'acedb_deep') {
+	    @objects = FetchPapers($DB,$QUERY);
+	} elsif ($QUERY =~ /^WB.*\d+/) {
+	    @objects = $DB->fetch(-class=>'Paper',-name=>$QUERY);
+	} else {
+	    @objects = search_name_class($DB,'Paper_name',[qw/
+							   CGC_name_for
+							   PMID_for
+							   Medline_name_for
+							   Meeting_name_for
+							   WBG_abstract_name
+							   Other_name_for/]);
+	}
+
+	@objects = map { [$_,
+			  $_,
+			  $_->Year . ': ' . ($_->Brief_citation || $_->Title)] }
+	@objects if @objects;
+
+    } elsif ($CLASS eq 'Person') {
+	my @temp;
+	if ($DATABASE eq 'acedb_deep') {
+	    @temp = FetchPeople($DB,$QUERY);
+	} elsif ($QUERY =~ /^WB.*\d+/) {
+	    @temp = $DB->fetch(-class=>'Person',-name=>$QUERY);
+	} else {
+	    @temp = search_name_class($DB,'Person_name',[qw/Full_name_of
+							 Standard_name_of
+							 Last_name_of
+							 Other_name_of/]);
+	}
+	
+	
+	foreach (@temp) {
+	    my %hash = map { $_ => $_->right } $_->Address;
+	    push @objects,[$_,eval { $_->Standard_name || $_->Full_name }
+			   || eval { $_->Full_name },
+			   ($hash{Institution} && $hash{Country}) ? "$hash{Institution}, $hash{Country}" : ''
+			   ];
+	}
+	
+    } elsif ($CLASS eq 'Protein') {
+	@objects = $DB->fetch(-class=>'Protein',-name=>$QUERY);
+	
+	# Also select by description
+	# push @objects,$DB->fetch(-query=>'find Protein where Remark
+
+	# Possibilities
+	# Select by Species, Remark, Feature, Description
+
+	@objects = map { [$_,
+			  $_,
+			  $_->Description] } @objects if @objects;
+
+    } elsif ($CLASS eq 'Sequence') {
+	@objects = $DB->fetch(-class=>'Sequence',-name=>$QUERY);
+
+	@objects = map { [$_,
+			  $_,
+			  $_->Title] } @objects if @objects;
+
+    } elsif ($CLASS eq 'Strain') {
+	if ($DATABASE eq 'acedb_deep') {
+	    @objects = FetchStrains($DB,$QUERY);
+	} else {
+	    @objects = $DB->fetch(-class=>'Strain',-name=>$QUERY);
+	    
+	    @objects = map { [$_,
+			      $_,
+			      $_->Genotype] } @objects if @objects;
+	}
+    } elsif ($CLASS eq 'Variation') {
+	if ($QUERY =~ /^WB.*\d+/) {
+	    @objects = $DB->fetch(-class=>'Variation',-name=>$QUERY);
+	} else {
+	    @objects = search_name_class($DB,'Variation_name',[qw/CGC_name_for
+							       Other_name_for
+							       Public_name_for
+							       WashU_ID_for
+							       Exelixis_ID_for/]);
+	}
+
+	@objects = map { [$_,
+			  $_,
+			  $_->Remark || $_->Type_of_mutation] } @objects if @objects;
+	
+    } elsif ($CLASS eq 'RNAi') {
+	# See FetchRNAI for additional options
+	if ($QUERY =~ /^WBRNAi/) {
+	    @objects = $DB->fetch(RNAi => $QUERY);	
+
+	} else {
+	    @objects = $DB->fetch(-query=>qq{find RNAi where History_name="$QUERY"});
+	}	
+
+	@objects = map { [$_,
+			  $_->History_name || $_,
+			  $_->Remark || $_->Reference] } @objects if @objects;
+
+    } elsif ($CLASS eq 'Phenotype') {
+	# See FetchPhenotype for deeper searching
+        if ($QUERY =~ /WBPhen.*/) {
+	    @objects = $DB->fetch(-class=>'Phenotype',-name => $QUERY); 
+	} else {
+	    @objects = search_name_class($DB,'Phenotype_name',[qw/
+							       Primary_name_for
+							       Synonym_for
+							       Short_name_for
+							       /]);
+	}
+
+	@objects = map { [$_,
+			  $_->Primary_name || $_->Synonym,
+			  $_->Short_name] } @objects if @objects;
+
+    } elsif ($CLASS eq 'PCR_product') {
+
+	# Deeper searches should be by gene, etc
+	@objects = $DB->fetch($CLASS => $QUERY);
+	push @objects,$DB->fetch(Oligo_set => $QUERY);
+	
+	@objects = map { [$_,
+			  $_,
+			  $_->Remark] } @objects if @objects;
+	
+    } elsif ($CLASS eq 'Anatomy_term') {
+	# See FetchAnatomyTerm for deeper searching
+	if ($QUERY =~ /^WBbt:/) {
+	    @objects = $DB->fetch(Anatomy_term => $QUERY);
+	} else {
+	    
+	    @objects = search_name_class($DB,'Anatomy_term',[qw/
+							     Name_for_anatomy_term
+							     Name_for_cell
+							     Name_for_cell_group
+							     Synonym_for_anatomy_term
+							     Synonym_for_cell
+							     Synonym_for_cell_group
+							     /]);
+
+	}
+
+	@objects = map { [$_,
+			  $_->Term || $_->Synonym,
+			  $_->Definition] } @objects if @objects;
+
+    } elsif ($CLASS eq 'GO_term') {
+	# See FetchGOTerm for deeper searching
+	if ($QUERY =~ /^GO:/) {   
+	    @objects = $DB->fetch(GO_term => $QUERY);
+	}
+
+	@objects = map { [$_,
+			  $_->Term,
+			  $_->Definition] } @objects if @objects;
+	
+    } elsif ($CLASS eq 'Expr_pattern') {
+	# See FetchExpressionPattern for deeper searching
+	@objects = $DB->fetch(-class =>'Expr_pattern',
+			      -name  => $QUERY);
+
+	@objects = map { [$_,
+			  $_,
+			  $_->Pattern || $_->Remark] } @objects if @objects;
+
+    } elsif ($CLASS eq 'Clone') {
+	# See FetchClone for deeper searching
+	@objects = $DB->fetch(Clone => $QUERY);
+
+	@objects = map { [$_,
+			  $_,
+			  $_->Remark] } @objects if @objects;
+
+    } elsif ($CLASS eq 'Gene_class') {	
+	@objects = $DB->fetch(-class=>'Gene_class',-name=>$QUERY);
+
+	@objects = map { [$_,
+			  $_,
+			  $_->Description] } @objects if @objects;
+
+    } elsif ($CLASS eq 'Gene_regulation') {
+	# See FetchGeneRegulation for deeper searching
+	@objects = $DB->fetch(-class=>'Gene_regulation',-name=>$QUERY);
+	
+	@objects = map { [$_,
+			  $_,
+			  $_->Summary] } @objects if @objects;
+
+    } elsif ($CLASS eq 'Interaction') {
+	@objects = $DB->fetch(-class=>'Interaction',-name=>$QUERY);
+
+	@objects = map { [$_,
+			  $_,
+			  $_->Interactor . ' ' .  $_->Remark] } @objects if @objects;
+
+    } elsif ($CLASS eq 'Motif') {
+	@objects = $DB->fetch(-class=>'Motif',-name=>$QUERY);
+
+	@objects = map { [$_,
+			  $_->Title || $_,
+			  $_->Remark] } @objects if @objects;
+
+    } elsif ($CLASS eq 'Operon') {
+	@objects = $DB->fetch(-class=>'Operon',-name=>$QUERY);
+
+	@objects = map { [$_,
+			  $_,
+			  join(' ',$_->Contains_gene || $_->Remark)] } @objects if @objects;
+
+    } elsif ($CLASS eq 'YH') {
+	@objects = $DB->fetch(-class=>'YH',-name=>$QUERY);
+
+	@objects = map { [$_,
+			  $_,
+			  $_->Remark] } @objects if @objects;
+
+    } elsif ($CLASS eq 'Microarray_experiment') {
+	@objects = $DB->fetch(-class=>'Microarray_experiment',-name=>$QUERY);
+
+	@objects = map { [$_,
+			  $_,
+			  $_->Remark || $_->Reference] } @objects if @objects;
+
+    } elsif ($CLASS eq 'Laboratory') {
+	my @temp = $DB->fetch(-class=>'Laboratory',-name=>$QUERY);
+	
+	foreach (@temp) {
+	    my %hash = map { $_ => $_->right } $_->Address;
+	    
+	    push @objects,[$_,
+			   $_,
+			   ($hash{Institution} && $hash{Country}) ? "$hash{Institution}, $hash{Country}" : ''];
+	}
+	
+    } elsif ($CLASS eq 'Life_stage') {
+	@objects = $DB->fetch(-class=>'Life_stage',-name=>$QUERY);
+
+	@objects = map { [$_,
+			  $_,
+			  $_->Definition || $_->Remark] } @objects if @objects;
+
+
+    } elsif ($CLASS eq 'Mass_spec_experiment') {
+	@objects = $DB->fetch(-class=>'Mass_spec_experiment',-name=>$QUERY);
+
+	@objects = map { [$_,
+			  $_,
+			  $_->Definition || $_->Remark] } @objects if @objects;
+
+
+    } else {
+	# Select other classes should look in things like description and remark fields, too.
+	@objects = $DB->fetch(-class=>$CLASS,-name=>$QUERY);
+
+    }
+
+    # Rearrange all these hits to match the autocomplete format.
+    # Easier than tinkering with the library and dependent code.
+    my @return;
+    foreach (@objects) {
+	push @return,[ $_->[1],$_->[0],$_->[2] ];
+    }
+
+    my $json = results_to_json($CLASS,@return);
+    print $json if $json;
+}
+
+
+
+sub search_name_class {
+    my ($DB,$class,$tags) = @_;
+
+    my @aliases = $DB->fetch(-class=>$class,-name=>$QUERY);
+    my %seen;
+    my @objects;
+    foreach my $alias (@aliases) {
+	foreach my $tag (@$tags) {
+	    my @entries = $alias->$tag;
+	    foreach my $entry (@entries) {
+		next if $seen{$entry}++;		
+		push @objects,$entry;
+	    }
+	}
+    }
+    return @objects;
+}
+
+
+# Fetch papers using the following parameters:
+# WbPaperID, People, Genes, or Clones
+sub FetchPapers {
+    my ($DB,$QUERY) = @_;
+    # First try fetching WBPaper IDs
+    my @papers = $DB->fetch(-class =>'Paper',
+			    -name  => $QUERY,
+			    );
+    
+    my %seen;
+    
+    # No?  Let's try fetching via Paper_name
+    my @paper_names = $DB->fetch(-class =>'Paper_name',
+				 -name  => $QUERY,
+				 -fill  => 1
+				 );
+    push @papers,grep {!$seen{$_}++}
+    map {
+	$_->CGC_name_for 
+	    || $_->PMID_for
+	    || $_->Medline_name_for
+	    || $_->Meeting_abstract_name
+	    || $_->WBG_abstract_name
+	    || $_->Old_WBPaper_name
+	    || $_->Other_name_for;
+    } @paper_names if @paper_names;
+    
+    # Fetch papers associated with Person, Person_name, or author objects
+    push @papers,grep { !$seen{$_}++ } $DB->find(-query=>qq{Person IS "$QUERY" ; >Paper});
+    
+    push @papers,grep { !$seen{$_}++ } $DB->find(-query=>qq{Author IS "$QUERY" ; >Paper},
+						 -fill=>1);
+    
+    my @temp = $DB->find(-query=>qq{find Person_name "$QUERY"},-fill=>1);
+    my @references = map { $_->Paper} map {$_->Full_name_of || $_->Standard_name_of 
+					       || $_->Last_name_of || $_->Other_name_of } @temp if @temp;
+    push @papers,grep { !$seen{$_}++ } @references;
+    
+    # no type given.  Try fetching as a gene
+    my @genes = FetchGene($DB,$QUERY);
+    foreach my $gene (@genes) {
+	my @references = eval { $gene->Reference };
+	push @papers,grep { !$seen{$_}++ } @references if @references;
+    }
+
+    # Or maybe even clones
+    push @papers,grep { !$seen{$_}++ } $DB->find(-query=>qq{Clone IS "$QUERY" ; >Reference},
+						 -fill=>1);
+    return @papers;
+}
+
+
+# This is completely deprecated. Hours and hours of development and testing time....
+sub FetchStrains {
+    my ($DB,$query) = @_;
+    my %seen;
+    my @strains;
+    push @strains,$DB->fetch(Strain => $query);
+    # Short circuit if we are fetching a particular strain
+    push @strains,grep {!$seen{$_}++ } $DB->fetch(-query=>qq{find Strain where Variation=$query});
+    push @strains,grep {!$seen{$_}++ } $DB->fetch(-query=>qq{find Strain where Transgene=$query});
+    push @strains,grep {!$seen{$_}++ } $DB->fetch(-query=>qq{find Strain where Genotype="$query"});
+    push @strains,grep {!$seen{$_}++ } $DB->fetch(-query=>qq{find Strain where Genotype="*$query*"});
+    
+    # Does the query look like a gene?
+    # Try a constrained search of genotype
+    my ($gene,$bestname);
+    unless (@strains) {
+	if ($query =~ /^\w{3,4}\-\d+$/) {
+	    ($gene,$bestname) = FetchGene($DB,$query);
+	    @strains = grep { !$seen{$_}++ } $DB->fetch(-query=>qq{find Strain where Gene=$gene}) if $gene;
+	} elsif (my $class = $DB->fetch(Gene_class => $query)) {
+	    # Try to guess if this is a gene class
+	    # This might be some term like "mex"
+	    @strains = 
+		grep { !$seen{$_}++ }
+	    $DB->fetch(-query=>qq{find Strain where Genotype=*$query*});
+	    # Should this also return strains that give a Mex phenotype?
+	}
+    }
+
+    my @result;
+    foreach (@strains) {
+	push (@result,[$_,$_->Genotype,$_->Remark]);
+    }	
+    return @result if @result;
+    return undef;
+
+    # Search remarks but do NOT be greedy - do not include unc-22 for unc-2 searches
+    # but DO look for expression constructs, etc    
+    # Force hits to look like our query
+    push @strains,
+    grep {!$seen{$_}++ }
+    grep { $_->Remark =~ /[p:\-\s\(]$query[\s:\-\)]/ }
+    $DB->fetch(-query=>qq{find Strain where Remark="*$query*"});
+    
+    push @strains,
+    grep {!$seen{$_}++ }
+    grep { $_->Genotype =~ /[p:\-\s\(]$query[\s:\-\)]/ }
+    $DB->fetch(-query=>qq{find Strain where Genotype=*$query*});
+
+    my @result;
+    foreach (@strains) {
+	push (@result,[$_,$_->Genotype,$_->Remark]);
+    }	
+    return @result if @result;
+    return undef;
+}
+
+
+
+=pod
+
+
+sub FetchRNAI {
+    my $c = shift;
+    my @rnai;
+    if ($c =~ /^WBRNAi/) {
+	@rnai = $DB->fetch(RNAi => $c);	
+	# History RNAi object names
+    } elsif (@rnai = $DB->fetch(-query=>qq{find RNAi where History_name="$c"})) {
+    } elsif (my $sequence = $DB->fetch(Sequence => $c)) {
+	# No rnai name.  Maybe a sequence, Locus, or Transcript 
+	if (my @g = $sequence->CDS_Child) {
+	    # This is not working
+	    return grep {$_->RNAi_result} @g;
+	} else {
+	    return $sequence->RNAi_result;
+	}
+    } elsif ( my ($gene,$bestname) = FetchGene($DB,$c)) {
+	@rnai = eval { $gene->RNAi_result } if ($gene);
+
+	# Maybe we are searching by transcript
+    } elsif ( my $sequence = $DB->fetch(CDS => $c)) {
+	@rnai = $sequence->RNAi_result;
+    }
+#    if (@rnai > 10) {
+#      AceMultipleChoices(scalar @rnai,$rnai[0]->class => \@rnai);
+#    }
+    
+    # Filter results by phenotype
+    if (my $phenotype = param('phenotype')) {
+	my @purged;
+	foreach my $rnai (@rnai) {
+	    my @phenes = $rnai->Phenotype;
+	    foreach (@phenes) {
+		next unless $_ eq $phenotype;
+		push @purged,$rnai;
+	    }
+	}
+	return @purged;
+    }
+    return @rnai;
+}
+
+
+
+sub FetchSequence {
+  my ($name,$class) = @_;
+  $name =~ s/^cel//i;  # people sometimes add the CEL prefix
+
+  # try Pseudogenes
+  my @seq = $DB->fetch('Pseudogene' => $name);
+
+  # CDSes
+  @seq = $DB->fetch('CDS' => $name) unless (@seq);
+
+  # HACK! HACK! HACK!
+  # Rearranged this heuristic for WS130.  Is it still correct?
+  # Previously, I was trying to fetch transcripts first but this was blocking retrieval
+  # of genes from the in-page prompt.
+
+  # Try transcripts first to pick up non-coding transcripts
+  @seq = $DB->fetch('Transcript' => $name) unless @seq;
+
+  # Is this a non-coding transcript?  If so, let's return
+  my $flag;
+  map {$flag++ if $_->Method eq 'non_coding_transcript'} @seq;
+  return $seq[0] if $flag;
+
+  # Genes
+  @seq = $DB->fetch('Gene' => $name) unless @seq;
+
+  # Gene-names
+  @seq = $DB->fetch('Gene_name' => $name) unless @seq;
+
+  # Proteins
+  @seq = $DB->fetch('Protein' => $name) unless @seq;
+
+  # Next, search via Sequence for clones and such
+  unless (@seq) {
+    $class = 'Sequence';
+    @seq = $DB->fetch($class => $name);
+  }
+
+  # Search via Locus
+  # NOW DEPRECATED BUT SAVE UNTIL POLYMORPHISMS CONVERTED
+  #unless (@seq) {
+  #  if (my $gene = $DB->fetch(Locus => $name)) {
+  #    # Is this right for CDS?
+  #    @seq = $gene->CDS;
+  #    unless (@seq) {
+  #	AceRedirect('gene' => $gene);
+  #	exit 0;
+  #      }
+  #    }
+  #  }
+}
+
+
+
+
+sub FetchPhenotypes {
+    # Get them all if requested
+    return $DB->fetch(-class=>'Phenotype',-name=>'*') if $name eq '*';
+        
+    # 1. Simplest case: assume a WBPhene ID
+    my @phenes = $DB->fetch(-class=>'Phenotype',-name => $name,-fill=>1) if 
+	$name =~ /WBPhen.*/;
+    
+    # 2. Try text searching the Phenotype class
+    unless (@phenes) {
+	my @obj = $DB->fetch(-class=>'Phenotype_name',-name=>$name,-fill=>1);
+	@phenes = map { $_->Primary_name_for || $_->Synonym_for || $_->Short_name_for } @obj;
+	push @phenes,$DB->fetch(-query=>qq{find Phenotype where Description=*$name*});	
+
+    }
+    
+    # 3. Perhaps we searched with one of the main classes
+    # Variation, Transgene, or RNAi
+    unless (@phenes) {
+	foreach my $class (qw/Variation Transgene RNAi GO_term/) {
+	    if (my @objects = $DB->fetch($class => $name)) {
+		# Try fetching phenotype objects from these
+		push @phenes, map { $_->Phenotype } @objects;
+	    }
+	}
+    }
+    
+    # 4. Okay, maybe user entered a gene or sequence
+    unless (@phenes) {
+	my ($gene,$bestname) = FetchGene($DB,$name);
+	if ($gene) {
+	    my (@objects,$query_class);
+
+	    # Fetch all RNAi objects that map to this gene
+	    push @objects,
+	    $DB->fetch(-query=>qq{find RNAi where Gene=$gene});
+
+	    # ...or attached to transgenes
+	    push @objects,
+	    $DB->fetch(-query=>qq{find Transgene where Driven_by_gene=$gene});
+				      
+	    # ...or perhaps even variations
+	    push @objects,
+	    $DB->fetch(-query=>qq{find Transgene where Gene=$gene});
+
+	    my %seen;
+	    @phenes = grep { !$seen{$_}++ } map { $_->Phenotype } @objects;
+	}
+    }
+    return @phenes if @phenes;
+    return '';
+}
+
+
+
+
+sub FetchAnatomyTerm {
+    if ($query =~ /^WBbt:/) {
+	@anat_terms = $db->fetch(Anatomy_term => $query);
+    } elsif (my @anat_names = $db->fetch(Anatomy_name => $query)) {
+	@anat_terms = map { $_->Name_for_anatomy_term || $_->Synonym_for_anatomy_term } @anat_names;
+    } else {
+	# Finally try generically searching the Anatomy_term class
+	# First try searching terms via an ace query, then fetching objects for each result individually
+	# There has GOT to be a better way.
+	my $clean = $query;
+	$clean =~ s/^\*//;
+	$clean =~ s/\*$//;
+	my $ace_query = 'select a,a->Term from a in class Anatomy_term where a->Term like "*' . $clean . '*"';
+	my @tmp = $db->aql($ace_query);
+	my @objs = map { $db->fetch(Anatomy_term=>$_->[0]) } @tmp;
+	
+	# do a full database grep
+	push(@objs,$db->grep(-pattern=>$query,-long=>1)) unless (@objs);
+	my %seen;
+	@anat_terms = grep {!$seen{$_}++} grep {$_->class eq 'Anatomy_term'} @objs;
+    }
+    
+    my $count   = @anat_terms;
+    my $max     = $offset+MAXOBJECTS-1;
+    $max        = $count-1 if $max > $count;
+    my @subset  = @anat_terms[$offset..$max];
+    return (\@subset,$count);
+}
+
+
+
+
+sub FetchGOTerm {
+  my $offset = shift;
+  my @results;
+  my $flag;
+  # Here, we do targetted searches based on the tags that GO_terms can be attached to.
+  # This is a bit backwards but faster than parsing all GO terms
+  if ($NAME =~ /^GO:/) {
+      # Try some targetted searches first
+      @results = $DB->fetch(GO_term => $NAME);
+      return [$results[0]] if @results == 1;
+      $flag = 'go_term' if @results;
+  }
+  
+  elsif ($CLASS =~ /Gene/i) {
+      ($GENE,$BESTNAME) = FetchGene($DB,$NAME);
+      return unless $GENE;
+      
+      # We need to fetch GO_terms from the corresponding_CDS as well as genes.
+      @results = map { $_->GO_term } $GENE->Corresponding_CDS;
+      push (@results,$GENE->GO_term);
+      $flag = 'Gene' if @results;
+  } else {
+      
+      # Try finding by gene or gene_name (assume scalar context)
+      if (my ($name) = $DB->fetch(Gene_name => $NAME)) {
+	  $GENE = $name->Public_name_for;
+      }
+      $GENE = $DB->fetch(Gene => $NAME) unless $GENE;
+      if ($GENE) {
+	  $BESTNAME = Bestname($GENE);
+	  $flag = 'Gene';
+	  # We need to fetch GO_terms from the corresponding_CDS as well as genes.
+	  @results = map { $_->GO_term } $GENE->Corresponding_CDS;
+	  push (@results,$GENE->GO_term);
+      }
+      
+      unless (@results) {
+	  my @terms = $DB->aql(qq{select a from a in class GO_term where (a->Definition like "*$NAME*") or (a->Term like "*$NAME*")});
+	  my %seen;
+	  @results = grep { !$seen{$_}++ } map {@$_} @terms;
+	  $flag = 'definition' if @results;
+      }
+      
+      unless (@results) {
+	  my @terms = $DB->aql(qq{select a from a in class Motif where a->Title like "*$NAME*"});
+	  my %seen;
+	  @results = grep {!$seen{$_}++ } map {$_->GO_term} map { @$_} @terms;
+	  $flag = 'motif' if @results;
+      }
+      
+      unless (@results) {
+	  # Fall through to a full database grep.
+	  my @objs = $DB->grep(-pattern=>$NAME);
+	  @results = grep {$_->class eq 'GO_term'} @objs;
+      }
+  }
+
+  my @filtered;
+  if (my @limit = param('limit_to')) {
+    foreach my $filter (@limit) {
+      push @filtered,grep {$_->$filter} @results;
+    }
+  }
+  @results = @filtered if @filtered;
+
+  my $count          = @results;
+  my $max            = $offset+MAXOBJECTS-1;
+  $max               = $count-1 if $max > $count;
+  my @subset         = @results[$offset..$max];
+  return (\@subset,$count,$flag);
+}
+
+
+
+sub FetchExpressionPattern {
+  my $name = shift;
+  my $ep = $DB->fetch(-class =>'Expr_pattern',
+		      -name  => $name,
+		      -fill  => 1);
+  return ([$ep],$ep) if $ep;
+
+  my ($gene,$best) = FetchGene($DB,$name);
+  return ([$gene->Expr_pattern],$gene) if $gene && $gene->Expr_pattern;
+
+  # Enable searches from other classes
+  foreach (qw(Sequence Pseudogene Protein)) {
+    my $l = $DB->fetch($_=>$name);
+    next unless $l;
+    my @CDS = eval { $l->CDS_Child };
+    @CDS = eval { $l->Transcript } unless @CDS;
+    @CDS = eval { $l->CDS } unless @CDS;
+    @CDS = eval { $l->Corresponding_CDS } unless @CDS;
+    next unless @CDS;
+    my %seen;
+    my @total = grep {!$seen{$_}++ } map { $_->Expr_pattern } grep {$_->Method eq 'curated' } @CDS;
+    return (\@total,$l);
+  }
+  return;
+}
+
+
+
+sub FetchClone {
+  my $c = shift;
+  my ($clone) = $DB->fetch(Clone => $c);
+  return $clone if $clone;
+
+  # No clone name.  Maybe a sequence?
+  # Iterate upward until we have a sequence associated
+  # with a clone.
+  my $sequence = $DB->fetch(Sequence => $c);
+  while ($sequence) {
+      my $clone = $sequence->Clone(1);
+      return $clone if $clone;
+      $sequence = $sequence->Source(1);
+  }
+
+  # Still no success.  Maybe a gene?
+  # This is a risky business.  See if there's an associated
+  # clone in the gene record.
+  my $gene = $DB->fetch(Gene => $c);
+  return unless $gene;
+  my @clones = $gene->Positive_clone;
+  return unless @clones;
+
+  AceMultipleChoices($c, 'clone' => \@clones);
+  exit 0;
+}
+
+
+
+
+sub FetchGeneRegulation {
+  my $name  = param('name');
+  return unless $name;
+  my @obj;
+  @obj = $DB->fetch(-class=>'Gene_regulation',-name=>$name);
+  unless (@obj) {
+    my %seen;
+    my @temp = grep {!$seen{$_}++ } $DB->fetch(-query=>qq/Find Gene_name "$name"; follow Public_name_for; where Gene_regulation/);
+    # Let's try sequences as well
+    push(@temp,grep {!$seen{$_}++ } $DB->fetch(-query=>qq/Find Gene_name "$name"; follow Sequence_name_for; where Gene_regulation/)) unless @temp;
+    push(@temp,grep {!$seen{$_}++ } $DB->fetch(-query=>qq/Find Gene_name "$name"; follow Molecular_name_for; where Gene_regulation/)) unless @temp;
+    @obj = map {$_->Trans_target} @temp;
+    push (@obj,map {$_->Trans_regulator} @temp);
+  }
+  return @obj;
+}
+
+=cut

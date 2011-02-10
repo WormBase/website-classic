@@ -1,0 +1,60 @@
+#!/usr/bin/perl
+
+use lib '../lib';
+use strict;
+use Ace::Browser::AceSubs;
+use CGI qw/:standard center/;
+use Seqview;
+use ElegansSubs;
+
+my $name       = param('name');       #name of the locus to search for
+my $start      = param('start');      #start position on refseq in bp
+my $stop       = param('stop');       #stop position on refseq in bp
+my $image      = param('image');      #draw an image (true) or an imagemap (false)?
+my $page       = param('page');       #draw both an image and an imagemap
+my $abs        = param('abs');        #absolute value
+my $width      = param('width') || 800;      #width of image/map
+my $est_labels  = param('est_labels');  #show EST labels
+my @features   = param('feature');    #features to display in the graphic
+my @servers    = param('server');     #servers  to display in the graphic
+
+my $DB         = OpenDatabase() || die "couldn't open database";
+$DB->class('Ace::Object::Wormbase');
+$abs = 1 unless defined $abs;
+
+my $obj = $DB->fetch(Sequence=>$name);
+unless ($obj) {
+  my $locus = $DB->fetch(Locus=>$name) or return;
+  $obj = $locus->Sequence;
+}
+
+my ($seq_obj) = MakeSeqObject($obj, $start, $stop, $abs);
+
+if ($page) {
+  make_full_page($seq_obj,$start,$stop,\@features,\@servers,{width => $width,
+							     est_labels => $est_labels || 0});
+} elsif ($image) {
+  MakeSeqImage($seq_obj, \@features, \@servers,{width => $width,est_labels => $est_labels || 0});
+} else {
+  MakeSeqImagemap($seq_obj, \@features, \@servers,{width => $width,est_labels => $est_labels || 0});
+}
+
+sub make_full_page {
+  my ($seq_obj,$start,$stop,$features,$servers,$options) = @_;
+  Delete('page'); # get rid of this parameter for self_url() call
+  my $url       = self_url();
+  $url         .= "?" unless $url =~ /\?/;
+
+  my $src       = "$url;image=1";
+  my $style     = Configuration->Style;
+
+  my $title     = "DAS display of ",$seq_obj->source;
+  $title       .= " ($start-$stop)" if $start && $stop;
+
+  print header(),
+        start_html(-title=>$title,-style=>$style);
+  my ($width,$height) =  MakeSeqImagemap($seq_obj, $features, $servers, $options);
+  print img({-src=>"$src",-border=>0,-usemap=>"#hmap",
+	     -width=>$width,-height=>$height});
+  print end_html();
+}

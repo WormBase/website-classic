@@ -1,0 +1,198 @@
+New release of WormBase WS175, Wormpep175 and Wormrna175 Fri May  4 16:29:43 BST 2007
+
+
+WS175 was built by [Anthony]
+======================================================================
+
+This directory includes:
+i)   database.WS175.*.tar.gz    -   compressed data for new release
+ii)  models.wrm.WS175           -   the latest database schema (also in above database files)
+iii) CHROMOSOMES/subdir         -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)  WS175-WS174.dbcomp         -   log file reporting difference from last release
+v)   wormpep175.tar.gz          -   full Wormpep distribution corresponding to WS175
+vi)   wormrna175.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)  confirmed_genes.WS175.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+viii) cDNA2orf.WS175.gz           -   Latest set of ORF connections to each cDNA (EST, OST, mRNA)
+ix)   gene_interpolated_map_positions.WS175.gz    - Interpolated map positions for each coding/RNA gene
+x)    clone_interpolated_map_positions.WS175.gz   - Interpolated map positions for each clone
+xi)   best_blastp_hits.WS175.gz  - for each C. elegans WormPep protein, lists Best blastp match to
+                            human, fly, yeast, C. briggsae, and SwissProt & TrEMBL proteins.
+xii)  best_blastp_hits_brigprot.WS175.gz   - for each C. briggsae protein, lists Best blastp match to
+                                     human, fly, yeast, C. elegans, and SwissProt & TrEMBL proteins.
+xiii) geneIDs.WS175.gz   - list of all current gene identifiers with CGC & molecular names (when known)
+xiv)  PCR_product2gene.WS175.gz   - Mappings between PCR products and overlapping Genes
+
+
+Release notes on the web:
+-------------------------
+http://www.wormbase.org/wiki/index.php/Release_notes
+
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS175       	WS174      	change
+----------------------------------------------
+a    	32365889	32365889	  +0
+c    	17779856	17779856	  +0
+g    	17756016	17756016	  +0
+t    	32365689	32365689	  +0
+n    	0       	0       	  +0
+
+Total	100267450	100267450	  +0
+
+
+Chromosomal Changes:
+--------------------
+There are no changes to the chromosome sequences in this release.
+
+
+Gene data set (Live C.elegans genes 24085)
+------------------------------------------
+Molecular_info              22393 (93%)
+Concise_description          4579 (19%)
+Reference                    7004 (29.1%)
+CGC_approved Gene name       9177 (38.1%)
+RNAi_result                 19871 (82.5%)
+Microarray_results          19149 (79.5%)
+SAGE_transcript             20043 (83.2%)
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 20115 CDS in autoace, 23273 when counting 3158 alternate splice forms.
+
+The 23273 sequences contain 10,219,495 base pairs in total.
+
+Modified entries              42
+Deleted entries                8
+New entries                   21
+Reappeared entries             2
+
+Net change  +15
+
+
+
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              7866 (33.8%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed   10792 (46.4%)	Some, but not all exon bases are covered by transcript evidence
+Predicted              4615 (19.8%)	No transcriptional evidence at all
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+UniProtKB/Swiss-Prot accessions   3496 (15.0%)
+UniProtKB/TrEMBL accessions     19225 (82.6%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            22694 (97.5%)
+
+
+
+Gene <-> CDS,Transcript,Pseudogene connections (cgc-approved)
+---------------------------------------------
+Entries with CGC-approved Gene name   7537
+
+
+GeneModel correction progress WS174 -> WS175
+-----------------------------------------
+Confirmed introns not in a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|    173  |   -13  |
+St Louis 	|    212  |    -3  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Repeats | Change |
+		+---------+--------+
+Cambridge	|      6  |     0  |
+St Louis 	|      6  |     0  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+No synchronisation issues
+
+
+There are no gaps remaining in the genome sequence
+---------------
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+
+New Data:
+---------
+Database cross references to miRBase have been added to 131 genes. 
+
+Genome sequence updates:
+-----------------------
+
+
+New Fixes:
+----------
+
+
+Known Problems:
+---------------
+
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+-------------------------------------
+
+
+Model Changes:
+------------------------------------
+Added tags to ?Person and ?Paper to enable recording of negative connections ie Mr X did NOT contribue to this paper.
+
+Added Map_evidence to ?Transgene so that the paper that mapping data is taken from can be attributed
+
+Added a tags to ?Expr_pattern and  ?Expression_cluster to handle Localizome data
+
+Changes in the ?Interaction model as proposed by Andrei.  Added #Interactor_info and #Interaction_info
+
+Directed_Y1H in YH class
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

@@ -1,0 +1,238 @@
+<!--
+Author: Payan Canaran <canaran@cshl.edu>
+Template for blast_blat page: search_form 
+Copyright@2006 Cold Spring Harbor Laboratory
+$Id: search_form.html,v 1.3 2010-08-23 17:46:23 norie Exp $
+-->
+
+<head>
+    <script type="text/javascript" src="/js/wormbase.js"></script>
+    <link rel="stylesheet" type="text/css" href="/blast_blat/blast_pages.css" />
+</head>
+
+[% header %]
+
+<form method="POST">
+
+<div class="form_container">
+
+<h1>BLAST/BLAT SEARCH</h1>
+
+<!--
+<div class="warning">BLAST/BLAT services at WormBase are currently unavailable.  We hope to have services restored by 9AM ET, 11 December 2008.  We apologize for any inconvenience.</div>
+-->
+
+<div class="spacer">
+    &nbsp;
+</div>    
+
+<div class="small_container">
+    <font class="bold">1) Enter Your Query Sequence:</font> 
+    <p/>
+    <img id="sample_nucleotide" src="/blast_blat/sample_nucleotide.png"></img>
+    <img id="sample_peptide" src="/blast_blat/sample_peptide.png"></img>
+    <br/>
+    <textarea id="query_sequence" name="query_sequence" rows="12" cols="80">[% query_sequence %]</textarea>
+    <br/>
+    <font class="bold">Query Type:</font>
+    <input type="radio" [% check_query_type_nucl %] id="query_type_nucl" name="query_type" value="nucl">Nucleotide</input>
+    <input type="radio" [% check_query_type_prot %] id="query_type_prot" name="query_type" value="prot">Protein</input>
+</div>
+
+<div class="small_container">
+    <font class="bold">2) Select an application (BLAST or BLAT) and parameters:</font> 
+    <p/>
+    <input type="radio" checked="checked" id="search_type_blast" name="search_type" value="blast"><font class="bold">BLAST</font></input>
+
+    <select id="blast_app" name="blast_app">
+        <option [% selected_blastn %] value="blastn"  query="nucl" db="nucl">blastn &nbsp;(nucleotide query vs. nucleotide database)</option>
+        <option [% selected_blastp %] value="blastp"  query="prot" db="prot">blastp &nbsp;(protein query&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;vs. protein database)</option>
+        <option value="blastx"  query="nucl" db="prot">blastx &nbsp;(nucleotide query vs. protein database)</option>
+        <option value="tblastn" query="prot" db="nucl">tblastn (protein query&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;vs. nucleotide database)</option>
+    </select>
+
+    <p/>
+
+    <div class="indent_one">
+    <font class="italic">E-value Threshold:</font>
+    <select name="blast_e_value">
+        <option value="1E-32"            >1E-32</option>
+        <option value="1E-16"            >1E-16</option>
+        <option value="1E-8"             >1E-8</option>
+        <option value="1E-4"             >1E-4</option>
+        <option value="1E-2"             >1E-2</option>
+        <option value="1E+0" selected="1">1E+0</option>
+        <option value="1E+1"             >1E+1</option>
+        <option value="1E+2"             >1E+2</option>
+        <option value="1E+4"             >1E+4</option>
+    </select>
+    </div>
+
+    <p/>
+        
+    <div class="indent_one italic">
+        <input type="checkbox" checked="1" name="process_query"> </input>
+        <select name="process_query_type">
+            <option value="filter">Filter</option>
+<!--            <option value="mask">Mask</option> -->
+        </select>
+<!--
+        by
+        <select id="process_query_param" name="process_query_param">
+            <option value="dust"       query="nucl">dust (nucleotide query)</option>
+            <option value="seg"        query="all" >seg (nucleotide or protein query)</option>
+            <option value="xnu"        query="prot">xnu (protein query)</option>
+            <option value="lower-case" query="all" >lower-case (nucleotide or protein query)</option>
+        </select>
+-->
+    </div>
+        
+    <p/>
+        
+    <input type="radio" id="search_type_blat" name="search_type" value="blat"><font class="bold">BLAT</font></input>
+
+    <p/>
+
+    <font class="bold">3) Select a database:</font>
+    <select id="database" name="database">
+        <option [% selected_elegans_genome %]  value="elegans_genome"  query-app="nucl:blastn prot:tblastn">C. elegans ([% wormbase_version %]) genome [BLAST]</option>
+        <option [% selected_elegans_protein %] value="elegans_protein" query-app="prot:blastp nucl:blastx" >C. elegans ([% wormbase_version %]) proteins [BLAST]</option>
+        <option value="elegans_gene"                query-app="nucl:blastn prot:tblastn">C. elegans ([% wormbase_version %]) genes [BLAST]</option>
+        <option value="elegans_est"                 query-app="nucl:blastn prot:tblastn">C. elegans ([% wormbase_version %]) ESTs [BLAST]</option>
+        <option value="elegans_genome"              query-app="nucl:blat">C. elegans ([% wormbase_version %]) genome [BLAT]</option>
+        
+        <!--
+        <option value="malayi_genome"  query-app="nucl:blastn prot:tblastn">B. malayi (assembly Bma1) genome [BLAST]</option>
+        <option value="malayi_protein" query-app="prot:blastp nucl:blastx" >B. malayi (assembly Bma1) proteins [BLAST]</option>
+        -->
+        
+        <option value="malayi_protein" query-app="prot:blastp nucl:blastx">B. malayi ([% wormbase_version %]) proteins [BLAST]</option>
+        <option value="malayi_genome"  query-app="nucl:blastn ">B. malayi ([% wormbase_version %]) genome [BLAST]</option>
+        <!--
+        <option value="malayi_genome"  query-app="nucl:blat">B. malayi ([% wormbase_version %]) genome [BLAT]</option>
+		-->
+        <option value="brenneri_genome"  query-app="nucl:blastn prot:tblastn">C. brenneri ([% wormbase_version %]) genome [BLAST]</option>
+        <option value="brenneri_protein" query-app="prot:blastp nucl:blastx">C. brenneri ([% wormbase_version %]) proteins [BLAST]</option>
+        <!--
+        <option value="brenneri_genome"  query-app="nucl:blat">C. brenneri (2007-01 draft assembly) genome [BLAT]</option>
+		-->
+		
+        <option value="briggsae_genome"  query-app="nucl:blastn prot:tblastn">C. briggsae ([% wormbase_version %]) genome [BLAST]</option>
+        <option value="briggsae_protein" query-app="prot:blastp nucl:blastx">C. briggsae ([% wormbase_version %]) proteins [BLAST]</option>
+        <option value="briggsae_gene"    query-app="nucl:blastn prot:tblastn">C. briggsae ([% wormbase_version %]) genes [BLAST]</option>
+        <option value="briggsae_genome"  query-app="nucl:blat">C. briggsae ([% wormbase_version %]) genome [BLAT]</option>
+
+        <option value="japonica_genome" query-app="nucl:blastn prot:tblastn">C. japonica genome [BLAST]</option>
+       	<option value="japonica_protein" query-app="prot:blastp nucl:blastx">C. japonica ([% wormbase_version %]) proteins [BLAST]</option>
+       
+       	<!--
+        <option value="japonica_genome"  query-app="nucl:blat">C. japonica  genome [BLAT]</option>
+        -->
+     	<!--<option value="japonica_protein" query-app="prot:blastp nucl:blastx" >C. japonica ([% wormbase_version %]) proteins [BLAST]</option>    -->
+
+        <option value="remanei_genome"  query-app="nucl:blastn prot:tblastn">C. remanei ([% wormbase_version %]) genome [BLAST]</option>
+        <option value="remanei_protein" query-app="prot:blastp nucl:blastx">C. remanei ([% wormbase_version %]) proteins [BLAST]</option>
+		<!--
+        <option value="remanei_gene"    query-app="nucl:blastn prot:tblastn">C. remanei ([% wormbase_version %]) genes [BLAST]</option>
+        <option value="remanei_genome"  query-app="nucl:blat">C. remanei ([% wormbase_version %]) genome [BLAT]</option>
+		-->
+        <option value="hapla_genome"  query-app="nucl:blastn prot:tblastn">M. hapla ([% wormbase_version %]) genome [BLAST]</option>
+        
+        <!--
+        <option value="hapla_protein" query-app="prot:blastp nucl:blastx">C. japonica ([% wormbase_version %]) proteins [BLAST]</option>
+        -->
+       <!-- <option value="hapla_genome"  query-app="nucl:blat">M. hapla ([% wormbase_version %]) genome [BLAT]</option> -->
+
+		<option value="incognita_genome"  query-app="nucl:blastn">M. incognita ([% wormbase_version %]) genome [BLAST]</option>
+        <!-- <option value="incognita_genome"  query-app="nucl:blat">M. incognita ([% wormbase_version %]) genome [BLAT]</option> -->
+
+		<option value="pacificus_genome"  query-app="nucl:blastn prot:tblastn">P. pacificus ([% wormbase_version %]) genome [BLAST]</option>
+		
+        <!-- <option value="pacificus_genome"  query-app="nucl:blat">P. pacificus ([% wormbase_version %]) genome [BLAT]</option> -->
+
+		<option value="pacificus_protein" query-app="prot:blastp nucl:blastx">P. pacificus ([% wormbase_version %]) proteins [BLAST]</option>
+
+		<option value="contortus_genome"  query-app="nucl:blastn prot:tblastn">H. contortus ([% wormbase_version %]) genome [BLAST]</option>
+
+		<option value="c_angaria_genome"  query-app="nucl:blastn prot:tblastn">C. angaria ([% wormbase_version %]) genome [BLAST]</option>
+        <option  value="c_angaria_protein" query-app="prot:blastp nucl:blastx" >C. angaria ([% wormbase_version %]) proteins [BLAST]</option>
+
+
+
+        <option value="elegans_genome_WS190"        query-app="nucl:blastn prot:tblastn" >C. elegans (WS190; 6/2008) genome [BLAST]</option>
+        <option value="elegans_protein_WS190"       query-app="prot:blastp nucl:blastx" >C. elegans (WS190; 6/2008) proteins [BLAST]</option>
+
+        <option value="elegans_genome_WS180"        query-app="nucl:blastn prot:tblastn" >C. elegans (WS180; 9/2007) genome [BLAST]</option>
+        <option value="elegans_protein_WS180"       query-app="prot:blastp nucl:blastx" >C. elegans (WS180; 9/2007) proteins [BLAST]</option>
+
+        <option value="elegans_genome_WS170"        query-app="nucl:blastn prot:tblastn" >C. elegans (WS170; 2/2007) genome [BLAST]</option>
+        <option value="elegans_protein_WS170"       query-app="prot:blastp nucl:blastx" >C. elegans (WS170; 2/2007) proteins [BLAST]</option>
+
+        <option value="elegans_genome_WS160"        query-app="nucl:blastn prot:tblastn" >C. elegans (WS160; 7/2006) genome [BLAST]</option>
+        <option value="elegans_protein_WS160"       query-app="prot:blastp nucl:blastx" >C. elegans (WS160; 7/2006) proteins [BLAST]</option>
+
+        <option value="elegans_genome_WS150"        query-app="nucl:blastn prot:tblastn" >C. elegans (WS150; 11/2005) genome [BLAST]</option>
+        <option value="elegans_protein_WS150"       query-app="prot:blastp nucl:blastx" >C. elegans (WS150; 11/2005) proteins [BLAST]</option>
+
+        <option value="elegans_genome_WS140"        query-app="nucl:blastn prot:tblastn" >C. elegans (WS140; 3/2005) genome [BLAST]</option>
+        <option value="elegans_protein_WS140"       query-app="prot:blastp nucl:blastx" >C. elegans (WS140; 3/2005) proteins [BLAST]</option>
+
+        <option value="elegans_genome_WS130"        query-app="nucl:blastn prot:tblastn" >C. elegans (WS130; 8/2004) genome [BLAST]</option>
+        <option value="elegans_protein_WS130"       query-app="prot:blastp nucl:blastx" >C. elegans (WS130; 8/2004) proteins [BLAST]</option>
+
+        <option value="elegans_genome_WS120"        query-app="nucl:blastn prot:tblastn" >C. elegans (WS120; 3/2004) genome [BLAST]</option>
+        <option value="elegans_protein_WS120"       query-app="prot:blastp nucl:blastx" >C. elegans (WS120; 3/2004) proteins [BLAST]</option>
+
+        <option value="elegans_genome_WS110"        query-app="nucl:blastn prot:tblastn" >C. elegans (WS110; 10/2003) genome [BLAST]</option>
+        <option value="elegans_protein_WS110"       query-app="prot:blastp nucl:blastx" >C. elegans (WS110; 10/2003) proteins [BLAST]</option>
+
+        <option value="elegans_genome_WS100"        query-app="nucl:blastn prot:tblastn" >C. elegans (WS100; 5/2003) genome [BLAST]</option>
+        <option value="elegans_protein_WS100"       query-app="prot:blastp nucl:blastx" >C. elegans (WS100; 5/2003) proteins [BLAST]</option>
+
+    </select>
+
+    <div id="message" class="message">
+        &nbsp;
+    </div>
+    <div id="message2" class="message">
+        &nbsp;
+    </div>
+
+    <p/>
+
+
+    <div class="to_right">    
+    <input type="submit" name="submit" value="Submit"/>
+    <input type="reset" id="reset" name="reset" value="Reset"/>
+    </div>
+   
+</div>
+
+
+<div class="spacer">
+    &nbsp;
+</div>    
+
+<div class="to_right">
+Documentation
+<hr>
+<a href="/blast_blat/about_blat.html" target="_blank">About the BLAT algorithm</a>.
+</div>
+
+
+
+</div>
+
+</form>
+
+<!--
+<div id="status">
+    Debug
+</div>    
+-->
+
+<script src="/blast_blat/search_form.js"></script>
+
+
+
+[% footer %]

@@ -1,0 +1,311 @@
+New release of WormBase WS164, Wormpep164 and Wormrna164 Wed Sep  6 13:39:15 BST 2006
+
+
+WS164 was built by Gary Williams
+======================================================================
+
+This directory includes:
+i)   database.WS164.*.tar.gz    -   compressed data for new release
+ii)  models.wrm.WS164           -   the latest database schema (also in above database files)
+iii) CHROMOSOMES/subdir         -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)  WS164-WS163.dbcomp         -   log file reporting difference from last release
+v)   wormpep164.tar.gz          -   full Wormpep distribution corresponding to WS164
+vi)   wormrna164.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)  confirmed_genes.WS164.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+viii) cDNA2orf.WS164.gz           -   Latest set of ORF connections to each cDNA (EST, OST, mRNA)
+ix)   gene_interpolated_map_positions.WS164.gz    - Interpolated map positions for each coding/RNA gene
+x)    clone_interpolated_map_positions.WS164.gz   - Interpolated map positions for each clone
+xi)   best_blastp_hits.WS164.gz  - for each C. elegans WormPep protein, lists Best blastp match to
+                            human, fly, yeast, C. briggsae, and SwissProt & TrEMBL proteins.
+xii)  best_blastp_hits_brigprot.WS164.gz   - for each C. briggsae protein, lists Best blastp match to
+                                     human, fly, yeast, C. elegans, and SwissProt & TrEMBL proteins.
+xiii) geneIDs.WS164.gz   - list of all current gene identifiers with CGC & molecular names (when known)
+xiv)  PCR_product2gene.WS164.gz   - Mappings between PCR products and overlapping Genes
+
+
+Release notes on the web:
+-------------------------
+http://www.wormbase.org/wiki/index.php/Release_notes
+
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS164       	WS163      	change
+----------------------------------------------
+a    	32365888	32365888	  +0
+c    	17779857	17779857	  +0
+g    	17756012	17756012	  +0
+t    	32365687	32365687	  +0
+n    	0       	0       	  +0
+
+Total	100267444	100267444	  +0
+
+
+Chromosomal Changes:
+--------------------
+There are no changes to the chromosome sequences in this release.
+
+
+Gene data set (Live C.elegans genes 23787)
+------------------------------------------
+Molecular_info              22066 (92.8%)
+Concise_description          4255 (17.9%)
+Reference                    6323 (26.6%)
+CGC_approved Gene name       8851 (37.2%)
+RNAi_result                 19804 (83.3%)
+Microarray_results          19123 (80.4%)
+SAGE_transcript             19738 (83%)
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 20073 CDS in autoace, 23180 when counting 3107 alternate splice forms.
+
+The 23180 sequences contain 10,177,179 base pairs in total.
+
+Modified entries               7
+Deleted entries               13
+New entries                   28
+Reappeared entries             1
+
+Net change  +16
+
+
+
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              7791 (33.6%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed   10753 (46.4%)	Some, but not all exon bases are covered by transcript evidence
+Predicted              4636 (20.0%)	No transcriptional evidence at all
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+UniProtKB/Swiss-Prot accessions   3270 (14.1%)
+UniProtKB/TrEMBL accessions     19550 (84.3%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            22820 (98.4%)
+
+
+
+Gene <-> CDS,Transcript,Pseudogene connections (cgc-approved)
+---------------------------------------------
+Entries with CGC-approved Gene name   7185
+
+
+GeneModel correction progress WS163 -> WS164
+-----------------------------------------
+Confirmed introns not in a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|     19  |     2  |
+St Louis 	|     10  |     0  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Repeats | Change |
+		+---------+--------+
+Cambridge	|      6  |     0  |
+St Louis 	|      6  |     0  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+No synchronisation issues
+
+
+There are no gaps remaining in the genome sequence
+---------------
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+
+New Data:
+---------
+
+Mass spectrometry peptide data
+
+ Mass spectrometry peptide data from Lukas Reiter at Michael
+ Hengartner's laboratory in the University of Zürich has been added to
+ this release.  Proteins from various fractions of C.elegans
+ preparations and from various stages of the life cycle have been
+ fragmented and the molecular weights of the fragments have then been
+ used to deduce the sequence of the fragments by comparing to a
+ database of C. elegans protein sequences using the package Sequest.
+
+ The results were statistically verified with PeptideProphet and
+ ProteinProphet (these are tools developed in the group of R.
+ Aebersold who is working at the ETH in Zürich)
+
+ The peptides were mapped to the genome using the known positions of
+ the peptides in the proteins and the known positions of the proteins'
+ genes on the genome.
+
+ About 7,500 C. elegans genes have one or more mass spectrometry
+ peptides mapped to them.
+
+ This data gives confirmatory evidence of many exons and (where they
+ span splice sites) some introns. It gives data on the stage of the
+ life cycle and location in the organism that proteins are expressed.
+
+     
+COMPARA data
+
+ New EnsEMBL COMPARA based predictions are included in WS164 and
+ replace the older orthologue predictions. As the EnsEMBL COMPARA is
+ now included in the regular Wormbase pipeline the predictions will be
+ updated during each following build.
+
+ The COMPARA orthologue prediction algorithm uses a combination of
+ bidirectional best hits and conserved gene order to determine
+ orthologueous genes and is available as part of the EnsEMBL codebase.
+
+ A dump (mySQL) of the EnsEMBL databases used for the predictions is
+ available from the Sanger ftp-site.
+
+ data file: <ftp.sanger.ac.uk/pub2/wormbase/data/compara_164.tar.bz2>
+ check-sum: <ftp.sanger.ac.uk/pub2/wormbase/data/compara_164.md5>
+
+ The homologous genes represent the best reciprocal BLAST hits for the
+ two species with additional pairs obtained by a combination of BLAST
+ and location information for more closely related species. These
+ homologues may therefore potentially represent orthologues. The
+ Compara gene orthology predictions pipeline works at the protein
+ sequence level and involves:
+
+ We only analyze protein-coding genes, skipping all pseudogene
+ predictions and non-coding RNA gene types. Due to alternate splicing
+ of exons, one gene can produce multiple transcripts and hence
+ multiple translations. In order to provide orthology at the gene
+ level, one protein sequence must be assigned to the gene. The Ensembl
+ compara pipeline picks the longest translation. This set of longest
+ gene translations is now the proteome for each genome, which is
+ analyzed.
+
+ For each genome, the set of longest gene translations are dumped into
+ FASTA files to be used as blastp databases. We use the Washington
+ University version 2.0 of BLASTP with the following command line
+ options: -filter none -span1 -postsw -V=20 -B=20 -sort_by_highscore -
+ warnings -cpus 1. The -postsw option will perform full Smith-Waterman
+ alignment of sequences and re-rank the database matches accordingly
+ prior to output. We run BLASTP with only one query sequence per job
+ resulting in a large number of BLASTP jobs managed by a processing
+ system based on autonomous workers the Ensembl hive. The BLASTP
+ output is then post-filtered so that only hits with an expectation
+ (E)-value less than 1e-10 are stored in the compara database.
+
+ The orthologue prediction algorithm is based on the concept of Best
+ Reciprocal Hits. The analysis is done on a genome pair basis, for
+ example a search for human - mouse orthologues.  Each gene's longest
+ translation will likely hit the target genome in multiple locations.
+ The 'best' hit is the one with the highest BLASTP score, followed by
+ lowest E-value, followed by highest percent identity, followed by
+ highest percent positivity. Since the 'best' is a simple sort, the
+ score takes precedence over the other measures. Due to gene
+ duplications, although rare, a query translation may align with
+ identical score, E-value, percent identity, and percent positivity to
+ more than one target translation. This can then result in 'ties' for
+ the best position.
+
+ For closely related species (i.e. Caenorhabditae), where some gene
+ order conservation is expected, we identify additional orthologous
+ pairs obtained by a combination of reciprocal BLAST and location
+ information. This results in a reciprocal pair, where one direction
+ is the best hit, but the reverse hit is less than best. To classify
+ as orthologue the pair must also maintain synteny (conserved gene
+ order) within 1.5 MB of another orthologue pair.
+
+
+ncRNA data
+
+ Included in this and subsequent WormBase releases is a set of 3672
+ predicted ncRNA genes that are viewable through the genome browser
+ <http://wormbase.sanger.ac.uk/db/seq/gbrowse/wormbase/>
+
+ This set of genes was predicted using the RNAz programme
+ <http://www.tbi.univie.ac.at/~wash/RNAz/> and published by K. Missal
+ et al. J Exp Zoolog B Mol Dev Evol. 2006 Jul 15;306(4):379-92.
+ <http://wormbase.sanger.ac.uk/db/misc/paper?name=WBPaper00027050;class=Paper>
+ The objects are not stored in the ACeDB release of the database but
+ this is a large set of predictions that overlaps with the WormBase
+ curated ncRNA gene set.
+
+
+Genome sequence updates:
+-----------------------
+
+None.
+
+
+New Fixes:
+----------
+
+None.
+
+
+Known Problems:
+---------------
+
+None.
+
+
+Other Changes:
+--------------
+
+The phenotypic term "No_abnormality_scored," has been made obsolete
+effective as of this release (WS164).  Instead, "Abnormal" will be
+used with the "Not" qualifier instead of "No_abnormality_scored."
+"Abnormal" will then be the root term for the entire phenotype
+ontology.
+
+Proposed Changes / Forthcoming Data:
+-------------------------------------
+
+
+Model Changes:
+------------------------------------
+
+    Changed ?Paper.Reference.Year to DateType rather than Int
+    Existing data that is year as Int (eg 2006) will still be valid 
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

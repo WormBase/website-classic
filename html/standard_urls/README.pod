@@ -1,0 +1,286 @@
+#!/usr/bin/perl
+
+=pod
+
+=head1 GMOD Standard URLs
+
+=head1 Description
+
+The files in this directory provide a foundation for supporting the
+standard URL specification for common datasets established by the
+Generic Model Organism Database Consortium.  A description of the
+specification follows at the end of this document.
+
+Included are a simple XML template that should be populated with
+information about your MOD, data releases, and URLs supported, a DTD
+for verifying that your XML document is well-formed, a number of XSL
+stylesheets for making the document available via HTTP, and a Perl
+script for dynamically translating documents.
+
+=head1 Prerequisites
+
+=over 4
+
+=item 1. Sablotron - XML toolkit - for processing XSLT on the fly.
+
+  http://www.gingerall.cz/charlie/ga/xml/p_sab.xml
+
+  (Build Sablotron with ./configure --enable-perlconnect)
+
+=item 2. Expat - XML parser, v1.95.8 or higher
+
+  http://sourceforge.net/projects/expat
+
+=item 3. XML::Sablotron, v0.93 or higher (via CPAN)
+
+=item 4. XML::Simple, v2.1.4 or higher (via CPAN)
+
+=back
+
+=head1 Description of components
+
+=over 4
+
+=item standard_urls.template.xml
+
+This template file adheres to the standard URLs DTD. It contains all
+entries necessary to support the standard URLs specification. See
+"standard_urls.wormbase.xml" for an example.
+
+=item dtd/standard_urls.dtd
+
+The DTD for standard_urls.xml. This file is currently available at
+http://www.wormbase.org/standard_urls/dtd/standard_urls.dtd for
+verifying your document.
+
+=item xsl/
+
+This directory contains a number of stylesheets for formatting
+standard_urls.xml
+
+=over 4
+
+=item species_index.xsl
+
+This stylesheet handles requests to /genome, transforming
+standard_urls.xml into an HTML page that displays available species.
+
+=item species_detail.xsl
+
+This stylesheet handles requests to /genome/Binomial_name,
+transforming standard_urls.xml into an HTML page listing all releases
+available for the current species.
+
+=item release_details.xsl
+
+This stylesheet handles requests to /genome/Binomial?name/release,
+transforming standard_urls.xml into an HTML page listing links to all
+datasets available for the current release.
+
+The remaining files in xsl/ provide boilerplate formatting.
+
+=back
+
+=item perl/standard_urls.pl
+
+A simple Perl script for dynamically selecting the appropriate XSLT to
+display index pages or dump script if a terminal URL (ie */dna) has
+been requested. (Requires configuration).
+
+=item perl/BuildFilename.pm
+
+A Perl package that constructs filenames dynamically based on name
+templates.  This must be customized to fit the layout of your system.
+
+=back
+
+=head1 Installation and configuration
+
+=over 4
+
+=item 1. Copy this entire directory to a path under your website document root
+
+    YOUR_DOCUMENT_ROOT/standard_urls
+
+=item 2. Edit standard_urls.template.xml
+
+Populate this file with the appropriate data for your MOD. The
+location of the actual files on your filesystem is specified elsewhere
+(for now).  When finished, rename the file standard_urls.xml.  See
+standard_urls.wormbase.xml for an example.
+
+The DTD for the common URL XML file you must create can be found at
+
+     http://www.wormbase.org/standard_urls/dtd/standard_urls.dtd
+
+=item 3. Edit standard_urls.pl
+
+This script requires a single edit: modify INSTALL_ROOT to point to
+the full path where the standard_urls directory resides under your
+webserver.
+
+use constant INSTALL_ROOT => '/usr/local/wormbase/html/standard_urls';
+
+=item 4. Edit BuildFilename.pm
+
+This package constructs filenames dynamically using printf
+templates. These files will be retrieved when requested by one of the
+common URLs.
+
+=item 5. Copy the standard_urls.pl script to a cgi directory on your server (if necessary).
+
+=item 6. httpd.conf
+
+Add the following apache configuration:
+
+ <Location /genome>
+      SetHandler None
+      ForceType  application/x-genome-dumper
+      Action application/x-genome-dumper /cgi-bin/standard_urls.pl
+ </Location>
+
+This will direct all requests for /genome to the standard_urls.pl script
+
+=back
+
+=head1 Appendix 1: The standard URL DTD
+
+ <!ELEMENT gmod_standard_urls (mod,species+) >
+ <!ELEMENT mod (name,description,primary_species,mod_url,supported_datasets,admin_contact) >
+ <!ELEMENT name (#PCDATA) >
+ <!ELEMENT description (#PCDATA) >
+ <!ELEMENT primary_species (#PCDATA) >
+ <!ELEMENT mod_url (#PCDATA)>
+ <!ELEMENT admin_contact (#PCDATA) >
+ <!-- which datasets does the MOD support? -->
+ <!-- all are optional; leaving any out will prevent a link from being displayed -->
+ <!ELEMENT supported_datasets (dna?,mrna?,ncrna?,protein?,feature?) >
+ <!ELEMENT dna (#PCDATA) >
+ <!ELEMENT mrna (#PCDATA) >
+ <!ELEMENT ncrna (#PCDATA) >
+ <!ELEMENT protein (#PCDATA) >
+ <!ELEMENT feature (#PCDATA) >
+ <!-- Each available species -->
+ <!ELEMENT species (binomial_name, short_name, species_description, releases)>
+ <!ELEMENT binomial_name (#PCDATA) >
+ <!ELEMENT short_name (#PCDATA) >
+ <!ELEMENT species_description (#PCDATA) >
+ <!ELEMENT releases (release+) >
+ <!-- Each release -->
+ <!ELEMENT release (version,release_date?,available,notes?) >
+ <!ELEMENT version (#PCDATA) >
+ <!ELEMENT release_date (#PCDATA) >
+ <!-- Is the dataset still available?  Set this to "no" if not -->
+ <!ELEMENT available (#PCDATA) >
+ <!ELEMENT notes (#PCDATA) >
+
+=head1 Appendix 2: The Standard URL Specification
+
+-------------
+PHASE I
+-------------
+
+Substitutions:
+
+	your.site	Host address, e.g. www.wormbase.org
+	Binomial_name	NCBI Taxonomy scientific name, e.g.
+			Caenorhabditis_elegans
+        release_name    Data release, in whatever is the local
+			format (e.g. release date, release number)
+
+=over 4
+
+=item http://your.site/genome/
+
+Leads to index page for species. This should be an HTML-format page
+that contains links to each of the species whose genomes are available
+for download.
+
+=item http://your.site/genome/Binomial_name/
+
+Leads to index for releases for species Binomial_name. This will be an
+HTML-format page containing links to each of the genome releases.
+
+=item http://your.site/genome/Binomial_name/release_name/ 
+
+Leads to index for the named release.  It should be an HTML-format
+page containing links to each of the data sets described below.
+
+=item http://your.site/genome/Binomial_name/current/
+
+Leads to the index for the most recent release, symbolic link style.
+
+=item http://your.site/genome/Binomial_name/current/dna
+
+Returns a FASTA file containing big DNA fragments
+(e.g. chromosomes). MIME type is application/x-fasta.
+
+=item http://your.site/genome/Binomial_name/current/mrna
+
+Returns a FASTA file containing spliced mRNA transcript
+sequences. MIME type is application/x-fasta.
+
+=item http://your.site/genome/Binomial_name/current/ncrna
+
+Returns a FASTA file containing non-coding RNA sequences. MIME type is
+application/x-fasta.
+
+=item http://your.site/genome/Binomial_name/current/protein
+
+Returns a FASTA file containing all the protein sequences known to be
+encoded by the genome. MIME type is application/x-fasta
+
+=item http://your.site/genome/Binomial_name/current/feature
+
+Returns a GFF3 file describing genome annotations. MIME type is
+application/x-gff3.
+
+=back
+
+ ----------------
+ PHASE II
+ ----------------
+
+In the phase 2 URL scheme, we'll be able to attach ?format=XXXX to
+each of the URLs:
+
+=item http://your.site/genome/?format=HTML
+
+    Same as default for phase I.
+
+=item http://your.site/genome/?format=RSS
+
+Return RSS feed indicating what species are available.
+
+=item http://your.site/genome/Binomial_name/?format=RSS
+	
+Return RSS feed indicating what releases are available.
+
+=item http://your.site/genome/Binomial_name/release_name/?format=RSS
+	
+Return RSS feed indicating what data sets are available.
+
+=item http://your.site/genome/Binomial_name/current/protein?format=XXX
+        
+Alternative formats for sequence data.  E.g. XXX could be FASTA, RAW,
+or whatever (for further discussion).
+
+=head1 BUGS
+
+None reported.
+
+=head1 SEE ALSO
+
+L<Bio::GMOD>
+
+=head1 AUTHOR
+
+Todd W. Harris E<lt>harris@cshl.eduE<gt>.
+
+Copyright (c) 2003-2005 Cold Spring Harbor Laboratory.
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
+

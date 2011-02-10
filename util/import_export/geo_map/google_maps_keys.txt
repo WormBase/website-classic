@@ -1,0 +1,12 @@
+Google Maps Keys for WormBase:
+-----------------------------
+
+URL: http://www.wormbase.org/
+Key: ABQIAAAAGB-Wqdj00NegDlW0aNTPQRSNr8ukVvjIDMY_zEiM33L5E7jd-xRvKnqsM8C58Fw0T5-NanarRi5ARA
+
+URL: http://gene.wormbase.org:8080/
+Key: ABQIAAAAGB-Wqdj00NegDlW0aNTPQRTF3mcY3uI7xc8-lmkRRO_XSI36txRuHZoIwT9-OvJNVDaQc85iiI4nrQ
+
+URL: http://dev.wormbase.org/
+Key: ABQIAAAAGB-Wqdj00NegDlW0aNTPQRT0kmb1hGpfTs2MOyy1b828YonADhTYLcGFlWLAmh79UVtQaartAy14gg
+

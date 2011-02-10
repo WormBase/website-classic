@@ -1,0 +1,192 @@
+New release of acedb WS76, Wormpep76, and WormRNA76 28/03/2002
+==============================================================
+
+This directory includes:
+
+
+i)   database.WS76.*.tar.gz   - the compressed data for the new release
+
+ii)  models.wrm.WS76          - the latest database schema (also 
+                                included in the above database files)
+
+iii) CHROMOSOMES/ subdir      - contains three files (DNA, GFF, and 
+                                agp) for each chromosome  
+
+iv)  WS75-WS76.dbcomp         - log file reporting differences between 
+                                   WS75 and WS76
+
+v)   wormpep76.tar.gz         - full Wormpep distribution corresponding 
+                                   to WS76
+
+vi)  wormrna76.tar.gz         - latest WormRNA release containing 
+                                   non-coding RNAs in the genome
+
+vii) confirmed_genes.WS76.gz  - DNA sequences of all genes confirmed by 
+                                either EST and/or cDNA
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1) Create a new directory to contain your copy of WormBase, 
+e.g. /users/yourname/wormbase
+
+2) Unpack and untar all of the database.*.tar.gz files into 
+this directory. You will need approximately 2-3 Gb of disk space.  
+
+3) Obtain and install a suitable acedb binary for your system 
+(available from www.acedb.org).
+
+4) Use the acedb 'xace' program to open your database, e.g.
+type 'xace /users/yourname/wormbase' at the command prompt.
+
+5) See the acedb website for more information about acedb and 
+using xace.
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+Primary databases used in this build:
+-------------------------------------
+
+brigdb : 2002-03-12 - updated 
+camace : 2002-03-21 - updated
+citace : 2002-03-08 - updated
+cshace : 2002-02-22 
+genace : 2002-03-21 - updated
+stlace : 2002-03-14 - updated
+
+Genome sequence composition:
+----------------------------
+
+6 sequences >= 0, 100,269,622 total
+
+  a 32,338,453    32 %
+  c 17,762,054    18 %
+  g 17,739,785    18 %
+  t 32,333,394    32 %
+  -     95,300     0 %
+  n         96     0 %
+
+A gross increase of 20,788 bp from WS75, this is the last piece of
+Sanger unfinished VY10G11R.
+
+Remaining gaps:
+---------------
+
+For more info mail worm@sanger.ac.uk
+
+# Gaps are covered by a 950Kb SseI fragment 
+III      1005794   1028769   37  F    AC087078.1      1       22976  +
+III      1028770   1029769   38  N                             1000
+III      1029770   1075569   39  F    AC084156.1      1       45800  +
+
+III      1085494   1105060   41  F    AC084157.1      1       19567  +
+III      1105061   1106060   42  N                             1000
+III      1106061   1131923   43  F    AC092690.1      1       25863  +
+
+# Gap is approx 22 kb long and almost contiguous
+IV      16417471  16451107  492  F    AL161711.2      1       33637  +
+IV      16451108  16451207  493  N                              100
+IV      16451208  16720720  494  F    AL132952.1      1      269513  +
+
+# Gaps are covered by YAC clones in production at St Louis
+X              1      2649    1  F    AL031272.2      1        2649  +
+X           2650     63549    2  N                            60900
+X          63550     93313    3  F    Z83097.1        1       29764  +
+
+X          63550     93313    3  F    Z83097.1        1       29764  +
+X          93314     94313    4  N                             1000
+X          94314    111282    5  F    AC084160.2      1       16969  +
+
+X         273911    285321    8  F    AC087735.2      1       11411  +
+X         285322    316721    9  N                            31400
+X         316722    331261   10  F    AC024789.1      1       14540  +
+
+Also there is no right telomeric end for Chromosome II.
+ 
+Wormpep data set:
+-----------------
+
+There are 19,431 CDS in autoace, 20,399 when counting (970) alternate 
+splice_forms.  The 20,399 sequences containing 8,969,583 base pairs in
+total.
+
+ Modified entries      25
+ Deleted entries       13
+ New entries           21
+ Reappeared entries     0
+ ------------------------
+ Net Change          +  8
+
+
+GeneModel correction progress:
+------------------------------
+
+Number of confirmed introns not in a CDS gene model:
+
+           +----------+---------+
+           | Introns  | Change  |
+           +----------+---------+
+Cambridge  |     2451 |  +  299 |
+St Louis   |     1595 |  -   17 |
+           +----------+---------+
+
+Members of known repeat families that overlap predicted exons:
+
+           +----------+---------+
+           | Repeats  | Change  |
+           +----------+---------+
+Cambrige   |       28 |  +   0  |
+St Louis   |        0 |      -  |  
+           +----------+---------+
+
+Synchronisation with GenBank/EMBL:
+----------------------------------
+
+1 problem with agp files:
+
+  V K11D12 [AF039047]
+
+
+New data:
+---------
+
+- One map gap is filled by the unfinished but contiguous sequence
+VY10G11R.
+
+New fixes:
+----------
+
+- St Louis group have modified the way in which they dump stlace
+such that a large number of erroneous ?Sequence objects have
+been removed from the database. This is reflected in the class 
+counts for ?Sequence, ?DNA & ?Author.
+
+Known problems:
+---------------
+
+- Comments have been lost from stlace (changes to the way in which
+the St Louis group transfer the database to Hinxton).
+
+- New S-Map code will enforce greater accuracy in our data sets. The 
+cDNA_for_RNAi genomic mappings and WTP mappings will be particularly 
+problematic.
+
+- PCR_products and associated functional data (e.g. RNAi Expr_profile)
+
+- Mis-mapping of confirmed_introns. Confirmed_introns are mapped to
+a DNA strand based on the sense of the EST sequence and the genomic
+DNA. A number of these intron spans appear to map to the incorrect
+strand because of the EST_5 and EST_3 tags in the ?Sequence object.
+We are working on this.
+
+Other changes:
+--------------
+
+Proposed changes / forthcoming data:
+------------------------------------
+
+

@@ -1,0 +1,42 @@
+#!/usr/bin/perl
+# check that mysql is running and if not restart
+
+use strict;
+use DBI;
+
+# MySQL
+use constant DAEMON_PATH   => '/etc/rc.d/init.d/mysqld';
+use constant APACHCTL_PATH => '/usr/local/apache/bin/apachectl';
+use constant DSN           => 'dbi:mysql:elegans';
+
+# BLAT
+use constant BLATCLIENT    => '/usr/local/blat/bin/gfClient';
+use constant BLATSERVER    => '/usr/local/blat/bin/gfServer';
+use constant BLATDIR       => '/usr/local/wormbase/blat';
+use constant BLATPORT      => '2003';
+
+# Check on mysql
+my $db = DBI->connect(DSN,'nobody');
+unless ($db) { # can't connect
+  warn scalar(localtime),": can't connect to mysql server, restarting\n";
+  system DAEMON_PATH,'condrestart';
+  system APACHECTL_PATH,'restart';
+}
+
+# Check on blat
+my $command = BLATCLIENT . ' localhost ' . BLATPORT . ' ' . BLATDIR . ' ' . BLATDIR . '/test.fa stderr -nohead 2>&1';
+my $result = `$command`;
+
+# The BLAT error stanza:
+#Connection refused
+#Sorry, the BLAT server seems to be down.
+# Please try again later.
+if ($result =~ /^Couldn\'t/) {
+  warn scalar(localtime),": BLAT is down, restarting...\n";
+  system(BLATSERVER . ' stop localhost '  . BLATPORT);  # Ensure that it is down
+  system(BLATSERVER . ' start localhost ' . BLATPORT . ' ' . BLATDIR . '/*.nib &'); 
+}
+
+
+
+

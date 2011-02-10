@@ -1,0 +1,106 @@
+Incorporating search into WormBase
+----------------------------------
+1. Heavily modified strain_search.cgi and rolled it into /cgi-perl/gene/strain.
+
+2. Pre-generated HTML files are located at html/strains (and stored under WSversion)
+
+3. Configuration moved to elegans.pm
+
+4. UPDATE_STRAINS run under cron
+  UPDATE_STRAINS /usr/local/wormbase/html/strains /usr/local/acedb/elegans
+
+TH, 2006.06.07
+
+
+Files in tar:
+
+make_html_files_strains.pl	creates strain html files from the CGC list and WS
+create_index_strains.pl		indexes html files and creates lookup database
+strain_search.cgi		actual search script
+highlightTerms.js		JavaScript functions used to highlight search terms
+IgorSubs.pm			module containing PrintTop/Bottom functions
+INSTALL				shell script to install search
+UPDATE_STRAINS			shell script to update strain files and database
+image_new_colour.jpg		WormBase logo
+wormbase.css			WormBase css
+README				this file
+
+
+To install:
+edit make_html_files_strains.pl to use the proper AceDB server - by default uses aceserver.cshl.org:2005 (could be tace or some other sace server).
+
+run INSTALL:
+./INSTALL scriptDir strainsDir htmlPath documentRoot
+where
+scriptDir - cgi directory in which strain_search.cgi will be installed
+strainsDir - directory in which strain html files and indexing database will reside
+htmlPath - path to strainsDir directory (e.g. if strains are in http://www.wormbase.org/strains, this will be /strains)
+documentRoot - apache document root
+if scriptDir or strainsDir do not exist, they will be created
+e.g. ./INSTALL /usr/local/apache/cgi-bin /usr/local/apache/htdocs/strains /strains /usr/local/apache/htdocs
+INSTALL has to be run only once. It does not create the database - run UPDATE_STRAINS for that.
+
+To update database (or populate it the first time):
+./UPDATE_STRAINS strains_dir
+where
+strains_dir is the same as strainsDir in INSTALL.
+
+UPDATE_STRAINS downloads the newest version of CGC file, merges it with strains from WS, creates html files, and indexes them.
+It can be run completely automatically via a cron job.
+
+here is the output of these two scripts run on caltech.wormbase.org (altair.caltech.edu):
+
+[igor@altair new]$./INSTALL /usr/local/apache/cgi-bin /usr/local/apache/htdocs/strains /strains /usr/local/apache/htdocs
+strain_search.cgi will be installed in /usr/local/apache/cgi-bin
+/usr/local/apache/htdocs/strains will be initialized as strain database directory
+installation complete
+
+[igor@altair new]$./UPDATE_STRAINS /usr/local/apache/htdocs/strains/
+strain database will be installed in /usr/local/apache/htdocs/strains/
+
+removing existing files from /usr/local/apache/htdocs/strains/
+9958 files deleted from /usr/local/apache/htdocs/strains/
+
+running: wget -N http://www.cbs.umn.edu/CGC/Strains/gophstrnt.txt
+--15:33:12--  http://www.cbs.umn.edu/CGC/Strains/gophstrnt.txt
+           => `gophstrnt.txt'
+Resolving www.cbs.umn.edu... 134.84.144.2
+Connecting to www.cbs.umn.edu|134.84.144.2|:80... connected.
+HTTP request sent, awaiting response... 200 OK
+Length: 6,037,233 (5.8M) [text/plain]
+Server file no newer than local file `gophstrnt.txt' -- not retrieving.
+
+
+running: ./make_html_files_strains.pl -i gophstrnt.txt -o /usr/local/apache/htdocs/strains/ -w
+Connecting to database...done
+10320 strains in C. elegans database WS158 found on Tue May 30 15:33:13 2006
+BC10066 already parsed
+N2 already parsed
+NL1610 already parsed
+parsing strains from WormBase
+/usr/local/apache/htdocs/strains//ok454/+.html file is not opened
+/usr/local/apache/htdocs/strains//ok455/+.html file is not opened
+/usr/local/apache/htdocs/strains//ok505/+.html file is not opened
+10439 files generated
+7680 strains available from CGC
+122 strains in CGC are not in WormBase
+2759 strains in WormBase are not in CGC
+293 strains in WormBase have no information
+
+running: ./create_index_strains.pl -d /usr/local/apache/htdocs/strains/ -i /usr/local/apache/htdocs/strains/ -o
+10439 found in /usr/local/apache/htdocs/strains/
+1000 files processed
+2000 files processed
+3000 files processed
+4000 files processed
+5000 files processed
+6000 files processed
+7000 files processed
+8000 files processed
+9000 files processed
+10000 files processed
+10439 files indexed
+database update complete
+
+all the warnings are normal - nothing to worry about.
+

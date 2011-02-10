@@ -1,0 +1,81 @@
+#!/usr/bin/perl -w
+
+# author: lincoln
+use strict;
+use lib '../lib';
+use ElegansSubs;
+use CGI qw(:standard *table escape);
+use constant GOOGLE => 'http://www.google.com/search?q=';
+
+my $enzyme = OpenPageGetObject({Restrict_enzyme=>'Restriction enzyme'});
+StartCache();
+
+if ($enzyme) {
+  StartDataTable;
+
+  StartSection('Identification');
+  SubSection('Name'  => $enzyme);
+  SubSection('Title' => $enzyme->Title);
+  SubSection('Recognition sequence' => $enzyme->Match_sequence);
+
+  StartSection('Details');
+  SubSection('Isoschizomer(s)' => $enzyme->Isoschizomer);
+  SubSection('Cleavage'   =>      $enzyme->Cleavage);
+  SubSection('Overhang'   =>      $enzyme->Overhang);
+  SubSection('Offset'     =>      $enzyme->Offset);
+  SubSection('Substrate'  =>      $enzyme->Substrate);
+  SubSection('Order from' =>      a({-href=>GOOGLE . escape($enzyme->Company)},
+				    $enzyme->Company));
+
+  EndDataTable;
+}
+
+ClosePage;
+
+exit 0;
+
+################## this doesn't get executed ##########
+# first attempt
+print "Content-type: text/plain\n\n";
+print "Hello to Fiona and Marcella\n";
+
+# second attempt
+print "Content-type: text/html\n\n";
+print '
+<html>
+<head>
+<title>Hello</title>
+</head>
+<body>
+<h1>Hello</h1>
+<p>Hello to Fiona and Rufus and Marcella</p>
+</body>
+</html>
+';
+
+
+# third attempt
+print header;
+print start_html('Hello');
+print h1('Hello');
+print p('Hello to Fiona and Marcella from Rufus');
+print end_html;
+
+
+# fourth attempt
+OpenDatabase();
+PrintTop('Here is my Title');
+
+StartDataTable;
+StartSection('Hello Section');
+SubSection('Greeting','Felicitations 1','Felicitations 2');
+SubSection('People',"Lincoln",'Marcella','Rufus','Fiona');
+
+StartSection('Goodbye Section');
+SubSection('Farewell','ciao','adios');
+SubSection('People',"Lincoln",'Marcella','Rufus','Fiona');
+
+EndDataTable;
+
+PrintBottom();
+

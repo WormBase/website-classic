@@ -1,0 +1,984 @@
+#!/usr/bin/perl
+
+use strict;
+use lib '../lib';
+use ElegansSubs qw/:DEFAULT Bestname Species2URL/;
+use Ace::Browser::AceSubs;
+use CGI qw(:standard *table escape);
+use WormBase;
+use vars qw/$WORMBASE $gene $DB $gene_name/; ###  
+
+END {
+  	undef $gene;
+	undef $DB;
+	undef $gene_name;
+	undef $WORMBASE;
+} # 
+  	
+
+#$gene = OpenPageGetObject('Homology','Homology Report',1);
+
+my $gene_id = param('name');
+if($gene_id) {
+	$DB = Ace->connect(-host=>'localhost', -port=>2005);
+	$gene = $DB->fetch(-class=>'Gene', -name=>$gene_id);
+	$gene_name = Bestname($gene);
+}
+
+
+ElegansSubs::PrintTop(undef,'Homology Report',$gene_name ? "Homology Summary for $gene_name": "Homology Summary"); ##   
+
+my $version = $DB->version;
+our $data_dir = "/usr/local/wormbase/databases/$version/orthology"; 
+my $title;
+
+
+StartCache();
+
+$WORMBASE = WormBase->new();
+# $version = $WORMBASE->version;
+
+## set up extra acedb data sources ###
+
+my %hs_gene_id2omim_id = &build_hash($data_dir.'/hs_ensembl_id2omim.txt');
+my %omim_id2disease = &build_hash($data_dir.'/omim2disease.txt');
+our %go_ids2descendants = &build_hash($data_dir.'/go_ids2descendants.txt');
+our %id2name = build_hash($data_dir. '/id2name.txt');
+
+foreach my $omim_id (keys %omim_id2disease){
+	# $omim2disease_name{$omim_id} =~ s/[{*,}*]//g;
+	$omim_id2disease{$omim_id} =~ s/[{*]//g;
+	$omim_id2disease{$omim_id} =~ s/[}*]//g;
+	$omim_id2disease{$omim_id} =~ s/\[*//g;
+	$omim_id2disease{$omim_id} =~ s/\]*//g;
+}
+
+######################################
+
+# my $sort_by = 'species';
+my $sort_by = param('sort_by');
+
+
+if($gene){
+	my $gene_info = &gene_data($gene);
+	my $ortholog_data = &ortholog_data($gene);
+	my $ortholog_sp_data = ${$ortholog_data}{'sp'};
+	my $ortholog_hs_data = ${$ortholog_data}{'hs'};
+	&display_orthology_data($gene_info,$ortholog_hs_data,\%hs_gene_id2omim_id,\%omim_id2disease,$ortholog_sp_data,$sort_by);
+	
+}
+
+######### end display data ###
+
+ClosePage;
+
+exit 0;
+
+##### subroutines ###########
+
+##### cnp from tree_lister!!!! #######
+
+sub build_hash{
+	my ($file_name) = @_;
+	open FILE, "<./$file_name" or die "Cannot open the file: $file_name\n";
+	my %hash;
+	foreach my $line (<FILE>) {
+		chomp ($line);
+		my ($key, $value) = split '=>',$line;
+		$hash{$key} = $value;
+	}
+	return %hash;
+}
+
+############## end sub build_hash ########
+
+sub gene_data {
+	my $gene = shift @_;
+	my %data;
+	my $cgc_name = $gene->CGC_name;
+	my $gene_id = $gene->name;
+	$data{$gene_id} = $cgc_name;
+	return \%data;
+}
+
+
+sub ortholog_data {
+	my $gene =  shift @_;
+	my %data;
+	my @hs_data;
+	my @sp_data;
+
+my @ortholog_others = $gene->Ortholog_other;
+foreach my $ortholog_other (@ortholog_others) {
+
+	eval {
+	
+	my %ortholog_hr;
+	my $method = $ortholog_other->right(2);
+	my $protein_id  = $ortholog_other->DB_info->right(3);
+	my $db = $ortholog_other->DB_info->right;
+	my $url = "dev.wormbase.org";
+	my $species = $ortholog_other->Species;	($ortholog_hr{'database'},$ortholog_hr{'db_url'},$ortholog_hr{'acc_number'},$ortholog_hr{'species'},$ortholog_hr{'method'}) = ($db,$url,$protein_id,$species,$method);
+		
+				if($ortholog_hr{'species'} =~ m/sapien/i){
+					push @hs_data, \%ortholog_hr;
+				}
+				push @sp_data, \%ortholog_hr;
+				
+	};
+
+	
+	
+} ## end foreach my $ortholog_other (@ortholog_others) { 
+	
+	
+		my @wb_orthologs = $gene->Ortholog;
+		foreach my $wb_ortholog (@wb_orthologs){
+			my $wb_ortholog_db = 'WormBase';
+			my $wb_ortholog_url = 'www.wormbase.org';
+			my @wb_ortho_row = $wb_ortholog->row;
+			my %wb_ortholog_hr;
+			my $from_analysis;
+				($wb_ortholog_hr{'database'},$wb_ortholog_hr{'db_url'},$wb_ortholog_hr{'acc_number'},$wb_ortholog_hr{'species'},$from_analysis,$wb_ortholog_hr{'method'}) = ($wb_ortholog_db,$wb_ortholog_url,@wb_ortho_row);
+			push @sp_data, \%wb_ortholog_hr;
+																								}
+											
+	$data{'hs'} = \@hs_data;
+	$data{'sp'} = \@sp_data;
+	
+	return \%data;
+}
+
+
+sub ortholog_data_old {
+	my $gene =  shift @_;
+	my %data;
+	
+	my $from_analysis;
+	my @hs_data;
+	my @sp_data;
+	my $gene_id = $gene->name;
+	
+	my @sources = $gene->Ortholog_other;
+	foreach my $source (@sources) {
+	    #// We have to jump *over* the databsae field object
+		my $source_url = $source->URL;
+		my @orthologs = $source->right->col;
+	    foreach my $ortholog (@orthologs) {
+				my %ortholog_hr;				($ortholog_hr{'database'},$ortholog_hr{'db_url'},$ortholog_hr{'acc_number'},$ortholog_hr{'species'},$from_analysis,$ortholog_hr{'method'}) = ($source,$source_url,$ortholog->row);
+		
+				if($ortholog_hr{'species'} =~ m/sapien/i){
+					push @hs_data, \%ortholog_hr;
+				}
+				push @sp_data, \%ortholog_hr;
+			
+	    } ## end foreach my $ortholog (@orthologs)
+	} ## end foreach my $source (@sources) 
+	
+	my @wb_orthologs = $gene->Ortholog;
+	foreach my $wb_ortholog (@wb_orthologs){
+		my $wb_ortholog_db = 'WormBase';
+		my $wb_ortholog_url = 'www.wormbase.org';
+		my @wb_ortho_row = $wb_ortholog->row;
+		my %wb_ortholog_hr;
+		($wb_ortholog_hr{'database'},$wb_ortholog_hr{'db_url'},$wb_ortholog_hr{'acc_number'},$wb_ortholog_hr{'species'},$from_analysis,$wb_ortholog_hr{'method'}) = ($wb_ortholog_db,$wb_ortholog_url,@wb_ortho_row);
+		push @sp_data, \%wb_ortholog_hr;
+	}
+	$data{'hs'} = \@hs_data;
+	$data{'sp'} = \@sp_data;
+	
+	return \%data;
+}
+
+
+sub display_ortholog_data{
+	my ($ortholog_data_ar,$sort_by,$gene_data) = @_;
+	my @ortholog_data_for_sort;
+	
+	if($sort_by eq 'species'){
+		
+		foreach my $ortholog_data_hr (@{$ortholog_data_ar}){
+			my $ortholog_data_line = join '|', (${$ortholog_data_hr}{'species'},
+												${$ortholog_data_hr}{'method'},
+												${$ortholog_data_hr}{'db_url'},
+												${$ortholog_data_hr}{'acc_number'},
+												${$ortholog_data_hr}{'database'});
+			push @ortholog_data_for_sort, $ortholog_data_line;
+		}
+												
+	}
+	else{
+		foreach my $ortholog_data_hr (@{$ortholog_data_ar}){
+			my $ortholog_data_line = join '|', (${$ortholog_data_hr}{'method'},
+													${$ortholog_data_hr}{'species'},
+													${$ortholog_data_hr}{'db_url'},
+													${$ortholog_data_hr}{'acc_number'},
+													${$ortholog_data_hr}{'database'});
+			push @ortholog_data_for_sort, $ortholog_data_line;		
+		}
+	}
+	my @ortholog_data_sorted = sort @ortholog_data_for_sort;
+	
+	print start_table({border => 0, width => '100%'});
+	print TR({},
+			th({-align=>'left',-width => '50%'-class=>'databody'},'Species'),
+			th({-align=>'left',-width => '50%'-class=>'databody'},'Method'));
+	
+	foreach my $sorted_line (@ortholog_data_sorted){
+		# print "$sorted_line<br>";
+		my ($species,$method,$db_url,$acc_number,$database);
+		if($sort_by eq 'species'){
+			($species,$method,$db_url,$acc_number,$database) = split '\|', $sorted_line;
+		}
+		else {
+			
+			($method,$species,$db_url,$acc_number,$database) = split '\|', $sorted_line;
+		}
+		# my $species_url = Species2URL($species,$acc_number);
+		
+		# my $species_line_link = a({-href=>$db_url},$acc_number);
+		my $species_line_link;
+		my $species_line;
+		if ($database eq 'EnsEMBL'){
+			my $link_species = $species;
+			$link_species =~ s/ /_/;
+			my $ensembl_url = "http://www.ensembl.org/".$link_species."/geneview?gene=".$acc_number;
+			$species_line_link = a({-href=>$ensembl_url},$acc_number);
+			# $species_line = $species." (".$species_line_link.")";
+		}
+		else {
+			my $species_url = Species2URL($species,$acc_number);
+			$species_line_link = a({-href=>$species_url},$acc_number);
+		}
+		$species_line = $species." (".$species_line_link.")";
+		print TR({},
+				td({-align=>'left',-width => '50%'-class=>'databody'},$species_line),
+				td({-align=>'left',-width => '50%'-class=>'databody'},$method));
+	}
+	
+	my ($gene_id) = keys %{$gene_data};
+	my $sort_link;
+	if($sort_by =~ m/method/){
+		my $message = "Sort orthologs by species.";
+		my $sort_url = "/db/orthology/gene?class=Gene;sort_by=species;name\=$gene_id";
+		$sort_link = a({-href=>$sort_url},$message);
+	}
+	else{
+		my $message = "Sort orthologs by method.";
+		my $sort_url = "/db/orthology/gene?class=Gene;sort_by=method;name\=$gene_id";
+		$sort_link = a({-href=>$sort_url},$message);
+	}
+	print "<div align=right>$sort_link\<\/div\>";
+	print hr;
+}
+	 
+sub display_gene_data {
+	my ($gene_info_hr) = @_;
+	my ($gene_id) = keys %{$gene_info_hr};
+	# my $gene_id = $gene->name;
+	#my $gene_name = ${$gene_info_hr}{$gene_id};
+	my $gene_link = a({-href=>"/db/gene/gene?class=Gene;name\=$gene_id"},$gene_id);
+	my $gene_line = "<B>".$gene_name."</B> ($gene_link)";
+	print "$gene_line";
+}
+
+sub display_omim_data {
+	
+	my ($omim_info_ar,$ensembl2omim,$omim2disease) = @_;
+	
+	my @omim_for_display;
+	
+	foreach my $omim_data_for_check (@{$omim_info_ar}){
+		my $omim_id = ${$ensembl2omim}{${$omim_data_for_check}{'acc_number'}};
+		if (${$omim2disease}{$omim_id} && $omim_id =~ m/[0-9]/){
+			# print "<pre>$omim_id<\/pre>";
+			push @omim_for_display,$omim_data_for_check;
+		}
+		else{
+			next;
+		}
+	}
+	
+	if(@omim_for_display){
+		StartSection('Human disease relation');
+		print start_table({border => 0, width => '100%'});
+		print TR({},
+			th({-align=>'left',-width => '50%'-class=>'databody'},'Disease'),
+			th({-align=>'left',-width => '15%'-class=>'databody'},'Ortholog ID'),
+			th({-align=>'left',-width => '35%'-class=>'databody'},'OMIM ID')
+			);
+			
+	
+		foreach my $omim_hs_data (@omim_for_display){
+			my $gene_acc_number = ${$omim_hs_data}{'acc_number'};
+			# print "$gene_acc_number<br>";
+			my $omim_id = ${$ensembl2omim}{$gene_acc_number};
+			my $omim_url = "http://www.ncbi.nlm.nih.gov/entrez/dispomim.cgi?id=".$omim_id;
+			my $disease_url = "/db/orthology/disease?call=".$omim_id;
+			my $omim_link = a({-href=>$omim_url},'OMIM');
+			my $disease_link = a({-href=>$disease_url},'Disease');
+			my $omim_id_links = $omim_id." (".$omim_link." | ".$disease_link.")";
+			
+			### ensEMBL link ######
+			
+			
+			my $link_species = ${$omim_hs_data}{'species'};
+			$link_species =~ s/ /_/;
+			my $ensembl_url = "http://www.ensembl.org/".$link_species."/geneview?gene=".$gene_acc_number;
+			my $species_line_link = a({-href=>$ensembl_url},$gene_acc_number);	
+			
+			### end ensEMBL link #####
+			
+			# if($omim_id =~ /[0-9]/){
+				print TR({},
+					td({-align=>'left',-width => '50%'-class=>'databody'},${$omim2disease}{$omim_id}),
+					td({-align=>'left',-width => '15%'-class=>'databody'},$species_line_link),
+					td({-align=>'left',-width => '35%'-class=>'databody'},$omim_id_links)
+					);
+			# }
+			# 			else {
+			# 				next;
+			# 			}
+			
+	
+		}
+		EndSection(); ##  End section Gene Summary
+	}	
+}
+
+
+
+sub display_orthology_data {
+	my ($gene_info_hr,$omim_info_hr,$ensembl2omim,$omim2disease,$ortholog_data_ar,$sort_by) = @_;
+	
+	StartDataTable();
+	# print "<table>";
+	#### display gene info #####
+	StartSection('Gene Summary');
+	display_gene_data($gene_info_hr);
+	EndSection(); ##  End section Gene Summary
+
+	###### display omim data #####
+	
+	display_omim_data($omim_info_hr,$ensembl2omim,$omim2disease);
+	
+	###### display ortholog data #####
+	
+	StartSection('Orthologs');
+	display_ortholog_data($ortholog_data_ar,$sort_by,$gene_info_hr);
+	EndSection(); ##  End section Orthologs
+
+	StartSection('Paralogs',);
+	&display_paralog_data($gene);
+	EndSection('');	
+	EndDataTable();	
+	
+	
+}
+
+sub display_orthology_data_old {
+	my ($gene_info_hr,$omim_info_hr,$ensembl2omim,$omim2disease,$ortholog_data_ar,$sort_by) = @_;
+	
+	StartDataTable();
+	# print "<table>";
+	#### display gene info #####
+	StartSection('Gene Summary');
+	display_gene_data($gene_info_hr);
+	EndSection(); ##  End section Gene Summary
+
+	###### display omim data #####
+	
+	display_omim_data($omim_info_hr,$ensembl2omim,$omim2disease);
+	
+	###### display ortholog data #####
+	
+	StartSection('Orthologs');
+	display_ortholog_data($ortholog_data_ar,$sort_by,$gene_info_hr);
+	EndSection(); ##  End section Orthologs
+
+	StartSection('Paralogs',);
+	&display_paralog_data($gene);
+	EndSection('');	
+	EndDataTable();	
+	
+	
+}
+
+##   paralogs ###
+
+
+sub display_paralog_data {
+
+	## get paralog data
+	my $gene = shift @_;
+	
+		my $paralog_data_hr = get_paralog_data($gene);
+		my @keys = keys %$paralog_data_hr;
+		my $paralog_data_count = keys %$paralog_data_hr;
+		
+		if (!($paralog_data_count)) {
+		
+			SubSection('',"No paralogs for $gene_name");
+			
+			exit;
+		}
+		
+		
+		my $line = "";
+		
+		$line .= start_table({-border=>1});
+		
+		$line .= TR({},
+	            th({-align=>'center',-width => '30%',-class=>'databody'}, "Paralog"),
+				th({-align=>'center',-width => '30%',-class=>'databody'},"Data")				
+				);
+
+		foreach my $paralog (keys %$paralog_data_hr) {
+		
+		my $data_table = start_table({-border=>1});
+		my $aspects = $paralog_data_hr->{$paralog};
+		
+			foreach my $aspect (keys %$aspects) {
+				
+				my $diff_list = $aspects->{$aspect}->{'diff'};
+				my $int_list = $aspects->{$aspect}->{'int'};
+				
+				my @diff_list = @$diff_list;
+				my $dl = join '<br>', @diff_list;
+				my @int_list = @$int_list;
+				my $il = join '<br>', @int_list;
+				$data_table .= TR({},
+								td({-colspan=>2}, $aspect),
+								);
+				$data_table .= TR({},
+								td({},'diff'),
+								td({},'int')
+								);
+				$data_table .= TR({},
+								td({},$dl),
+								td({},$il)
+								);
+								
+			}
+			$data_table .= end_table();
+		
+			$line.= TR({},		
+				td({-align=>'left',-width => '30%',-class=>'databody'}, $paralog),
+				td({-align=>'left',-width => '30%',-class=>'databody'},$data_table)	
+					);
+		}
+
+
+		$line .= end_table();
+		SubSection("",$line);
+
+}
+
+
+sub display_paralog_data_old {
+
+	## get paralog data
+	my $gene = shift @_;
+	
+		my $paralog_data_hr = get_paralog_data($gene);
+		my @keys = keys %$paralog_data_hr;
+		#print "@keys\n";
+		my $paralog_data_count = keys %$paralog_data_hr;
+		
+		if (!($paralog_data_count)) {
+		
+			SubSection('',"No paralogs for $gene_name");
+			
+			exit;
+		}
+		
+		
+		my $line = "";
+		
+		$line .= start_table({-border=>1});
+		
+		$line .= TR({},
+	            th({-align=>'center',-width => '10%',-class=>'databody'},""),
+	            th({-align=>'center',-width => '30%',-class=>'databody', -colspan=>2}, "GO Biological Process(es)"),
+				th({-align=>'center',-width => '30%',-class=>'databody', -colspan=>2},"GO Molecular Function(s)")
+#				,
+#				th({-align=>'center',-width => '30%',-class=>'databody', -colspan=>2},"Interactions")
+				
+				);
+		$line	 .= TR({},
+	            th({-align=>'center',-width => '10%',-class=>'databody'},"Paralog"),
+	            td({-align=>'center',-width => '15%',-class=>'databody'}, "Different from $gene_name"),
+				td({-align=>'center',-width => '15%',-class=>'databody'},"Same (or related by descent) as $gene_name"),
+				td({-align=>'center',-width => '15%',-class=>'databody'},"Different from $gene_name"),
+				#td({-align=>'center',-width => '15%',-class=>'databody'},"Same as Gene"),
+				#td({-align=>'center',-width => '15%',-class=>'databody'},"Different from Gene"),
+				td({-align=>'center',-width => '15%',-class=>'databody'},"Same (or related by descent) as $gene_name")
+				
+				);
+		
+		foreach my $paralog (keys %$paralog_data_hr) {
+		
+			#my $bp_diff= $paralog_data_hr->{$paralog}{'bp_diff'};
+			my $bp_diff= $paralog_data_hr->{$paralog}{'bp'}{'diff'};
+			my $bp_diff_links = GO_arrays_2URLs($bp_diff);
+			my $bp_diffs = join ('<br>', @$bp_diff_links);
+			
+			#my $bp_int= $paralog_data_hr->{$paralog}{'bp_int'};
+			my $bp_int= $paralog_data_hr->{$paralog}{'bp'}{'int'};
+			my $bp_int_links = GO_arrays_2URLs($bp_int);
+			my $bp_ints = join ('<br>', @$bp_int_links);
+			
+			#my $mf_diff= $paralog_data_hr->{$paralog}{'mf_diff'};
+			my $mf_diff= $paralog_data_hr->{$paralog}{'mf'}{'diff'};
+			my $mf_diff_links = GO_arrays_2URLs($mf_diff);
+			my $mf_diffs = join ('<br>', @$mf_diff_links);
+		
+			#my $mf_int= $paralog_data_hr->{$paralog}{'mf_int'};
+			my $mf_int= $paralog_data_hr->{$paralog}{'mf'}{'int'};
+			my $mf_int_links = GO_arrays_2URLs($mf_int);
+			my $mf_ints = join ('<br>', @$mf_int_links);
+			
+			my $paralog_obj = $DB->fetch(-class=>"Gene",-name=>$paralog);		 
+			my $paralog_name = Bestname($paralog_obj);
+			my $paralog_url = Object2URL($paralog_obj);
+			my $paralog_link = a({-href=>$paralog_url},$paralog_name);
+			
+		$line	 .= TR({},
+	            td({-align=>'center',-width => '10%',-class=>'databody'},$paralog_link), #$paralog_name
+	            td({-align=>'left',-width => '22%',-class=>'databody'},$bp_diffs),
+				td({-align=>'left',-width => '22%',-class=>'databody'},$bp_ints),
+				td({-align=>'left',-width => '22%',-class=>'databody'},$mf_diffs),
+				td({-align=>'left',-width => '22%',-class=>'databody'},$mf_ints)
+#				td({-align=>'center',-width => '20%',-class=>'databody'},@$int_diff),
+#				td({-align=>'center',-width => '20%',-class=>'databody'},@$int_int)
+				);
+
+		}
+		
+		$line .= end_table();
+		
+		SubSection("",$line);
+}
+
+
+sub get_paralog_data {
+
+	my $gene = shift @_;
+	my @go_terms = $gene->GO_term;
+	
+	##our $datadir = ".";
+	
+	## sort bps and mf
+	
+	my $gene_aspect_subsets_hr = get_aspect_subset(\@go_terms);
+	
+	## get paralogs 
+
+	my @paralogs = 	$gene->Paralog;
+	my @gene_interaction = $gene->Interaction;
+	my %return_data;
+	## foreach paralog
+	
+	foreach my $paralog (@paralogs) {
+
+		## get go terms
+		
+		my @all_go_terms = $paralog->GO_term;
+		my @paralog_go_terms;
+		
+		foreach my $go_term (@all_go_terms) {
+		
+			my $evidence_code = $go_term->right;
+			#print "$evidence_code\n";
+			
+			if ($evidence_code eq 'IEA') {
+				
+				next;
+			}
+			
+			else {
+			
+			push @paralog_go_terms, $go_term;
+			}
+			
+		}
+		
+		
+		
+		
+		#my @paralog_interactions = $paralog->Interaction;
+		
+		## pull out bp and mfs
+		
+		my $aspect_subsets_hr = get_aspect_subset(\@paralog_go_terms);
+		
+		## determine diff between gene and paralogs bp and mf
+		
+		my $bp_diff_hr = get_diffs(\@{$gene_aspect_subsets_hr->{'bp'}}, \@{$aspect_subsets_hr->{'bp'}});
+		
+		my $mf_diff_hr = get_diffs(\@{$gene_aspect_subsets_hr->{'mf'}}, \@{$aspect_subsets_hr->{'mf'}});
+
+		#my $interaction_diff_hr = get_diffs(\@gene_interaction, \@paralog_interactions);
+
+		#print "@{$bp_diff_hr->{'dif'}}\n";
+
+		## update aggregate return data
+	
+	
+		$return_data{$paralog} = {'bp' => {
+											'diff' => \@{$bp_diff_hr->{'dif'}},
+											'int'  => \@{$bp_diff_hr->{'int'}}
+											},
+									'mf'=> {
+											'diff' => \@{$mf_diff_hr->{'dif'}},
+											'int'  => \@{$mf_diff_hr->{'int'}}
+											}		
+									};
+	} ## end foreach my $paralog (@paralogs) 
+	
+	## return data
+	
+	return \%return_data;
+}
+
+sub get_paralog_data_old {
+
+	my $gene = shift @_;
+	my @go_terms = $gene->GO_term;
+	
+	##our $datadir = ".";
+	
+	## sort bps and mf
+	
+	my $gene_aspect_subsets_hr = get_aspect_subset(\@go_terms);
+	
+	## get paralogs 
+
+	my @paralogs = 	$gene->Paralog;
+	my @gene_interaction = $gene->Interaction;
+	my %return_data;
+	
+	## foreach paralog
+	
+	foreach my $paralog (@paralogs) {
+
+		## get go terms
+		
+		my @paralog_go_terms = $paralog->GO_term;
+		#my @paralog_interactions = $paralog->Interaction;
+		
+		## pull out bp and mfs
+		
+		my $aspect_subsets_hr = get_aspect_subset(\@paralog_go_terms);
+		
+		## determine diff between gene and paralogs bp and mf
+		
+		my $bp_diff_hr = get_diffs(\@{$gene_aspect_subsets_hr->{'bp'}}, \@{$aspect_subsets_hr->{'bp'}});
+		
+		my $mf_diff_hr = get_diffs(\@{$gene_aspect_subsets_hr->{'mf'}}, \@{$aspect_subsets_hr->{'mf'}});
+
+		#my $interaction_diff_hr = get_diffs(\@gene_interaction, \@paralog_interactions);
+
+		#print "@{$bp_diff_hr->{'dif'}}\n";
+
+		## update aggregate return data
+	
+		$return_data{$paralog}{'bp_diff'} = \@{$bp_diff_hr->{'dif'}};
+		$return_data{$paralog}{'bp_int'} = \@{$bp_diff_hr->{'int'}};
+		$return_data{$paralog}{'mf_diff'} = \@{$mf_diff_hr->{'dif'}};
+		$return_data{$paralog}{'mf_int'} = \@{$mf_diff_hr->{'int'}};
+		#$return_data{$paralog}{'intract_diff'} = \@{$interaction_diff_hr->{'dif'}};
+		#$return_data{$paralog}{'intract_int'} = \@{$interaction_diff_hr->{'int'}};
+	
+	} ## end foreach my $paralog (@paralogs) 
+	
+	## return data
+	
+	return \%return_data;
+}
+
+sub get_aspect_subset {
+	
+	my $go_term_ar = shift @_;
+	my @bps;
+	my @mfs;
+	my @ccs;
+	
+	foreach my $go_term (@$go_term_ar) {
+	
+		my $aspect = $go_term->Type;
+		# print "$go_term\=\>$aspect\n";	
+		
+		if ($aspect =~ /process/) {
+		
+			push @bps, $go_term;
+			
+		} elsif ($aspect =~ /function/) {
+		
+			push @mfs, $go_term;
+		
+		} else {
+		
+		 	push @ccs, $go_term;
+		
+		}
+	}
+	
+	## return data
+	
+	my %return_data; 
+
+	$return_data{'bp'} = \@bps;
+	$return_data{'mf'} = \@mfs;
+	$return_data{'cc'} = \@ccs;
+
+	return \%return_data;
+}
+
+sub get_diffs {
+
+	## enter arrays to be differentiated
+	
+	my ($array1_ar, $array2_ar)  = @_;
+	
+	## build hash of terms and their decendant list
+	
+	#my %go_ids2descendants = build_hash("$datadir/$go_ids2descendants_file");
+	
+	## instantiate diff and intersection arrays
+	
+	my %array_1_elements;
+	
+	
+	my @diff;
+	my %intersection;
+	
+	## put elements of first one (arbitrary) into hash as keys, value = 1;
+	
+	foreach my $ar1_element (@$array1_ar) {
+	
+		$array_1_elements{$ar1_element} = $go_ids2descendants{$ar1_element};
+	
+	}	
+	
+	
+	## foreach element of the next array, if in first 
+	
+	foreach my $ar2_element (@$array2_ar) {
+	
+		## add to int as appropriate
+		if ($array_1_elements{$ar2_element}) {
+		
+			$intersection{$ar2_element} = 1;
+			
+		## else add to diff
+		} else {		
+		
+			push @diff, $ar2_element;
+		
+		}
+	}
+	
+	## top off diff;
+	
+		foreach my $ar1_element (@$array1_ar) {
+		
+			if ($intersection{$ar1_element}) {
+			
+				next;
+				
+			} else {
+			
+				push @diff, $ar1_element;
+			
+			}
+		}
+	
+	
+	#
+	
+	###### edit_20091111 #####
+	
+	my %diff;
+	my %not_diff;
+	foreach my $diff_element (@diff) {
+	
+		$diff{$diff_element} = $go_ids2descendants{$diff_element};
+	}
+	
+	foreach my $diff_key (keys %diff) {
+	
+		foreach my $ar1_element (keys %array_1_elements) {
+		
+			if ($diff_key =~ m/$array_1_elements{$ar1_element}/) {
+			
+				$not_diff{$diff_key} = 1; 		
+				$intersection{$diff_key} = 1;
+				#push @, $diff_key;
+			}
+			
+			else {
+
+				next;
+			}
+		
+		}
+	
+	}
+	
+	 foreach my $ar1_element (keys %array_1_elements){
+	
+		 foreach my $diff_key (keys %diff){
+			
+			next if ($not_diff{$diff_key});
+			
+			if ($ar1_element =~ m/$diff{$diff_key}/) {
+			
+				
+				$not_diff{$diff_key} = 1;	
+				$intersection{$diff_key} = 1;
+				#push @intersection, $ar1_element;
+			}
+			
+			else {
+
+				next;
+			}
+		
+		}
+	
+	}
+	
+	my @intersection = keys %intersection;
+	my @return_diff;
+	
+	
+	foreach my $diff_key (keys %diff) {
+		
+		if ($not_diff{$diff_key}) {
+		
+			next;	
+		} 
+		
+		else {
+		
+			push @return_diff, $diff_key;
+		}
+	}
+	
+	###### end edit_20091111 #######
+		
+	## return data @ hash of arrays keys 'dif' and 'int'	
+	
+	my %return_data;
+	
+	$return_data{'dif'} = \@return_diff;
+	$return_data{'int'} = \@intersection;
+	
+	return \%return_data;
+}
+
+sub get_diffs_old{
+
+	## enter arrays to be differentiated
+	
+	my ($array1_ar, $array2_ar)  = @_;
+	
+	## instantiate diff and intersection arrays
+	
+	my %array_1_elements;
+	
+	
+	my @diff;
+	my @intersection;
+	my %intersection;
+	
+	## put elements of first one (arbitrary) into hash as keys, value = 1;
+	
+	foreach my $ar1_element (@$array1_ar) {
+	
+		$array_1_elements{$ar1_element} = 1;
+	
+	}	
+	
+	## foreach element of the next array, if in first 
+	
+	foreach my $ar2_element (@$array2_ar) {
+	
+		## add to int as appropriate
+		if ($array_1_elements{$ar2_element}) {
+			
+			$intersection{$ar2_element} = 1;
+			push @intersection, $ar2_element;
+			
+		## else add to diff
+		} else {		
+		
+			push @diff, $ar2_element;
+		
+		}
+	}
+	
+	## top off diff;
+	
+		foreach my $ar1_element (@$array1_ar) {
+		
+			if ($intersection{$ar1_element}) {
+			
+				next;
+				
+			} else {
+			
+				push @diff, $ar1_element;
+			
+			}
+		}
+	
+	#my @intersection = keys %intersection;
+		
+	## return data @ hash of arrays keys 'dif' and 'int'	
+	
+	my %return_data;
+	
+	$return_data{'dif'} = \@diff;
+	$return_data{'int'} = \@intersection;
+	
+	return \%return_data;
+}
+
+
+
+sub GO_arrays_2URLs {
+
+	my $object_ar = shift @_;
+	# print "@$object_ar\<br\>";
+	my @return_array;
+	my %term2URL;
+	
+	
+	
+	eval {
+	
+		foreach my $object (@$object_ar) {
+		
+#		my $object_obj = $DB->fetch(class=>'GO_term', name=>$object);
+#		my $object_name = $object_obj->Term; ## 
+		my $object_url = "/db/ontology/gene?name=". $object;
+		my $object_link = a({-href=>$object_url},$id2name{$object});
+		
+		$term2URL{$object} = $object_link;
+		
+		}
+	};
+	
+	foreach my $key (sort keys %term2URL) {
+	
+		push @return_array, $term2URL{$key}
+	
+	}
+
+	# = values %sorted_terms;
+	return \@return_array;
+
+}
+###### end subroutines ######

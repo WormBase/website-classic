@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="10"
+   name=""
+   committed-date="2008-09-06T17:19:29.852077Z"
+   url="svn+ssh://tharris@toddharris.net/home/tharris/svn/public/Flickr-API-Simple/lib/Flickr"
+   last-author="tharris"
+   kind="dir"
+   uuid="2fd37b26-5054-0410-acc1-87f233285a77"
+   revision="10"/>
+<entry
+   name="API"
+   kind="dir"/>
+</wc-entries>

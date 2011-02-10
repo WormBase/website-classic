@@ -1,0 +1,743 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# Simple c. elegans / c. briggsae synteny drawer
+# $Id: ebsyn,v 1.1.1.1 2010-01-25 15:35:55 tharris Exp $
+
+#
+
+use lib '../lib','/home/lstein/projects/bioperl-live';
+use strict;
+use Ace::Browser::AceSubs;
+use ElegansSubs;
+use Bio::DB::GFF;
+use Bio::Graphics;
+use Bio::Graphics::Browser::PadAlignment;
+use Bio::Graphics::Browser::Realign qw(align_segs);
+use GD;
+
+use Data::Dumper;
+
+use CGI 2.42 qw(:standard :html3 escape *table *TR *td);
+use vars qw($ELEGANS $BRIGGSAE $DB $IMAGEWIDTH @RANGES);
+
+use constant IMAGEWIDTH    => 800;
+use constant MAX_REGION    => 100_000;
+use constant BUTTONSDIR    => '/gbrowse/images/buttons/';
+use constant FINEZOOM      => '20%';
+
+use constant ALIGNMENT_FEATURE => 'waba_alignment';
+use constant SIMILARITY_FEATURE => [qw(nucleotide_match:waba_strong nucleotide_match:waba_weak nucleotide_match:waba_coding)];
+
+# No point exceeding MAX_SEGMENT
+@RANGES = qw(100 200 500 1000 5000 10000 20000 50000 100000);
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+$ELEGANS  = OpenGFFDB($DB,'c_elegans')   or die "can't open elegans db\n";
+$BRIGGSAE = OpenGFFDB($DB,'c_briggsae') or die "can't open briggsae db\n";
+local $ELEGANS->{acedb}  = undef;
+local $BRIGGSAE->{acedb} = undef;
+
+my ($source_seg,@targ_seg) = process_arguments();
+
+if (param('dump')) {
+  do_alignment_dump($source_seg,@targ_seg);
+  exit 0;
+}
+
+my $title = $source_seg ? "Aligning $source_seg to @targ_seg" : "C. elegans to C. briggsae Alignment";
+
+PrintTop(undef,undef,undef);
+print h3($title);
+PrintWarning(param('name'),'Sequence') if param('name') && !$source_seg;
+print_prompt($source_seg,@targ_seg);
+print p(font({color=>'red'},'No corresponding match for selected region.')) if $source_seg and !@targ_seg;
+print_report($source_seg,@targ_seg) if $source_seg;
+PrintBottom();
+
+exit 0;
+
+sub process_arguments {
+  my $name  = param('name');
+  my $width = param('imagewidth');
+
+  $IMAGEWIDTH = defined $width && $width >= 480 && $width <= 1600 ? $width : IMAGEWIDTH;
+
+  my ($source_seg,$targ_seg);
+
+  if (do_navigation() or param('Align') or param('dump')) {
+    my ($ref,$start,$end) = (param('ref0'),param('start0'),param('end0'));
+    ($source_seg)         = $ELEGANS->segment(param('ref0'),param('start0'),param('end0'));
+    my @target;
+    for (my $i = 1; $i < 10; $i++) {
+      my $ref    = param("ref$i") or last;
+      my $start  = param("start$i");
+      my $end    = param("end$i");
+      defined $start or last;
+      defined $end   or last;
+      my ($targ) = $BRIGGSAE->segment($ref,$start,$end) or next;
+      push @target,$targ;
+    }
+    $targ_seg   = \@target;
+  }
+
+  else {  # this gets called when user hits "search" or links in via URL
+    my ($start,$end);
+    if (param('resynch')) {
+      $name  = param('ref0');
+      $start = param('start0');
+      $end   = param('end0');
+      param('lock' => 'on');
+    }
+    my ($source,$target) = defined($name) && $name =~ /^cb|^chr/i 
+      ? ($BRIGGSAE,$ELEGANS) : ($ELEGANS,$BRIGGSAE);
+    $source_seg             = find_segment($source,$name,$start,$end);
+    # Hack alert! Still linking in using molecular names. This fails in instances
+    # like T21C12.1 which has alt splices
+    $source_seg             = find_segment($source,$name . 'a',$start,$end)  unless $source_seg;  # alt splice
+    $source_seg             = find_segment($source,$name . '.1',$start,$end) unless $source_seg; # alt spliced UTR
+    return unless $source_seg;
+    $targ_seg               = find_correspondence($target,$source_seg);
+    return ($source_seg)    unless $targ_seg && @$targ_seg; # no hits
+    ($source_seg,$targ_seg) = ($targ_seg->[0],[$source_seg]) if $source eq $BRIGGSAE;
+  }
+
+
+  $targ_seg ||= [];
+  return ($source_seg,@$targ_seg);
+}
+
+sub find_segment {
+  my ($source,$region,$start,$end) = @_;
+  my ($name,$st,$en) = $region =~/([^:]+):?([-\d]*)(?:\.\.)?([-\d]*)/;
+  $st = $start if defined $start;
+  $en = $end   if defined $end;
+  my @argv = (-name=>$name);
+  push @argv,(-start=>$st) if length $st;
+  push @argv,(-end=>$en)   if length $en;
+  my ($segment) = $source->segment(@argv);
+
+  unless ($segment) {
+    ($segment) = $source->segment(CDS => $name);
+  }
+
+  unless ($segment) {
+    ($segment) = $source->get_feature_by_name($name);
+  }
+
+  unless ($segment) {
+    ($segment) = $source->get_feature_by_attribute('Note'=> $name);
+  }
+
+  return unless $segment;
+  $segment->absolute(1);
+  $segment;
+}
+
+sub print_prompt {
+  my ($source,@target) = @_;
+  print start_form(-name=>'mainform');
+  print
+      p({-class=>'caption'},"Enter an elegans or briggsae chromosome or predicted gene name, such as ",
+	join(', ',map {a({-href=>"ebsyn?name=$_"},$_)} ('M7.3','chrI:1..8000','F08G5','IV:9000..18000'))),
+	b("Notes:"), ul(li("Regions must be smaller than ${\MAX_REGION} bp"),li(i("C. briggsae")." chromosome names begin with 'chr'"));;
+
+  print start_table({-cellspacing=>0,-cellpadding=>3,-class=>'searchbody',-width=>$IMAGEWIDTH});
+  print TR({-class=>'searchtitle'},
+	   th('Search for'),
+	   td(textfield(-name=>'name',-size=>10)),
+	   td(submit('Search')),
+	   td({-colspan=>2},'&nbsp;'),
+	   td(@target ? (checkbox(-name=>'lock', -label=>'Lock Zoom/Scroll',-checked=>1),
+			 submit(-name=>'resynch',-label=>'Recenter'),
+			 #submit(-name=>'dump',   -label=>'Text Alignment'),
+			) : '&nbsp;'),
+	   td('&nbsp;'),
+	  );
+
+  my $count = 0;
+  my $text_args;
+  if (@target) {
+    for my $e ($source,@target) {
+      my $elegans = $e->factory eq $ELEGANS;
+      my $verb   = $count ? 'to' : 'Align';
+      my $navbar = navbar($count,$e->length);
+      print TR({-bgcolor=>$elegans ? 'lemonchiffon' : 'pink'},
+	       th($verb,i($elegans ? 'elegans' : 'briggsae')),
+	       td([textfield(-name=>"ref$count",   -value=>$e->ref, -size=>10,  -override=>1),
+		   textfield(-name=>"start$count", -value=>$e->low, -size=>7, -override=>1),
+		   textfield(-name=>"end$count",   -value=>$e->high,   -size=>7, -override=>1),
+		   checkbox( -name=>"flip$count", -label => 'Flip'),
+		   $navbar,
+		  ]),
+	       $count >= @target ? td('&nbsp;'.submit(-name=>'Align',-label=>'Align'))
+                                 : td('&nbsp;'),
+	      );
+      print hidden(-name=>"oldstart$count", -value=>$e->low, -override=>1),
+	    hidden(-name=>"oldend$count",   -value=>$e->high,   -override=>1);
+      $text_args .= ";ref$count=".$e->ref;
+      $text_args .= ";start$count=".$e->low;
+      $text_args .= ";end$count=".$e->high;
+      $text_args .= ";flip$count=".param("flip$count");
+      $count++;
+    }
+  }
+  my $text_url = url(-relative=>1) . "?" . "dump=1$text_args";
+  print
+    TR(
+       th({-align=>'LEFT'},$source ? a({-href=>$text_url,-target=>'_new'},
+				       'Show Alignment'):()),
+       th('Image width:'),
+       td({-colspan=>5},
+	  radio_group(-name=>'imagewidth',-values=>[640,768,800,1024,1280],-default=>IMAGEWIDTH)));
+  print end_table();
+  print end_form();
+}
+
+sub print_report {
+  my ($source_seg,@targ_seg) = @_;
+  my ($image,$map) = generate_image($source_seg,@targ_seg) or return;
+  my $url = AceImage($image);
+
+  # NOW USING SQUID
+  # Append the full URL so that tmp images are appropriately referenced
+  # It should be possible to do this in Bio::Graphics.  Unfortunately, specifying the
+  # protocol, host, and port in the conf file does not work (tries to create a tmp
+  # directory using those values)
+  #my $host = CGI->url(-base=>1);
+  #$url =~ s/\/ace_images/$host\/ace_images/g;
+
+  # Create a url suitable for passing through squid
+  # This needs to have the backend host stripped off of it
+  my ($stripped_url) = $url =~ /http:\/\/.*?(\/.*)/;
+  $stripped_url ||= $url;
+  # TODO!! Need to edit ace tmp image path so that I can
+  # redirect via squid
+  #  $stripped_url =~ s|/ace_images/|/ace_images/protein/|;
+  print img({-src=>$stripped_url,-usemap=>'#map',-alt=>'[image showing alignment of C. elegans genes to C. briggsae genes]'});
+  print $map;
+}
+
+sub generate_image {
+  my ($source_seg,@targ_seg) = @_;
+  my (@panels,%panels,$height,@species);
+
+  my $count = 0;
+  for my $segment ($source_seg,@targ_seg) {
+    my $flip = param("flip".$count++);
+    my $species = $segment->factory eq $ELEGANS ? 'c_elegans' : 'c_briggsae';
+    push @species,$species;
+
+    my $panel = Bio::Graphics::Panel->new(-width      => $IMAGEWIDTH,
+					  -segment    => $segment,
+					  -grid       => 0,
+					  -key_style  => 'between',
+					  -pad_bottom  => $segment eq $source_seg ? 50 : 0,
+					  -flip        => $flip,
+					 );
+
+    my @args = ($segment,
+		-glyph => 'arrow',
+		-tick  => 2,
+		-label  => 1);
+
+    $panel->add_track(@args);
+
+    unless ($segment eq $source_seg) {
+      my @waba = grep {$_->target->overlaps($source_seg)} $segment->features(ALIGNMENT_FEATURE);
+      $panel->unshift_track(\@waba,
+			-glyph => 'heterogeneous_segments',
+			-waba_weak_color   => '#E0E0E0',
+			-waba_strong_color => 'cornflowerblue',
+			-waba_coding_color => 'blue',
+			-box_subparts      => 1,
+			-bump              => -1,
+			-label             => \&waba_label,
+		       );
+    }
+
+    if ($species eq 'c_elegans') {
+      my @pseudogenes = $segment->features('pseudo:Pseudogene');
+      $panel->add_track(\@pseudogenes,
+			-glyph => 'transcript2',
+			-bgcolor => 'white',
+			-label   => 1,
+			-key     => 'pseudogenes',
+			-fgcolor => 'black');
+    }
+
+    # FIXED
+    for my $type ($species eq 'c_elegans' ? 'processed_transcript:curated' : 'wormbase_cds:curated') {
+      # for my $type ($species eq 'elegans' ? 'full_transcript:Coding_transcript' : 'wormbase_cds:hybrid') {
+      my ($key) = $type =~ /:(\S+)$/;
+      my @genes = $segment->features($type);
+
+
+      @args = (\@genes,
+	       -glyph =>  'wormbase_transcript',
+	       -forwardcolor => 'violet',
+	       -reversecolor => 'turquoise',
+#	       $segment->factory eq $ELEGANS
+#	       ?(-forwardcolor => 'violet',
+#		 -reversecolor => 'turquoise'
+#		)
+#	       :(-forwardcolor => 'red',
+#		 -reversecolor => 'firebrick'),
+	       -label        => 1,
+	       -description  => sub {(shift->notes)[0]},
+	       -font2color   => 'red',
+	       -key          => $segment->factory eq $ELEGANS ? 'elegans genes' : 'briggsae genes',
+	      );
+      $panel->add_track(@args);
+    }
+
+    if ($segment eq $source_seg) {
+      my @waba = $segment->features(ALIGNMENT_FEATURE);
+      $panel->add_track(\@waba,
+			-glyph => 'heterogeneous_segments',
+			-waba_weak_color   => '#E0E0E0',
+			-waba_strong_color => 'cornflowerblue',
+			-waba_coding_color => 'blue',
+			-box_subparts      => 1,
+			-bump              => -1,
+			-label             => \&waba_label,
+		       );
+    }
+    push @panels,$panel;
+    $panels{$segment->seq_id} = $panel;
+    $height += $panel->height;
+  }
+
+  my $gd = GD::Image->new($IMAGEWIDTH,$height);
+  my $white = $gd->colorAllocate(255,255,255);
+  my $red = $gd->colorResolve(255,0,0);
+  #my $blue = $gd->colorResolve(0xC0,0xC0,0xE0);
+  my $blue  = $gd->colorResolveAlpha(0,0,255,70);
+  my $black = $gd->colorResolve(0,0,0);
+  $gd->setStyle($black,$black,gdTransparent,gdTransparent);
+
+  # top is yellow and bottom is pink
+  $gd->filledRectangle(0,0,$IMAGEWIDTH,$panels[0]->height,$gd->colorAllocate(Bio::Graphics::Panel->color_name_to_rgb('lemonchiffon')));
+  $gd->filledRectangle(0,$panels[0]->height,$IMAGEWIDTH,$height,$gd->colorAllocate(Bio::Graphics::Panel->color_name_to_rgb('pink')));
+
+  # try to draw lines from the bottom of the waba alignments to the corresponding regions
+  my $arrow_bottom;
+  my @boxes = $panels[0]->boxes;
+
+  foreach (@boxes) {
+    my ($feature,$left1,$top1,$right1,$bottom1) = @{$_};
+    my $type = eval {$feature->type};
+    unless ($type =~ /nucleotide_match:waba_(coding|strong|weak)/) {
+      $arrow_bottom ||= $bottom1;
+      next;
+    }
+    my ($tstart,$tstop) = ($feature->target->start,$feature->target->end);
+
+    # hack alert:
+    # left1 and right1 are getting clobbered somewhere.  This fixes the symptom without
+    # solving the underlying problem
+    ($left1,$right1) = $panels[0]->location2pixel($feature->start,$feature->end);
+
+    my $tpanel = $panels{$feature->target->seq_id} or next;
+    my ($left2,$right2) = $tpanel->location2pixel($tstart,$tstop);
+    next if $left2  <= 0;
+    next if $right2 >= $tpanel->width;
+    my $middle   = $panels[0]->height;
+    for my $pt ([$left1,$left2],[$right1,$right2]) {
+      $gd->line($pt->[0],$arrow_bottom,$pt->[0],$top1-1,$blue);
+      $gd->line($pt->[0],$bottom1+1,$pt->[0],$bottom1+5,$blue);
+      $gd->line($pt->[0],$bottom1+5,$pt->[1],$middle-5,$blue);
+      $gd->line($pt->[1],$middle-5,$pt->[1],$height,$blue);
+    }
+  }
+
+  # draw dotted line between them
+  $gd->line(0,$panels[0]->height-5,$IMAGEWIDTH,$panels[0]->height-5,gdStyled); 
+
+
+  # LINKING TO BRIGGSAE DOES NOT WORK
+  my $map = qq(<map name="map">\n);
+  my $offset = 0;
+  for (my $i=0; $i < @panels; $i++) {
+    my $panel           = $panels[$i];
+    my $species         = $species[$i];
+    my $pan             = $panel->gd;
+    my $white           = 0;  # revisit this decision; use colorclosest()?
+    #    my $color_closest   = $pan->colorClosest(255,255,255);
+
+    # Oddly enough the closest transparent color of the panels
+    # is NOT white but some off white color.  colorClosest using white
+    # therefore fails to find the best match and using an index of 1 fails, too,
+    # because white is not the first color allocated for Bio::Graphics::Panels.
+    # Instead, I'll use getPixel to assay a region that should be in the background.
+    my $transparent = $pan->getPixel(1,1);
+    $pan->transparent($transparent);
+
+    my ($width,$height) = $pan->getBounds;
+    $gd->copy($pan,0,$offset,0,0,$width,$height);
+
+    my @boxes  = $panel->boxes;
+    my $source = $species eq 'c_elegans' ? 'c_elegans' : 'c_briggsae';
+    my $url    = '/db/gene/gene';
+    foreach (@boxes) {
+      my $feature = shift @$_;
+      next unless eval{$feature->type} =~ /coding_exon/ || eval { $feature->type} =~ /processed_transcript/;
+      my $name = $feature->name;
+      $_->[1] += $offset;
+      $_->[3] += $offset;
+      $map .= qq(<area shape="rect" coords="$_->[0],$_->[1],$_->[2],$_->[3]" href="$url?name=$name;source=$source" alt="$name">\n);
+    }
+    $offset += $height;
+  }
+  $map .= "</map>\n";
+  return ($gd,$map);
+}
+
+sub find_correspondence {
+  my ($target,$segment) = @_;
+
+  # refuse to do anything if the requested region is too large
+  return if $segment->length > MAX_REGION;
+
+  # get the longest waba run in this region
+  my ($block) = sort {$b->length<=>$a->length} $segment->features(ALIGNMENT_FEATURE);
+
+  return unless $block;
+  my $bt = $block->target;
+  my ($b_start,$b_end) = ($bt->start,$bt->end);
+  ($b_start,$b_end)    = ($b_end,$b_start) if $b_start > $b_end;
+
+  # get longest WABA coding alignments in the region
+  my @waba = $segment->features('nucleotide_match:waba_coding');
+
+  # construct target segments
+  my %target;
+  foreach (@waba) {
+    my $target = $_->target or next;
+
+    next unless "$target" eq "$bt";
+
+    my ($t_start,$t_end) = ($target->start,$target->end);
+    if ($t_start > $t_end) {
+      ($t_start,$t_end)    = ($t_end,$t_start);
+      $target{$target}{'-'}++;
+    } else {
+      $target{$target}{'+'}++;
+    }
+    next unless $t_start >= $b_start && $t_end <= $b_end;
+
+    $target{$target}{min} = $t_start
+      if !exists $target{$target}{min} || $target{$target}{min} > $t_start;
+
+    $target{$target}{max} = $t_end
+      if !exists $target{$target}{max} || $target{$target}{max} < $t_end;
+  }
+
+  my @results;
+  foreach (keys %target) {
+    my $middle      = ($target{$_}{min}+$target{$_}{max})/2;
+    my $orientation = $target{$_}{'-'} > $target{$_}{'+'} ? -1 : 1;
+    my ($start,$end) = (int($middle-$segment->length/2),int($middle+$segment->length/2)-1);
+    my @targ = $target->segment($_,$start,$end);
+    push @results,@targ;
+  }
+  return \@results;
+}
+
+
+sub waba_label {
+  my $feature = shift;
+  my $ref   = $feature->target;
+  my $start = $feature->target->start;
+  my $stop  = $feature->target->end;
+  my $first = ($feature->segments)[0];
+  my $strand = defined $first && $first->start>$first->end ? -1 : +1;
+  ($start,$stop) = ($stop,$start) if $strand < 0;
+  "$ref:$start..$stop";
+}
+
+sub get_tracks {
+  my @param = grep /^ref\d+/,param();
+  return map {/(\d+)/ && $1} @param;
+}
+
+# THIS IS SHAMELESSLY ADAPTED FROM GBROWSE
+sub do_navigation {
+
+  my $something_changed = 0;
+  my %seenit;
+
+  my @count = map {/(\d+)/ && $1} grep {/^old/} param();
+  foreach (@count) {
+    $something_changed++ if param("oldstart$_") ne param("start$_");
+    $something_changed++ if param("oldend$_") ne param("end$_");
+  }
+
+  # zoom left/right
+  for my $h (grep /^(left|right)/,param()) {
+    (my $base = $h) =~ s/\.[xy]$//;
+    next if $seenit{$base}++;
+    my ($direction,$trk,$label,$units) = split /\s+/,$base;
+    my $value = unit_to_value("$direction $label $units");
+    my @tracks = param('lock') ? get_tracks() : $trk;
+    for my $track (@tracks) {
+      my $current_left  = param("start$track");
+      my $current_right = param("end$track");
+      defined $current_left && defined $current_right or next;
+      my $flip = param("flip$track") ? -1 : 1;
+      param("start$track" => $current_left+$flip*$value);
+      param("end$track"   => $current_right+$flip*$value);
+    }
+    $something_changed++;
+  }
+
+  # zoom in/out
+  for my $h (grep /^zoom/,param()) {
+    (my $base = $h) =~ s/\.[xy]$//;
+    next if $seenit{$base}++;
+    my ($direction,$trk,$label,$units) = split /\s+/,$base;
+    my $value = unit_to_value("$direction $label $units");
+    my @tracks = param('lock') ? get_tracks() : $trk;
+    for my $track (@tracks) {
+      zoom($track,$value,'factor') && $something_changed++;
+    }
+  }
+
+  if (my($span) = grep /^span/,param()) {
+    my $value = param($span);
+    my ($trk) = $span =~ /(\d+)/;
+    my @tracks = param('lock') ? get_tracks() : $trk;
+    for my $track (@tracks) {
+      zoom($track,$value,'abs') && $something_changed++;
+    }
+  }
+
+  $something_changed;
+}
+
+sub zoom {
+  my $track = shift;
+  my $value = shift;
+  my $type   = shift;
+
+  my $current_left  = param("start$track");
+  my $current_right = param("end$track");
+  defined $current_left && defined $current_right or return;
+
+  my $old_left     = param("oldstart$track");
+  my $old_right    = param("oldend$track");
+  defined $old_left && defined $old_right or return;
+  
+  $current_left  == $old_left or return;
+  $current_right == $old_right or return;
+
+  my $span        = abs($current_right - $current_left + 1);
+  return unless $value;
+  return if $type eq 'abs' && $value == $span;
+
+  my $center	    = int($span / 2) + $current_left;
+  my $range	    = $type eq 'factor'? int($span * (1-$value)/2) : int($value/2);
+  $range          = 2 if $range < 2;
+
+  param("start$track" => $center-$range);
+  param("end$track"   => $center+$range - 1);
+  1;
+}
+
+
+# THIS IS SHAMELESSLY CUT AND PASTE FROM GBROWSE
+sub navbar {
+  my $count = shift;
+  my $span  = shift;
+  my $buttonsDir = BUTTONSDIR;
+
+  my $quarter   = unit_label(int $span/4);
+  my $half      = unit_label(int $span/2);
+  my $fine_zoom = FINEZOOM;
+
+  return image_button(-src=>"$buttonsDir/green_l2.gif",-name=>"left $count $half",
+		  -border=>0,-title=>"left $half").
+     image_button(-src=>"$buttonsDir/green_l1.gif",-name=>"left $count $quarter",
+		  -border=>0,-title=>"left $quarter").
+     '&nbsp;'.
+     image_button(-src=>"$buttonsDir/minus.gif",-name=>"zoom_out $count $fine_zoom",
+		  -border=>0,-title=>"zoom out $fine_zoom").
+     '&nbsp;'.
+     zoomBar($count,$span,$buttonsDir).
+     '&nbsp;'.
+     image_button(-src=>"$buttonsDir/plus.gif",-name=>"zoom_in $count $fine_zoom",
+		  -border=>0,-title=>"zoom in $fine_zoom").
+     '&nbsp;'.
+     image_button(-src=>"$buttonsDir/green_r1.gif",-name=>"right $count $quarter",
+		  -border=>0,-title=>"right $quarter").
+     image_button(-src=>"$buttonsDir/green_r2.gif",-name=>"right $count $half",
+		  -border=>0,-title=>"right $half");
+}
+
+# this generates the popup zoom menu with the window sizes
+sub zoomBar {
+  my ($count,$length,$buttonsDir) = @_;
+  my $show = 'Show';
+
+  my %seen;
+  my @ranges	= grep {!$seen{$_}++} sort {$b<=>$a} $length,@RANGES;
+  my %labels    = map {$_=>$show.' '.unit_label($_)} @ranges;
+  return popup_menu(-class   => 'searchtitle',
+	       -name    => "span $count",
+	       -values  => \@ranges,
+	       -labels  => \%labels,
+	       -default => $length,
+	       -force   => 1,
+	       -onChange => 'document.mainform.submit()',
+	      );
+}
+
+# convert bp into nice Mb/Kb units
+sub unit_label {
+  my $value = shift;
+  my $unit     = 'bp';
+  my $label;
+  $label = $value >= 1e9  ? sprintf("%.4g G%s",$value/1e9,$unit)
+         : $value >= 1e6  ? sprintf("%.4g M%s",$value/1e6,$unit)
+         : $value >= 1e3  ? sprintf("%.4g k%s",$value/1e3,$unit)
+	 : $value >= 1    ? $value." $unit"
+	 : $value >= 1e-2 ? sprintf("%.4g c%s",$value*100,$unit)
+	 : $value >= 1e-3 ? sprintf("%.4g m%s",$value*1e3,$unit)
+	 : $value >= 1e-6 ? sprintf("%.4g u%s",$value*1e6,$unit)
+	 : $value >= 1e-9 ? sprintf("%.4g n%s",$value*1e9,$unit)
+         : sprintf("%.4g p%s",$value*1e12,$unit);
+  return $label;
+}
+
+# convert Mb/Kb back into bp... or a ratio
+sub unit_to_value {
+  my $string = shift;
+  my $sign           = $string =~ /out|left/ ? '-' : '+';
+  my ($value,$units) = $string =~ /([\d.]+) ?(\S+)/;
+  return unless defined $value;
+  $value /= 100   if $units eq '%';  # percentage;
+  $value *= 1000  if $units =~ /kb/i;
+  $value *= 1e6   if $units =~ /mb/i;
+  $value *= 1e9   if $units =~ /gb/i;
+  return "$sign$value";
+}
+
+####################################################################
+# dump operation
+sub do_alignment_dump {
+  my ($source_seg,@targ_seg) = @_;
+
+  print header(-type   => 'text/html',
+	       -target => '_new');
+  print start_html(-target=>'_new',-title=>'alignment');
+
+  my $i = 0;
+  my %origin  = map {$_->ref => $_->start}  ($source_seg,@targ_seg);
+  my %length  = map {$_->ref => $_->length} ($source_seg,@targ_seg);
+  my %flip    = map {$_->ref => scalar param("flip".$i++)} ($source_seg,@targ_seg);
+
+  my @alignments  = $source_seg->features(-types=>SIMILARITY_FEATURE);
+  my $src_origin  = $origin{$source_seg->ref};
+  my (@align,@to_realign);
+  foreach (@alignments) {
+    my $target = $_->target;
+    defined (my $targ_origin = $origin{$target}) or next;
+
+    # warn "targ origin = $targ_origin";
+    # warn "targ length = $length{$target}";
+
+    my $start  = $_->start;
+    my $end    = $_->end;
+    my $tstart = $target->start;
+    my $tend   = $target->end;
+
+    # warn qq(["$target/o",$start,$end,$tstart,$tend]\n);
+
+    $start = $start - $src_origin;
+    $end   = $end   - $src_origin;
+
+    my $flip =  $flip{$target} ||= $_->target->start > $_->target->end;
+    $tstart = $flip ? ($targ_origin+$length{$target}-1) - $tstart 
+                    : $tstart - $targ_origin;
+    $tend   = $flip ? ($targ_origin+$length{$target}-1) - $tend   
+                    : $tend   - $targ_origin;
+    next if $tstart < 0;
+
+    # warn qq(["$target/u",$start,$end,$tstart,$tend]\n);
+
+    if ($start < 0) {
+      $end    -= $start;
+      $tstart -= $start;
+      $tend   -= $start;
+      $start = 0;
+    }
+    if ($end >= $source_seg->length) {
+      $end = $source_seg->length-1;
+    }
+
+    if ($tend-$tstart != $end-$start) {  # bad alignment, bad bad!
+      if ($end-$start < 100) {
+	push @to_realign,["$target",$start,$end,$tstart,$tend];
+      } else {
+	push @align,[$target,
+		     $start,$end,
+		     $tstart,$tstart+($end-$start)
+		    ];
+	next;
+      }
+    }
+    
+    # warn qq(["$target/m",$start,$end,$tstart,$tend]\n);
+    push @align,["$target",$start,$end,$tstart,$tend];
+  }
+
+  # generate the dnas
+  my @dnas;
+  for ($source_seg,@targ_seg) {
+    my $name  = $_->ref;
+    my $start = $_->start;
+    my $dna   = lc $_->dna;
+    my @cds   = $_->features('cds');
+    for my $c (@cds) {
+      my ($cstart,$clength) = ($c->low,$c->length);
+      substr($dna,$cstart-$start,$clength) =~ tr/a-z/A-Z/;
+    }
+    $dna = reversec($dna) if $flip{$name};
+    push @dnas,($name => $dna);
+  }
+
+  # realign any bad segments
+  if (@to_realign) {
+    my %dnas = @dnas;
+    my $source = $source_seg->ref;
+    for my $a (@to_realign) {
+      my ($target,$start,$end,$tstart,$tend) = @$a;
+      my $src = substr($dnas{$source_seg->ref},$start, $end-$start+1);
+      my $tar = substr($dnas{$target}         ,$tstart,$tend-$tstart+1);
+      next unless $src && $tar;
+      my @realigned_segs = align_segs($src,$tar);
+      for my $r (@realigned_segs) {
+	push @align,[$target,
+		     $r->[0]+$start,$r->[1]+$start,
+		     $r->[2]+$tstart,$r->[3]+$tstart
+		    ];
+      }
+    }
+  }
+
+  foreach (keys %origin) {
+    $origin{$_} = -($origin{$_}+$length{$_}-1) if $flip{$_};
+  }
+
+  my $padder = Bio::Graphics::Browser::PadAlignment->new(\@dnas,\@align);
+  print pre($padder->alignment(\%origin,{show_mismatch=>1}));
+
+  print end_html;
+}
+
+sub reversec {
+  my $dna = shift;
+  $dna = reverse $dna;
+  $dna=~ tr/gatcGATC/ctagCTAG/;
+  $dna;
+}

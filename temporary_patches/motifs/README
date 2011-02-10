@@ -1,0 +1,15 @@
+3/2005
+Calculate the genomic coordinates of protein motifs for 
+display on the genome browser.
+
+  ./translated_to_genome-via_gene.pl --filter
+
+
+WS140.motifs.filtered.gff.gz
+  	Motifs filtered to display each unique feature once
+
+WS140.motifs.unfiltered.gff.gz
+	All motifs, unfilterd
+
+translated_to_genome-via_gene.pl
+translated_to_genome.pl

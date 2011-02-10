@@ -1,0 +1,23 @@
+#!/usr/bin/perl -w
+use lib '/usr/local/wormbase/website-classic/conf/gbrowse.conf/';
+
+use lib '/usr/local/wormbase/extlib';
+#$Id: moby_server,v 1.1.1.1 2010-01-25 15:35:55 tharris Exp $
+use SOAP::Transport::HTTP;
+use MobyServices::GbrowseServices;
+use strict;
+
+my $x = new SOAP::Transport::HTTP::CGI;
+
+$x->dispatch_with({
+    'http://biomoby.org/#GbrowseGetReferenceSeqObj' =>  'MobyServices::GbrowseServices',
+    'http://biomoby.org/#GbrowseGetReferenceFasta' =>  'MobyServices::GbrowseServices',
+    'http://biomoby.org/#GbrowseGetReferenceGFF2' =>  'MobyServices::GbrowseServices',
+    'http://biomoby.org/#GbrowseGetReferenceGFF3' =>  'MobyServices::GbrowseServices',
+    'http://biomoby.org/#GbrowseGetFeatureSequenceObject' =>  'MobyServices::GbrowseServices',
+    'http://biomoby.org/#GbrowseGetFeatureGFF3' =>  'MobyServices::GbrowseServices',
+    'http://biomoby.org/#GbrowseGetFeatureGFF2' =>  'MobyServices::GbrowseServices',
+    
+    });
+$x->handle;
+

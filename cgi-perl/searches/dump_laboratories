@@ -1,0 +1,90 @@
+#!/usr/bin/perl
+
+# filename: dump_genome
+# Author: L. Stein
+
+use lib '../lib';
+use CGI 'param','header','path_info';
+use Ace;
+use Ace::Browser::AceSubs;
+use ElegansSubs;
+use strict;
+
+use vars qw($DB);
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+my $operation = get_operation();
+my $species   = guess_species(param('species'));
+
+print header('text/plain');
+
+if ($operation eq 'genome') {
+  my $query   = get_genome_query($species);
+  # ugh - too slow
+  # do_dump($DB,$query,'dna');
+  my @sequences = $DB->fetch(-query=>$query);
+  print $_->asDNA foreach @sequences;
+}
+
+if ($operation eq 'proteome') {
+  my $query    = get_proteome_query($species);
+  do_dump($DB,$query,'peptide');
+}
+
+exit 0;
+
+sub do_dump {
+  my ($DB,$query,$operation) = @_;
+  my $db = $DB->db;
+  $db->query($query);
+  $db->read while $db->status == STATUS_PENDING;
+  $db->query($operation);
+  while ($db->status == STATUS_PENDING) {
+    my $line = $db->read;
+    $line =~ s!^//.+$!!mg;
+    $line =~ s!\0!!g;
+    print $line;
+  }
+}
+
+my %species_table = ('Celegans'   => 'Caenorhabditis elegans',
+		     'Cbriggsae'  => 'Caenorhabditis briggsae',
+		     'Cjaponica'  => 'Caenorhabditis japonica',
+		     'Cremanei'   => 'Caenorhabditis remanei',
+		     'CB5161'     => 'Caenorhabditis sp CB5161',
+		    );
+
+sub guess_species {
+  my $species = shift;
+  return 'Caenorhabditis elegans' unless $species;
+  return $species_table{$species} if exists $species_table{$species};
+  if ($species =~ /^C(\w+)/) {
+    return "Caenorhabditis $1";
+  } else {
+    return "Caenorhabditis $species";
+  }
+}
+
+sub get_operation {
+  my $path = path_info();
+  $path    ||= 'proteome';  # default
+  my ($op)  = $path =~ /(\w+)$/;
+  return 'proteome' if $op eq 'proteome';
+  return 'genome'   if $op eq 'genome';
+  return 'genes'    if $op eq 'genes';
+}
+
+# something is seriously broken that I have to do this
+sub get_genome_query {
+  my $species = shift;
+  return 'find Sequence CHROMOSOME_*' if $species eq 'Caenorhabditis elegans';
+  return 'find Sequence cb25.*'       if $species eq 'Caenorhabditis briggsae';
+  return qq(find Sequence Genomic_Canonical AND Species="$species");
+}
+
+sub get_proteome_query {
+  my $species = shift;
+  return 'find WormPep' if $species eq 'Caenorhabditis elegans';
+  return 'find BrigPep' if $species eq 'Caenorhabditis briggsae';
+  return qq(find Protein Species="$species");
+}

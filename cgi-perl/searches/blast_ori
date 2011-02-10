@@ -1,0 +1,339 @@
+#!/usr/bin/perl
+# -*-mode: perl-*-
+# blast search script used at the CSHL site.
+# This contains some hard-coded path names, which will
+# need to be edited for your site.  By default, this
+# script is not included among the other search scripts.
+# Also see util/dump_genomic.pl for the script used to
+# make the DNA dump searched by this script.
+# $Id: blast_ori,v 1.1.1.1 2010-01-25 15:36:05 tharris Exp $
+
+use lib '../lib';
+use strict;
+use vars qw/$TMPNAM $TMPDIR $TMP_FILE $STOP_AT %BLAST_OPTS $cutoff $max_hits/;
+
+use Ace;
+use CGI qw/:standard escapeHTML Sub/; 
+use IO::File;
+use Ace::Browser::AceSubs qw(:DEFAULT Configuration);
+use Ace::Browser::SearchSubs;
+use Ace::Browser::GeneSubs 'NCBI';
+use ElegansSubs;
+use vars '$DB';
+
+BEGIN {$|=1}
+use constant SEQVIEW => "/db/seq/gbrowse";
+use constant MAX_LENGTH => 50_000;
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+%BLAST_OPTS= ('blastn'   =>  [qw/-progress 2 -hspmax 10/],
+	      'blastx'   =>  [qw/-progress 2 -hspmax 10/],
+	      'blastp'   =>  [qw/-progress 2 -hspmax 10/],
+	      'tblastn'  =>  [qw/-progress 2 -hspmax 10/],
+	     );
+
+$TMPNAM = 'aaaaaa';
+$TMPDIR = $ENV{'TMPDIR'} || $ENV{'TEMP'} || '/usr/tmp';
+$cutoff   = defined param('cutoff')   ? param('cutoff')   : Configuration->Blast_cutoff;
+$max_hits = defined param('max_hits') ? param('max_hits') : Configuration->Blast_maxhits;
+$max_hits = 99999999 if $max_hits eq 'ALL';
+
+$cutoff = 9999 unless $cutoff=~/^[.eE\d-]+$/;
+
+PrintTop(undef,undef,undef,
+	  '-Title'  =>'BLAST Search',
+	  '-Target' =>'_top',
+	  '-Class'  =>'search');
+
+my $done;
+
+do_autoload() if param('autoload');
+
+if (param('sequence') && param('action')=~/BLAST/) {
+  # check that the search program matches the search database
+  my %ok_databases = map { $_=>1 } @{Configuration->Blast_ok->{param('program')}};
+  if ($ok_databases{param('db')}) {
+    do_search( param('sequence'),param('name'),param('program'),param('db'),$max_hits,$cutoff );
+    $done++;
+  } else {
+    print p({-class=>'error'},
+	     "You have chosen an incompatible combination of search program and database. Please adjust."
+	   );
+  }
+}
+
+do_prompt() unless $done;
+
+PrintBottom;
+
+sub do_prompt {
+  my $labels = Configuration->Blast_labels;
+  my ($def_program,$def_db) = @{Configuration->Blast_default};
+  DisplayInstructions('Blast Search',
+		      'Paste your sequence into the large text field and enter its name (optional).',
+                      'Press the submit button to perform a blast search against all sequences in the database.');
+  print start_form(),
+  table({-class=>'databody',width=>'100%'},
+	TR(
+	   th ({-class=>'searchtitle'},'BLAST Search')
+	  ),
+	TR(
+	   td({-align=>'center',-class=>'searchbody'},
+	      font({-size=>'-1'},b('Seq. name (Opt.):')), 
+	      textfield(-name=>'name', -size=>'10'),
+	      '&nbsp;&nbsp;',
+	      font({-size=>'-1'},b('Program: ')),
+	      popup_menu(-name=>'program',
+			 -value=>[qw/blastn blastx blastp tblastn/],
+			 -default=>$def_program),
+	      font({-size=>'-1'},'&nbsp;',b('Database: ')),
+	      popup_menu(-name=>'db',-value=>$labels,-default=>$def_db)
+	     )
+	  ),
+	TR(
+	   td({-align=>'center',-class=>'searchbody'},
+	      font({-size=>'-1'},b('P value cutoff: ')),
+	      popup_menu(-name=>'cutoff',
+			 -value=>[qw/1E-100 1E-50 1E-10 1E-5 0.001 0.01 0.1 9999/],
+			 -labels => {9999 => 'NONE'},
+			 -default=>$cutoff), 
+	      '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;',
+	      font({-size=>'-1'},b('Show max hits:')),
+	      popup_menu(-name=>'max_hits',
+			 -value=>[qw/1 5 10 15 20 50 100 ALL/],
+			 -default=>$max_hits,
+			),
+	     )
+	  ),
+	TR(
+	   td({align=>'center',-class=>'searchbody'},
+	      font({-size=>'-1'},b('Sequence (raw or FASTA format):')),
+	      br,
+	      pre(tt(textarea(-name=>'sequence',-rows=>12,-cols=>80))),
+	      br,br,
+	      submit(-name=>'action',-value=>'Run BLAST'),
+	      br,br,
+	     )
+	  ),
+       ),
+	     end_form;
+
+  print
+  table(Tr({-class=>'datatitle'},
+	   th ['Program','Search Seq','Database(s)']),
+	Tr({-class=>'databody'},
+	   td ['blastp','protein','WormPep']),
+	Tr({-class=>'databody'},
+	   td ['blastn','nucleotide','elegans ESTs, elegans genomic']),
+	Tr({-class=>'databody'},
+	   td ['blastx','nucleotide','WormPep']),
+	Tr({-class=>'databody'},
+	   td ['tblastn','protein','elegans ESTs, elegans genomic'],
+	  ),
+       );
+}
+
+sub do_search {
+  my ($sequence,$name,$program,$db,$max_hits,$cutoff) = @_;
+  warn "blast length = ",length $sequence;
+  if (length $sequence > MAX_LENGTH) {
+      print p({-class=>'error'},
+	      "This program cannot accept sequences of length greater than ${\MAX_LENGTH} bp."
+	    );
+      return;
+  }
+  local(*B);
+  $TMP_FILE = tmpnam('.fasta');
+  my $unlinked;
+
+  $name = to_fasta($TMP_FILE,$sequence,$name);
+  my $path = Configuration()->Blast_bin . "/$program";
+  open(B,"-|") || do {
+    @ENV{qw/BLASTMAT BLASTFILTER BLASTDB/} = 
+      (Configuration->Blast_matrix,Configuration->Blast_filter,Configuration->Blast_db);
+    exec($path,$db,$TMP_FILE,@{$BLAST_OPTS{$program}}) && die "Couldn't exec: $!";
+  };
+
+  # print out the top boilerplate
+  $| = 1;
+  print "<PRE>\n";
+  IO::File->input_record_separator("\n");
+  while ($_ = B->getline) {
+    # get rid of temp file as soon as we dare
+    unlink $TMP_FILE unless $unlinked++;
+    chomp;
+    print(escapeHTML($_),"\n");
+    last if /total letters/;
+  }
+  STDOUT->flush;
+  $/='....';
+  while (<B>) {
+    print $_,"\n\t";
+    last if /90/;
+  }
+  $/="\n";
+  print scalar(<B>);
+  print "</PRE>\n";
+  
+  # parse the hits and turn into nicely formatted HTML
+  print h2('Results Summary',);
+  my $blanks = 0;
+  my $hits = 0;
+  my $count = 0;
+
+  my @rows=TR(th(['Sequence','Description','Details','High Score','P'. Sub('N'),'N']));
+  my %align;
+
+  while (<B>) {
+    chomp;
+
+    $blanks = 0 if $_;
+    last if !$_ && $blanks++ > 1;  # quit when we see two blank lines in a row (hack)
+
+    next unless my($hit,$description,$score,$probability,$n) =
+      /^(\S+)\s+(.+)\s+(\d+)\s+([0-9e.-]+)\s+(\d+)$/;
+
+    $hits++;
+    $description=~s/\s+$//; # trim whitespace
+
+    unless ( ($count++ >= $max_hits) || ($probability > $cutoff) ) {
+      $align{$hit}++;
+      push(@rows,
+	   TR(th({-align=>'LEFT'},a({-href=>to_tree($hit),-name=>$hit},$hit)),
+	      td($description),
+	      td(a{-href=>"\#${hit}_hsp"},'Alignment'),
+	      td($score),
+	      td($probability),
+	      td($n))
+	  );
+    }
+
+  }
+
+  print table({-border=>undef,-width=>'100%'},
+	      join("\n",@rows)),"\n" if $hits > 0;
+
+  $count = scalar keys %align;
+  print p(strong({-style=>'color: red'},"$hits hits total ($count above cutoff of $cutoff)"));
+
+  # return to search page button
+  if (0) {
+  print start_form;
+  print hidden($_) foreach qw(sequence name db program cutoff max_hits);
+  print submit(-name=>'action',-value=>'Search Again'),
+        end_form;
+  }
+
+  # print the HSP alignments
+  print hr,h2('Alignments') if $count > 0;
+  $/="\n\n\n";   # find the triple newlines
+  while (<B>) {
+    chomp;
+    next unless /^>/;
+    print_hsp($_,\%align);
+  }
+
+  close B;
+}
+
+sub to_fasta {
+  my ($tmp,$sequence,$name) = @_;
+  if ($sequence=~/^>(.+)$/m) { #fasta format already\
+    $name = $1;
+    $sequence=$';
+  }
+  $name ||= 'Untitled Sequence submitted by ' . remote_host();
+  $sequence=~tr/a-zA-Z//cd;
+  $sequence=~s/(.{80})/$1\n/g;
+
+  my $file = IO::File->new(">$tmp") 
+    || AceError("Couldn't open temporary file for writing sequence: $!");
+
+  print $file ">$name\n$sequence";
+  $file->close();
+  $name;
+}
+
+sub print_hsp {
+  my $data = shift;
+  my $show = shift;
+
+  my ($title,@paras) = split("\n\n",$data);
+  my ($hit) = $title=~/^>(\S+)\s+/;
+  return unless $show->{$hit};
+
+  my $description = $';
+  print h3(a({-href=>to_tree($1),-name=>"$1_hsp"},escapeHTML($hit)));
+  # fix something in the elegans database that I don't like
+
+  $description =~ s!/cds=!/cds_count=!g;
+  $description = escapeHTML($description);
+  $description =~ s/gb=(\w+)/'gb='.
+                    a({-href=>NCBI . "?db=n&form=1&field=Sequence+ID&term=$1"},$1)/meg;
+
+  if ($description =~ m!/map=((\w+)\/(\d+),(\d+))!) {
+     my ($id,$ref,$start,$stop) = ($1,$2,$3,$4); 
+     print p("$id, ref $ref, start $start, stop $stop");
+
+     $ref =~ s/^CHROMOSOME_//;
+     ($start,$stop) = ($stop,$start) if $stop < $start;
+     $description =~ s!/map=(\S+)!'/map=' . a({-href=>SEQVIEW()."?name=$ref:$start..$stop"},$id)!me;
+   }
+
+  $description =~ s!/(\w+)=!b({-Style=>'color: red'},$1).'='!ge;
+
+  # find start and stop of subject
+  my @segments;
+  foreach (@paras) {
+    my ($low,$high);
+    while (/^Sbjct:\s*(\d+).+(\d+)/mg) {
+      my ($start,$stop) = $1<$2 ? ($1,$2) : ($2,$1);
+      $low  = $start if $low  > $start or !defined $low;
+      $high = $stop  if $high < $stop  or !defined $high;
+    }
+    next unless defined $low;
+    push @segments,[$low,$high];
+  }
+
+  print p({-class=>'small'},$description);
+  print pre(escapeHTML(join("\n\n",@paras))),"\n";
+  print pre(map {"$_->[0]..$_->[1]"} @segments);
+  print a({-href=>"#$hit"},"Summary table"),hr;
+  return 1;
+}
+
+sub to_tree {
+  my $hit = shift;
+  return Object2URL($hit,'Sequence');
+}
+
+ # Find a temporary file name.
+sub tmpnam {
+  my $suffix = shift;
+  while(1) {
+    my $tmpfile = "$TMPDIR/${$}" . $TMPNAM++ . $suffix;
+    return $tmpfile if IO::File->new($tmpfile,O_EXCL|O_CREAT);
+  }
+}
+
+sub do_autoload {
+  my $object = param('autoload');
+  my ($id,$db) = $object =~ /^Blast (\S+) against (\S+)/;
+  return unless $id && $db;
+  my ($obj) = $DB->fetch(Sequence => $id);
+  return unless $obj;
+  param(name => "$obj");
+  param(db => $db);
+  if ($db eq 'WormPep') {
+    param(program => 'blastp');
+    param(sequence => $obj->asPeptide);
+  } else {
+    param(program => 'blastn');
+    param(sequence => $obj->asDNA);
+  }
+}
+
+END {
+  unlink $TMP_FILE if $TMP_FILE;
+}

@@ -1,0 +1,4318 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# file: gene
+# Unified C. elegans gene report
+
+# Add: phenotypes via Variation
+
+use strict;
+use lib '../lib';
+
+use vars qw($DB $DBGFF $BRIGGFF $BROWSER $BESTNAME
+	    $GENE $LOCUS $SEQUENCES $TRANSCRIPTS $PROTEINS @SEGMENTS
+	    $WORMBASE $GFF $SPECIES);  # databases and objects
+use CGI qw(:standard *table *TR *td escape *ul *div *iframe *pre);
+use CGI::Toggle;
+use Ace::Browser::AceSubs qw(:DEFAULT AceRedirect);
+use ElegansSubs qw(:DEFAULT :locus PrintLongDescription
+		   Best_BLAST_Table StartCache EndCache GetEvidence
+		   GetInterpolatedPosition OverlappingOST OverlappingPCR OverlappingSAGE
+		   FetchGene Bestname generate_reactome_table DisplayMoreLink
+		   LinkToGlossary format_references GetEvidenceNew ID2Species Species2URL
+		   GenerateWikiLink
+		   is_new days_since_update
+		   filter_references
+		   filter_and_display_references
+		   build_citation		   
+		   is_NOT_phene
+		   parse_year
+		   inline_evidence
+		   format_reference
+		   display_reactome_data
+		   display_nemapath_data
+		   );
+
+#		   FetchObject
+use Bio::Graphics::Browser::Markup;
+use WormBase;
+use WormBase::Table;
+use GD::Graph::pie;
+
+END {
+  undef $GENE;
+  undef $LOCUS;
+  undef $SEQUENCES;
+  undef $TRANSCRIPTS;
+  undef $PROTEINS;
+  undef @SEGMENTS;
+  undef $GFF;
+  undef $SPECIES;
+}
+
+use constant DEBUG         => 0;
+use constant STRUCTURE_DATA_SIMILARITY => 90; # Percent similarity cut-off to display
+# mapped Structure_data objects
+use constant INPARANOID_URL => 'http://wiki.wormbase.org/index.php/Glossary_of_terms#inparanoid';
+use constant INTERACTION_VIEWER_IMAGE => '/images/interaction_02.png';
+use constant QVTR_IMAGE  => '/images/QVTR2.png';
+
+our %NESG2PDB = (
+    WR33 => '1pul',
+    WR4  => '1m1s',
+    WR66 => '1lur',
+    WR41 => '1l7y',
+    );
+
+
+$Ace::DEBUG_LEVEL=0;
+
+$|++;
+
+# print HTTP header & open the ace database
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$DB->class('Ace::Object::Wormbase');
+$WORMBASE = WormBase->new($DB);
+
+$DB->timestamps(1);
+our $version = $DB->version;
+
+# open the browser for drawing pictures
+# Gb2
+#$BROWSER ||= Bio::Graphics::Browser->new(Configuration->Gff_conf) or AceError('Cannot open picture generator');
+# Gb1
+#$BROWSER ||= Bio::Graphics::Browser->new() or AceError('Cannot open picture generator');
+#$BROWSER->read_configuration(Configuration->Gff_conf)  or AceError("Can't read gff configuration");
+#$BROWSER->source('c_elegans');
+#$BROWSER->width(PICTURE_WIDTH);
+#$BROWSER->config->set('general','empty_tracks' => 'suppress');
+#$BROWSER->config->set('general','keystyle'     => 'none');
+# $BROWSER->config->set('general','keystyle'   => 'between');
+
+# Fetch the initial gene object and then corresponding sequences
+$GENE = 0; # Initialize $GENE so that it doesn't passed on from previous processes, 
+           # this is critical as it determines whether cache is started or not - 13Jul2004/PC
+$BESTNAME = ''; # Initialize $BESTNAME for the same reason (displayed as title) - 13Jul2004/PC
+#if (url_param('name') || param('name')) {
+if (param('name')) { 
+   
+# SILENTLY TESTING NEW FetchObject method
+#    if (url_param('test')) {
+#	($GENE,$BESTNAME) = FetchObject($DB,param('name'),'Gene');
+#   } else {
+#	# The not_found is a pure hack. The basic search implements a FetchGene call
+#	# in order to redirect to the gene page.  This allows for more efficient caching by URL although it's a bit odd.
+#	($GENE,$BESTNAME) = FetchGene($DB,url_param('name') || param('name')) unless (param('not_found'));
+	($GENE,$BESTNAME) = FetchGene($DB,param('name')) unless (param('not_found'));
+#    }
+    if ($GENE) {
+	$LOCUS            = fetch_locus();
+	$PROTEINS         = fetch_proteins();
+	$SEQUENCES        = fetch_sequences();
+	$SPECIES = get_species($GENE);
+	
+	# Connect to the appropriate Bio::DB::GFF database
+	$GFF = OpenGFFDB($DB,$SPECIES) or AceError("Couldn't open the GFF database") if $GENE->Species;
+    }
+}
+
+
+# Norie: This should all be in config
+my $interaction_data_dir = "/usr/local/wormbase/databases/$version/interaction";
+my $datafile = $interaction_data_dir."/compiled_interaction_data.txt";
+our $gene_pheno_datadir = "/usr/local/wormbase/databases/$version/gene";
+our $rnai_details_file = "rnai_data.txt";
+our $gene_rnai_phene_file = "gene_rnai_pheno.txt";
+our $gene_variation_phene_file = "variation_data.txt";
+our $phenotype_name_file = "phenotype_id2name.txt";
+our $gene_xgene_phene_file = "gene_xgene_pheno.txt";
+
+
+
+warning($LOCUS,'locus');
+warning($PROTEINS,'proteins');
+warning($SEQUENCES,'sequences');
+
+check_valid();
+
+my $cache_key = CGI->new->Vars;
+delete $cache_key->{class};  # irrelevant for this page
+$cache_key->{name} = "$GENE";
+StartCache($cache_key) if (!param('nocache') and $GENE); # Disabled caching if no GENE is found 12Jul2004/PC
+if ($GENE) {
+    @SEGMENTS = segments();
+}
+
+my $d = param('details') ? 'Details' : 'Summary';
+PrintTop($GENE,'Gene',$BESTNAME ? "Gene $d for $BESTNAME" : "Gene $d");
+
+# The second case is a pure hack for searches coming from "basic" that didn't return anything.
+if ((param('name') && !$GENE) ||
+    param('not_found')) {
+  PrintWarning(param('name'),"gene");
+  print_prompt();
+  PrintBottom();
+  exit 0;
+}
+
+if (param('details') && $GENE) {
+  print_details();
+} elsif ($GENE) {
+  print_prompt();
+  check_live();         # may exit here if object is not live
+  print_information();
+} else {
+  print_prompt();
+}
+comment_box() if $GENE;
+comment_box_new() if url_param('test');
+
+PrintBottom();
+
+
+# without this, the objects don't get cached until much, much later
+exit 0;
+
+
+sub comment_box_new {
+    my $url = sprintf(Configuration->Wiki,"WB:Gene:$BESTNAME");
+    my $class = $GENE->class;
+    print div({-class=>'feedback'},	      
+	      h2('Comment, bookmark, correct'),
+	      qq{<!-- Experimental disqus -->
+		     <a href="http://dev.wormbase.org/db/gene/gene?name=$GENE#disqus_thread">Comments (View)</a>
+		     <div id="disqus_thread"></div><script type="text/javascript" src="http://disqus.com/forums/wormbase/embed.js"></script><noscript><a href="http://wormbase.disqus.com/?url=ref">View the forum thread.</a></noscript><a href="http://disqus.com" class="dsq-brlink">Comments powered by <span class="logo-disqus">Disqus</span></a>},br,	      
+	      ' <script type="text/javascript" 
+src="http://w.sharethis.com/widget/?tabs=web%2Cpost%2Cemail&amp;charset=utf-8&amp;services=reddit%2Cdigg%2Cfacebook%2Cmyspace%2Cdelicious%2Cstumbleupon%2Ctechnorati%2Cgoogle_bmarks%2Cyahoo_bmarks%2Cslashdot&amp;style=default&amp;publisher=7ab86fe8-5972-4c0c-b8d5-e8a0240bc09d&amp;popup=true"></script>',br,
+	      'Send corrections to WormBase ' . a({-href=>'/db/misc/feedback'},'via email'),br,
+	      "Submit additional annotations on $BESTNAME on the " . a({-href=>$url},'WormBase Wiki'));
+}
+
+sub comment_box {
+    my $url = sprintf(Configuration->Wiki,"WB:Gene:$BESTNAME");
+    print div({-class=>'feedback'},	      
+	      h2('Submit your data or corrections'),
+	      'Send corrections to WormBase ' . a({-href=>'/db/misc/feedback'},'via email'),br,
+	      "Submit additional annotations on $BESTNAME on the " . a({-href=>$url},'WormBase Wiki'));
+}
+
+
+#####################################
+#
+#   "Details" pages
+#
+#####################################
+sub print_details {
+    print start_form(),button(-onClick=>'window.close()',-label=>'Close Window'),end_form();
+  if (my $transcript = param('dna')) {
+    print_transcript_details($transcript);
+  } elsif (my $protein = param('peptide')) {
+    print_protein_details($protein);
+  } elsif (param('details') eq 'matching_cDNAs') {
+    print_cdna_details();
+  } elsif (param('details') eq 'strains') {
+    print_strain_details();
+  } elsif (param('details') eq 'abbreviations') {
+    print_abbreviations();
+#   } elsif (param('details') eq 'y2h') {
+#     print_more_y2h();
+  } elsif ($GENE) {
+    #Concise_description
+    my @tags = qw/
+		  Detailed_description Provisional_description
+		  Sequence_features Molecular_function Biological_process
+		  Functional_pathway Functional_physical_interaction
+		  Expression Other_description/;
+    foreach (@tags) {
+    #foreach ('Description','Detailed_description','Provisional_description') {
+      (my $title = $_) =~ s/_/ /g;
+      PrintLongDescription($GENE,$_,$title);
+    }
+  }
+}
+
+
+############################## the information #########################
+sub print_information {
+    print div({-align=>'center'},
+	      table(
+		  TR(
+		      th(
+			  [map {a({-href=>"#$_"},"[\L$_]")}
+			   'Identification','Location',
+			   'Function', 'Expression',
+			   'Gene Ontology',
+			   #'Reactome KnowledgeBase',
+			   'Genetics',
+			   'Homology',
+			   'Reagents',
+			   'Bibliography']))));
+    
+    print start_table({-border=>1});
+    
+    my $init = time(); my $start = time();
+    
+StartSection('Identification');
+    print_identification();    
+    my $identification = time() - $init; $start = time(); 
+    
+
+StartSection('Location');
+    print_location();
+    my $location = time() - $start; $start = time();    
+
+
+    my $expression = time() - $init; $start = time();
+    if (eval{$GENE->Expr_pattern}) { 
+	my $expression = time() - $init; $start = time();
+	
+	StartSection('Expression');
+	print_expression();
+    }
+        
+StartSection('Function');
+    my $function_subsections = print_function($start);
+    my $function = time() - $start; $start = time();
+    
+StartSection('Gene Ontology');
+    
+    my $go_data = get_go_data($GENE);
+    print start_pre();
+    print_go_data($go_data);
+    print end_pre();
+    EndSection();  # Why is this here?
+    
+    # StartSection('Old GO');
+    #    print_go();  ### old data printing subroutine
+    my $go = time() - $start; $start = time();
+
+#  print_reactome();
+my $reactome = time() - $start; $start = time();
+
+StartSection('Genetics');
+    print_genetic();
+    my $genetic = time() - $start; $start = time();
+
+StartSection('Homology');
+    print_homology();
+    my $homology = time() - $start; $start = time();
+
+#  StartSection('Similarities');
+#  print_similarities();
+#
+#my $similarities = time() - $start; $start = time();
+
+StartSection('Reagents');
+    print_reagents();
+    my $reagents = time() - $start; $start = time();
+
+StartSection('Bibliography');
+    print_bibliography();
+    my $bibliography = time() - $start; $start = time();
+
+my $all_subsections = time() - $init;
+
+  EndSection();
+  print end_table();
+
+print <<TIMING;
+
+<!--
+PARSEABLE_TIMING_DATA     identification    $identification
+PARSEABLE_TIMING_DATA     location          $location
+PARSEABLE_TIMING_DATA     expression        $expression
+PARSEABLE_TIMING_DATA     function          $function
+TIMING
+
+foreach (keys %$function_subsections) {
+    print "PARSEABLE_TIMING_DATA          function: $_         $function_subsections->{$_}\n";
+}
+
+  print <<TIMING;
+PARSEABLE_TIMING_DATA     go                $go
+PARSEABLE_TIMING_DATA     reactome          $reactome
+PARSEABLE_TIMING_DATA     genetic           $genetic
+PARSEABLE_TIMING_DATA     homology          $homology
+PARSEABLE_TIMING_DATA     reagents          $reagents
+PARSEABLE_TIMING_DATA     bibliography      $bibliography
+PARSEABLE_TIMING_DATA     all_subsections   $all_subsections
+-->
+TIMING
+
+}
+
+
+
+
+#####################################
+#
+#   The search prompt
+#
+#####################################
+sub print_prompt {
+    param(-name=>'name',-value=>$BESTNAME || $GENE || '');
+    $WORMBASE->print_prompt(-message  => 'Specify a gene using',
+			  -class    => 'Gene',
+			    -examples => [ {'Locus'   => 'unc-26'},
+					   {'Gene'    => 'R13A5.9'},
+					   {'Protein' => 'CE02711'},
+			    ]);
+}
+
+
+sub fetch_locus {
+    my $locus = $GENE->CGC_name if $GENE;
+    $locus  ||= $GENE->Other_name;
+    return $locus;
+}
+
+sub fetch_proteins_old {
+    my @cds = $GENE->Corresponding_CDS;
+    my @proteins  = map {$_->Corresponding_protein(-fill=>1)} @cds if (@cds);
+    return \@proteins;
+}
+
+sub fetch_proteins {
+    my @cds = $GENE->Corresponding_CDS;
+	my @proteins;
+	
+	if (@cds) {
+		foreach my $cds (@cds) {
+		
+			#my $protein;
+			my $protein = eval{$cds->Corresponding_protein(-fill=>1);};
+			push @proteins, $protein if ($protein);
+		}
+	}
+	
+    return \@proteins;
+}
+
+
+
+sub fetch_sequences {
+    my %seen;
+    my @seqs = grep { !$seen{$_}++} $GENE->Corresponding_transcript;
+    my @cds = $GENE->Corresponding_CDS;
+    foreach (@cds) {
+	next if defined $seen{$_};
+	my @transcripts = grep {!$seen{$_}++} $_->Corresponding_transcript;
+	push (@seqs,(@transcripts)? @transcripts : $_);
+    }
+    @seqs = $GENE->Corresponding_Pseudogene unless @seqs;
+    return \@seqs;
+    
+    #  my @cds = $GENE->Corresponding_CDS;
+    #  @cds = $GENE->Corresponding_Transcript unless @cds;
+    #  @cds = $GENE->Corresponding_Pseudogene unless @cds;
+    #  return \@cds;
+}
+
+# Fetch a GFF segment corresponding to the current gene
+# This could be purged quite substantially.  There is really no reason
+# to save all this stuff.
+# Just need to fetch a span based on the CDS
+sub segments {
+    if (@$SEQUENCES && $SPECIES =~ /briggsae/) {
+	  my @tmp = map {$GFF->segment(CDS => "$_")} @$SEQUENCES;
+	  @tmp = map {$GFF->segment(Pseudogene => "$_")} @$SEQUENCES unless (@tmp);
+	  return @tmp;
+    }
+    
+#  my $GFF = $GENE->Species =~ /briggsae/ ? $BRIGGFF : $DBGFF;
+    
+    my @segments = $GFF->segment(Gene => $GENE);
+    @segments = map { $GFF->segment(CDS => $_) } @$SEQUENCES unless (@segments);
+    
+    # Pseudogenes (B0399.t10)
+    @segments = map { $GFF->segment(Pseudogene => $_) } $GENE->Corresponding_Pseudogene unless @segments;
+    
+    # RNA transcripts (lin-4, sup-5)
+    @segments = map { $GFF->segment(Transcript => $_) } $GENE->Corresponding_Transcript unless @segments;
+    
+    warning(\@segments);
+    return @segments;
+}
+
+sub print_location {
+    my $success = print_genetic_position() if ($LOCUS);
+    print_interpolated_position()  unless $success;
+    print_sequence_position() if @SEGMENTS;
+    print "\n\n";
+    my $genomic_picture;
+    if(@SEGMENTS){
+  	eval {$genomic_picture = genomic_picture();};
+    }
+    
+    SubSection('Genomic Environs',$genomic_picture);
+    #SubSection('Genomic Environs',a({-href=>"www.wormbase.org"},"click here to link to the GBrowse"));
+	#print TR(td(),td({width => '83%',height=>500},$genomic_picture));
+    
+    # SubSection('Genomic Environs',genomic_picture()) if @SEGMENTS;
+    print "\n\n";
+}
+
+sub print_genetic_position {
+    my ($link_group,undef,$position,undef,$error) = eval{$GENE->Map(1)->row} or return;
+    my $map_data = a({-href=>Url('locus',"name=$LOCUS#Mapping%20Data")},
+		     '[mapping data]');
+    
+    # Interpolated positions are linked to the strain search
+#    my $map_data = a({-href=>"/db/searches/strains?start=$chrom:$pos"},sprintf("%s:%2.2f",$chrom,$pos));
+    
+    if($position == 0) {
+	SubSection("Genetic Position",a({-href=>Url('pic',"name=$GENE;class=Gene")},
+					$link_group 
+					. sprintf(":%2.2f +/- %2.3f cM %s","0",$error) 
+					. " $map_data"));
+	
+    } else {
+    	SubSection("Genetic Position",a({-href=>Url('pic',"name=$GENE;class=Gene")},
+					$link_group 
+					. ($position ? sprintf(":%2.2f +/- %2.3f cM %s",$position,$error) 
+					   . " $map_data"
+					   : '')));
+    }			       
+    return 1;
+}
+
+
+sub print_interpolated_position {
+    my ($chrom,$pos);
+    my @targets = ($GENE->Corresponding_CDS,$GENE);
+    
+    for my $target (@targets) {
+	($chrom,$pos) = GetInterpolatedPosition($DB,$target);
+	last if $chrom;
+    }
+    
+    return unless $chrom;
+    
+    my $link = a({-href=>"/db/searches/strains?start=$chrom:$pos"},sprintf("%s:%2.2f",$chrom,$pos));
+    SubSection("Interpolated Genetic Position",$link);
+}
+
+sub print_sequence_position {
+    return unless $SEQUENCES;
+    # This is a kludge to handle situations where I've fetched an Ace object
+    # corresponding to a Locus that has a CDS but no corresponding GFF segment. (rds-2)
+    my $longest = longest_segment(\@SEGMENTS);
+    SubSection('Genomic Position',map {
+	if (ref ($_) =~ /Bio::DB/) {
+	    my $factory = $_->factory;
+	    my ($r,$s,$e) = ($_->abs_ref,$_->abs_start,$_->abs_end);
+#      a({-href=>$SPECIES =~ /briggsae/ ? "/db/seq/gbrowse?source=briggsae;name=$r:$s..$e" : HunterUrl($r,$s,$e)},"$r:$s..$e bp");
+	    a({-href=>"/db/gb2/gbrowse?source=$SPECIES;name=$r:$s..$e"},"$r:$s..$e bp [View Genome Browser]");
+	}
+	       } $longest);  # This is a kludge to handle sequences with no methods (ie broken)
+    
+    if (my @operons = map {eval { $_->Contained_in_operon } } @$SEQUENCES) {
+	SubSection('Part of operon',@operons);
+    }
+}
+
+
+
+
+# Find the longest GFF segment
+sub longest_segment {
+  my $segs = shift;
+  my @sorted = sort { ($b->abs_end-$b->abs_start) <=> $a->abs_end-$a->abs_start } @$segs;
+  return $sorted[0];
+}
+
+
+sub genomic_picture {
+  my $segment = longest_segment(\@SEGMENTS);
+  return unless @$SEQUENCES;
+  return unless $segment;
+
+  my $absref   = $segment->abs_ref;
+  my $absstart = $segment->abs_start;
+  my $absend   = $segment->abs_end;
+  ($absstart,$absend) = ($absend,$absstart) if $absstart>$absend;
+  my $length = $segment->length;
+
+  # add another 10% to left and right
+  my $start = int($absstart - 0.1*$length);
+  my $stop  = int($absend   + 0.1*$length);
+  # GB2
+  my $type = $SPECIES =~ /elegans/ ? "t=CG;t=CANONICAL;t=Allele;t=RNAi":"";
+  return InlineImage($type,$SPECIES,$absref,$start,$stop); 
+}
+
+
+sub print_identification {
+  my $table =  start_table({-border=>1,-width=>'100%'});
+  my (@headers,@cells);
+  # Add a CGC name field if appropriate
+
+  if ($GENE->CGC_name) {
+      push (@headers,a({-href=>Configuration->Wb_nomenclature,-target=>'_blank'},'Main name'));
+      push (@cells,a({-href=>Object2URL($GENE->CGC_name->CGC_name_for)},$GENE->CGC_name) .
+	    (eval { $GENE->Gene_class->Description }
+	     ? ' - (' . a({-href=>Object2URL($GENE->Gene_class)},i($GENE->Gene_class->Description)) . ')'
+	     : '')
+	    . br
+	    . inline_evidence($GENE->CGC_name)
+	    );
+#	    . join(br,GetEvidenceNew(-object         => $GENE->CGC_name,
+#				     -display_label  => 1,
+#				     -format         => 'inline',
+#				 )));
+    }
+
+  if ($GENE->Sequence_name) {
+    push (@headers,'Sequence name');
+    push (@cells,map { ObjectDisplay('sequence',$_,$_) } $GENE->Sequence_name);
+  }
+
+  # Other names
+  if (my @other_names = $GENE->Other_name) {
+    push (@headers,'Other name(s)');
+    push (@cells,join(br,GetEvidence(-obj=>\@other_names)));
+#					-format => 'inline',
+#					-display_tag   => 1,
+#					-link_tag      => 1
+#					-detail        => 1)));
+  }
+
+#  push (@headers,'WB Gene ID','Version');
+#  push (@cells,$GENE,$GENE->Version);
+  push (@headers,'WB Gene ID');
+  push (@cells,$GENE);
+  $table .= TR({-class=>'datatitle'},th(\@headers));
+  $table .= TR(td({-align=>'center'},\@cells));
+  $table .= end_table;
+  SubSection('IDs',$table);
+
+  # Pull in Concise description information from the primary CDS if not present in the ?Gene
+  my $description = $GENE->Concise_description;
+  $description = eval {$GENE->Corresponding_CDS->Concise_description} unless $description;
+
+  # Kludge support for Cloned_by
+  my ($tag,$source) = eval { $GENE->Cloned_by->row };
+  if ($tag =~ /(.*)_evidence/) {
+      my $cloned_by = $1 . ': ' . ObjectLink($source);
+      SubSection('Cloned by',$cloned_by);
+  }
+  
+  ## Under dev 3.2006 - TH
+##  my $stamp = days_since_update($description,'want_string');
+  $description .= 
+      eval { $GENE->Gene_class->Description } ? '' : ($description ? '' : "$BESTNAME gene");
+  $description ||= 'none available';
+  
+  my $url = url(-absolute=>1) . "?name=$GENE";
+  if (eval {$GENE->Provisional_description || $GENE->Detailed_description
+		|| $GENE->Corresponding_CDS->Provisional_description || $GENE->Corresponding_CDS->Detailed_description}) {
+      $description .=  ' [' . a({-href=>"$url;details=1",-target=>'_blank'},'details')
+###	  . ($stamp ? "; $stamp" : '')
+	  . ']';
+  }
+
+  SubSection('Concise Description',markup_omim($description));
+  
+  if ($PROTEINS) {
+    my %seen;
+    my @kogs = grep {$_->Group_type ne 'InParanoid_group' } grep {!$seen{$_}++} 
+     map {$_->Homology_group} @{$PROTEINS};
+    if (@kogs) {
+	
+      SubSection('NCBI KOGs' . LinkToGlossary('KOGs',undef,'*'),
+		 join('; ',map {###my $updated = days_since_update($_,'want_string');
+				$_->Title
+				    . ' [' . ObjectLink($_)
+				 ###   . ($updated ? "; $updated" : '')
+				    . ']'
+				}  @kogs));
+    }
+    my @ids = generate_reactome_table(@{$PROTEINS});
+    if (@ids) {
+	SubSection('Reactome Knowledgbase',@ids);
+    }
+  }
+  SubSection('Species',i($GENE->Species));
+  
+  my @other_sequences = map {my $title = eval { $_->Title }; 
+			     a({-href=>sprintf(Configuration->Genbank,$_),-target=>'_blank'},$_)
+				 . (($title) ? " ($title)" : '') } $GENE->Other_sequence;
+  my $other_sequences = toggle(0,'Other sequences',br .  join("<br>",@other_sequences))
+      if @other_sequences;
+  SubSection('',$other_sequences);
+
+  my ($entrez,$aceview,$refseq) = fetch_db_ids() if $SEQUENCES;
+  my @ncbi;
+  # These GI numbers are only sufficient for linking to protein.
+  # We need Entrez gene IDs
+  push (@ncbi,'Entrez Genes: ' . a({-href=>Configuration->Entrezp . $entrez,
+				    -target=>'_blank'},$entrez)) if $entrez;
+  push (@ncbi,'AceView: ' . a({-href=>sprintf(Configuration->Aceview,$aceview),
+			       -target=>'_blank'},$aceview)) if $aceview;
+  push (@ncbi,'RefSeq: ' . join(';',
+				map {
+				  a({-href=>Configuration->Entrez . $_,
+				     -target=>'_blank'},$_)} @$refseq)) if @$refseq > 0;
+
+  SubSection('NCBI',join(' ',map { qq{[$_]} } @ncbi)) if @ncbi;
+  my $mirbase = fetch_mirbase();
+  SubSection('miRBase',map { a({-href=>sprintf($_->URL_constructor,$_->right(2))},$_->right(2)) } $mirbase) if $mirbase;
+
+  my $remarks;
+
+
+  if (@$SEQUENCES) {
+    my $gene_model_table;
+    ($gene_model_table,$remarks) = gene_model_table() ;
+
+    my %footnotes = map { $remarks->{$_} => [ $_ ] } keys %$remarks;
+    my $gmremarks = join(br, map { qq(<span class="superscript">$_ </span>) . join("; ",@{$footnotes{$_}}) }
+			 sort {$a <=> $b} keys %footnotes);
+    $gmremarks = toggle(0,'Footnotes',br.$gmremarks) if $gmremarks;
+    my $other_notes = join(br,other_notes());
+    $other_notes = toggle(0,'Other Notes',br.join(br,other_notes())) if $other_notes;
+    SubSection('Gene model(s)',$gene_model_table . p($gmremarks) . p($other_notes));
+  }
+
+  # Temporary fix until there is a seperate transcript display
+  # Is this a pseudogene or transcript?
+  # SubSection('Molecular Transcript(s)',$GENE->Corresponding_Transcript) if $GENE->Corresponding_Transcript;
+  SubSection('Pseudogene name',$GENE->Corresponding_Pseudogene) if $GENE->Corresponding_Pseudogene;
+
+
+  # We should really re-instate this classification now
+  # SubSection('Notes',classification());
+
+
+  # Since there may be multiple pieces of evidence for each remark, we have a nested join.
+  # The outer join establishes rows of remarks.  The inner join connects Evidence for each remark together.
+  #SubSection('Gene Model Remarks',join(br,map {qq(<span class="superscript">$_ </span>) .
+#				      join("; ",@{$footnotes{$_}}) } sort keys %footnotes));
+#  my $gmremarks = join(br, map { qq(<span class="superscript">$_ </span>) . join("; ",@{$footnotes{$_}}) } sort keys %footnotes);
+#  $gmremarks = toggle(0,'Gene Model remarks',br.$gmremarks) if $gmremarks;
+#  my $other_notes = join(br,other_notes());
+#  $other_notes = toggle(0,'Other Notes',join(br,other_notes())) if $other_notes;
+
+#  SubSection('Notes', join( br, $gmremarks, $other_notes )) if $gmremarks || $other_notes;
+
+
+  if (my ($history,$is_transposon) = print_history()) {   # Gene or protein history?
+      
+      my $data = toggle(0,'Revision History',br.$history);
+      SubSection('',$data);
+  }
+}
+
+
+sub markup_omim {
+    my $description = shift;
+    # Markup OMIM IDs in concise description
+    my $omim_url = Configuration->Omim;
+    $description =~ s/OMIM:(\d+)/<a href="$omim_url$1">OMIM:$1<\/a>/;
+    return $description;
+}
+
+sub print_expression {
+  my @all_ep = $GENE->Expr_pattern;
+  my @mohler = eval{grep {($_->Author =~ /Mohler/ && $_->MovieURL)} @all_ep};
+  @all_ep = eval{grep {!($_->Author =~ /Mohler/ && $_->MovieURL)} @all_ep};
+  my @have_image = grep{pattern_thumbnail($_)} @all_ep;
+  my @no_image   = grep{!pattern_thumbnail($_)} @all_ep;
+  return '' unless @all_ep || @mohler;
+
+  if (@mohler) {
+    SubSection("4D (QVTR) expression movies", map {
+      my $image = a( {-href=>Object2URL($_,'Mohler WA'), -target=>'_blank'}, img({-src => QVTR_IMAGE}));
+      my $link  = a( {-href=>Object2URL($_,'Mohler WA'), -target=>'_blank'}, $_);
+      my $pattern = ("Interactive movies are available for a fluorescence reporter of this gene. &nbsp;&nbsp;[For details, see $link]");
+      table(TR({-valign=>'center'},td([$image,$pattern]))) . p();
+    } @mohler );
+  }
+
+  my $s = @all_ep > 1 ? 's' : '';
+  my %seen;
+  SubSection("Anatomic expression pattern$s",map {
+    my $date = $_->Date || '';
+    ($date) = $date =~ /(\d+) \d+:\d+:\d+$/;
+    my $author = $_->Author || '';
+    
+    my $image   =  p(pattern_thumbnail($_));
+    my $pattern =  join '', ($_->Pattern(-filled=>1), $_->Subcellular_localization(-filled=>1));
+    $pattern    =~ s/(.{384}).+/$1\.\.\. /;
+
+    $pattern .= '  [Details : ' . ObjectLink($_) . ']';
+    $image . $pattern;
+  } grep {!$seen{$_}++} @have_image, @no_image);
+
+}
+
+
+sub pattern_thumbnail {
+  my $ep = shift;
+  return '' unless is_cached($ep->name);
+  my $terms = join ', ', map {$_->Term} $ep->Anatomy_term;
+  $terms ||= "No adult terms in the database";
+  my @terms = (-onmouseover => "balloon.showTooltip(event,'Expressed in $terms Click for details...')");
+  a( { -href => "/db/gene/expression?name=$ep",
+       @terms },
+     img( {-src => "/db/gene/expression?name=$ep;draw=1;thumb=400"} ));
+}
+
+sub is_cached {
+  my $ep = shift;
+  my $wormview_image = Configuration->Wormview_image;
+  return -e "$wormview_image/$ep.png";
+}
+
+sub print_function {
+    my $start = shift;
+    my %timing;
+
+    # The phenotype summary page
+    my ($all_phenes, $rnai_data) = fast_phenotype_summary() if ($GENE->Allele || $GENE->RNAi_result);
+    $timing{phenotypes_via_alleles} = time() - $start; $start = time();
+
+    # TESTING.  Print a div that will be the phenotypes target
+	# print div({-id=>"phenotypes_via_alleles"},"Phenotypes");
+
+    # Phenotypes via RNAi
+  	# my $rnai_phenes = build_rnai_table() if ($GENE->RNAi_result);	
+  	# $timing{phenotypes_via_rnai} = time() - $start; $start = time();
+    
+	# Phenotype via Variation
+	# my $variation_phenes = build_variation_phenes_table() if ($GENE->Allele);   
+
+# SubSection('Phenotypes', ($all_phenes));
+
+	SubSection('Phenotypes',
+      ($all_phenes
+ 		? toggle(0,'Phenotype Summary',
+ 			 br . $all_phenes . br)
+ 		: '')
+ 	       .
+ 	       ($rnai_data
+ 		? toggle(0,'RNAi Details',
+ 			 br . $rnai_data . br)
+ 		: '')
+ 	        );
+     
+## anatomy_function data
+    
+    my $anatomy_function_data = get_anatomy_function_data($GENE);
+    my $anatomy_function_table = format_anatomy_function_data($anatomy_function_data);
+    SubSection("Site(s) of Action",$anatomy_function_table);
+    $timing{anatomy_function} = time() - $start; $start = time();
+
+## pathway data 
+	my $reactome_num = eval {display_reactome_data($GENE,1)};
+	my $nemapath_num  = scalar(display_nemapath_data($GENE))||0;
+	my $pathway;
+	if(defined $reactome_num) { 
+		$pathway = "$reactome_num Reactome $nemapath_num NemaPath ".($reactome_num+$nemapath_num>0?a({-href=>"/db/gene/pathway?name=".$GENE},"pathway record(s)"):"pathway records(s)")." are found for this gene."; 
+	} else {
+		$pathway = "The Reactome data mining service is currently not available";
+	}
+	SubSection("Pathways",$pathway);
+
+#  interaction data
+
+	## fastgene interaction  system ##
+
+	print_gene_interaction_data($datafile,$GENE);
+
+	## old system calls 
+
+    # my $gene_id = $GENE->name;
+   	# my $interaction_list_url = '/db/gene/interaction?list='.$gene_id;
+	# my $interaction_list_link = a({-href=>$interaction_list_url},'Access list of interactions for '.$gene_id);
+	
+	# SubSection('Interactions',$interaction_list_link);
+    # $timing{interactions} = time() - $start; $start = time();
+	
+	# code moved to interaction summary page
+	
+	# my $interaction_matrix = 1 interaction_matrix()
+	# my $interaction_matrix;
+	# if ($interaction_matrix) { 
+	# SubSection('Interaction Matrix',
+	# 	($interaction_matrix ? toggle(0,'Interactions',br . $interaction_matrix) : ''),
+	# 		   );
+	# SubSection('',hr);
+	
+	#}
+
+
+
+    # (Unique) Microarray results
+    # Here is the slow way...
+    ##my %seen;
+    ##my @microarray = $GENE->Microarray_results(-filled=>1);
+    ##my %results;
+    ##foreach my $micro (@microarray) {
+    ##  my @papers = microarray_papers($micro);
+    ##  #    # What a stoopid way to generate this URL! Expedient, yes.  Efficient, no.
+    ##  #        my %clean;
+    ##  #        foreach my $tmp (@papers) {
+    ##  #          $tmp =~ s/\[/%5B/;
+    ##  #         $tmp =~ s/\]/%5D/;
+    ##  #          $clean{$_} = $tmp;
+    ##  #        }
+    ##  #    # Link each referencing paper into the microarray display for users to get specific information.
+    ##  #    # There is a problem here where some items in @papers are undefined... 2005.02.20
+    ##  #        my $links = join('; ',map { a({-href=>Object2URL($micro) . '&reference=' 
+    ##  #    				   . $clean{$_}},($_->Author || '')
+    ##  #    				  . ' (' . $_->Year . ')') } 
+    ##  #    		     sort {$a->Year <=> $b->Year} @papers);
+    ##  #     $results{ObjectLink($micro)} = $links;
+    ##  $results{ObjectLink($micro)} = scalar @papers;
+    ##}
+    ## SubSection('Microarray Expression Data',
+    ##	     #	     map { $_ . ' [See: ' . $results{$_} .']'} 
+    ##	     map { $_ . ' [Cited in ' . $results{$_} . ' papers]'} 
+    ##	     sort keys %results);
+    
+    # Generic approach
+    #  my @papers = grep { !$seen{$_}++ } map { microarray_papers($_)} @microarray;
+    #  SubSection('Microarray Expression Data',
+    #	     Tableize(\@microarray),
+    #  	     'Referenced in the following papers: ',
+    #  	     map { a({-href=>Object2URL($_)},$_->Brief_citation)} @papers);
+    
+    SubSection('Expression Cluster',$GENE->Expression_cluster(-filled=>1));
+    $timing{expression_cluster} = time() - $start; $start = time();
+
+    if ($GENE->Microarray_results) {
+	SubSection('Microarray Expression Data',
+		   
+		   div({style=>'width:75%;background-color:#CCCCFF;margin-right:auto;padding:10px;border:2px solid blue;margin-bottom:5px'},
+		       h3("SPELL Microarray Resource now available"),    
+		       p('Interested users may also wish to try the C. elegans <a href="http://spell.caltech.edu:3000/search/">SPELL microarray resource</a> which provides much greater sophistication in query and display of microarray data.'),
+		       p('For details, please see <a href="http://wiki.wormbase.org/index.php/SPELL">documentation</a> on the <a href="http://wiki.wormbase.org/">WormBase Wiki</a>.')),
+		   $GENE->Microarray_results(-filled=>1));
+	$timing{microarray_expression} = time() - $start; $start = time();
+    }
+
+	# Retired at the SAB meeting, 2005!
+	#  # Microarray profiles
+    if (my @profile = find_expression_profile()) {
+	SubSection('Microarray "topology map" position',
+		   map {ObjectLink($_,eval{'Mountain '.$_->Expr_map->Mountain}||$_)
+			    . ' [see <a href="http://cmgm.stanford.edu/~kimlab/topomap/c._elegans_topomap.htm">Kim et al. Science (2001)</a>]'} @profile);
+    }
+    
+    # Gene regulation
+    if ($GENE->Gene_regulation) {
+	my $string;
+	# Explore both directions.
+	foreach my $tag (qw/Trans_regulator Trans_target/) {
+	    my $join = ($tag eq 'Trans_regulator') ? 'regulated by' : 'regulates';
+	    if (my @gene_reg = $GENE->$tag(-filled=>1)) {
+		foreach my $gene_reg (@gene_reg) {
+		    my $target;
+		    if ($tag eq 'Trans_regulator') {
+			$target = $gene_reg->Trans_regulated_gene(-filled=>1)
+			    || $gene_reg->Trans_regulated_seq(-filled=>1)
+			    || $gene_reg->Other_regulated(-filled=>1);
+		    } else {
+			$target = $gene_reg->Trans_regulator_gene(-filled=>1)
+			    || $gene_reg->Trans_regulator_seq(-filled=>1)
+			    || $gene_reg->Other_regulator(-filled=>1);
+		    }
+		    my $bestname = Bestname($target);
+		    # What is the nature of the regulation?
+		    # If Positive_regulate and Negative_regulate are present
+		    # in the same gene object, then it means the localization is changed.  Go figure.
+		    if ($gene_reg->Positive_regulate && $gene_reg->Negative_regulate) {
+			$string .= ($tag eq 'Trans_regulator')
+			    ? 'Changes localization of '
+			    : 'Localization changed by ';
+		    } elsif ($gene_reg->Result eq 'Does_not_regulate') {
+			$string .= ($tag eq 'Trans_regulator')
+			    ? 'Does not regulate '
+			    : 'Not regulated by ';
+		    } elsif ($gene_reg->Positive_regulate) {
+			$string .= ($tag eq 'Trans_regulator')
+			    ? 'Positively regulates '
+			    : 'Positively regulated by ';
+		    } elsif ($gene_reg->Negative_regulate) {
+			$string .= ($tag eq 'Trans_regulator')
+			    ? 'Negatively regulates '
+			    : 'Negatively regulated by ';
+		    }
+		    $string .= (($bestname) ? a({-href=>Object2URL($target)},$bestname) : $target)
+			. ' [' . a({-href=>Object2URL($gene_reg)},'details') . ']' . br;
+		}
+	    }
+	}
+	SubSection('Regulation on Expression Level',$string);
+    }
+    $timing{gene_regulation} = time() - $start; $start = time();    
+
+    # Protein domains
+#  for my $protein (@$PROTEINS) {
+#    my %seen;
+#    SubSection("Protein domains (".ObjectLink($protein).")",
+#	       map {
+#		 my @residues = ($_->right(3),$_->right(4));
+#		 ObjectLink($_,$_->Title || $_) . (@residues ? (" [Residues " . join ('-',@residues)) .']': '')
+#	       } grep {!$seen{$_->Title || $_}++} $protein->Motif_homol)
+#}
+    
+    # In order to associate each pfam id with a protein structure we need
+    # a lookup table, which is loaded into memeory at this step
+    my %pfam2prot;
+    my $pfam2prot_table = Configuration->Wormbase . '/html/' . Configuration->Pfam_images_dir . '/pfam2prot_table';
+    open (PFAMTOPROT, "<$pfam2prot_table") or AceError("Cannot read pfam2prot table ($pfam2prot_table): $!");
+    while (my $line = <PFAMTOPROT>) {
+	chomp $line;
+	my ($pfam_id, $pdb_id) = split("\t", $line);
+	push @{$pfam2prot{$pfam_id}}, $pdb_id;
+    }   
+    close PFAMTOPROT;
+    
+    # In this step, we load an index to memory to assign titles to structures
+    my %pdb_id_titles;
+    my $pdb_id_table = Configuration->Wormbase . '/html/' . Configuration->Pfam_images_dir . '/compound.idx';
+    open (PDBIDS, "<$pdb_id_table") or AceError("Cannot read file ($pdb_id_table): $!");
+    while (my $line = <PDBIDS>) {
+	chomp $line;
+	my ($pdb_id, $title) = $line =~ /^([A-Z0-9]{4})\s+(.*)/;
+	next unless $pdb_id;
+	$pdb_id_titles{lc($pdb_id)} = $title;
+    }
+    close PDBIDS;
+    
+    # Generate a unique list of motifs instead
+    my %motifs;
+    for my $protein (@$PROTEINS) {
+	foreach my $motif ($protein->Motif_homol) {
+	    unless (defined $motifs{$motif->Title}) {
+		# Check if this is a PFAM motif, if so, select randomly an associated protein and make balloon content
+		my $motif_link = ObjectLink($motif,$motif->Title);
+		
+#		my $trimmed_motif = $motif;
+#		$trimmed_motif =~ s/^PFAM://;
+#		
+#		if ($motif =~ /^PF/ and $pfam2prot{$trimmed_motif}) {
+#		    my $motif_title = $motif->Title;
+#		    my $random_idx = int(rand scalar(@{$pfam2prot{$trimmed_motif}}));
+#		    my $pdb_id = $pfam2prot{$trimmed_motif}[$random_idx];
+#		    my $pdb_id_image = Configuration->Pfam_images_dir . "/$pdb_id-image-thumbnail.png";
+#		    my $pdb_id_link  = sprintf(Configuration->Protein_links->{PFAM_WITH_PDB}, $trimmed_motif, $pdb_id);
+#		    my $pdb_id_title = $pdb_id_titles{$pdb_id} || '[Title not available]';
+#		    my $uc_pdb_id = uc($pdb_id);
+#		    
+#		    my $tooltip_content = qq[<table width=220 class="small">
+#					     <tr>
+#					     <td colspan="2"><b>$motif_title ($trimmed_motif)</b></a></td>
+#					     </tr>
+#					     <tr>
+#					     <td colspan="2">Sample protein that contains this domain:</td>
+#					     </tr>
+#					     <tr>
+#					     <td align="center">
+#					     <img height=50 src="$pdb_id_image"/>
+#					     <a href="$pdb_id_link" target="_blank">[Pfam]</a>
+#					     </td>
+#					     <td><b>$uc_pdb_id</b> $pdb_id_title</td>
+#					     </tr>
+#					     </table>      
+#					     ];
+#		    $tooltip_content = CGI::escape($tooltip_content);
+#		    
+#		    my $balloon_tip =  ObjectLink($motif,'[more ...]');
+#		    $balloon_tip =~ s/\>/ onmouseover="balloon.showTooltip(event,'$tooltip_content', 1)">/;
+#                    
+#		    $motif_link .= qq[  ] . $balloon_tip;
+#		}  
+		
+		$motifs{$motif->Title} = { motif   => $motif_link, 
+					   start   => $motif->right(3),
+					   stop    => $motif->right(4),
+				       };
+	    }
+	    push @{$motifs{$motif->Title}->{proteins}},ObjectLink($protein);
+	}
+    }
+    
+    my @formatted_motifs = 
+	map {
+	    my $title = $motifs{$_}->{motif};
+	    my $start = $motifs{$_}->{start};
+	    my $stop  = $motifs{$_}->{stop};
+	    my %seen;
+	    my $proteins = join ('; ',grep { !$seen{$_}++ } @{$motifs{$_}->{proteins}});
+#		 "$title ($proteins)";
+	    $title;
+	} sort { $motifs{$a}->{start} <=> $motifs{$b}->{stop} } keys %motifs;
+    
+    
+## link to phosphopep ##
+    my $sequence_name = $GENE->Sequence_name;
+    my $PO4_URL = 'http://www.sbeams.org/dev1/sbeams/cgi/Glycopeptide/peptideSearch.cgi?action=Show_hits_form&search_type=accession&organism=cel&search_term=' . $sequence_name;
+    my $PO4_link = a({-href=>$PO4_URL}, 'Access More Phosphorylation Information in Phosphopep');
+    
+    push @formatted_motifs, $PO4_link;
+    
+    SubSection("Protein domains", @formatted_motifs);
+    $timing{protein_motifs} = time() - $start; $start = time();
+
+    
+    ######################### Structure data ############################
+    my @cds = $GENE->Corresponding_CDS;
+    my @proteins = map { $_->Corresponding_protein } @cds;
+    
+    my %non_redundant_proteins = map { $_ => $_ } @proteins;
+    @proteins = values %non_redundant_proteins;
+    
+    my @structures = map { $_->Structure_homol } @proteins;
+    
+    my %non_redundant_structures = map { $_ => $_ } @structures;
+    @structures = values %non_redundant_structures;
+    
+    my @table_data;
+    my %wormpep_releases;
+    
+    foreach my $structure (@structures) {
+	my @homols = $structure->Pep_homol;
+	my $db_info = $structure->Db_info;
+	my @db_rows = $db_info->row if $db_info;
+	my $database = $db_rows[1];
+	my $native_id = $db_rows[3];
+	
+	my $formatted_native_id = $native_id;
+	if ($database eq 'PDB') { $formatted_native_id =~ s/_.*$//; }
+	
+	my $formatted_database = $database;
+	$formatted_database =~ s/^Northeast Structural Genomics Consortium$/NESG/;
+	$formatted_database =~ s/^NYSGXRC$/NYSGRC/;
+	$formatted_database =~ s/^OPPF: Oxford Protein Production Facility$/NON-OPPF/;
+	$formatted_database =~ s/^RSGI$/NON-RSGI/;
+	
+	next if $formatted_database eq 'OTHER'; # Do not display. "OTHER" database from TargetDB is not necessary anymore
+        
+	my $combined_name = "$formatted_database:$native_id";
+	
+	my @external_links;
+	my @internal_links;
+	
+	my $internal_link = a({-href => Object2URL($structure)}, $combined_name);
+	push @internal_links, $internal_link;
+	
+	# Add link to NESG Gallery and PDB images (Currently, this is maintained semi-manually)
+	my ($image_file_name) = glob(Configuration->Wormbase . '/html/' . Configuration->Structure_images_dir . "/$formatted_database-$formatted_native_id-image.*");
+	
+	if ($image_file_name) {
+	    my ($image_url) = $image_file_name =~ /([^\/]+)$/;
+	    
+	    $image_url = Configuration->Structure_images_dir . '/' . $image_url;
+	    
+	    my $gallery_link;
+	    
+	    if ($formatted_database eq 'NESG') {
+		my $id = $NESG2PDB{$formatted_native_id};
+		my $gallery_link = a({-href=>sprintf(Configuration->Protein_links->{NESG_GALLERY}, $id),
+		                      -target=>'_blank'}, img({-src=>$image_url, -height=>40, -width=>40}));
+		
+		push @internal_links, $gallery_link;
+	    }
+	    
+	    elsif ($formatted_database eq 'PDB') {
+		my $gallery_link = a({-href=>sprintf(Configuration->Protein_links->{PDB}, $formatted_native_id),
+		                      -target=>'_blank'}, img({-src=>$image_url, -height=>40}));
+		
+		push @internal_links, $gallery_link;
+	    }
+	}  
+	
+	# Add main link
+	my $main_link = $database eq 'PDB' ? a({-href=>sprintf(Configuration->Protein_links->{PDB},
+							       $formatted_native_id), -target=>'_blank'}, 'PDB')
+	    : a({-href=>sprintf(Configuration->Protein_links->{TARGETDB},
+				$formatted_native_id, $formatted_database), -target=>'_blank'}, 'TargetDB');
+	push @external_links, $main_link;
+	
+	# Add an external link to NESG
+	if ($formatted_database eq 'NESG') {
+	    my $nesg_target_link = a({-href=>sprintf(Configuration->Protein_links->{NESG_TARGET}, $formatted_native_id),
+				      -target=>'_blank'}, 'NESG');
+	    push @external_links, $nesg_target_link;
+	}    
+	
+	my $internal_links = table(
+				   TR(
+				      td($internal_links[1]), 
+				      td($internal_links[0]), 
+				      )        
+				   );
+	
+	my $external_links = join('<br>', @external_links);
+	
+	my $status = a({-href => '/etc/structure_status_tags.html'}, join(' ', map {s/_/ /g; $_;} $structure->Status));
+	
+	my $wormpep_release = $structure->Wormpep_release;
+	$wormpep_releases{$wormpep_release}++;
+        
+	foreach my $homol (@homols){
+	    # Pep_homol	WP:CE01784	blat_structure	95.16	2	62	154	214
+	    my @homol_rows = $homol->row;
+	    my $homol_protein = $homol_rows[0];
+	    my $percent_similarity = $homol_rows[2];
+	    
+	    next unless ($non_redundant_proteins{$homol_protein}
+			 &&
+			 $percent_similarity >= STRUCTURE_DATA_SIMILARITY); # Do not display ones that match with low similarity
+	    
+	    next if ($status =~ /stopped/i); # Do not display if work_stopped
+	    
+	    my $table_data = [$internal_links, $external_links, $status, $percent_similarity];
+	    
+	    push (@table_data, $table_data);
+	}
+    }
+    
+    my @formatted_table_data;
+    
+    foreach my $data_piece (sort { $b->[3] <=> $a->[3] } @table_data) {
+	my $formatted_table_data = TR(
+				      td($data_piece->[0]),
+				      td($data_piece->[1]),
+				      td($data_piece->[2]),
+				      td($data_piece->[3]),
+				      );
+	push @formatted_table_data, $formatted_table_data;
+    }
+    
+    my $section_text;
+    
+    if (@table_data) {  
+	$section_text = table({-border=>1, -width=>'70%'},
+			      TR(
+				 td(b('Origin:Native Id')), 
+				 td(b('External Links')), 
+				 td(b('Status')),                             
+				 td(b('Similarity (%)')),                                            
+				 ),
+			      @formatted_table_data
+			      ); 
+    }
+    
+    
+    if ($section_text) {
+	my $wormpep_release_ids = join(', ', keys %wormpep_releases);
+	my $structure_data_similarity = STRUCTURE_DATA_SIMILARITY;
+	
+	my $caveat = <<END_SECTION_DATA;
+	Sequence data imported from <a href="http://targetdb.pdb.org/">TargetDB</a> and <a href="http://www.rcsb.org/pdb/">PDB</a>
+	    has been mapped to WormPep (release $wormpep_release_ids). Links to sequence records that map with at least $structure_data_similarity
+	    percent similarity are displayed.
+END_SECTION_DATA
+	    
+	    SubSection('Structure Data',$section_text,i($caveat));
+    }
+    
+    $timing{structure_data} = time() - $start; $start = time();
+
+    ######################### Structure data ############################
+    
+    # Legacy Information
+    if ($LOCUS) {
+	my $url = url(-absolute=>1,-query=>1);
+	my ($phenes) = MutantPhenotype($GENE);
+	SubSection('Legacy Information',toggle(0,'From <i>C. elegans I and II</i>'
+					       , br . $phenes
+					       . br
+					       . 'Definitions of ' 
+					       . a({-href=>$url . ";details=abbreviations",-target=>'_blank'},
+						   'abbreviations used') . ' in the text.'));
+    }
+    
+
+    $timing{legacy_information} = time() - $start; $start = time();
+    return \%timing;
+}
+
+sub get_anatomy_function_data {
+    my ($gene) = @_;
+    my @data;
+    my @anatomy_fns = $gene->Anatomy_function;
+    foreach my $anatomy_fn (@anatomy_fns){
+	my %anatomy_fn_data;
+	my $afn_bodypart_set = $anatomy_fn->Body_part;
+	if($afn_bodypart_set =~ m/Not_involved/){
+	    next;
+	}
+	else{
+	    my $afn_phenotype = $anatomy_fn->Phenotype;
+	    my $phenotype_prime_name = $afn_phenotype->Primary_name;
+	    $anatomy_fn_data{'anatomy_fn'} = $anatomy_fn;
+	    $anatomy_fn_data{'phenotype_id'} = $afn_phenotype;
+	    $anatomy_fn_data{'phenotype'} = $phenotype_prime_name;
+	    my @afn_bodyparts = $afn_bodypart_set->col if $afn_bodypart_set;
+	    # print "$anatomy_fn\n$afn_phenotype\n$phenotype_prime_name\n";
+	    my @ao_terms;
+	    foreach my $afn_bodypart (@afn_bodyparts){
+		my %ao_term_details;
+		my @afn_bp_row = $afn_bodypart->row;
+		my ($ao_id,$sufficiency,$description) = @afn_bp_row;
+		if( ($sufficiency=~ m/Insufficient/)){
+		    next;
+		}
+		else{
+		    my $term = $ao_id->Term;
+		    $ao_term_details{'term_id'} = $ao_id;
+		    $ao_term_details{'term'} = $term;
+		    # print "\t$ao_id\n\t$term\n\t$sufficiency\n\t$description\n";
+		}
+		push @ao_terms,\%ao_term_details;
+	    }
+	    $anatomy_fn_data{'terms'} = \@ao_terms;
+	    # print "****\n";	
+	}
+	push @data, \%anatomy_fn_data;
+    }
+    return \@data;
+}
+
+
+sub format_anatomy_function_data {    
+    my $data_ar = shift @_;
+    
+    my @table_rows;
+    foreach my $dataset_hr (@{$data_ar}){
+	my $anatomy_fn = ${$dataset_hr}{'anatomy_fn'};
+	my $phenotype_id = ${$dataset_hr}{'phenotype_id'};
+	my $phenotype = ${$dataset_hr}{'phenotype'};
+	my $terms_ar = ${$dataset_hr}{'terms'};
+	my $phenotype_url = "http://dev.wormbase.org/"."db/misc/phenotype?class=Phenotype;name=".$phenotype_id;
+	$phenotype =~ s/\_/ /g;
+	my $phenotype_link = a({-href=>$phenotype_url},$phenotype);
+	my $anatomy_fn_url = "http://dev.wormbase.org/"."/db/misc/etree?class=Anatomy_function;name=".$anatomy_fn;
+	my $anatomy_fn_link = 	a({-href=>$anatomy_fn_url},$anatomy_fn);
+	my @ao_sites;
+	my $term;
+	#my $term_link;
+	foreach my $term_hr (@{$terms_ar}){
+	    my $term_id = ${$term_hr}{'term_id'};
+	    $term = ${$term_hr}{'term'};
+	    my $term_url = "http://dev.wormbase.org"."/db/ontology/anatomy?name=".$term_id;
+	    my $term_link = a({-href=>$term_url},$term);
+	    push @ao_sites, $term_link; #	,$term,$phenotype,$term_link,$phenotype_link;			
+	}
+	my @sorted_ao_sites = sort @ao_sites;
+	my $anatomical_sites = join ", ", @sorted_ao_sites;
+	push @table_rows, "$anatomical_sites\|$term\|$phenotype\|$phenotype_link\|$anatomy_fn_link";		
+    }
+    
+    my $return;
+    
+    
+    if (@table_rows) {
+	my $table = start_table({-width=>"100%", -border=>"1"})
+	    . TR({},
+		 th({-align=>'left',-width => '55%',-class=>'databody'},'Anatomical Site(s)'),
+		 th({-align=>'left',-width => '25%',-class=>'databody'},'Related Phenotype'),
+		 th({-align=>'center',-width => '20%',-class=>'databody'},'via Anatomy Function'),
+	    );
+	
+	
+	foreach my $table_row (@table_rows){
+	    my @row_data = split /\|/,$table_row;
+	    $table .= TR({},
+			  td({-align=>'left',-width => '55%',-class=>'databody'},$row_data[0]),
+			  td({-align=>'left',-width => '25%',-class=>'databody'},$row_data[3]),
+			  td({-align=>'center',-width => '20%',-class=>'databody'},$row_data[4]),
+		);
+	}
+	$table .= end_table();
+	return $table;
+    } else {
+	return "Not available or unknown";
+    }
+}
+
+
+
+
+
+
+
+# {
+# 	
+# 	my $afn_data_ar = shift @_;
+# 	my (%a,%b);
+# 	my @sorted_afn_data = sort {$a{'gene_name'} <=> $b{'gene_name'}} @{$afn_data_ar};
+# 	# foreach my $data_set_hr (@sorted_afn_data){
+# 	# 	print "${$data_set_hr}{'gene_name'},${$data_set_hr}{'gene'},${$data_set_hr}{'phenotype_name'},${$data_set_hr}{'phenotype_id'},${$data_set_hr}{'afn'}\n";
+# 	# 		
+# 	# }
+# 	
+# 	my $start_table = start_table();
+# 	my $end_table = end_table();
+# 	my $table_content = "";
+# 	my $table_header = $table_content . TR({},
+# 		th({-align=>'left',-width => '30%',-class=>'databody'},'Gene'),
+# 		th({-align=>'left',-width => '30%',-class=>'databody'},'Related Phenotype'),
+# 		th({-align=>'left',-width => '30%',-class=>'databody'},'via Anatomy Function')
+# 	);
+# 	
+# 	$table_content = $table_content.$start_table;
+# 	$table_content = $table_content.$table_header;
+# 	
+# 	foreach my $data_set_hr (@sorted_afn_data){
+# 		my $gene_url = "http://dev.wormbase.org/"."db/gene/gene?class=Gene;name=".${$data_set_hr}{'gene'};
+# 		my $gene_link = a({-href=>$gene_url},${$data_set_hr}{'gene_name'});
+# 		my $phenotype_url = "http://dev.wormbase.org/"."db/misc/phenotype?class=Phenotype;name=".${$data_set_hr}{'phenotype_id'} ;
+# 		${$data_set_hr}{'phenotype_name'} =~ s/_/ /g;	
+# 		my $phenotype_link =  a({-href=>$phenotype_url},${$data_set_hr}{'phenotype_name'});
+# 		my $af_url = "http://dev.wormbase.org/"."/db/misc/etree?class=Anatomy_function;name=".${$data_set_hr}{'afn'};
+# 		my $af_link = a({-href=>$af_url},${$data_set_hr}{'afn'});
+# 		
+# 		$table_content = $table_content . TR({},
+# 			th({-align=>'left',-width => '30%',-class=>'databody'},$gene_link),
+# 			th({-align=>'left',-width => '30%',-class=>'databody'},$phenotype_link),
+# 			th({-align=>'left',-width => '30%',-class=>'databody'},$af_link)
+# 		);
+# 	}
+# 	$table_content = $table_content.$end_table;
+# 	
+# 	return $table_content;
+# 	
+# 	# print "@sorted_afn_data\n";
+# 	
+# 	#WBbt:0005278
+# 	
+# }
+
+
+
+sub get_filtered_gene_interactions{
+
+my $gene = shift @_;
+
+my $query = "select all from class Interaction where  ->interaction_type like \"predicted*\" and ->log_likelihood_score >= 1.5 and ->interactor like \"$gene\" "; # 
+
+my $query2 = "select all from class Interaction where ->interactor like \"$gene\" and not ->interaction_type like \"predicted*\"";  ### -> andand 
+
+	
+	## run query
+	my @results = $DB->aql($query); #  
+	my @results2 = $DB->aql($query2);
+	
+	push (@results,  @results2);
+#	my @results = $DB->find(-query => $query, -count => 10);
+	
+	my @return;
+	foreach my $result (@results) {
+	
+		my $data = shift @$result;
+		push @return, $data;
+		#print "$data\n";
+	
+
+} 
+return @return;
+}
+
+
+sub print_gene_interaction_data_old {
+
+	my ($data,$gene_id) = @_;
+	my $gene_data_lines = `grep $gene_id $data`;
+	my @gene_data_lines = split /\n/,$gene_data_lines;
+	
+	my @interaction_data;
+	foreach my $dataline (@gene_data_lines){
+		
+		chomp $dataline;
+		#print "$dataline\n";
+		my @dataline_set = split /\|/,$dataline;
+		#print "$dataline_set[0]\n";
+		push @interaction_data,$dataline_set[0];
+	}
+
+
+	my @first_ten = @interaction_data[0 .. 9];
+	print "@first_ten\n";
+
+}
+
+sub print_gene_interaction_data {
+
+	my ($data,$gene_id) = @_;
+	my $gene_data_lines = `grep $gene_id $data`;
+	my @gene_data_lines = split /\n/,$gene_data_lines;
+	
+	my @interaction_data;
+	foreach my $dataline (@gene_data_lines){
+		
+		chomp $dataline;
+		#print "$dataline\n";
+		my @dataline_set = split /\|/,$dataline;
+		#print "$dataline_set[0]\n";
+		push @interaction_data,$dataline_set[0];
+	}
+
+
+	my @first_ten = @interaction_data[0 .. 9];
+	# print "@first_ten\n";
+
+	my $interaction_count = @interaction_data;  # 
+	if (@interaction_data ) { ## && ($interaction_count > 10)
+		my @truncated_interactions_list = @interaction_data[0 .. 9];
+		my $last_int_index = $interaction_count - 1;
+		my @rest_of_interactions = @interaction_data[10 .. $last_int_index];
+		
+		# SubSection("Interactions",	hr,"@truncated_interactions_list",hr);
+		my $rest_of_interactions = @rest_of_interactions;
+		my $interaction_list_url = "/db/gene/interaction?list=".$gene_id;
+		SubSection("Interactions","There are(is) ".$interaction_count." ".a({-href=>$interaction_list_url},"interaction(s)")." in which this gene is involved. ",hr);
+	}
+	else{
+		SubSection("Interactions","@interaction_data",hr);	
+	}
+}
+
+
+sub interaction_matrix {
+    my @interactions = get_compiled_gene_interactions($datafile,$GENE); #get_filtered_gene_interactions(); # $GENE->Interaction
+    my @yh_baits     = $GENE->Yh_bait;
+    my @yh_targets   = $GENE->Yh_target;
+
+    # The following are passed onto the WormBase::Table module
+    my @x_labels;
+    my @y_labels;
+
+    my $x_label_info = {};
+    my $y_label_info = {};
+
+    my $data_content = {};
+    my $data_info    = {};
+
+    # All interactor GO Terms
+    my @go_terms;
+    my %seen_interactors;
+
+    # Interaction objects
+    foreach my $interaction (@interactions) {
+        my @interactors       = $interaction->Interactor;
+        my @interaction_types = $interaction->Interaction_type;
+        my @papers            = $interaction->Paper;
+
+        if (@interactors != 2) {
+            print STDERR
+              "Interaction object ($interaction) has incorrect number of interactors!";
+            next;
+        }
+
+        if (@interaction_types != 1) {
+            print STDERR
+              "Interaction object ($interaction) has incorrect number of interaction types!";
+            next;
+        }
+
+        my $type = $interaction_types[0];
+        $type =~ s/_interaction$//;
+        $type = lc($type);
+
+        my $interactor =
+          $interactors[0] ne $GENE ? $interactors[0] : $interactors[1];
+
+        push @go_terms, $interactor->Go_term unless $seen_interactors{"$interactor"};
+        $seen_interactors{"$interactor"}++;
+
+        my $interactor_best_name = Bestname($interactor);
+        $data_content->{$interactor_best_name}->{$type}++;
+        push @{$data_info->{$interactor_best_name}->{$type}}, @papers;
+        $x_label_info->{$interactor_best_name} =
+          qq[onclick="balloon.showTooltip(event,'url:/db/gene/interaction_details?mode=gene;gene=$interactor', 1)"]
+          unless $x_label_info->{$interactor_best_name};
+    }
+
+    #YH objects
+    foreach my $yh (@yh_baits, @yh_targets) {
+        my @baits            = $yh->Bait_overlapping_gene;
+        my @targets          = $yh->Target_overlapping_gene;
+        my @experiment_types = $yh->Experiment_type;
+        my @references       = $yh->Reference;
+
+        if (@baits != 1) {
+            print STDERR "YH object ($yh) has incorrect number of baits!";
+            next;
+        }
+
+        if (@targets != 1) {
+            print STDERR "YH object ($yh) has incorrect number of targets!";
+            next;
+        }
+
+        if (@experiment_types != 1) {
+            print STDERR
+              "YH object ($yh) has incorrect number of experiment types!";
+            next;
+        }
+
+        my $bait   = $baits[0];
+        my $target = $targets[0];
+        my $type   = $experiment_types[0];
+
+        my ($sub_type, $interactor) =
+          $bait ne $GENE ? ('(bait)', $bait) : ('(target)', $target);
+        $type .= $sub_type;
+
+        push @go_terms, $interactor->Go_term unless $seen_interactors{"$interactor"};
+        $seen_interactors{"$interactor"}++;
+
+        my $interactor_best_name = Bestname($interactor);
+        $data_content->{$interactor_best_name}->{$type}++;
+        push @{$data_info->{$interactor_best_name}->{$type}}, @references;
+        $x_label_info->{$interactor_best_name} =
+          qq[onclick="balloon.showTooltip(event,'url:/db/gene/interaction_details?mode=gene;gene=$interactor', 1)"]
+          unless $x_label_info->{$interactor_best_name};
+    }
+
+    my %x_labels;
+    my %y_labels;
+    foreach my $x_label (keys %{$data_content}) {
+        $x_labels{$x_label}++;
+        foreach my $y_label (keys %{$data_content->{$x_label}}) {
+            $y_labels{$y_label}++;
+            $y_label_info->{$y_label} =
+              qq[onclick="balloon.showTooltip(event,'url:/db/gene/interaction_details?mode=type;type=$y_label', 1)"]
+              unless $y_label_info->{$y_label};
+
+        }
+    }
+    @x_labels = keys %x_labels;
+    @y_labels = keys %y_labels;
+
+    # Prepare info for each node
+    my $gene_best_name = Bestname($GENE);
+    foreach my $x_label (keys %{$data_info}) {
+        foreach my $y_label (keys %{$data_info->{$x_label}}) {
+            my @papers = @{$data_info->{$x_label}->{$y_label}};
+
+            my $papers = join(',', @papers);
+
+            $data_info->{$x_label}->{$y_label} =
+              qq[onclick="balloon.showTooltip(event,'url:/db/gene/interaction_details?mode=count;gene=$GENE;interactor=$x_label;type=$y_label;papers=$papers', 1)"];
+        }
+    }
+
+    my $chunk_size = @x_labels < 10 ? @x_labels : int(@x_labels / 3) + 1;
+    my $last_index = $#x_labels;
+
+    my $start = 0;
+    my $end   = -1;
+
+    # Prepare html and return it
+    my $interaction_matrix_html;
+    
+    $interaction_matrix_html .= qq[<table><tr>\n]; 
+
+    while ($end < $last_index) {
+        $start = $end + 1;
+        $end   =
+            $start + $chunk_size - 1 > $last_index
+          ? $last_index
+          : $start + $chunk_size - 1;
+
+        my $table = WormBase::Table->new(
+            x_labels     => [@x_labels[$start .. $end]],
+            y_labels     => \@y_labels,
+            x_label_info => $x_label_info,
+            y_label_info => $y_label_info,
+            data_content => $data_content,
+            data_info    => $data_info,
+            rotate       => 1,
+        );
+
+        $interaction_matrix_html .= qq[<td valign="top">\n];
+        $interaction_matrix_html .= $table->render_html;
+        $interaction_matrix_html .= qq[</td>\n];
+    }
+
+    $interaction_matrix_html .= qq[</tr>\n];
+    $interaction_matrix_html .= qq[</table>\n];
+
+    # Separate go terms into types
+    my %all_go_terms;
+    foreach my $go_term (@go_terms) {
+        my ($type) = $go_term->Type;
+        push @{$all_go_terms{$type}}, $go_term;
+    }
+    
+    foreach my $type (sort keys %all_go_terms) {
+        $interaction_matrix_html .= go_pie_charts($all_go_terms{$type}, $type);
+    }    
+
+    # Add a link to N-Browse interaction viewer
+    my $gene_name = $GENE->name;
+    return $interaction_matrix_html unless ($GENE->Species =~ /elegans/i);
+    my $interaction_viewer = a({-href=>Object2URL($gene_name,'Nbrowse'), -target=>'_blank'}, img({src=>INTERACTION_VIEWER_IMAGE}))
+                             . '&nbsp;&nbsp;' 
+                             . a({-href=>Object2URL($gene_name,'Nbrowse'), -target=>'_blank'},'Launch N-Browse')
+                             . '&nbsp;&nbsp;' 
+                             . a({-href=>Object2URL('','Nbrowse'), -target=>'_blank'},'[More details]');
+                             
+                             
+     ##  
+    
+    return $interaction_viewer . br() . $interaction_matrix_html; ## knocked out nBrowse till I can figure out how to populate data!
+	#return $interaction_matrix_html;
+}
+
+sub get_compiled_gene_interactions {
+
+
+my ($datafile,$gene_id) = @_;
+	my $gene_data_lines = `grep $gene_id $datafile`;
+	my @gene_data_lines = split /\n/,$gene_data_lines;
+	
+	my @interaction_data;
+	my %interactions;
+	foreach my $dataline (@gene_data_lines){
+		chomp $dataline;
+		my @dataline_set = split /\|/,$dataline;
+		$interactions{$dataline_set[0]} = 1;
+	}
+	
+	foreach my $int_id (keys %interactions) {
+	
+		my $int_obj = $DB->fetch(-class=>'Interaction',-name=>$int_id);
+		push @interaction_data,$int_obj;
+	
+	}
+	
+	return @interaction_data;
+
+
+}
+
+
+
+
+sub go_pie_charts {
+    my ($go_terms_ref, $type) = @_;
+
+    my @go_terms = @$go_terms_ref;
+
+    # Process GO Terms
+    my %go_terms;
+    my %go_term_objects;
+    my %go_term_defs;
+    foreach my $go_term (@go_terms) {
+        next unless $go_term;
+        $go_term_objects{"$go_term"} = $go_term;
+        $go_terms{"$go_term"}++;
+        my ($term) = $go_term->Term;
+        $go_term_defs{$go_term} =
+          ($term && $type) ? qq[$go_term: $term] : $go_term;
+    }
+    $go_term_defs{'Other'} = 'Other';
+    
+    my $go_terms_total;
+    foreach (keys %go_terms) {
+        $go_terms_total += $go_terms{$_};
+    }    
+
+    my @colors = qw[
+      #0000FF
+      #FF7F50
+      #00FFFF
+      #FFD700
+      #808080
+      #008000
+      #4B0082
+      #E6E6FA
+      #FFB6C1
+      #FFA07A
+      #800000
+      #FFE4E1
+      #808000
+      #FFA500
+      #FF0000
+      #4682B4
+      #FF6347
+      #EE82EE
+      #F5DEB3
+      #FFFF00
+    ];
+
+    my %go_pie_chart;
+    my $go_pie_chart_total;
+    
+    foreach
+      my $go_term (sort { $go_terms{$b} <=> $go_terms{$a} } keys %go_terms) {
+        if ($go_terms{$go_term} / $go_terms_total < 0.050) {
+            $go_pie_chart{Other} += $go_terms{$go_term};
+        }
+        else {
+            $go_pie_chart{$go_term} = $go_terms{$go_term};
+        }
+        $go_pie_chart_total += $go_terms{$go_term};
+    }
+
+    my @pie_chart_keys;
+    my @pie_chart_values;
+    my @pie_chart_colors;
+    foreach my $go_term (
+        sort {
+                $a eq 'Other' ? 1
+              : $b eq 'Other' ? -1
+              : $go_pie_chart{$b} <=> $go_pie_chart{$a}
+        } keys %go_pie_chart
+      ) {
+        push @pie_chart_keys,   $go_term_defs{$go_term};
+        push @pie_chart_values, $go_pie_chart{$go_term};
+        push @pie_chart_colors, $colors[$#pie_chart_keys % @colors];
+    }
+
+    # Pie chart legend
+    my $pie_chart_legend_html;
+    $pie_chart_legend_html  = qq[<table class="pie_chart_legend">\n];
+    $pie_chart_legend_html .= qq[<tr><td colspan="3"><b>GO Terms - $type</b></td></tr>\n];
+    foreach my $i (0 .. $#pie_chart_keys) {
+        my $key   = $pie_chart_keys[$i];
+        my $value = $pie_chart_values[$i];
+        my $color = $pie_chart_colors[$i];
+
+        my $percent = int($value / $go_pie_chart_total * 1000) / 10;
+
+        $pie_chart_legend_html .=
+          qq[<tr><td style="background-color: $color">&nbsp;&nbsp;&nbsp;<td></td><td>$key</td><td>$percent%</td></tr>\n];
+    }
+    $pie_chart_legend_html .= qq[</table>\n];
+
+
+    # HACK HACK HACK HACK!
+    # This TOTALLY diverges from our normal tmpdir image handling
+    my ($server) = $ENV{SERVER_NAME} =~ /(.*?)\..*/;
+    $server    ||= 'local';
+
+    # OLD WAY
+    # my $temp_dir    = Configuration->Wormbase . '/html/blast_blat/tmp';
+    # my $temp_dir_eq = "/blast_blat/tmp";
+
+    my $temp_dir_eq = "/dynamic_images/$server";
+    my $temp_dir = "/var/tmp/dynamic_images/$server";
+    system("mkdir $temp_dir");
+
+    # Clean temp dir
+    my $clean_cmd =
+          "find $temp_dir -name \'pie_chart_*\' -amin +20 -exec rm -f {} \\;";
+    system($clean_cmd);      
+    
+    my $temp_file = File::Temp->new(
+        TEMPLATE => "pie_chart_XXXXX",
+        DIR      => $temp_dir,
+        SUFFIX   => ".png",
+        UNLINK   => 0,
+    );
+    my $temp_image = $temp_file->filename;
+
+    my $graph = GD::Graph::pie->new(120, 120)
+      or croak("Cannot create an GD::Graph object!");
+
+    $graph->set(
+        '3d'          => 1,
+        'start_angle' => 180,
+        'accentclr'   => 'dgray',
+        'label'       => "GO Terms (total: $go_terms_total)",
+        'dclrs'       => \@pie_chart_colors,
+      )
+      or croak($graph->error);
+
+    my $icon =
+      $graph->plot([[map { undef } @pie_chart_keys], \@pie_chart_values])
+      or croak($graph->error);    # Convert to GD object
+
+    open(IMG, ">$temp_image")
+      or croak("Cannot write file ($temp_image): $!");
+    binmode IMG;
+    print IMG $icon->png;
+    close IMG;
+
+    my ($temp_image_file_name) = $temp_image =~ /([^\/]+)$/;
+    
+    my $go_pie_chart_html;
+    $go_pie_chart_html .= qq[<table>\n];    
+    $go_pie_chart_html .= qq[<tr>\n];
+    $go_pie_chart_html .= qq[<td valign="top"><img src="$temp_dir_eq/$temp_image_file_name"/></td>\n];
+    $go_pie_chart_html .= qq[<td>$pie_chart_legend_html</td></tr>\n];
+    $go_pie_chart_html .= qq[</table>\n];
+
+    return $go_pie_chart_html;
+}    
+
+
+sub build_rnai_table {
+    my @rnai = $GENE->RNAi_result;
+    
+    my $table =  
+	p(i("The following phenotypes were observed via RNAi of $BESTNAME:"))
+	. start_div({-style=>'background-color:#E7E7E7; padding:5px; border:1px dotted black;'})
+	. start_table({-border=>1,width=>'100%'});
+    $table .= TR(th({-width=>"25%"},['Experiment','Phenotypes','Strain/Genotype',
+		     #'Primary targets',
+		     #'Secondary targets',
+		     'Cited in']));
+
+    my $negs = start_table({-border=>1,-width=>'100%'});
+    $negs .= TR(th({-width=>'25%'},['Experiment','Phenotypes not observed','Strain/Genotype',
+		     #'Primary targets',
+		     #'Secondary targets',
+		     'Cited in']));    
+    foreach (@rnai) {
+	my @phenotypes = $_->Phenotype;
+
+	foreach my $interaction ($_->Interaction) {
+	    my @types = $interaction->Interaction_type;
+	    foreach (@types) {
+		push @phenotypes,map { $_->right } grep { $_ eq 'Interaction_phenotype' } $_->col;
+	    }
+	}
+	
+	# Display NOT phenotypes
+	my $data = ParseHash(-nodes=>\@phenotypes);
+	my ($positives,$negatives) = is_NOT_phene($data);
+
+	# Revamping evidence processing
+	# This must necessirly include overhauling 
+	# how we identify NOT phenotypes
+	
+	# The return value is actually a more complicated list.
+	# For our purposes, we just need object names
+	my @observed     = map { $_->{node} } @$positives;
+	my @not_observed = map { $_->{node} } @$negatives;
+	
+	my $genotype = eval { $_->Strain->Genotype } || $_->Genotype;
+	$genotype ||= $_->Strain;
+
+	# Preferentially draw author information from a reference
+	my @citations;
+	if (my @references = $_->Reference) {
+	    foreach my $reference (@references) {
+		my $author = $reference->Author;
+		my $date   = parse_year($reference->Year);
+		my $target = $reference;
+		push @citations,ObjectLink($target,"$author $date");
+	    }
+	} else {
+	    my $author = $_->Author;
+	    my $date   = $_->Date;
+	    my $date    =~ s/ 00:00:00$//;
+	    my $target = $_->Author;
+	    push @citations,ObjectLink($target,"$author $date") if $author && $date;
+	}
+	
+	if (@not_observed && !@observed) {
+	    $negs .= TR(
+			 td({-valign=>'top'},ObjectLink($_)),
+#		     td((@observed > 0
+#			 ? b('Observed')
+#			 . br
+#			 . join(br,map { ObjectLink($_,best_phenotype_name($_)) } @observed)
+#			 . br
+#			 : ''),
+#			(@not_observed > 0
+#			 ? b('Not observed')
+#			 . br
+#			 . join(br,map { ObjectLink($_,best_phenotype_name($_)) } @not_observed)
+#			 : '')),
+			 td(join(br,map { ObjectLink($_,best_phenotype_name($_)) } @not_observed)),
+			 td(ObjectLink($genotype)),
+#		     td({-width=>'15%'},$targets{'Primary targets'}),
+#		     td($targets{'Secondary targets'}),
+			 td(join(br,@citations)),
+			 );
+	} else {
+	    $table .= 
+		    TR(
+		       td({-valign=>'top'},ObjectLink($_)),
+#		     td((@observed > 0
+#			 ? b('Observed')
+#			 . br
+#			 . join(br,map { ObjectLink($_,best_phenotype_name($_)) } @observed)
+#			 . br
+#			 : ''),
+#			(@not_observed > 0
+#			 ? b('Not observed')
+#			 . br
+#			 . join(br,map { ObjectLink($_,best_phenotype_name($_)) } @not_observed)
+#			 : '')),
+			 td(join(br,map { ObjectLink($_,best_phenotype_name($_)) } @observed)),
+			 td(ObjectLink($genotype)),
+#		     td({-width=>'15%'},$targets{'Primary targets'}),
+#		     td($targets{'Secondary targets'}),
+			 td(join(br,@citations)),
+			 );
+	}
+    }
+    $negs .= end_table();
+    $table .= end_table() . end_div();
+    return ($table . p
+	    . 
+	    i('No abnormalities were observed in the following experiments:') 
+	    . div({-style=>'background-color:#E7E7E7; padding:5px; border:1px dotted black; opacity:0.6'},
+		$negs));
+}
+
+
+sub build_variation_phenes_table {    
+    my @alleles = $GENE->Allele;
+    
+    my $table =  
+	start_div({-style=>'background-color:#E7E7E7; padding:5px; border:1px dotted black;'})
+	. i("The following phenotypes have been observed in $BESTNAME:") . br
+	. start_table({-border=>1,width=>'100%'});
+    $table .= TR(th(['Phenotype','observed in variation',
+		     ]));
+
+    my $negs = i("The following phenotypes were not observed")
+	. br
+	. start_table({-border=>1,-width=>'100%'});
+    $negs .= TR(th(['Phenotypes','Not observed in variation',
+		    ]));    
+    
+    my $rows = {};
+    foreach my $allele (@alleles) {
+	my @phenotypes = $allele->Phenotype;
+	next unless @phenotypes;
+	
+	# Display NOT phenotypes
+#	my $data = ParseHash(-nodes=>[$_->Phenotype]);
+	my $data = ParseHash(-nodes=>\@phenotypes);
+	my ($positives,$negatives) = is_NOT_phene($data);
+	
+	# The return value is actually a more complicated list.
+	# For our purposes, we just need object names
+	my @observed     = map { $_->{node} } @$positives;
+	my @not_observed = map { $_->{node} } @$negatives;
+	
+#	my $genotype = eval { $_->Strain->Genotype } || $_->Genotype;
+#	$genotype ||= $_->Strain;
+
+#	# Preferentially draw author information from a reference
+#	my @citations;
+#	if (my @references = $_->Reference) {
+#	    foreach my $reference (@references) {
+#		my $author = $reference->Author;
+#		my $date   = parse_year($reference->Year);
+#		my $target = $reference;
+#		push @citations,ObjectLink($target,"$author $date");
+#	    }
+#	} else {
+#	    my $author = $_->Author;
+#	    my $date   = $_->Date;
+#	    my $date    =~ s/ 00:00:00$//;
+#	    my $target = $_->Author;
+#	    push @citations,ObjectLink($target,"$author $date") if $author && $date;
+#	}
+
+	# Grouping by phenotype
+	foreach my $phenotype (@observed) {
+	    my $best = best_phenotype_name($phenotype);
+	    $rows->{$best}->{object} = $phenotype;   # preserve object	    
+	    push @{$rows->{$best}->{observed}->{alleles}},$allele;	    
+	}
+
+	foreach my $phenotype (@not_observed) {
+	    my $best = best_phenotype_name($phenotype);
+	    $rows->{$best}->{object} = $phenotype;  # preserve object
+ 	    push @{$rows->{$best}->{not_observed}->{alleles}},$allele;
+	    
+	}
+    }
+	
+    foreach my $phene (sort keys %{$rows}) {
+	my $object   = $rows->{$phene}->{object};
+	if (my @observed =  eval { @{$rows->{$phene}->{observed}->{alleles}} }) {
+	    $table .= TR(td(ObjectLink($object,best_phenotype_name($object))),
+			 td(join(", ",map { ObjectLink($_) } @observed)));
+	}
+	if (my @not_observed = eval { @{$rows->{$phene}->{not_observed}->{alleles}} }) {	    
+	    $negs .= TR(td(ObjectLink($object,$phene)),
+			td(join(", ",map { ObjectLink($_) } @not_observed)));
+	}
+    }
+    
+    $negs .= end_table();
+    $table .= end_table() . end_div();
+    return ($table . p . i('No abnormalities were observed in the following experiments:') . 
+	    div({-style=>'background-color:#E7E7E7; padding:5px; border:1px dotted black; opacity:0.6'},
+		$negs));
+}
+
+
+
+
+sub phenotype_summary {
+    
+    my $table =  
+	p(i("The following phenotypes have been observed in $BESTNAME:"))
+	. start_div({-style=>'background-color:#E7E7E7; padding:5px; border:1px dotted black;'})       
+	. start_table({-border=>1,width=>'100%'});
+    $table .= TR(th({-width=>"60%"},['Phenotype','Supporting Evidence']));
+    
+    my $negs =  start_table({-border=>1,-width=>'100%'});
+    $negs .= TR(th({-width=>"60%"},['Phenotype','Supporting Evidence']));
+    my $rows = {};
+    
+    my @rnai = $GENE->RNAi_result;    
+    foreach (@rnai) {
+	my @phenotypes = $_->Phenotype;
+	
+	foreach my $interaction ($_->Interaction) {
+	    my @types = $interaction->Interaction_type;
+	    foreach (@types) {
+		push @phenotypes,map { $_->right } grep { $_ eq 'Interaction_phenotype' } $_->col;
+	    }
+	}
+	
+	# Display NOT phenotypes
+	my $data = ParseHash(-nodes=>\@phenotypes);
+	my ($positives,$negatives) = is_NOT_phene($data);
+	
+	# The return value is actually a more complicated list.
+	# For our purposes, we just need object names
+	my @observed     = map { $_->{node} } @$positives;
+	my @not_observed = map { $_->{node} } @$negatives;
+
+	# If only presenting counts, the genotype is not necessary,
+	# nor is this more complex data structure.
+	# It should be purged if we decide on that route.
+	my $genotype = eval { $_->Strain->Genotype } || $_->Genotype;
+	$genotype ||= $_->Strain;
+    
+	# Grouping by phenotype
+	foreach my $phenotype (@observed) {	    
+	    my $best = best_phenotype_name($phenotype);
+	    $rows->{$best}->{object} = $phenotype;   # preserve object	    
+	    push @{$rows->{$best}->{observed}->{rnai}},[$_,$genotype];
+	    $rows->{$best}->{count}++;
+	}
+	
+	foreach my $phenotype (@not_observed) {
+	    my $best = best_phenotype_name($phenotype);
+	    $rows->{$best}->{object} = $phenotype;  # preserve object
+ 	    push @{$rows->{$best}->{not_observed}->{rnai}},[$_,$genotype];
+	    $rows->{$best}->{count}++;
+	}	
+
+    }
+
+    my @alleles = $GENE->Allele;
+    foreach my $allele (@alleles) {
+	my @phenotypes = $allele->Phenotype;
+	next unless @phenotypes;
+	
+	# Display NOT phenotypes
+#	my $data = ParseHash(-nodes=>[$_->Phenotype]);
+	my $data = ParseHash(-nodes=>\@phenotypes);
+	my ($positives,$negatives) = is_NOT_phene($data);
+	
+	# The return value is actually a more complicated list.
+	# For our purposes, we just need object names
+	my @observed     = map { $_->{node} } @$positives;
+	my @not_observed = map { $_->{node} } @$negatives;
+	
+	# Grouping by phenotype
+	foreach my $phenotype (@observed) {
+	    my $best = best_phenotype_name($phenotype);
+	    $rows->{$best}->{object} = $phenotype;   # preserve object	    
+	    push @{$rows->{$best}->{observed}->{alleles}},$allele;	    
+	    $rows->{$best}->{count}++;
+	}
+
+	foreach my $phenotype (@not_observed) {
+	    my $best = best_phenotype_name($phenotype);
+	    $rows->{$best}->{object} = $phenotype;  # preserve object
+ 	    push @{$rows->{$best}->{not_observed}->{alleles}},$allele;
+	    $rows->{$best}->{count}++;	    
+	}
+    }
+	
+
+    # Data is collated.  Let's sort phenotypes according to the number of pieces
+    # of supporting evidence.
+    foreach my $phene (sort { $rows->{$b}->{count} <=> $rows->{$a}->{count} } keys %{$rows}) {
+#    foreach my $phene (sort { best_phenotype_name($rows->{$b}->{object}) 
+#				  <=> 
+#				  best_phenotype_name($rows->{$a}->{object}) } keys %{$rows}) {
+	my $object   = $rows->{$phene}->{object};
+	my @observed_alleles = eval { @{$rows->{$phene}->{observed}->{alleles}} };
+	my @observed_rnai = eval { @{$rows->{$phene}->{observed}->{rnai}} };
+
+	if (@observed_alleles || @observed_rnai) {
+	    $table .= start_TR()
+		. td(ObjectLink($object,best_phenotype_name($object)))
+		. start_td();
+	    $table .= "Alleles: " . join(", ",map { $_->Flanking_sequences ? b(ObjectLink($_)) : ObjectLink($_) } @observed_alleles)
+		if (@observed_alleles);
+	    if (@observed_rnai) {
+
+		$table .= br if (@observed_alleles);
+		# Individually listing all experiments
+                # $table .= "RNAi: " . join(", ",map { ObjectLink($_->[0],$_->[1]) } @observed_rnai);
+
+		# Presenting  just a count of RNAi experiments
+		$table .= "Supported by " . scalar @observed_rnai . " RNAi experiments";
+	    }
+	    $table .= end_td() . end_TR();
+	}
+
+	my @not_observed_alleles = eval { @{$rows->{$phene}->{not_observed}->{alleles}} };
+	my @not_observed_rnai    = eval { @{$rows->{$phene}->{not_observed}->{rnai}} };
+	if (@not_observed_alleles || @not_observed_rnai) {
+	    $negs .= start_TR() .
+		td(ObjectLink($object,$phene))
+		. start_td();
+	    $negs .= "Alleles: " . join(", ",map { ObjectLink($_) } @not_observed_alleles) if @not_observed_alleles;
+	    if (@not_observed_rnai) {
+		$negs .= br if @not_observed_alleles;
+		# Individually listing all experiments.
+		# $negs .= "RNAi: " . join(", ",map { ObjectLink($_->[0],$_->[1] || "N2") } @not_observed_rnai);		
+		# Presenting  just a count of RNAi experiments
+		$negs .= "Supported by " . scalar @not_observed_rnai . " RNAi experiments";
+	    }
+	    $negs .= end_td() . end_TR();
+	}
+    }
+    
+    $negs .= end_table();
+    $table
+	.= end_table()
+	. end_div()
+	. br .'Alleles for which the sequence change is known are listed in ' . b('boldface.');
+
+    return ($table 
+	    . p 
+	    . i('The following phenotypes were reported as NOT observed:')
+	    . div({-style=>'background-color:#E7E7E7; padding:5px; border:1px dotted black; opacity:0.6'},
+		$negs));
+}
+
+#### fast pheno summary system ####
+
+sub fast_phenotype_summary {
+
+my ($details,$phenotype_data) = get_phenotype_data($GENE, 1);  
+my ($variation_data, $variation_name_hr) = get_variation_data($GENE, 1); 
+my ($details_not,$phenotype_data_not) = get_phenotype_data($GENE); 
+my ($variation_data_not, $variation_name_hr_not) = get_variation_data($GENE);
+my $xgene_data = get_xgene_data($GENE, 1);
+my $xgene_data_not = get_xgene_data($GENE);
+
+my $phenotype_names_hr  = get_phenotype_names($phenotype_data,$variation_data);
+my $phenotype_names_not_hr  = get_phenotype_names($phenotype_data_not,$variation_data_not);
+
+my $rnai_details_table = print_rnai_details_table($details, $phenotype_names_hr);
+my $rnai_not_details_table = print_rnai_details_table($details_not,$phenotype_names_not_hr);
+
+
+my $pheno_table = print_phenotype_table($phenotype_data,
+										$variation_data,
+										$phenotype_names_hr,
+										$xgene_data,
+										$variation_name_hr);
+my $pheno_table_not = print_phenotype_table($phenotype_data_not,
+											$variation_data_not,
+											$phenotype_names_not_hr,
+											$xgene_data_not,
+											$variation_name_hr_not);
+
+my $phene_html = "&nbsp;<br>";
+$phene_html .= i("The following phenotypes have been observed in $BESTNAME");
+$phene_html .= "<br>&nbsp;<br>$pheno_table";
+$phene_html .= "<br>Alleles for which the sequence change is known are listed in <b>boldface</b>.<br><br>";
+$phene_html .= i("The following phenotypes have been reported as NOT observed in $BESTNAME");
+$phene_html .= "<br>&nbsp;<br>$pheno_table_not";
+
+my $rnai_html = "&nbsp;<br>";
+$rnai_html .= i("The following phenotypes were observed via RNAi of $BESTNAME");
+$rnai_html .= "<br>&nbsp;<br>";
+$rnai_html .= "$rnai_details_table";
+$rnai_html .= "<br>";
+$rnai_html .= i("No abnormalities were observed in the following experiments:");
+$rnai_html .= "<br>&nbsp;<br>$rnai_not_details_table\n";
+
+return $phene_html,$rnai_html;
+
+}
+
+### pulls phenotype data for specified gene from rnai details file
+### syntax: ($details_ar, $phenotype_data_ar) = get_phenotype_data(gene_id, [0 or 1 indicating positive results for rnai experiment or not])
+### output: array refs: data for details table (rnai_id|pheno1&pheno2...|genotype|ref), and phenotypes and number of related experiments (phenotype_id|number_of_supporting_rnai_experiments)
+
+sub get_phenotype_data {
+
+	my ($gene,$positive_results) = @_;
+	my $rnai_details = "$gene_pheno_datadir/$rnai_details_file";
+	my %rnai_phenotypes;
+	my %rnai_genotype;
+	my %rnai_ref;
+
+	open RNAI_DATA, "<$rnai_details" or die "Cannot open RNAi details file: $rnai_details\n";
+	
+	foreach my $rnai_data_line (<RNAI_DATA>) {
+	
+		chomp $rnai_data_line;
+		my ($rnai,$genotype,$ref) = split /\|/,$rnai_data_line;
+		# print "$rnai_data_line\n";
+		
+		$rnai_genotype{$rnai} = $genotype;
+		$rnai_ref{$rnai} = $ref;
+		
+	}
+	
+	my $gene_phenotype_data;
+	
+	if($positive_results) {
+	
+		$gene_phenotype_data = `grep $gene $gene_pheno_datadir/$gene_rnai_phene_file | grep -v Not `;
+	
+	} else {
+	
+		$gene_phenotype_data = `grep $gene $gene_pheno_datadir/$gene_rnai_phene_file | grep Not `;
+	
+	}
+	
+
+	#print "$gene_phenotype_data\n";
+	my @gene_phenotype_data = split /\n/,$gene_phenotype_data;
+	my %rnai_pheno_data;
+	my %pheno_rnai_data;
+	foreach my $gene_phenotype_data_line (@gene_phenotype_data) {
+	
+		#print "\=\>$gene_phenotype_data_line\n";
+		
+		my ($gene_id,$rnai_id,$pheno_id) = split /\|/,$gene_phenotype_data_line;
+		
+		$rnai_pheno_data{$rnai_id}{$pheno_id} = 1;
+		$pheno_rnai_data{$pheno_id}{$rnai_id} = 1;
+	
+	}
+
+	my @rnais  = keys %rnai_pheno_data;
+	my @details;
+	my @phenotype_return;
+	
+	foreach my $rnai (@rnais) {
+	
+		my $pheno_ids_hr =  $rnai_pheno_data{$rnai};
+		my $pheno_ids = join "&", keys %$pheno_ids_hr;
+	
+		push @details, "$rnai\|$pheno_ids\|$rnai_genotype{$rnai}\|$rnai_ref{$rnai}";
+	}
+	
+	foreach my $phenotype (keys %pheno_rnai_data) {
+	
+		my $rnai_ids_hr = $pheno_rnai_data{$phenotype};
+		my @rnai_ids = keys %$rnai_ids_hr;
+		my $rnai_id_count = @rnai_ids;
+		push @phenotype_return, "$phenotype\|$rnai_id_count";
+	}
+	
+	return \@details, \@phenotype_return;
+
+} ## end get_phenotype_data
+
+### pulls variation data from file for inputed gene
+### syntax: $variation_data_ar = get_variation_data('gene_id');
+### array_ref for lines: phenotype_id|var1&var2&var3
+
+sub get_variation_data {
+
+	my ($gene, $positive_results) = @_; ## , $phenotype_ar
+	
+	my $gene_variation_data; ## = `grep $gene $gene_pheno_datadir/$gene_variation_phene_file`;
+	
+	
+	if($positive_results) {
+	
+		$gene_variation_data = `grep $gene $gene_pheno_datadir/$gene_variation_phene_file | grep -v Not `;
+	
+	} else {
+	
+		$gene_variation_data = `grep $gene $gene_pheno_datadir/$gene_variation_phene_file | grep Not `;
+	
+	}
+	
+	my @gene_variation_data = split /\n/, $gene_variation_data;
+	my %phenotype_variation;
+	my %var_id2name;
+	
+	foreach my $var_data_line (@gene_variation_data) {
+	
+		my ($gene,$var,$phenotype,$not,$seq_stat,$var_name)  = split /\|/, $var_data_line;
+		$var_id2name{$var} = $var_name;
+		$var = $var . "+" . $seq_stat;
+		$phenotype_variation{$phenotype}{$var} = 1;
+	}
+	
+	my @return_data;
+	
+	### get appropriate phenotypes
+	
+# 	foreach my $phenotype_data_line (@$phenotype_ar) {
+# 	
+# 		my ($phene, $rnai_id_count) = split /\|/, $phenotype_data_line;
+# 	
+# 		my $vars_hr = $phenotype_variation{$phene};
+# 		my @vars = keys %$vars_hr;
+# 		my $vars_line = join "&", @vars;
+# 		push @return_data, "$phene\|$vars_line";
+# 	
+# 	}
+	
+	foreach my $phene (keys %phenotype_variation) {
+	
+		my $vars_hr = $phenotype_variation{$phene};
+		my @vars = keys %$vars_hr;
+		my $vars_line = join "&", @vars;
+		push @return_data, "$phene\|$vars_line";
+	}
+	return \@return_data, \%var_id2name; ##
+	
+} ## end get_variation_data
+
+### get phenotype ids from outputs of get_phenotype_data() and get_variation_data() and provides corresponding phenotype names
+### syntax: $phene_id2name_hr = get_phenotype_names(rnai_ar,var_ar)
+
+sub get_phenotype_names {
+
+	my ($rnai_ar,$var_ar) = @_;
+	
+	my %phene_master;
+	
+	foreach my $rnai_phene_line (@$rnai_ar) {
+	
+		my ($phene_id, $disc) = split /\|/,$rnai_phene_line;
+		$phene_master{$phene_id} = 1;
+	}
+	
+	foreach my $var_phene_line (@$var_ar) {
+	
+		my ($phene_id, $disc) = split /\|/,$var_phene_line;	
+		$phene_master{$phene_id} = 1;
+	}
+	
+	my %phene_id2name;
+	my %fullset_phene_id2name = build_hash("$gene_pheno_datadir/$phenotype_name_file");
+	foreach my $phene_id (keys %phene_master) {
+				
+		$phene_id2name{$phene_id} = $fullset_phene_id2name{$phene_id};  ## $phene_primary_name
+	}
+	
+	return \%phene_id2name;
+}
+
+
+
+## print the table of phenotypes as a subsection
+## designed to work with data generated by get_phenotype_data, get_variation_data, get_phenotype_names
+## syntax: print_phenotype_table();
+## output:
+
+sub print_phenotype_table {
+
+## get data
+
+my ($rnai_data_ar, $var_data_ar, $phenotype_id2name_hr, $xgene_data_ar, $var_id2name_hr) = @_;
+
+## build data structures
+
+my %rnai_data;
+my $table = "";
+
+$table .= start_table({-border => 1}); ## $cgi->
+			$table .= TR(
+					td({-align => 'left', -width => '50%' }, i('Phenotype')),
+					td({-align => 'left', -width => '50%' }, i('Supporting Evidence'))
+				);
+
+foreach my $rnai_data_line (@$rnai_data_ar) {
+
+	my ($phenotype_id,$experiment_count) = split /\|/,$rnai_data_line;
+	$rnai_data{$phenotype_id} = $experiment_count;
+
+}
+
+my %var_data;
+
+foreach my $var_data_line (@$var_data_ar) {
+
+	my ($phenotype_id,$var_list) = split /\|/,$var_data_line;
+	$var_data{$phenotype_id} = $var_list;
+
+}
+
+my %xgene_data;
+
+foreach my $xgene_data_line (@$xgene_data_ar) {
+
+	my ($phenotype_id,$xgene_list) = split /\|/,$xgene_data_line;
+	$xgene_data{$phenotype_id} = $xgene_list;
+
+}
+
+
+
+## consolidate phenotype list and get phenotype names
+
+	foreach my $phenotype_id (keys %$phenotype_id2name_hr ){ 
+	
+	my $phenotype_url = "/db/misc/phenotype?class=Phenotype;name=" . $phenotype_id;
+	my $phenotype_link = a({-href => $phenotype_url},$$phenotype_id2name_hr{$phenotype_id});
+	
+	my $supporting_evidence = "";
+	
+	## variation evidence
+	
+	my $var_evidence = "";
+	
+	if ($var_data{$phenotype_id}) {
+		
+		my @allele_set = split /\&/, $var_data{$phenotype_id};
+		my @allele_links;
+		
+		foreach my $allele_data (@allele_set) {
+			
+			my ($allele, $seq_status) = split /\+/,$allele_data;
+			my $var_name = $var_id2name_hr->{$allele};
+			my $allele_name_display;
+
+			if($seq_status =~ m/sequenced/i) {
+				
+				$allele_name_display = b($var_name);
+	
+			} else {
+
+				$allele_name_display = $var_name;
+			}
+
+			my $allele_url = "/db/gene/variation?class=Variation;name=" . $allele;
+			#print "$allele<br>";
+			
+			#print "<br>";
+			my $allele_link = a({-href => $allele_url},$allele_name_display); ## $var_name
+			
+			push @allele_links, $allele_link;
+		
+		}
+		
+		my $allele_links = join ",", @allele_links;
+		
+		$var_evidence = "Alleles:". $allele_links . "<br>"; ## $var_data{$phenotype_id}
+	}
+		
+	$supporting_evidence .= $var_evidence;
+	
+	### xgene evidence
+	
+	my $xgene_evidence = "";
+	
+	if ($xgene_data{$phenotype_id}) { ###
+		
+		my @xgene_set = split /\&/, $xgene_data{$phenotype_id};
+		my @xgene_links;
+		
+		foreach my $xgene_data (@xgene_set) {
+			
+			my ($xgene, $seq_status) = split /\+/,$xgene_data;	
+
+
+			my $xgene_url = "/db/gene/transgene?class=Transgene;name=" . $xgene;
+			my $xgene_link = a({-href => $xgene_url},$xgene);
+			
+			push @xgene_links, $xgene_link;
+		
+		}
+		
+		my $xgene_links = join ",", @xgene_links;
+		
+		$xgene_evidence = "Transgene(s):". $xgene_links . "<br>"; ## $var_data{$phenotype_id}
+	}
+	
+	$supporting_evidence .= $xgene_evidence;
+	
+	
+	my $rnai_evidence = "";
+
+	if ($rnai_data{$phenotype_id}) {
+	
+		$rnai_evidence =  "Supported by " . $rnai_data{$phenotype_id} . " RNAi experiment(s)";
+	
+	}
+	
+	
+	$supporting_evidence .= $rnai_evidence;
+	
+
+	
+	$table .= TR(
+				td({-align => 'left', -width => '50%' }, $phenotype_link),
+				td({-align => 'left', -width => '50%' }, $supporting_evidence)
+				);
+
+	}
+	
+	$table .= end_table();
+	
+	return $table;
+} ## end print_phenotype_table
+
+sub print_rnai_details_table {
+
+	my ($rnai_details_ar, $phene_id2name_hr) = @_;
+	
+	my $table = start_table({-border=>1});
+	
+	$table .= TR(
+		td({-align => 'left', -width => '25%' }, i('Experiment')),
+		td({-align => 'left', -width => '25%' }, i('Phenotypes')),
+		td({-align => 'left', -width => '25%' }, i('Strain/Genotype')),
+		td({-align => 'left', -width => '25%' }, i('Cited in'))
+	);
+	
+	
+	
+	foreach my $rnai_detail (@$rnai_details_ar) {
+	
+		my ($rnaix,$phenes,$genotype,$ref) = split /\|/,$rnai_detail;
+		my @phenes = split /\&/, $phenes;
+		my $ref_obj = $DB->fetch(-class=>'Paper', -name=>$ref);
+		
+		my $formated_ref = format_reference(-reference=>$ref_obj,-format=>'short');	
+
+		my @phenotype_set;
+	
+		foreach my $phene (@phenes) {
+		
+			my $phene_url = "/db/misc/phenotype?class=Phenotype;name=" . $phene;
+			my $phene_link = a({-href=>$phene_url}, $$phene_id2name_hr{$phene});
+			push @phenotype_set,$phene_link;
+		
+		}
+		
+		my $rnai_url = "/db/seq/rnai?class=RNAi;name=" . $rnaix;
+		my $rnai_link = a({-href=>$rnai_url}, $rnaix);
+		
+		my $phenotype_set = join "<BR>", @phenotype_set;
+		#print "$rnaix,$phenotype_set,$genotype,$ref\n";
+		
+		$table .= TR(
+					td({-align => 'left', -width => '25%' }, $rnai_link),
+					td({-align => 'left', -width => '25%' }, $phenotype_set),
+					td({-align => 'left', -width => '25%' }, $genotype),
+					td({-align => 'left', -width => '25%' }, $formated_ref)  
+				);  ### $ref
+
+		
+	}
+	
+	$table .= end_table();
+	return $table;
+}
+
+sub get_xgene_data {
+
+	my ($gene, $positive_results) = @_; ## , $phenotype_ar
+	
+	my $gene_xgene_data; ## = `grep $gene $gene_pheno_datadir/$gene_variation_phene_file`;
+	
+	
+	if($positive_results) {
+	
+		$gene_xgene_data = `grep $gene $gene_pheno_datadir/$gene_xgene_phene_file | grep -v Not `;
+	
+	} else {
+	
+		$gene_xgene_data = `grep $gene $gene_pheno_datadir/$gene_xgene_phene_file | grep Not `;
+	
+	}
+	
+	#print "$gene_variation_data\n";
+	
+	my @gene_xgene_data = split /\n/, $gene_xgene_data;
+	
+	my %phenotype_xgene;
+	
+	foreach my $xgene_data_line (@gene_xgene_data) {
+	
+		my ($gene,$xgene,$phenotype,$not,$seq_stat)  = split /\|/, $xgene_data_line;
+		$xgene = $xgene . "+" . $seq_stat;
+		$phenotype_xgene{$phenotype}{$xgene} = 1;
+		
+	}
+	
+	my @return_data;
+
+	foreach my $phene (keys %phenotype_xgene) {
+	
+		my $xgenes_hr = $phenotype_xgene{$phene};
+		my @xgenes = keys %$xgenes_hr;
+		my $xgenes_line = join "&", @xgenes;
+		push @return_data, "$phene\|$xgenes_line";
+	}
+
+	return \@return_data;	
+}
+
+
+### end fast pheno summary system ####
+
+
+# This approach classifies genes and predicted genes as primary or
+# secondary targets according using attached Evidence hashes
+sub classify_targets {
+  my $exp = shift;
+  my %seen;
+  my %categories;
+
+  my @genes = grep { !$seen{$_->Molecular_name}++ } $exp->Gene;
+  push (@genes,grep {!$seen{$_}++} $exp->Predicted_gene);
+
+  foreach my $gene (@genes) {
+    my @types = $gene->col;
+    foreach (@types) {
+	my ($remark) = $_->col;
+	my $status = ($remark =~ /primary/) ? 'Primary targets' : 'Secondary targets';
+	push @{$categories{$status}},$gene;
+    }
+  }
+  return \%categories;
+}
+
+sub format_gene { 
+    my $gene = shift;
+    my $target;
+    if ($gene->class eq 'Gene') {
+	my $name = $gene->Molecular_name;
+	$name .= " (" . $gene->CGC_name . ")" if $gene->CGC_name;
+	$target = a({-href=>Object2URL($gene)},$name);
+    } else {
+	$target = ObjectLink($gene);
+    }
+    return $target;
+}
+
+
+
+
+
+#============= table view of go_term display
+# alternative table-based view
+sub print_go {
+  SubSection ("",
+	      goterm_table());
+}
+
+sub goterm_table {
+  my %seen;
+
+  # This should not be a filled object!  We need to fetch terms to the right for the evidence hash
+  # Preferentially use GO_terms attached to genes
+  my @ontology_terms = grep {!$seen{$_}++} $GENE->GO_term();
+  push (@ontology_terms,grep {!$seen{$_}++} map {$_->GO_term()} $GENE->Corresponding_CDS);
+
+  #  my @ontology_terms = grep {!$seen{$_}++} ( map {$_->GO_term()} $GENE->Corresponding_CDS);
+  #  push (@ontology_terms,grep {!$seen{$_}++} $GENE->GO_term());
+  
+  unless (@ontology_terms) {
+      return i("No gene ontology terms have been assigned to $BESTNAME");
+  }
+  
+  my (%ontology,%seen);
+  foreach my $term (@ontology_terms) {
+      next if $seen{$term}++;
+      my @evidence = go_evidence_code($term);
+      my $joined_evidence;
+      my $sort_type;
+      foreach (@evidence) {
+	  my ($ty,$evi) = @$_;
+	  my $tyy = a({-href=>'http://www.geneontology.org/GO.evidence.html',-target=>'_blank'},$ty);
+	  # 2005.04.27 - No longer using expanded GO codes (complicates display when many annotations are listed)
+	  # my $evidence = Configuration->Go_codes->{$ty}.' ('.$tyy.') '.$evi;
+	  # my $evidence = ($ty) ? "($tyy) $evi" : '';
+		my $evidence = '('.$tyy.')';
+	  # $joined_evidence = ($joined_evidence) ? ($joined_evidence . br . $evidence) : $evidence;
+	$joined_evidence = $evidence;
+	  # Data hack! Some terms are not associated with GO categories -- ugh.
+	  #      push @{$ontology{$term->Type || 'unclassified'}},[$term,$evidence,$ty];
+	  
+	  # Oh this is so very nasty.
+	  # This was never intended to display more than a single piece of evidence
+	  # per term.  Unfortunately we now need to do just that
+	  # (as well as sort by the evidence code for each)
+	  # Here, I'm saving the principle sort term.  Ugly Ugly UGLY
+	  $sort_type = ($sort_type) ? Configuration->Go_sort->{$sort_type} cmp Configuration->Go_sort->{$ty}
+	  : $sort_type;
+      }
+      push @{$ontology{$term->Type || 'unclassified'}},[$term,$joined_evidence,$sort_type];
+  }
+  my $table =
+      i(a({-href=>"/db/ontology/gene?name=$GENE;class=Gene"},
+	  "$BESTNAME gene ontology summary"));
+  $table .= start_table({-border=>0,-width=>'100%'});
+  
+  # As of WS124-WS126, there are "unclassified" components of the GO.
+  # Once the GO is updated, these should go away.
+  for my $type ('Biological_process','Cellular_component','Molecular_function','unclassified') {
+      ##    next if ($term eq 'unclassified' && !$ontology{$term});  # Temporary cruft. Blech.
+      my @items;
+      if ($ontology{$type}) {
+	  @items = sort {Configuration->Go_sort->{$a->[2]} cmp Configuration->Go_sort->{$b->[2]}
+			 ||
+			     $a->[0]->Term cmp $b->[0]->Term} @{$ontology{$type}};
+	  
+	  # Horribly opaque (well not so bad in relationship to hijinks above)
+	  my $description = $type;
+	  $description    =~ s/_/ /g;
+	  
+	  my @ff = @{shift @items};
+		my $ffe = $ff[1]; ### modification to strip down evidence data
+		#$table .= TR(td($ffe));
+	  $table .= TR(th({-align=>'LEFT',-class=>'databody'}, $description),
+		       td({-align=>'LEFT',-class=>'databody'}, ref($ff[0])? ObjectLink($ff[0],$ff[0]->Term)
+			  :$ff[0]),
+		       # td({-align=>'LEFT',-class=>'databody'}, $ff[1])); ## original line
+	  			td({-align=>'LEFT',-class=>'databody'}, $ffe));
+	  foreach (@items){
+	      my @ii = @{$_};
+	      $table .= TR(td({-align=>'LEFT',-class=>'databody'}, " "),
+			   td({-align=>'LEFT',-valign=>'TOP',
+			       -class=>'databody'}, ref($ii[0])? ObjectLink($ii[0],$ii[0]->Term):$ii[0]),
+			   td({-align=>'LEFT',-class=>'databody'}, $ii[1])); 
+	  }
+      }
+  }
+  
+  $table .= end_table;
+  return $table;
+}
+
+sub microarray_papers {
+  my $mr_obj = shift;
+  my (%seen,@papers);
+  foreach (my @experiments = $mr_obj->Results) {
+    my $paper = $_->Reference;
+    next if defined $seen{$paper};
+    $seen{$paper}++;
+    push (@papers,$paper);
+  }
+  return @papers;
+}
+
+
+# This is one big ugly hack job
+sub go_evidence_code {
+  my $term = shift;
+  my @type      = $term->col;
+#  my @evidence  = $term->right->col if $term->right;
+  my @results;
+  foreach my $type (@type) {
+      my $evidence = '';
+      my @evidence = $type->col;
+      for my $ev (@evidence) {
+	  my (@supporting_data) = $ev->col;
+	  
+	  # For IMP, this is semi-formatted text remark
+	  if ($type eq 'IMP' && $type->right eq 'Inferred_automatically') {
+	      my (%phenes,%rnai);
+	      foreach (@supporting_data) {
+		  my @row;
+		  $_ =~ /(.*) \(WBPhenotype(.*)\|WBRNAi(.*)\)/;
+		  my ($phene,$wb_phene,$wb_rnai) = ($1,$2,$3);
+		  $rnai{$wb_rnai}++ if $wb_rnai;
+		  $phenes{$wb_phene}++ if $wb_phene;
+	      }
+	      $evidence .= 'via Phenotype: '
+#		  . join(', ',map { a({-href=>ObjectLink('phenotype',"WBPhenotype$_")},$_) }
+		  . join(', ',map { a({-href=>Object2URL("WBPhenotype$_",'phenotype')},$_) }
+			 
+			 keys %phenes) if keys %phenes > 0;
+	      $evidence .= '; ' if $evidence && keys %rnai > 0;
+	      
+	      $evidence .= 'via RNAi: '
+		  . join(', ',map { a({-href=>Object2URL("WBRNAi$_",'rnai')},$_) } 
+			 keys %rnai) if keys %rnai > 0;
+	      
+	      next;
+	  }
+	  
+	  my @seen;
+	  foreach (@supporting_data) {
+	      if ($_->class eq 'Paper') {  # a paper
+		  push @seen,ObjectLink($_,build_citation(-paper=>$_,-format=>'short'));
+	      } elsif ($_->class eq 'Person') {
+#		  push @seen,ObjectLink($_,$_->Standard_name);
+		  next;
+		} elsif ($_->class eq 'Text' && $ev =~ /Protein/) {  # a protein
+		    push @seen,a({-href=>sprintf(Configuration->Protein_links->{NCBI},$_),-target=>'_blank'},$_);
+		} else {
+		    push @seen,ObjectLink($_);
+		}
+	  }
+
+	  if (@seen) {
+	      $evidence .= join('; ',@seen); 
+	  }	 
+      }
+
+      if ($type eq 'IEA') {
+	  $evidence = 'via Interpro' if $evidence =~ /interpro/i;
+	  $evidence = 'via TMHMM'    if $evidence =~ /TMHMM/i;
+      }
+
+      push @results,[$type,$evidence];
+  }
+  #my @proteins = $term->at('Protein_id_evidence');
+  return @results;
+  
+  ##  return ("IEA", "via InterPro");  # Off, (for now) WS142
+  #return "$GO_CODES{$type} $evidence" if $type;
+  #return "$GO_CODES{IEA} via InterPro";
+}
+
+sub print_reactome {
+  return unless @$PROTEINS;  # Only applicable to proteins
+#  if (my $reactome_table = generate_reactome_table(@{$PROTEINS})) {
+  my @ids = generate_reactome_table(@{$PROTEINS}) if @$PROTEINS;
+  if (@ids) {
+      StartSection('Reactome KnowledgeBase');
+      SubSection("",@ids);
+      EndSection();
+  }
+}
+
+sub classification {
+  my $approved = eval{$LOCUS->CGC_approved(0)}; #with or without CGC name
+  my $defined_mutationally = ObjectLink($LOCUS,'defined mutationally');
+  my $gene_models          = ObjectLink($SEQUENCES->[0],'gene models');
+  my $confirm = eval{$SEQUENCES->[0]->Prediction_status}; #with or without being confirmed
+  my $matching_cdna = eval{$SEQUENCES->[0]->Matching_cDNA}; #with or without matching_cdna
+
+  if ($LOCUS && $LOCUS->Map && @$SEQUENCES && $approved ) {
+    if ($confirm eq 'Confirmed'){
+      return "This gene has been $defined_mutationally and associated
+      with one or more $gene_models.<br> This gene structure has been
+      confirmed by $confirm. <br> This gene name has been approved by
+      CGC.";
+    } elsif ($matching_cdna){
+      return "This gene has been $defined_mutationally and associated
+      with one or more $gene_models. <br> This gene structure has been
+      partially confirmed (cDNA: $matching_cdna).<br>This gene name
+      has been approved by CGC.";
+    } else{
+      return "This gene has been $defined_mutationally and associated
+      with one or more $gene_models. <br> This gene structure has not
+      been confirmed. <br> This gene name has been approved by CGC.";
+    }
+  }
+  elsif (@$SEQUENCES && $LOCUS && $approved) {
+    if($confirm){
+      return "This gene name has been approved by CGC.<br> This gene structure has been confirmed (by $confirm). ";
+    }elsif($matching_cdna){
+      return "This gene name has been approved by CGC. <br> This gene structure has been partially confirmed (cDNA: $matching_cdna). ";
+    }else{
+      return "This gene name has been approved by CGC.<br> This gene structure has not been confirmed.";
+    }
+  }
+  elsif (@$SEQUENCES && $LOCUS && !$approved) {
+    #return "This predicted gene has been confirmed but not yet assigned a $cgc-approved name.";
+    return "This gene name has not been approved by CGC.";
+  }
+  elsif (my @contains = eval{ $LOCUS->Gene_cluster(2) }) {
+    return "This is a named gene cluster containing the genes ".
+      join(' ',map{a({-href=>Url('gene'=>"name=$_")},$_)} @contains) . ".";
+  }
+  elsif ($LOCUS && $LOCUS->Map) {
+    return "This gene has been $defined_mutationally but not yet associated with a gene model.<br>This gene name has been approved by CGC.";
+  }
+  elsif ($LOCUS && $LOCUS->RNA_gene(0)) { # new way to find RNA genes
+    return "This is a non-coding RNA gene.\n";
+  }
+  elsif (@$SEQUENCES && eval{$SEQUENCES->[0]->Transcript(0)}) { # old way to find RNA genes
+    return "This is a non-coding RNA gene.\n";
+  }
+  elsif (@$SEQUENCES && $SEQUENCES->[0]->Prediction_status eq 'Confirmed') {
+    return "This predicted gene has been confirmed by ".join ' ',GetEvidence(-obj=>$SEQUENCES->[0]->Prediction_status)
+      ." but not yet assigned a " .  a({-href=>Configuration->Wb_nomenclature,-target=>'_blank'},'CGC-approved') . ')';
+  }
+  elsif (@$SEQUENCES && $SEQUENCES->[0]->Pseudogene(0)) {
+    return "This is thought to be a pseudogene.";
+  }
+  elsif (@$SEQUENCES && $SEQUENCES->[0]->Matching_cDNA) {
+    return "This gene prediction is partially confirmed by overlapping cDNAs.";
+  }
+  elsif ($LOCUS) {
+    my $tree_display = a({-href=>Url('tree'=>"name=$LOCUS;class=Locus")},'tree display');
+    return "This is a symbol for a gene that has neither been mutationally defined nor associated with a gene model; please see the $tree_display for details.";
+  }
+  else {
+    return "This is an unconfirmed gene prediction.";
+  }
+}
+
+sub other_notes {
+  my @notes;
+  if ($GENE->Corresponding_Pseudogene) {
+    push (@notes,'This gene is thought to be a pseudogene');
+  }
+
+  if ($GENE->CGC_name || $GENE->Other_name) {
+    if (my @contained_in = $GENE->In_cluster) {
+      my $cluster = join ' ',map{a({-href=>Url('gene'=>"name=$_")},$_)} @contained_in;
+      push @notes,"This gene is contained in gene cluster $cluster.\n";
+    }
+    #    push @notes,GetEvidence($GENE->Remark,1) if $GENE->Remark;
+    push @notes,map { GetEvidence(-obj=>$_,-dont_link=>1) } $GENE->Remark if $GENE->Remark;
+  }
+
+  # Add a brief remark for Transposon CDS entries
+  push @notes,
+    'This gene is believed to represent the remnant of a transposon which is no longer functional'
+      if (eval {$GENE->Corresponding_CDS->Method eq 'Transposon_CDS'});
+
+  foreach (@notes) {
+    $_ = ucfirst($_);
+    $_ .= '.' unless /\.$/;
+  }
+  @notes;
+}
+
+sub print_genetic {
+    #  return unless $LOCUS;
+    my $ref_allele = (eval {$GENE->Reference_allele}) 
+	? join('; ',map { ObjectLink($_,$_->Public_name) } $GENE->Reference_allele) : 'none';
+    
+    my @all_alleles = map {$DB->fetch(Variation => $_) } $GENE->Allele;
+    my (@alleles,@snps,@rflps,@insertions);
+    foreach (sort @all_alleles) {
+
+		my $name = $_->Public_name;
+		my $var_type = $_->Variation_type;
+
+		push @alleles,($_->Flanking_sequences ? b(ObjectLink($_,$name)) : ObjectLink($_,$name)) if    ($var_type =~ /allele/i); 
+		push @snps,       ObjectLink($_,$name) if $_->SNP(0) && !$_->RFLP(0);
+		push @snps,       ObjectLink($_,$name) if $_->RFLP(0);
+		push @insertions, ObjectLink($_,$name) if $_->Transposon_insertion;
+    }
+    
+    return unless @alleles || $ref_allele ne 'none';
+    
+    # Try fetching alleles from the sequence as well - these are automapped things like SNPs
+    
+    SubSection('Reference allele',(eval {$GENE->Reference_allele->Flanking_sequences}) ? b($ref_allele) : $ref_allele);
+    SubSection('Alleles',Tableize(\@alleles,1),'Alleles for which the sequence change is known are listed in ' . b('boldface.'));
+    SubSection('SNPs',Tableize(\@snps,1));
+    SubSection('RFLPs',Tableize(\@rflps,1));
+    SubSection('Transposon insertions',Tableize(\@insertions,1));    
+
+  my @strains = get_strains();
+  if (@strains > 10) {
+    SubSection("Strains carrying $BESTNAME",Tableize([@strains[0..9]]),DisplayMoreLink(\@strains,'strains')
+	       . br . "Strains carrying $BESTNAME alone are listed in "
+	       . b('boldface.')
+	       . br . 'Strains available directly from the CGC are ' . i('italicized.'));
+  } elsif (@strains == 0) {
+    SubSection("Strains carrying $BESTNAME",'none available');
+  } else {
+    SubSection("Strains carrying $BESTNAME",Tableize(\@strains,1)
+	       . "Strains carrying $BESTNAME alone are listed in "
+	       . b('boldface.')
+	       . br . 'Strains available directly from the CGC are ' . i('italicized.'));
+  }
+  SubSection('Rearrangements','Browse for rearrangements known to: ' .
+	     a({-href=>"/db/gene/rearrange?name=$GENE;position=includes"},"include")
+	     . ', '
+	     . a({-href=>"/db/gene/rearrange?name=$GENE;position=excludes"},"exclude")
+	     . ', '
+	     . a({-href=>"/db/gene/rearrange?name=$GENE"},"either include or exclude $BESTNAME")
+	     . '.');
+  SubSection('Note','Please ' . a({-href=>'http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/allele.cgi'},
+				  'submit') . ' additional alleles or molecular information to WormBase.');
+
+}
+
+
+
+
+#The inParanoid data will be out in the next build. I'd like to have it up on 
+#the web site. I'm thinking that the gene page should have a new section 
+#called "Homology" which contains:
+#
+#	- the legacy C. briggsae orthology link
+#	- a table of orthologs from inParanoid, organized by species:
+#		Species1: ortholog1 ortholog2 ortholog3
+#		Species2: ortholog1...
+#		Species3:ortholog2, ortholog2...
+
+##### cnp from tree_lister!!!! #######
+
+sub build_hash{
+	my ($file_name) = @_;
+
+# Norie - this is really brittle and needs to be fixed.
+# Can't we just make this a tied hash instead of parsing the file for
+# every single request?
+	open FILE, "<./$file_name" or die "Cannot open the file: $file_name\n";
+	my %hash;
+	foreach my $line (<FILE>) {
+		chomp ($line);
+		my ($key, $value) = split '=>',$line;
+		$hash{$key} = $value;
+	}
+	return %hash;
+}
+######################################
+
+sub print_homology {
+    print a({-name=>"homology"},'');
+    
+    # Best BLASTP hits
+    if (@$PROTEINS) {
+	my ($biggest) = sort {$b->Peptide(2)<=>$a->Peptide(2)} @$PROTEINS;
+	my $blast_table = Best_BLAST_Table($biggest);
+	my $escaped   = escape($biggest);
+	
+	SubSection("Similarities",toggle(0,'Best BLASTP matches',br . $blast_table
+						. p(i("Note: BLASTP matches are against the longest protein product.")
+						    . br
+						    . '['
+						    . a({-href=>"/db/seq/protein?name=$escaped;class=Protein;details=blast_hits",
+							 -target=>'_blank'},'view full list')
+						    . '] ['
+						    . a({-href=>"/db/seq/show_mult_align?name=$escaped;class=Protein",
+							 -target=>'_blank'},'view alignments')
+						    . ']'
+						    )));
+    }
+
+    ## PARALOGS
+    
+    my $paralogs_ar = get_paralog_data($GENE);
+    
+    if ($paralogs_ar) {
+    
+    	my @paralogs_bn = map (Bestname($_),@$paralogs_ar);
+    	SubSection('Paralog(s)',Tableize(\@paralogs_bn));
+    
+    }
+    
+    ## END PARALOGS
+    
+    # Orthologs
+    my $message = i('For a description of the methodology used to assign ortholog pairs, see '
+		    . a({-href=>'/db/misc/paper?name=WBPaper00006396;class=Paper'}
+			,'Stein et al., 2003' . '.'));
+    my @orthologs = $GENE->Ortholog;
+    my @formatted;
+    my @orthologs = $GENE->at("Gene_info.Ortholog");
+    my @formatted;
+
+    foreach my $ortholog (@orthologs) {
+	my $species  = $ortholog->right;
+	my @evidence = GetEvidence(-obj => $species,
+				   -omit_label   => 1,
+				   );
+#	foreach my $ortholog (@orthologs) {
+#	    my $species  = $ortholog->right;
+#	    my @evidence = GetEvidence(-obj        => $species,
+#				       -dont_tag   => 1,
+#				       -omit_label => 1);
+      
+      push (@formatted,i("$species: ")
+	    . a({-href=>Object2URL($ortholog)},Bestname($ortholog) )
+          . ' [' . a({-href=>"/db/seq/ebsyn?name=" . $ortholog->Sequence_name},'syntenic alignment') . ']'
+	    . join('; ',map { s/(seg\-.*)/best reciprocal blastp match\-$1/; $_ } @evidence)
+	    );
+	}
+	my $gene_id = $GENE->name;
+  	my $ortholog_page_url = "/db/orthology/gene?class=Gene;sort_by=species;name=".$gene_id;
+	my $ortholog_page_link = "Other orthologs: ".a({-href=>$ortholog_page_url},'Access full list of orthologs for this gene.');
+  push (@formatted,"<hr>$ortholog_page_link\<br\>\<hr\>");
+	my $version = $DB->version;
+	my $orthology_data_dir = "/usr/local/wormbase/databases/$version/orthology/";
+	my %gene_id2omim_ids = build_hash($orthology_data_dir.'gene_id2omim_ids.txt');
+	if($gene_id2omim_ids{$gene_id}){
+		my $disease_page_url = "/db/orthology/disease?related=".$gene_id;
+		my $disease_page_link = "Related diseases: ".a({-href=>$disease_page_url},'Access list of related diseases via human homologs.');
+		push (@formatted,"<hr>$disease_page_link\<br\>\<hr\>");
+	}	
+	
+
+  push (@formatted,'none identified') unless @formatted;
+  push (@formatted,$message) unless @orthologs;
+
+  SubSection('Ortholog(s)',@formatted,'');
+
+ 
+
+ # SubSection('',$ortholog_page_link,hr);
+
+ 	# SubSection('',$ortholog_page_link,hr);
+ 	#  	## disease
+ 	#  	
+ 	#  	# get and process disease data
+ 	#  	
+ 	#  	my %omim_id2disease_name = build_hash('omim_id2disease_name.txt');
+ 	#  	
+ 	#  	my $disease_list = $gene_id2omim_ids{$gene_id};
+ 	#  	if($disease_list){
+ 	#  		my @diseases = split /%/,$disease_list;
+ 	#  		my $disease_links = "";
+ 	#  		foreach my $key (@diseases){
+ 	#  			my $url = "/db/orthology/disease?call=".$key;
+ 	#  			my $disease_page_link = a({-href=>$url},$omim_id2disease_name{$key});
+ 	#  			$disease_links = $disease_links.$disease_page_link."<br>";
+ 	#  		}
+ 	#  		$disease_links = $disease_links."</ul>";
+ 	#  		SubSection('Related Disease(s)',$disease_links,hr);
+ 	#     }
+ 	# 	
+	
+	
+  # InParanoid
+  if ($PROTEINS) {
+    my %seen;
+
+    my @inp = grep {!$seen{$_}++ } grep {$_->Group_type eq 'InParanoid_group' }
+    map {$_->Homology_group} @{$PROTEINS};
+    my @tables;
+    foreach (@inp) {
+	my $table = TR(td({-colspan=>2},'InParanoid cluster: ' . ObjectLink($_)));
+	my @proteins = $_->Protein;
+	my %by_species;
+	foreach (@proteins) {
+	    # Try to guess the species if necessary
+	    my $species = $_->Species || ID2Species($_) || 'unknown';
+	    my $url = Species2URL($species);
+	    push @{$by_species{$species}},a({-href=>Species2URL($species,$_)},$_);
+	}
+	foreach (sort keys %by_species) {
+	    $table .= TR(td({-width=>'30%'},$_),td(join('; ',@{$by_species{$_}})));
+	}
+	push @tables,$table;
+    }
+    SubSection("InParanoid group(s)",
+	       (@tables ?
+		toggle(0,scalar @tables . " InParanoid groups for $BESTNAME",
+		       join(br,map { table({-border=>1,-width=>'80%'},$_) } @tables))
+		: div({-class=>'notapplicable'},
+		      "$BESTNAME not currently assigned to any InParanoid groups"))
+	       . br
+	       . GenerateWikiLink('InParanoid',INPARANOID_URL)
+	       . hr);
+    
+}
+  
+  if (1) {
+      my %treefam;
+      foreach my $protein (@$PROTEINS) {
+	  my $treefam = find_protein_dbs($protein,'treefam');
+#	  $treefam = 'TF105649';
+	  next unless $treefam;
+	  my $id = $GENE->Sequence_name || $treefam;
+	#print "<pre>DEBUG treefam variable for TreeFam\: $treefam</pre>";
+	#print "<pre>DEBUG id for TreeFam\: $id</pre>";
+	#my $treefam_url = sprintf(Configuration->Treefam_img,$id,$id); changed 20080710 - nbc
+	my $treefam_url = sprintf(Configuration->Treefam_img,$treefam,$treefam);
+	## debugging ##
+	
+	#print "<pre>DEBUG treefam URL\: $treefam_url</pre>";
+	
+	
+	
+	  $treefam{$treefam} = $treefam_url;
+      }
+      my @treefam;
+      foreach my $id (keys %treefam) {
+	  my $treefam_url = $treefam{$id};
+	  push @treefam,
+	  "TreeFam ID: " . a({-href=>sprintf(Configuration->Treefam_report,$id)},$id)
+	      . br .
+	      toggle(0,'Treefam image',div({-class=>'white'},iframe({-name   => 'treefam',
+								    -src    => $treefam_url,
+								    -width  => 680,
+								    -height => 500,
+								    -scrolling => 'auto',
+								}) . end_iframe()));
+	  
+#	  . div({-class=>'white'},iframe({-name   => 'treefam',
+#						  -src    => $treefam_url,
+#						  -width  => 680,
+#						  -height => 500,
+#						  -scrolling => 'auto',
+#					      }) . end_iframe());
+      }
+      if (@treefam) {
+	  push @treefam,
+	  i('Phylogenetic trees provided by the ' 
+	    . a({-href=>Configuration->Treefam},'Treefam')
+	    . ' project.');
+	  SubSection('TreeFam',@treefam);
+#	  SubSection('TreeFam',	   toggle_section({on=>0},'Treefam' => @treefam));
+#	  my ($control,$content) = 
+#	  print toggle_section({on=>0},'Treefam' => \@treefam);
+#	  print $control;
+#	  print br;
+#	  print $content;
+      }
+  }
+}
+
+
+
+
+sub print_similarities {
+
+#  return unless @$PROTEINS;
+#  my ($biggest) = sort {$b->Peptide(2)<=>$a->Peptide(2)} @$PROTEINS;
+#  my $blast_table = Best_BLAST_Table($biggest);
+#  my $escaped   = escape($biggest);
+
+  # Norie - this is the old approach
+#  SubSection("Best BLASTP matches to longest protein product (".
+#	     a({-href=>"/db/seq/protein?name=$escaped;class=Protein;details=blast_hits",
+#		-target=>'_blank'},'full list')
+#	     ."):<br><br>(" . 
+#		a({-href=>"/db/seq/show_mult_align?name=$escaped;class=Protein",
+#			-target=>'_blank'},'Show alignments') . ")", $blast_table);
+
+		 
+
+#  SubSection("Best BLASTP matches to longest protein product (".
+#	     a({-href=>"/db/seq/protein?name=$escaped;class=Protein;details=blast_hits",
+#		-target=>'_blank'},'full list')
+#	     ."):<br><br>(" . 
+#		a({-href=>"/db/seq/show_mult_align?name=$escaped;class=Protein",
+#			-target=>'_blank'},'Show alignments') . ")", $blast_table);
+
+}
+
+sub print_reagents {
+  my @transgenes = $GENE->Drives_Transgene;
+  SubSection("Drives Transgene(s)",Tableize(\@transgenes));
+  
+  my @transgene_products = $GENE->Transgene_product;
+  SubSection("Expressed in Transgene(s)",Tableize(\@transgene_products));
+  
+  
+  
+  my @ost = OverlappingOST(@SEGMENTS) if ($GENE->Corresponding_CDS || $GENE->Corresponding_Pseudogene);
+  SubSection("ORFeome Project primers &amp; sequences",Tableize(\@ost));
+
+  my @pcr = OverlappingPCR(@SEGMENTS) if ($GENE->Corresponding_CDS || $GENE->Corresponding_Pseudogene);
+  SubSection("Primer pairs",Tableize(\@pcr));
+
+  # Streamlining the handling of certain reagents
+
+  # Affymetrix and GSC oligo sets
+  my %seen;
+  my @oligos = grep {!$seen{$_}++}
+    grep {$_->Remark =~ /microarray\sprobe/}
+      map {$_->Corresponding_oligo_set} $GENE->Corresponding_CDS if ($GENE->Corresponding_CDS);
+  SubSection('Microarray probes',Tableize([map {my $comment = ($_->Remark =~ /GSC/) ? 'GSC' : 
+						    ($_->Remark =~ /Agilent/ ? 'Agilent' : 'Affymetrix');
+				      a({-href=>Object2URL($_,'Oligo_set')},$_ . " [$comment]")} @oligos]));
+
+  #  my @sage = map {$_->Sage_tag} grep {$_->Unique_to_tag(0) || $_->Most_three_prime(0)} map {$_->fetch} $GENE->SAGE_transcript;
+  #  SubSection("SAGE Tags",Tableize([@sage]));
+
+    #  my @sage = $GENE->SAGE_transcript;
+  #  SubSection("SAGE Transcripts",a({-href=>"/db/seq/sage?name=$GENE"},
+  #                  scalar @sage . ' SAGE transcripts described')) if $GENE->SAGE_transcript;
+ 
+  #  my @sage = grep {$_->Unambiguously_mapped(0) || $_->Most_three_prime(0)} $GENE->SAGE_tag;
+  # Absolutely no reason to display the actual sequence of sage tags on the gene page.
+  my @sage = $GENE->Sage_tag;
+  SubSection("SAGE Tags",(scalar @sage) . a({-href=>Object2URL($GENE,'sage_tag')},' SAGE tags identified')) if @sage;
+      
+  my @cDNA = matching_cdna();
+  if (@cDNA > 5) {
+    SubSection("Matching cDNAs",Tableize([@cDNA[0..4]]),DisplayMoreLink(\@cDNA,'matching_cDNAs'));
+  } else {
+    SubSection("Matching cDNAs",Tableize(\@cDNA));
+  }
+
+  # We HAVE a separate antibody report. Let's not display that information here.
+  SubSection('Antibodies',$GENE->Antibody);
+#  my (@antibodies,@rest); 
+#  my %antibodies;
+#  foreach my $anti ($GENE->Antibody){
+#      next if($antibodies{$anti}++);
+#      my $comment = $anti->Summary;
+#      $comment    =~ s/^(.{100}).+/$1.../ if length $comment > 100;
+#      $comment .= ObjectLink($anti," [For more details see: $anti]");
+#      if( $anti->Isolation && grep /No_original_reference/, $anti->Isolation->row) {
+#	  push @rest, $comment;
+#      }else {
+#	  push @antibodies, $comment;
+#      }
+#  } 
+#  
+#  if (@antibodies) {
+#      SubSection('Antibodies',@antibodies);
+#      SubSection('',toggle(0,'Click here to view more antibody objects without reference',br.join(br,@rest)));
+#  }
+}
+
+sub get_strains {
+  my @strains;
+
+  my (@singletons,@cgc,@others);
+  foreach ($GENE->Strain(-filled=>1)) {
+    my @genes = $_->Gene;
+    my $cgc   = ($_->Location eq 'CGC') ? 1 : 0;
+    my $linked = ObjectLink($_);
+    push @singletons,$linked if (@genes == 1 && !$_->Transgene);
+    push @cgc,$linked if $cgc;
+    push @others,$linked;
+  }
+  push @strains,map { b($_) } sort { $a cmp $b } @singletons;
+  push @strains,map { i($_) } sort { $a cmp $b } @cgc;
+  push @strains,sort { $a cmp $b } @others;
+  return @strains;
+}
+
+sub matching_cdna {
+  my %cDNA;
+  my @items = grep {!$cDNA{$_}++} map {$_->Matching_cDNA} $GENE->Corresponding_CDS;
+  return @items;
+}
+
+sub print_bibliography{
+  my @references = eval {$GENE->Reference};
+  
+  if (@references) {
+      
+      SubSection("Total citations for $BESTNAME",a({-href=>"/db/misc/biblio?name=$GENE;class=Gene"},
+					@references+0 . ' [view all]'));
+#     filter_and_display_references(\@references,undef,$GENE,$GENE->class);
+     filter_and_display_references(\@references,'WB',$GENE,$GENE->class);
+  } else {
+      print "No citations for $BESTNAME";
+  }
+  
+    
+  #  print qq[<a href="/db/misc/biblio?name=$GENE;class=Gene">Click here to retrieve references (] . @references . qq[)</a>];
+  
+  #  format_references(-references=>\@references,-format=>'long',-pubmed_link=>'image',
+  #		    -curator=>url_param('curator'));
+}
+
+
+# Once the data is cleaned up, use this structure to print refs by type
+#sub print_bibliography{
+#  my %references;
+#  my @references = (eval {$LOCUS->Reference(-fill=>1)},eval{$SEQUENCES->[0]->Reference(-fill=>1)});
+#  my ($papers,$seen) = classify_papers(@references);
+#  my @order = qw/PRIMARY_ARTICLE ARTICLE MEETING_ABSTRACTS/;
+#  
+#  foreach my $header (@order) {
+#    my @papers = @{$papers->{$header}};
+#    $header =~ s/_/ /g;
+#    my $formatted = lc $header;
+#    $formatted .= (@papers > 1) ? 's' : '';
+#    SubSection(ucfirst $formatted,
+#	       map { FormatPaper($_,'long') } sort {$b->Year <=> $a->Year } @papers);
+#  }
+#}
+
+sub classify_papers {
+  my @pubs = @_;
+  my $types = {};
+  my %seen;
+  foreach (sort { parse_year($b->Year) <=> parsee_year($a->Year) } @pubs) {
+    push (@{$types->{$_->Type}},$_);
+    $seen{$_}++;
+  }
+  return ($types,\%seen);
+}
+
+ 
+
+# DNA markup for details page
+sub print_transcript_details {
+  my $transcript = shift;
+  my $markup = Bio::Graphics::Browser::Markup->new;
+  $markup->add_style('utr'  => 'FGCOLOR gray');
+  $markup->add_style('cds'  => 'BGCOLOR cyan');
+  $markup->add_style('cds0' => 'BGCOLOR yellow');
+  $markup->add_style('cds1' => 'BGCOLOR orange');
+  $markup->add_style('newline',"\n");
+
+  # get the spliced, using AceDB
+  #  my ($sequence) = grep {$transcript eq $_} $GENE->Corresponding_CDS || $GENE->Transcript;
+  # my ($sequence) = grep {$transcript eq $_} $GENE->CDS || $GENE->Transcript;
+
+  # the following block is used to replace the above line which does not work?
+  my ($sequence,$lookup);
+  # We may have linked in via a transcript
+  # If so, we need to fetch the sequence from the CDS
+  # because it is not possible to call asDNA on Transcript objects.
+  # This is really irritating
+  if ($transcript =~ /(.*\.\d{1,2}\w?)\.\d/) {
+    $lookup = $1;
+  } else {
+    $lookup = $transcript;
+  }
+
+  my ($sequence) = grep {$lookup eq $_} ($GENE->Corresponding_CDS,$GENE->Corresponding_Transcript,
+					 $GENE->Corresponding_pseudogene);
+
+#  for my $cds ($GENE->Corresponding_CDS, $GENE->Corresponding_Transcript,$GENE->Corresponding_pseudogene) {
+#   print $cds; 
+#   if ($cds eq $lookup){
+#      $sequence = $cds;
+#    }
+#  }
+  
+  my $dna = $sequence->asDNA if $sequence;
+
+  $dna    =~ s/^>.+//;  # strip off fasta cruft
+  $dna  =~ s/\n//g;
+  my @exons = $sequence->Source_exons if $sequence;
+  return unless @exons;
+  
+  my (@markup,$counter);
+  my $pos = 0;
+  foreach (@exons) {
+      my ($start,$end) = $_->row(0);
+      my $length = $end - $start + 1;
+      my $style  = 'cds'.$counter++ %2;
+      push @markup,[$style,$pos=>$pos+$length];
+      $pos += $length;
+  }
+  push @markup,map {['newline',80*$_]} (1..length($dna)/80);
+  $markup->markup(\$dna,\@markup);
+  print p();
+  
+  print pre(">$transcript ($BESTNAME spliced coding region)\n$dna\n");
+
+  # now get the unspliced, using Bio::DB::GFF (will the madness never end? (apparently not!))
+  my $trans = fetch_gff_gene($transcript) or return;
+  $trans->ref($trans);  # local coordinates
+  #  my @segments     = eval { $trans->sub_SeqFeature };
+  
+  my @segments;
+  if ($transcript =~ /^(CBG|cb)/ || eval {$transcript->Species =~ /briggsae/i}) {
+      @segments = $trans->features(qw/coding_exon:hybrid/);
+  } else {
+      @segments = $trans->features(qw/
+				 five_prime_UTR:Coding_transcript
+				 exon:Pseudogene
+				 coding_exon:Coding_transcript
+				 three_prime_UTR:Coding_transcript/);
+  }
+  my $dna = $trans->dna;
+
+  return unless $dna;  # kludge to handle transcripts.
+  @markup = ();
+  $counter = 0;
+  # reverse is just to get colors right
+  #foreach (sort { $a->start <=> $b->start } ($trans->strand < 0 ? @segments : reverse @segments)) {
+  foreach ($trans->strand < 0 ? @segments : reverse @segments) {
+    next unless $_->name eq $trans->name;
+#    my $style = $_->method =~ /^(coding_exon)$/ ? 'cds'.$counter++%2
+#      :$_->method eq 'UTR' ? 'utr'
+#	:'';
+    my $style = $_->method =~ /exon/ ? 'cds'.$counter++%2
+      :$_->method eq 'UTR' ? 'utr'
+	:'';
+    next unless $style;
+    $_->ref($trans);  # local coordinates please
+    push @markup,[$style,$_->start-1,$_->end];
+  }
+  push @markup,map {['newline',80*$_]} (1..length($dna)/80);
+  $markup->markup(\$dna,\@markup);
+
+  print pre(">$transcript ($BESTNAME unspliced)\n$dna\n");
+}
+
+sub print_protein_details {
+  my $prot = shift;
+  my ($protein) = grep {$prot eq $_} @$PROTEINS;
+  my $peptide = $protein->asPeptide;
+  print p(pre($peptide));
+}
+
+sub print_cdna_details {
+  my @cDNA = matching_cdna();
+  print start_table({-border=>1});
+  StartSection('Matching cDNAs');
+  SubSection("",Tableize(\@cDNA,undef,10));
+  EndSection();
+  print end_table;
+}
+
+sub print_strain_details {
+  my @strains = get_strains();
+  print start_table({-border=>0});
+  StartSection("Strains carrying $BESTNAME");
+    SubSection("",Tableize(\@strains,undef,8)
+	       . "Strains carrying $BESTNAME alone are listed in "
+	       . b('boldface.')
+	       . br . 'Strains available directly from the CGC are ' . i('italicized.'));
+  EndSection();
+  print end_table;
+}
+
+
+
+# ############################## full Y2H #########################
+# # I massively edited this,turning fetching of y2h data into a subroutine
+# # This saved about 150 lines of code.
+# sub print_more_y2h{
+# 
+#   # Y2H interactome data
+#   print start_table({-border=>1});
+#   print h3('Yeast Two-Hybrid Summary:');
+# 
+#   my ($bait_lists,$target_lists) = y2h_data();
+#   my @purged = map { $_->[0] } @$bait_lists;
+#   SubSection('Yeast two-hybrid baits', @purged);
+#   
+#   my @purged = map { $_->[0] } @$target_lists;
+#   SubSection('Yeast two-hybrid targets', @purged);
+#   EndSection();
+#   
+#   print end_table();
+# }
+
+sub print_abbreviations {
+  print h2('Abbreviations Used');
+
+  print h3('ES (Ease of Scoring)'),
+    ul(
+       li('ES0 = impossible to score'),
+       li('ES1 = very hard to score except by special means (such as enzyme assay or cell lineage analysis)'),
+       li('ES2 = hard to score (may become easier with practice)'),
+       li('ES3 = easy to score'));
+  print h3('ME (Male mating Efficiency)'),
+    ul(
+       li('ME0 = no successful mating'),
+       li('ME1 = rare successful mating'),
+       li('ME2 = poor mating'),
+       li('ME3 = fair-to-excellent mating'));
+  
+  print h3('OA (Other Alleles)'),
+    'This is the number of additional alleles and is usually followed
+    by a score, i.e. OA > 40 = greater than 40 other alleles.';
+
+  print h3('NA (Number of Alleles)'),
+    'This is the total number of alleles for each gene and is usually
+    followed by a score, i.e. NA1 indicates that only 1 allele is
+    known.';
+
+  print i(h4('Source: ' . a({-href=>Object2URL('[cgc4071]','paper')},'C. elegans II, 1997, [cgc4071]')));
+}
+
+# This is really inefficient
+sub find_protein_dbs {
+  my ($s,$tag) = @_;
+  my @dbs = $s->Database;
+  foreach (@dbs) {
+    return $_->right(2) if (/$tag/i);
+  }
+  return;
+}
+
+
+# Aceview and entrez are unique to gene (although stored in CDS)
+# refseq is unique to CDS - NM_* is mRNA ID.
+# This should be generic
+sub fetch_db_ids {
+    my ($aceview,$entrez,@refseq);
+    # Fetch all DB IDs at once, uniquifying them
+    # for genes at the same time
+#     my @cds = $GENE->Corresponding_CDS;
+      my $s = $GENE;
+#     foreach my $s (@cds) {
+      my @dbs = $s->Database;
+      foreach my $db (@dbs) {
+          foreach my $col ($db->col) {
+          if ($db eq 'AceView') {
+              $aceview = $col->right;
+          } elsif ($db eq 'RefSeq') {
+              push (@refseq,$col->right);
+          } elsif ($db eq 'GeneID') {
+  #	} elsif ($col eq 'GI_number') {
+              $entrez = $col->right;
+          }
+          }
+      }
+#     }
+    return ($entrez,$aceview,\@refseq);
+}
+
+
+# This should be fully generic
+# build links to external databases
+sub fetch_mirbase {
+    my $mirbase;
+    my @dbs = $GENE->Database;
+    foreach (@dbs) {
+	return $_ if $_ eq 'miRBase';
+    }
+    return 0;
+}
+	
+# NOT DONE YET!
+# What should I really be linking to?
+#sub find_entrez {
+#  my @sequences = @_;
+#  for my $s (@sequences) {
+#    my @dbs = $s->Database;
+#    foreach (@dbs) {
+#      next unless $_ eq 'NDB';
+##      next unless $_ eq 'EMBL';
+#      foreach my $col ($_->col) {
+#	return $col->right if $col eq 'GI_number';
+##	return $col->right if $col eq 'NDB';
+#      }
+#    }
+#  }
+#}
+
+# This *really* shouldn't be necessary
+sub check_valid {
+    if (my $obj = eval {$GENE->Corresponding_CDS->Corresponding_protein} ) {
+	
+	# We need a better way of identifying foreign proteins.
+	# For now, let's just ASSUME that if we've retrieved a gene object
+	# that we can actually display it.
+	
+#	unless ($obj->Wormpep(0) || $obj->Database eq 'WormPep' || $obj =~ /^BP/)
+#	{ # foreign protein from somewhere
+#	    AceRedirect('tree' => $obj);
+#	    exit;
+#	}
+    } 
+    
+    if (my $merged_gene = eval { $GENE->Merged_into }) {
+	AceRedirect('gene' => $merged_gene);
+	exit;
+    }
+        
+    # Correct?
+    #  if (my $obj eq $LOCUS) {
+    #    unless (eval { $obj->Gene(0)} || $obj->Gene_cluster(0))
+    #      { # polymorphism or something like that
+    #	AceRedirect('locus'=>$obj);
+    #	exit;
+    #      }
+    #  }
+}
+
+# Previously, we checked to see that the protein was alive.
+# Now we can do this conveniently from the gene itself.
+sub check_live {
+  return if $GENE->Status eq 'Live';
+
+  # A bit redundant, but control for some broken records
+  return unless $GENE->Status eq 'Dead';
+
+
+  my @proteins  = map {eval { $_->Corresponding_protein}} @$SEQUENCES if ($SEQUENCES);
+  my $protein = $proteins[0];
+  my %tags = map { $_ => 1} $GENE->Identity;
+  return if ($protein && $protein !=~ /^BP/);
+  my $best = Bestname($GENE);
+
+  my ($history,$is_transposon) = print_history($GENE);
+
+
+  if ($protein) {
+      print h2({-class=>'warning'},"The gene named $best ($GENE; protein $protein) has been superseded or retired.");
+  } elsif ($is_transposon) {
+      print h2({-class=>'warning'},"The gene named $best ($GENE) is a transposon.");
+  } else {
+      print h2({-class=>'warning'},"The gene named $best ($GENE) has been superseded or retired.");
+  }
+
+#  my ($history,$is_transposon) = print_history($GENE);   # Gene or protein history?
+
+  my @remarks = $GENE->Remark;
+  if (my @history_cds = $GENE->Corresponding_CDS_history) {
+    push (@remarks,map { $_->Remark } @history_cds);
+  }
+  if (@remarks) {
+    print h2('Notes:');
+    print start_ul;
+    print map { li(ucfirst $_) } @remarks;
+    print end_ul;
+  }
+
+  if ($history) {
+      print h2('Revision History:');
+      print br,$history,br;
+  }
+
+  print h2('For more details see the:');
+
+  if ($is_transposon) {
+      print ul(
+	       li(a({-href=>"/db/seq/sequence?name=$best;class=Gene"},'Sequence Summary'),'for this transposon.'));
+  }
+
+  
+  print start_ul,
+    li(a({-href=>"/db/misc/etree?name=$GENE;class=Gene"},'Acedb tree representation'),
+       'of the gene.');
+  
+  
+
+  if ($protein) {
+    print li(a({-href=>"/db/misc/etree?name=$protein;class=Protein"},'Acedb tree representation'),
+	     'of the protein.');
+  }
+  print end_ul;
+
+  PrintBottom;
+  exit;
+}
+
+
+sub print_history {
+  my @history = $GENE->History;
+  
+  my $table = start_table({-border=>1});
+  $table .= TR({-class=>'datatitle'},th([qw/Type Version Date Action Remark Gene Curator/]));
+  my $is_transposon;
+  foreach my $history (@history) {
+      $is_transposon++ if $history eq 'Made_into_transposon';
+      my $type = $history;
+      $type =~ s/_ / /g;
+      my @versions = $history->col;
+      foreach my $version (@versions) {
+	  # For now, only display Version_change - TH 2005.03.08
+	  next unless $history eq 'Version_change';
+	  my ($vers,$date,$curator,$event,$action,$remark,$gene,$person);
+	  if ($history eq 'Version_change') {
+	      ($vers,$date,$curator,$event,$action,$remark) = $version->row; 
+	      # For some cases, the remark is actually a gene object
+	      if ($action eq 'Merged_into' || $action eq 'Acquires_merge'
+		  || $action eq 'Split_from' || $action eq 'Split_into') {
+		  $gene = $remark;
+		  $remark = undef;
+	      }
+	  } else {
+	      ($gene) = $version->row;
+	  }
+	  
+	  $person = a({-href=>Object2URL($curator)},$curator->Full_name) if $curator;
+	  $gene   = a({-href=>Object2URL($gene)},Bestname($gene)) if $gene;
+	  my $na  = '';
+	  $table .= TR({-class=>'databody'},td([$type    || $na,
+					    $vers    || $na,
+					    $date    || $na,
+					    $action  || $na,
+					    $remark  || $na,
+					    $gene    || $na,
+					    $person  || $na]));
+      }
+  }
+  $table .= end_table();
+  return ($table,$is_transposon);
+#  my $data = toggle(0,'Other Notes',br.join(br,other_notes())) if $other_notes;
+#  SubSection('History',$table);
+}
+
+sub find_expression_profile {
+  return unless $SEQUENCES;
+  my $seg = $SEGMENTS[0] or return;
+  my @p = map {$_->info} $seg->features('experimental_result_region:Expr_profile') ;
+  @p;
+}
+
+
+
+# TH: My apologies for this rather uninspired bit of coding
+# This a fairly substantial overhaul of the gene model table
+# With the following modifications:
+# - It now uses Transcripts preferentially (req'd mods in fetch_sequences() too)
+# - The table is dynamic, responding to type of features contained therein
+sub gene_model_table {
+  # Column order
+  #  my @order = qw/model status remark nucleotides nucleotides_unspliced protein swissprot structure aa/;
+  my @order = qw/model status remark nucleotides nucleotides_unspliced protein swissprot aa/;
+  my %headers = (model => 'Gene Model',
+		 status => 'Status',
+		 #####		 remark => 'Remark',
+		 nucleotides => 'Nucleotides (coding/transcript)',
+		 protein => 'Protein',
+		 swissprot => 'Swissprot',
+		 #		 structure => 'Structure Data',
+		 aa => 'Amino Acids');
+  my @rows;
+  my %headers_seen; # Track the headers that we have seen (keys of %headers)
+  
+#  my $url = url(-absolute=>1,-query=>1);
+  my $url = Object2URL($GENE);
+  # $sequence could potentially be a Transcript, CDS, Pseudogene - but
+  # I still need to fetch some details from sequence
+  # Fetch a variety of information about all transcripts / CDS prior to printing
+  # These will be stored using the following keys (which correspond to column headers)
+  my $unique_remarks = 0;
+  my %unique_remarks;
+  my %footnotes;
+  foreach my $sequence (sort { $a cmp $b } @$SEQUENCES) {
+    my %data = ();
+    my $model = ObjectDisplay('sequence',$sequence,$sequence);
+    my $gff = fetch_gff_gene($sequence) or next;
+    my $cds = ($sequence->class eq 'CDS') ? $sequence : eval { $sequence->Corresponding_CDS };
+
+    my ($confirm,$remark,$protein,@matching_cdna);
+    if ($cds) {
+      $confirm = $cds->Prediction_status; # with or without being confirmed
+      @matching_cdna = $cds->Matching_cDNA; # with or without matching_cdna
+      $protein = $cds->Corresponding_protein(-fill=>1);
+    }
+
+    # Fetch all the notes for this given sequence / CDS
+    my @notes = (eval {$cds->DB_remark},$sequence->DB_remark,eval {$cds->Remark},$sequence->Remark);
+    foreach (@notes) {
+      # Assign a number to each unique remark seen (or use that already assigned)
+	my ($evi) = GetEvidence(-obj => [ $_ ],-dont_link=>1);
+	my $count = $unique_remarks{$evi};
+	$count ||= ++$unique_remarks;
+	$unique_remarks{$evi} = $count;
+	
+      # Now track all notes seen for a given CDS.
+      $footnotes{$model}->{$count}++;
+    }
+
+    if ($confirm eq 'Confirmed') {
+      $data{status} = "confirmed by " .a({-href=>"#Reagents"}, "cDNA(s)");
+    } elsif (@matching_cdna && $confirm eq 'Partially_confirmed') {
+      $data{status} = "partially confirmed by ".a({-href=>"#Reagents"}, "cDNA(s)");
+    } elsif ($confirm eq 'Partially_confirmed') {
+	$data{status} = "partially confirmed";
+    } elsif ($cds && $cds->Method eq 'history') {
+      $data{status} = 'historical';
+    } else {
+      $data{status} = "predicted";
+    }
+
+    my $len_unspliced  = $gff->length;
+    my $len_spliced = 0;
+
+    for ($gff->features('coding_exon')) {
+
+	if ($SPECIES =~ /elegans/) {
+	    next unless $_->source eq 'Coding_transcript';
+	} else {	    
+	    next unless $_->method =~ /coding_exon/ && $_->source eq 'Coding_transcript';
+	}
+	next unless $_->name eq $sequence;
+	$len_spliced += $_->length;
+    }
+    # Try calculating the spliced length for pseudogenes
+    if (!$len_spliced) {
+      my $flag = eval { $GENE->Corresponding_Pseudogene } || $cds;
+      for ($gff->features('exon:Pseudogene')) {
+	next unless ($_->name eq $flag);
+	$len_spliced += $_->length;
+      }
+    }
+    $len_spliced ||= '-';
+    $data{nucleotides} = a({-href=>"$url;details=1;dna=$sequence",-target=>'_blank'},"$len_spliced/$len_unspliced bp")
+      if $len_unspliced;
+
+    if ($protein) {
+      warning($protein);
+      # my $pep   = $protein->asPeptide;
+      # my $pep = 'abcdefg';
+      # $pep    =~ s/^>.+//;
+      # $pep    =~ s/\n//g;
+      # my $peplen = length $pep;
+      my $peplen = $protein->Peptide(2);
+      my $aa   = a({-href=>"$url;details=1;peptide=$protein",-target=>'_blank'},"$peplen aa");
+      $data{aa} = $aa if $aa;
+      my $swiss = find_protein_dbs($protein,'trembl');
+      my $swiss_url = a({-href=>sprintf(Configuration->Trembl,$swiss),-target=>'_blank'},
+			$swiss) if $swiss;
+      $data{swissprot} = $swiss_url if $swiss_url;
+    }
+    my $protein_desc = select_protein_description($sequence,$protein);
+    $data{model}  = $model    if $model;
+    $data{protein} = $protein_desc if $protein_desc;
+    #####    $data{remark} = $remark    if $remark;
+
+    $data{model}  = eval {$footnotes{$model}}
+      ? "$model " . '<span class="superscript">'
+	. join(", ",sort {$a <=> $b } keys %{$footnotes{$model}} ) . '</span>' 
+	: $model
+	  if $model;
+
+    #    my ($protein_id) = $data{protein} =~ /WP:([A-Z0-9]+)/;
+    #    $data{structure} = get_data($protein_id);
+    
+    # Track column headers that have been seen.
+    # Must be done foreach transcript to prevent empty cells
+    # from throwing things off.
+    # (an alternative approach would be to save everything, eliminating empty columns
+    # by position)
+
+    foreach (keys %data) {
+      $headers_seen{$_}++;
+    }
+    push @rows,\%data;
+  }
+  
+  my $table = start_table({-border=>1,-width=>'100%'});
+  $table .= start_TR({-class=>'datatitle'});
+  my @headers;
+  foreach my $column (@order) {
+    next unless defined $headers_seen{$column};
+    $table .= th($headers{$column});
+  }
+  
+  $table .= end_TR;
+
+  foreach my $data (@rows) {
+    $table .= start_TR();
+    foreach my $column (@order) {
+      next unless defined $headers_seen{$column};
+      my $val = $data->{$column};
+      my $align;
+      if ($column eq 'model' || $column eq 'status' || $column eq 'remark') {
+	$align = 'left';
+      } else {
+	$align = 'center';
+      }
+      $table .= td({-align=>$align},$val);
+    }
+    $table .= end_TR;
+  }
+  $table .= end_table;
+
+  return ($table,\%unique_remarks);
+}
+
+
+sub select_protein_description {
+  my ($seq,$protein) = @_;
+  my %labels = (Pseudogene => 'Pseudogene; not attached to protein',
+		history     => 'historical prediction',
+		RNA         => 'non-coding RNA transcript',
+		Transcript  => 'non-coding RNA transcript',
+		);
+  my $error = $labels{eval{$seq->Method}};
+  $error ||= ($seq->Remark =~ /dead/i) ? 'dead/retired gene' : '';
+  my $msg = $protein ? ObjectLink($protein) : $error;
+  return $msg;
+}
+
+sub fetch_gff_gene {
+  my $transcript = shift;
+  my $trans;
+  if ($SPECIES =~ /briggsae/) {
+      ($trans)      = grep {$_->method eq 'wormbase_cds'} $GFF->fetch_group(Transcript => $transcript);
+  }
+    
+  ($trans)      = grep {$_->method eq 'full_transcript'} $GFF->fetch_group(Transcript => $transcript) unless $trans;
+
+  # Now pseudogenes
+  ($trans) = grep {$_->method eq 'pseudo'} $GFF->fetch_group(Pseudogene => $transcript) unless ($trans);
+
+  # RNA transcripts - this is getting out of hand
+  ($trans) = $GFF->segment(Transcript => $transcript) unless ($trans);
+  return $trans;
+}
+
+
+
+
+sub warning {
+  return unless DEBUG;
+  my ($data,$msg) = @_;
+  if (ref $data eq 'ARRAY') {
+    warn "GENE: $msg " . join(" ",@$data);
+  } else {
+    warn "GENE: $msg $data ";
+  }
+}
+
+sub toggle {
+    my ($state,$title,@contents) = @_;
+    toggle_section( {on=>$state},
+		    "${title}_panel",
+		    b($title),
+		    @contents);
+}
+
+
+sub get_go_data {
+	my $object = shift @_;
+	my %go_terms;
+	my @go_terms = $object->GO_term;
+	
+	my %annotation_bases  = (
+		'EXP' , 'x',
+		'IDA' , 'x',
+		'IPI' , 'x',
+		'IMP' , 'x',
+		'IGI' , 'x',
+		'IEP' , 'x',
+		'ND' , 'x',
+		
+		'IEA' , 'p',
+		'ISS' , 'p',
+		'ISO' , 'p',
+		'ISA' , 'p',
+		'ISM' , 'p',
+		'IGC' , 'p',
+		'RCA' , 'p',
+		'IC' , 'p'
+	);
+
+	foreach my $go_term (@go_terms){
+	  foreach my $code ($go_term->col){
+		my @row = $code->row;
+		my ($evidence_code,$method,$detail) = @row;
+		my $display_method = method_detail($method,$detail);
+		my $term = $go_term->Term;
+		my $term_type = $go_term->Type;
+		my $annotation_basis =  $annotation_bases{$evidence_code};
+		my @data = ($display_method,$evidence_code,$term,$go_term); 
+		my $data_line = join ";",@data;
+		
+		$go_terms{$annotation_basis}{$term_type}{$data_line} = 1;
+	  }
+	}
+	return \%go_terms;
+}
+
+sub method_detail {
+	my ($method,$detail) = @_;
+	my $return;
+	if ($method =~ m/Paper/){
+		$return = "a_Manual";
+	}
+	elsif($detail =~ m/phenotype/i){
+		$return = "b_Phenotype to GO Mapping";
+	}
+	elsif($detail =~ m/interpro/i){
+		$return = "c_Interpro to GO Mapping";
+	}
+	elsif($detail =~ m/tmhmm/i){
+		$return = "d_TMHMM to GO Mapping";
+	}
+	else {
+		$return = "z_No Method"
+	}
+	return $return;
+}
+
+
+
+sub print_go_data {
+	
+	my $go_term_data_hr = shift @_;
+
+	my $details_link = i("Additional information available on the detailed "
+				   . a({-href=>"/db/ontology/go_detail?name=$GENE"},"Gene Ontology report")
+				   . " for $BESTNAME.");
+
+	my $subsection_content = start_table();
+#	my $subsection_content = $details_link . hr() . start_table();
+	my @annotation_keys = ('x','p');
+	my $xtxt = i('Annotations Based on Experiment');
+	my $ptxt = i('Predicted Annotations');
+	
+	my %annotation_txt = (	
+		'x', $xtxt,
+		'p', $ptxt
+	
+	);
+	
+	foreach my $annotation_key (@annotation_keys) {
+		# print "\n$annotation_key\n";
+		$subsection_content = $subsection_content.TR(
+				th({-align=>'left'},$annotation_txt{$annotation_key})
+			);	#td($go_obj),
+		my $object_term_data_hr = ${$go_term_data_hr}{$annotation_key};
+		
+		foreach my $term_type (sort keys %{$object_term_data_hr }){
+			my $clean_term_type = $term_type;
+			$clean_term_type =~ s/\_/ /;
+			my $data_lines = ${$object_term_data_hr}{$term_type};
+			my @data_lines = sort keys %{$data_lines};
+			my $first_data_line = shift @data_lines;
+			my ($method,$evidence_code,$term,$go_obj) = split ";",$first_data_line;
+			my $discard;
+			($discard, $method) = split "_",$method;
+			my $starting_method = $method;
+			my $evidence_code_url = "http://www.geneontology.org/GO.evidence.shtml";
+			my $evidence_code_link = a({-href=>$evidence_code_url}, $evidence_code);
+			my $term_url = "/db/ontology/gene?name=" . $go_obj;
+			my $term_link = a({-href=>$term_url},$term);
+			$subsection_content = $subsection_content.TR(
+				th({-align=>'left'},$clean_term_type)  ### "&nbsp\;" .
+			);	#td($go_obj),
+			$subsection_content = $subsection_content.TR(
+				#td("&nbsp\;&nbsp\;"),
+				td($method),
+				td($term_link),
+				td("  (".$evidence_code_link.")  ")
+			
+			);	
+			
+			foreach my $data_line (@data_lines){			
+			($method,$evidence_code,$term,$go_obj) = split ";",$data_line;
+			($discard, $method) = split "_",$method;
+			$evidence_code_link = a({-href=>$evidence_code_url}, $evidence_code);
+			$term_url = "/db/ontology/gene?name=".$go_obj;
+			$term_link = a({-href=>$term_url},$term);
+			if ($method eq $starting_method ){
+				$method = "&nbsp\;";
+			}
+			else {
+				$starting_method = $method;
+			}
+			
+			$subsection_content = $subsection_content.TR(
+				#td("&nbsp\;&nbsp\;"),
+				td($method),
+				td($term_link),
+				td("  (".$evidence_code_link.")  ")
+				
+				);
+			}	
+		}
+	}
+	
+	$subsection_content = $subsection_content . end_table();
+	#print "$subsection_content\n";
+	SubSection("", $subsection_content . hr . $details_link);
+	
+}
+
+
+sub get_go_data_20090216 {
+	my $object = shift @_;
+	my %go_terms;
+	my @go_terms = $object->GO_term;
+
+	foreach my $go_term (@go_terms){
+		my @row = $go_term->row;
+		my ($go_obj,$evidence_code,$method,$detail) = @row;
+		my $display_method = method_detail($method,$detail);
+		my $term = $go_obj->Term;
+		my $term_type = $go_obj->Type;
+		# print "\t$go_term\n";
+		# print "$term_type\t$method\t$term\t$evidence_code\t$go_obj\n";
+		my @data = ($display_method,$evidence_code,$term,$go_obj); #$methods{$method}
+		my $data_line = join ",",@data;
+		$go_terms{$term_type}{$data_line} = 1;
+	}
+	return \%go_terms;
+}
+
+sub method_detail_20090216 {
+	my ($method,$detail) = @_;
+	my $return;
+	if ($method =~ m/Paper/){
+		$return = "a_Manual";
+	}
+	elsif($detail =~ m/phenotype/i){
+		$return = "b_Inferred via Phenotype";
+	}
+	elsif($detail =~ m/interpro/i){
+		$return = "c_Inferred via Interpro";
+	}
+	else {
+		$return = "z_No Method"
+	}
+	return $return;
+}
+
+
+sub print_go_data_20090216 {
+	my $object_term_data_hr = shift;
+	my $detail_page_url = 
+	my $subsection_content = i("View the full "
+				   . a({-href=>"/db/ontology/gene?name=$GENE;class=Gene"},"gene ontology details report")
+				   . " for $BESTNAME");
+	$subsection_content   .= start_table();
+	
+	foreach my $term_type (sort keys %{$object_term_data_hr }){
+		my $clean_term_type = $term_type;
+		$clean_term_type =~ s/\_/ /;
+		my $data_lines = ${$object_term_data_hr}{$term_type};
+		my @data_lines = sort keys %{$data_lines};
+		my $first_data_line = shift @data_lines;
+		my ($method,$evidence_code,$term,$go_obj) = split ",",$first_data_line;
+		my $discard;
+		($discard, $method) = split "_",$method;
+		# print "$first_data_line\n";
+		my $starting_method = $method;
+		my $evidence_code_url = "http://www.geneontology.org/GO.evidence.shtml";
+		my $evidence_code_link = a({-href=>$evidence_code_url}, $evidence_code);
+
+		# UNNECESSARY!  Use ObjectLink or Object2URL.	# my $term_link = ObjectLink($go_obj);
+		# This link is broken, too.
+		my $term_url = "/db/ontology/gene?name=".$go_obj;
+		my $term_link = a({-href=>$term_url},$term);
+	
+
+		$subsection_content = $subsection_content.TR(
+			th({-align=>'left'},$clean_term_type)
+			);	#td($go_obj),
+		$subsection_content = $subsection_content.TR(
+			td($method),
+			td($term_link),
+			td("  (".$evidence_code_link.")  ")
+			# CGI::td($detail_page_url)
+			);	#td($go_obj),
+		 # $subsection_content = $subsection_content."$method,$evidence_code,$term,$go_obj\<br\>"; #print
+		foreach my $data_line (@data_lines){			
+			($method,$evidence_code,$term,$go_obj) = split ",",$data_line;
+			($discard, $method) = split "_",$method;
+			$evidence_code_link = a({-href=>$evidence_code_url}, $evidence_code);
+			$term_url = "/db/ontology/gene?name=".$go_obj;
+			$term_link = a({-href=>$term_url},$term);
+
+			if ($method eq $starting_method ){
+				$method = "&nbsp\;";
+			}
+			else {
+				$starting_method = $method;
+			}
+			
+			$subsection_content = $subsection_content
+			    . TR(
+				td($method),
+				td($term_link),
+				td("  (".$evidence_code_link.")  ")
+				# CGI::td($detail_page_url)
+				);#,td($go_obj)
+			 # $subsection_content = $subsection_content."$method,$evidence_code,$term,$go_obj\<br\>"; #print
+		}	
+		
+	}
+	$subsection_content = $subsection_content.end_table();
+	# print "$subsection_content\n";
+	SubSection("",$subsection_content);
+}
+
+sub is_a_not_phenotype {
+    
+}
+
+sub get_paralog_data {
+
+	my $gene_object = shift @_;
+
+	my %gene_data;
+	my @paralogs = $gene_object->Paralog;
+	
+	return \@paralogs;
+
+}
+
+

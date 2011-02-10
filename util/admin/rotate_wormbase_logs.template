@@ -1,0 +1,9 @@
+/usr/local/acedb/elegans/database/*log.wrm {
+    size 100M
+    missingok
+    nocreate
+    sharedscripts
+    prerotate
+	/usr/local/acedb/bin/ace.pl -port 2005 -login admin -pass XXXX -e 'Serverlog'
+    endscript
+}

@@ -1,0 +1,150 @@
+#!/usr/bin/perl
+
+use strict;
+
+use lib '../lib';
+use vars qw($DB %FILLTAGS);
+
+use Ace 1.80;
+use CGI qw(:standard :html3 escape -no_xhtml *table *TR *td *ul);
+use CGI qw(:standard );
+use CGI::Carp qw(fatalsToBrowser);
+use Ace::Browser::AceSubs qw(:DEFAULT 
+	Configuration ResolveUrl 
+        Toggle			     
+	AceRedirect DoRedirect);
+use Ace::Browser::SearchSubs;
+use ElegansSubs;
+
+%FILLTAGS = (
+	     Paper => 'Title',
+	     Protein=>'Description',
+	     Gene_class=>'Description',
+	     Sequence => 'Title',
+	     Anatomy_term => 'Term',
+	     CDS          => 'Brief_identification',
+	     GO_term      => 'Term',
+	     Sequence     => 'Method',
+	     Allele       => 'Gene',
+	     Clone        => 'Type',
+	    );
+
+my %valid_searches = map {$_=>1} ('exact','grep','long grep');
+
+my $search_pattern = param('name');
+my @classes        = param('class');
+my $search_type    = param('search_type') || 'grep';
+
+PrintTop(undef,undef,undef,
+	 '-Title' =>'Search WormBase',
+	 '-Target' =>'_top',
+	 '-Class' =>'search',
+	);
+
+# fetch database handle
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+AceError("'$search_type' is an invalid type of search") 
+        unless $valid_searches{$search_type};
+
+print_prompt();
+print_results($search_pattern,$search_type,\@classes);
+PrintBottom;
+
+exit 0;
+
+sub print_prompt {
+  my $classlist = Configuration->Simple;
+  my @classes = @{$classlist}[map {2*$_} (0..@$classlist/2-1)];  # keep keys, preserving the order
+  AceSearchTable({-name=>'searchform'},
+		 'Search WormBase',
+		 table({-border=>0},
+		       TR(
+			  td(i('Object type:'),
+			     popup_menu(-name=>'class',
+					-values=>\@classes,
+					-labels=>{@$classlist},
+					-default=>'Any')),
+			  td(i('Text to search for:'),
+			     textfield(-name=>'name',-size=>30)),
+			  td(submit(-name=>'Search'))),
+		       TR(
+			  td({-colspan=>3},
+			     i('Search type'),
+			     radio_group(-name   =>'search_type',
+					 -values =>['exact','grep','long grep'],
+					 -labels => {
+						     exact       => 'Match name (fast)',
+						     grep        => 'Match some contents (slow)',
+						     'long grep' => 'Match all contents (slower)',
+						    },
+					 -default => 'grep'
+					)
+			    )
+			 )
+		      )
+		 );
+}
+
+sub print_results {
+  my ($pattern,$search_type,$classes) = @_;
+  my $objects;
+  $objects = exact_match($pattern,$classes)   if $search_type eq 'exact';
+  $objects = grep_match($pattern,$classes,0)  if $search_type eq 'grep';
+  $objects = grep_match($pattern,$classes,1)  if $search_type eq 'long grep';
+
+  print p(b(scalar @$objects)," objects returned");
+  # classify by class
+  my %classified;
+  foreach (@$objects) {
+    my $class = $_->class;
+    push @{$classified{$class}},$_;
+  }
+  
+  for my $c (sort {@{$classified{$b}} <=> @{$classified{$a}}} keys %classified) {
+    my $count = @{$classified{$c}};
+    my $label = "$count $c";
+    $label .= "s" unless $label =~ /s$/ || $count == 1;
+    if (Toggle($c,$label,$count,0,0,5)) {
+      my (@rows,$color);
+      for my $obj (@{$classified{$c}}) {
+	my $description = $obj->get($FILLTAGS{$c}=>1) if $FILLTAGS{$c};
+	my $link = join ' ',ObjectLink($obj),$description;
+	push @rows,td({bgcolor=>$color++%2 ? 'white' : "lightblue" },$link);
+      }
+      print blockquote(table({-width=>'100%'},TR(\@rows)));
+    }
+  }
+}
+
+sub exact_match {
+  my ($pattern,$classes) = @_;
+  my @classes = grep {!/any/i} @$classes;
+  unless (@classes) {
+    my %classes = @{Configuration->Simple};
+    @classes    = grep {!/any/i} keys %classes;
+  }
+  my @results;
+  foreach (@classes) {
+    push @results,$DB->fetch(-class=>$_,-name=>$pattern);
+  }
+  \@results;
+}
+
+
+sub grep_match {
+  my ($pattern,$classes,$long) = @_;
+  my %classes = map {$_=>1} grep {!/any/i} @$classes;
+
+  my @open    = split /\s+/,param('open');
+  my @fill    = (-filled => 1) if @FILLTAGS{@open};
+
+  my @results = $DB->grep(-pattern => $pattern,
+			  -long    => $long||0,
+			  @fill,
+			 );
+  if (%classes) {
+    @results = grep {$classes{$_->class}} @results;
+  }
+  \@results;
+}

@@ -1,0 +1,769 @@
+Worm ENCODE White Paper, April 18, 2005 Draft
+
+ 	The completion of the sequencing of human and model organism 
+genomes was only a first step towards understanding how genomes determine 
+the complexity of life.  The next step is a multifaceted challenge: to 
+define the functional elements present in these sequences using all the 
+experimental and computational means at our disposal. In addition to 
+protein coding genes, these functional elements include transcriptional 
+regulatory elements, RNA genes and other less well-studied types of 
+element. The degree of our ignorance is humbling: in mouse-human 
+comparisons, 4.5 percent of the genome shows evidence of selection yet 
+only 1.5 percent is predicted to encode proteins (Waterston et al., 2002). 
+This implies that as much as three percent of mammalian genomes consist of 
+non protein-coding functional sequence of the classes listed above. This 
+was part of the rationale behind the establishment of the mammalian 
+ENCyclopedia Of DNA Elements (ENCODE) project, which is charged with 
+characterizing the functional elements in a representative portion of the 
+human genome (2004).
+Despite the initial success of the human ENCODE approach, the size of 
+mammalian genomes, the complexity of their developmental programs, their 
+long generation times, and the frequently cumbersome genetic and molecular 
+tools available in mammalian systems forces researchers to use indirect 
+systems such as cell culture. We believe that a focused effort to identify 
+sequence elements in model invertebrates will fill that gap by allowing 
+direct ascertainment of the role of the elements in the living organism. 
+The resulting advances in knowledge and technology will extend our 
+understanding of biological mechanisms and should be applicable to 
+improving the quality of human annotations.
+We present here the case for the nematode Caenorhabditis elegans as an 
+experimental organism especially suitable for a comprehensive study of the 
+genome in an extended ENCODE project. We first describe the key attributes 
+of C. elegans as a model system and then outline the scope and 
+organization a C. elegans ENCODE effort, beginning from what is already 
+known of the key elements . An accompanying white paper makes the case for 
+including Drosophila melanogaster in such a project.
+
+C. elegans provides a powerful system to complement the human ENCODE 
+project
+
+There are both biological and experimental reasons to systematically 
+characterize functional genomic sequences in C. elegans.  We elaborate six 
+key attributes of the worm that make it a strong model system to 
+complement human ENCODE:
+
+1. C. elegans combines metazoan complexity with a simple body plan and 
+easily accessible development.  Worms are intermediate in complexity 
+between single-celled organisms and mammals. All major animal cell types 
+are present, including neurons, muscle cells, epidermal cells, and 
+secretory cells.  However, the adult hermaphrodite consists of only 959 
+somatic cells, each of which has a unique name, occupies a known position 
+in the adult, and originates via an invariant and well-understood 
+developmental lineage (Sulston and Horvitz, 1977; Sulston et al., 1983). 
+This global view of development led to the discovery of program cell death 
+and there is a strong understanding of the mechanisms leading specific 
+cells to die during development (Ellis and Horvitz, 1986). Furthermore, 
+the complete synaptic wiring diagram of the 302 neurons in adults is known 
+(White et al., 1986). These features make it possible to identify every 
+cell at any developmental stage, and provide an unambiguous description of 
+the developmental status, history and fate of each cell. Many of these 
+cells develop under the control of molecular pathways analogous to those 
+used for the equivalent cells in mammals.
+
+2. C. elegans provides powerful methods to assay in vivo function. Many 
+powerful tools exist to test the functional significance of genes and DNA 
+elements at the molecular, cellular and organismal levels in C. elegans. 
+Targeted messenger RNAs can be knocked down by using feeding-mediated 
+RNAi, a technique that has been successfully scaled up to allow for 
+genome-wide RNAi screens (Maeda et al., 2001; Kamath et al., 2003; 
+Sonnichsen et al., 2005). Mutated worms can be rapidly screened for 
+deletions or point mutations in any gene of interest (The C. elegans 
+knockout consortium, http://www.celeganskoconsortium.omrf.org/). 
+Transgenic strains can be constructed by either gonad injection 
+(Stinchcomb et al., 1985) or ballistic transformation (Wilm et al., 1999; 
+Praitis et al., 2001), and though these methods are more cumbersome than 
+cell line transfection, both can be scaled up to the whole-genome level. 
+Although transformation via homologous integration is inefficient in 
+worms, targeted deletions can be efficiently identified in populations 
+after EMS mutagenesis, and knock-in alleles can be readily created using 
+transposon-mediated gene conversion (Barrett et al., 2004).
+The ability to identify individual cells allows detailed analysis of 
+cellular phenotypes to be performed in vivo, avoiding the problems 
+associated with cell lines that are typically used in mammalian studies. 
+While no immortalized C. elegans cell lines exist, cell types expressing 
+the appropriately marked genes can be purified by Fluorescence-Activated 
+Cell Sorting (FACS) of dissociated embryos. The recovered cells can then 
+be studied in primary cell culture (Christensen et al., 2002).
+  Most analyses can be conducted at high throughput in C. elegans using 96 
+well plates and parallelized study designs. Because the worms are 
+hermaphroditic, individual animals can be selected and grown to generate 
+clonal stocks.  Strains can be frozen and stored indefinitely, eliminating 
+the need for constant breeding and maintenance of archived strains, and 
+avoiding de novo genetic mutations and other forms of genetic drift.
+
+3. C. elegans genome sequence and related sequences. C. elegans is the 
+only metazoan to have its genome fully sequenced with no gaps.  This 
+sequence is currently the most accurate and complete of any animal genome. 
+The only structural uncertainty is in the copy number of a small number of 
+extensive tandem repeats and the per-nucleotide error rate is estimated at 
+about 2.5x10-5 (Koch et al., 2000). All genetics work has been done on the 
+background of the sequenced strain, N2 (Brenner, 1974).
+In addition whole genome shotgun assemblies for the related nematodes C. 
+briggsae (Stein et al., 2003) and C. remanei are available, and the C. 
+japonica and C. sp. CB5161 genomes are in production sequencing. More 
+distantly related nematodes such as Pristionchus pacificus and Brugia 
+malayi have also been scheduled for sequencing.  These additional genomes 
+provide C. elegans researchers with an increasingly powerful platform for 
+comparative genomics.
+
+4. The human and worm genomes have similar genic complexity. Rapid 
+progress is being made towards completing the annotation of protein coding 
+genes in C. elegans. Over 17,000 genes have already been at least 
+partially validated by mRNAs (Phil Green, personal communication) (Reboul 
+et al., 2001; Reboul et al., 2003; Lamesch et al., 2004), which is 
+comparable to the 17,727 human splice variants, presumably corresponding 
+to a smaller number of genes, that have been verified by the mammalian 
+gene collection project (Gerhard et al., 2004). The total gene count 
+remains somewhat uncertain but estimates of C. elegans protein coding 
+genes are generally close to 20,000 - nearly as many as the 21,000-25,000 
+estimated for humans.  The stability of the total gene count reflects the 
+high quality of the gene predictions in C. elegans relative to other 
+organisms.
+In many cases, worm genes are functionally analogous to human genes. 
+Approximately 40% of human disease genes have clear orthologs in the worm 
+(Tatusov et al., 2003), and human orthologs have been described for over 
+9,000 worm genes.  These ortholog sets include the components of most 
+well-studied cancer-associated signaling pathways including ras, p53, bcl2 
+and BRCA1 (Han and Sternberg, 1990; Hengartner and Horvitz, 1994; 
+Schumacher et al., 2001; Boulton et al., 2004). This orthology extends to 
+other genomic elements such as noncoding genes; 22 of the 88 microRNAs 
+found in one genomic screen had human homologs identifiable by sequence 
+and structural conservation (Lim et al., 2003).
+
+5. A high fraction of the C. elegans genome is likely to be functional. 
+The worm genome is about 100 megabases in length, about 1/30th the size of 
+the human genome. Comparing the C. elegans and C. briggsae genomes 
+suggests that about half of the genome is under selection (Stein et al., 
+2003), as opposed to the ~5% found in mammals. This means that the total 
+information content of the worm genome, defined as the number of bases 
+under selection, is approximately one third that of human, packed into a 
+genome that is thirty times smaller. For example, the typical intergenic 
+sequence is about 1.3 kilobases, and 85% of such sequences are smaller 
+than 5 kilobases. Compared to human, whose intergenic sequence is an order 
+of magnitude larger, the reduced search space for functional elements will 
+greatly reduce the false positive rates for genome-wide assays. Functional 
+elements identified in worm can then be related to homologous elements in 
+human.
+
+6. The C. elegans research community has a strong track record of 
+collaboration and success in large projects. The worm community has always 
+championed open information and resource sharing, beginning with the Worm 
+Breeders Gazette, where people communicated unpublished data, and 
+continuing with the C. elegans Genetics Center (CGC), where people deposit 
+and share worm strains.  During the genome project, the cosmid contigs 
+built by the mapping centers were associated with the genetic map 
+principally by the broader community. Large-scale reagents developed by 
+individual labs for functional genomic studies are openly shared; these 
+include spotted microarrays (Stuart Kim  whole-genome RNAi libraries 
+(Kamath et al., 2003), ORFeome clones (Lamesch et al., 2004) and the 
+Promoterome clones (Dupuy et al., 2004).
+Today, the C. elegans genome database, WormBase, acts as the repository of 
+all genome annotation information in C. elegans, C. briggsae and related 
+nematodes (Harris et al., 2004). It curates the definitive list of C. 
+elegans gene models and associated functional information from 
+high-throughput experiments as well as small-scale experiments reported in 
+the literature. Researchers routinely contact WormBase in advance of 
+publication of their papers to arrange for the deposition of their data 
+sets into the resource.
+
+The C. elegans ENCODE Project
+
+A C. elegans ENCODE project should have as its central goals the 
+comprehensive enumeration of the functional elements of the genome and the 
+description of their activity throughout the life of the animal at 
+cellular resolution.  The latter will provide an important validation of 
+the former and will serve as the platform on which to build a full 
+molecular description of the biology of the worm.  The results and lessons 
+learned will set the stage for an accurate genome-wide human ENCODE 
+project.  The elements identified should minimally include:
+
+	All transcribed sequences, including both protein coding and 
+non-coding genes.
+	All regulatory elements, including both those that act at the DNA 
+level to control transcription and those that act at the RNA level, and 
+how those elements combine to produce patterns of expression in time and 
+space.
+	All functional elements that do not fall into one of the above 
+categories, in particular those conserved between Caenorhabditis species; 
+these include elements involved in DNA replication, inheritance and 
+chromatin structure.
+
+A challenge in any program seeking to be comprehensive is how to define 
+the goal precisely and to determine when the goal has been reached. 
+Protein coding genes represent the most straightforward case and we 
+describe possible criteria for achieving comprehensiveness below.  For 
+other elements, explicit criteria are more difficult to state, but we 
+expect that with increased knowledge of these features, criteria with 
+specificity similar to those with protein coding genes will emerge.
+Transcribed elements
+ 	A comprehensive list of transcribed sequences is a critical 
+component of any effort to completely describe the information content of 
+a genome because these define the effector molecules of the system. two 
+broad classes of transcribed elements are protein-coding genes and 
+non-coding RNA genes.
+
+Protein-Coding Genes
+
+C. elegans protein gene annotations have been extensively tested and 
+refined through a combination of computer programs and experiment, and are 
+believed to be of high accuracy.  The current predicted gene set consists 
+of 19,727 genes, with 2,641 alternative splice forms, bringing the total 
+predicted protein count to 22,368.  Over 17,000 of these genes are 
+supported by cDNA cloning and sequencing, genetic or RNAi phenotype, or 
+other experiments. Over 12,500 genes have been cloned as full length open 
+reading frames in Gateway vectors and these clones are publicly available 
+(Reboul et al., 2003). On chromosomes I and II, all the predicted splice 
+junctions have been tested and almost all transpliced transcripts 
+throughout the genome have been identified (P. Green, personal 
+communication).
+
+Evidence suggests that the identification of C. elegans protein-coding 
+genes is approaching completeness. Nearly all EST and SAGE tags map to the 
+predicted gene set, and a recent survey of the worm proteome using MUD-PIT 
+mass spectrometry identified about 3000 distinct proteins, none of which 
+were absent from the predicted gene set (Michael MacCoss, personal 
+communication).  However, both comparative analysis with C. briggsae, and 
+results with improved gene prediction programs suggest there might be as 
+many as 1,000 genes not in the current set (Wei et al., 2005).
+
+The worm ENCODE project should aim to find every gene expressed at a level 
+higher than one copy per 1000 cells, a level that would ensure that any 
+message present in a single copy in only a single cell would be included. 
+This goal would be achieved using a variety of experimental and 
+computational methods to detect unidentified genes and to assess the 
+completeness of the gene set.  Methods for detecting transcripts, such as 
+RT-PCR, EST, SAGE and tiling arrays should be evaluated for their 
+effectiveness and the best strategy chosen for in depth detection. 
+Extensive protein identification by mass spectrometry will provide an 
+independent estimate of gene set completeness and will be particularly 
+valuable in identifying small coding regions that lack the statistical 
+signal to be predicted by gene finding programs. Improved gene prediction 
+software should be developed to incorporate such underutilized information 
+as sequence conservation in other worm genomes and experimental data, as 
+well as to predict transcription start sites and UTR boundaries.  In 
+addition, accurate annotation of repetitive DNA sequences is also needed, 
+which could not only improve the accuracy of gene prediction, but could 
+also reduce the search space for regulatory elements.
+
+RNA Genes
+
+Many transcripts function at the RNA level, including rRNAs, tRNAs, snRNAs 
+snoRNAs, and miRNAs.  C. elegans contains all major types of eukaryotic 
+RNA genes: over 1400 of these genes have been identified including 570 
+tRNAs, 275 rRNAs, and over 120 miRNAs.  Indeed, the entire microRNA 
+(miRNA) class of small regulatory RNAs was first identified through C. 
+elegans genetics (Lee et al., 1993).  Because miRNAs are small targets, 
+miRNA mutations in generalized screens are rarely recovered, but null 
+mutations can be obtained in deletion screens and 2.O-methyl 
+oligonucleotides can be used to knock down miRNA function (Hutvagner et 
+al., 2004).
+
+Comprehensive identification and categorization of non-coding transcripts 
+poses a challenge to worm ENCODE because our understanding of the extent 
+and nature of these genes is still rapidly evolving. While algorithms for 
+predicting tRNAs, snRNAs, snoRNAs and rRNAs are mature and highly 
+accurate, the computational prediction of novel types of RNA gene through 
+state-of-the-art algorithms that utilize the conservation of secondary 
+structure across species is still subject to high false positive rates, 
+between ten and 100 per megabase (Rivas and Eddy, 2001).  This means that 
+an attempt to run RNA gene prediction software on the entire genome will 
+produce 30,000 false positives in the human genome but as little as 500 in 
+worms. A worm ENCODE project will need to combine experimental and 
+computational techniques in order to exhaustively identify candidate novel 
+RNA genes and validate them in vivo.
+
+One phase of this program would be exhaustive RNA transcript detection 
+using tiling arrays or a similar technology to provide a list of regions 
+of the genome that are undergoing active transcription.  This type of 
+screen would be supplemented by more directed approaches such as 
+systematic pulldown of protein-RNA complexes. Candidate RNA genes could 
+then validated in vivo using targeted deletions and knockdowns, used to 
+create training sets for ab initio RNA gene prediction software, and any 
+novel genes predicted by the software validated in turn. Once new 
+experimentally or computationally-identified noncoding RNA genes are 
+identified in C. elegans, they can be used to develop structure-based 
+predictions of their homologues in mammals and other organisms, as has 
+already been done for tRNAs, snoRNAs and microRNAs.
+
+The worm ENCODE project should include the systematic characterization of 
+candidate RNA genes by expression mapping at the single cell level and 
+phenotypic characterization of knockouts or knockdowns at both the visible 
+and molecular levels. New methods will need to be developed to these 
+characterizations possible in a high-throughput automated manner, but 
+addressing this challenge in C. elegans should be considerably simpler 
+than in mammals.
+Regulatory elements
+
+ 	In addition to creating a definitive list of coding and non-coding 
+genes, another challenge for an ENCODE project is to define the sequence 
+elements that control the temporal and spatial expression of the genes. 
+Ultimately we would like to decipher both at the individual gene level and 
+at the network level how DNA sequence information is translated into gene 
+expression patterns through both transcriptional and post-transcriptional 
+regulation.  Identifying these elements and the factors that recognize 
+them is significantly more challenging than identifying the genes 
+themselves, but the worm offers the twin advantages of a relatively small 
+sequence space available for regulatory elements and the ability to define 
+gene activity with cellular resolution throughout the life cycle.
+
+Transcriptional regulatory elements
+
+A key first step in identifying regions with shared transcriptional 
+regulatory elements is to systematically profile patterns of gene 
+expression.  In C. elegans, data from over 1000 microarray experiments and 
+3.5 million SAGE tags are already available, representing all stages of 
+development, mutants lacking specific cell types, and a variety of 
+experimental interventions.  Meanwhile, researchers have continued to push 
+for higher spatial resolution of expression patterns. Over 10,000 genes 
+have been characterized using in situ hybridization techniques (Tabara et 
+al., 1996).  Specific embryonic cell types purified by FACS have been 
+assayed for gene expression by microarray (Fox et al., 2005) and SAGE(Don 
+Moerman, personal communication).  Polyadenylated messages enriched in 
+larval or adult cell types have been detected by expressing a tagged 
+poly-A binding protein in those cells and pulling down associated mRNAs 
+(Lund et al., 2002).  Over 3000 promoter::GFP transgenic lines have been 
+generated and their expression examined at the level of single cells or 
+cell types (David Bailley, personal communication).
+
+Computational methods have been used to identify co-regulated genes, to 
+reveal regulatory motifs and to infer regulatory networks (Beer and 
+Tavazoie, 2004; GuhaThakurta et al., 2004; Wenick and Hobert, 2004). 
+Comparative analysis with C. briggsae is playing an increasingly important 
+role in element identification. A host of highly conserved sequence 
+modules have been found by comparing the upstream and intronic regions of 
+orthologous C. elegans and C. briggsae protein-coding genes. Analysis of 
+these conserved sequence modules have led to element identification 
+without prior expression data. The accuracy of this comparative genomic 
+analysis will be greatly increased as other nematode sequences become 
+available.
+
+Co-expression information has already led to the discovery of 
+combinatorial grammars consisting of multiple motifs regulating expression 
+in the developing pharynx (Gaudet and Mango, 2002) and in response to heat 
+shock (GuhaThakurta et al., 2002).  Parallel to computational analysis, 
+experimental methods are also deployed to define regulatory elements; 
+binding motifs for the ~600 transcription factors in the worm are being 
+systematically dissected by yeast one-hybrid (Deplancke et al., 2004) and 
+several groups are developing ways to apply in vitro chromatin 
+immunoprecipitation in worms.
+
+ 	A worm ENCODE project should attack the problem through a series 
+of parallel but interacting investigations:
+
+	Defining expression patterns
+	Defining conserved noncoding sequences through comparative 
+sequence analysis
+	Defining binding specificity for transcription factors
+	Detecting in vivo protein-binding site interactions
+	Defining co-expressed genes and predicting shared regulatory 
+motifs and potential regulatory relationships
+	Determining the roles of specific sites and factors in generating 
+the expression patterns
+
+The resulting data sets will be integrated and used to develop algorithms 
+to model the elements and their activity.
+
+As noted earlier, there are already multiple efforts to characterize the 
+expression of genes at the single-cell, tissue and stage levels, but much 
+of this work has been done manually and only on a small subset of the 
+genes. The worm ENCODE project should extend and automate these efforts in 
+order to provide a series of uniform high-quality data sets that span the 
+organism.s entire gene complement. To accomplish this will require new 
+technologies for automating phenotype analysis, several of which are 
+already in the development stage. In one such technology, a modified flow 
+cytometer is used to detect reporter gene expression patterns along the 
+long axis of the worm, allowing for rapid screening for genes expressed in 
+certain anatomic positions and developmental stages. Other techniques in 
+development use the invariant developmental lineage to assign observed 
+gene expression to known cells at single cell resolution and high temporal 
+resolution. In one version, an embryo expressing histone-GFP in every cell 
+is imaged by 3D-confocal microscopy and analyzed using custom image 
+analysis software. The software then regenerates the lineage by tracking 
+nuclei between time points. A second color reporter driven by a promoter 
+of interest can then be assigned to individual cells in the lineage, 
+allowing the temporal expression of a gene to be monitored on a 
+cell-by-cell basis during the course of embryogenesis. A complementary 
+approach is to characterize the transcription complement of marked cell 
+types that have been purified via FACS.  Together, these technologies have 
+the potential for highly automated gene expression analysis.
+
+ 	As we develop a comprehensive list of the expression patterns of 
+genes, the project will use computational methods to identify candidate 
+shared sequence motifs that are contained in subsets of coexpressed genes. 
+The accuracy of such predictions will benefit greatly from comparative 
+analyses using conserved regions from other sequenced nematodes.
+
+ 	Once the regulatory elements have been identified, we will want to 
+identify the transcription factors that bind to them and affect the 
+transcription pattern. The approximately 600 transcription factors thought 
+to exist in C. elegans can be expressed, purified and used to select in 
+vitro for binding sequences such as by  SELEX/SAGE , yeast one-hybrid, or 
+DNA immunoprecipitation.  In vivo utilization of binding sites can be 
+detected by chromatin immunoprecipitation with antibodies against the 
+native proteins or in strains expressing tagged versions, with the 
+associated DNA identified by microarray hybridization, quatititative PCR 
+or SAGE.
+
+RNA regulatory elements
+
+Many motifs encoded in DNA within genes act at the RNA level to regulate 
+splicing, localization, translation, RNA editing, or other processes. 
+These represent important regulatory features within the genome and should 
+be included in a comprehensive effort to map functional sequences.  The C. 
+elegans genome contains roughly 300 RNA binding proteins.  Genetic, 
+biochemical and computational analyses have also revealed critical roles 
+of protein-RNA complexes, 3. untranslated regions, RNA binding proteins 
+(and their targets) and RNA-RNA interactions in development.
+
+RNA regulatory elements can be studied in largely the same fashion as the 
+transcriptional regulatory elements: sequence conservation can be used to 
+identify candidate elements; pulldown experiments can link RNA binding 
+proteins to their target genes and candidate motifs; function can be 
+assayed by fusions with reporter proteins.
+
+A complication for defining the RNA regulatory elements is that the 
+regulatory information usually resides inside the three-dimensional RNA 
+secondary structure rather than encoded directly in the primary sequence. 
+This makes it more difficult to predict regulatory elements 
+computationally. The computational prediction of RNA regulatory elements 
+must proceed hand-in-hand with the structural analysis of the RNA genes 
+that regulate them. An important goal of the worm ENCODE project would be 
+to develop an experimentally-determined data set of regulatory targets and 
+their corresponding RNA genes in order to inform the development of new 
+computational models of their interactions.
+
+Elucidation of gene networks
+
+As the project progresses, a regulatory network will begin to emerge. A 
+network that integrates the regulatory relationships and functions of each 
+element in the genome in every cell over the life of the worm would be the 
+ultimate result of this project, as well as the foundation for the next 
+phase of genome biology.  Theories and computational tools should be 
+developed to integrate high-throughput data into networks, to understand 
+the regulatory grammars and organizing principles and to detect elements, 
+sub-nets as well as grammars that are conserved in other organisms. 
+Understanding the mode of conservation would be critical in our effort to 
+understand the human genome as well as general principles governing 
+biology.
+
+ 	Because C. elegans allows researchers to perform in vivo assays at 
+genomic scales, systematic testing of regulatory predictions is possible. 
+This would include assaying the role of any transcription factor on 
+potential targets by measuring the activity of promoter:reporter 
+constructs after treatment with RNAi against the transcription factor. 
+Global measurement might be obtained by using a series of strains, each 
+expressing a different promoter:reporter fusion, arrayed in 96 well plates 
+and fed RNAi targeting each factor of interest.
+
+The experimental and computational prediction of regulatory networks will 
+benefit tremendously from forty years of C. elegans genetics, which has 
+laid a sound foundation to interpret high-throughput data in terms of 
+regulatory networks.  Many lineage defining master transcriptional 
+regulators have been characterized experimentally, such as pal-1 for the C 
+lineage, end-1 for the E lineage, hlh-1 for muscle lineages and pha-4 for 
+pharyngeal lineages. These well-understood pathways can be used to 
+evaluate the accuracy and completeness of computationally-derived 
+networks, as well as to inform successive algorithmic refinements.
+
+Other elements
+
+While most attention is focused on genes and the elements that regulate 
+their activity, the C. elegans genome also contains sequences that are 
+directly important for its own maintenance, such as origins of 
+replication, centromeres and telomeres.  Other chromosomal-maintenance 
+elements may include those controlling X chromosome inactivation/dosage 
+compensation, nucleosome positioning and heterochromatin regulation, 
+position-specific variations in mutation and recombination rates, and 
+higher order chromosomal packing within the nucleus. Among these, the best 
+understood case of discrete elements controlling chromosomal function in 
+C. elegans is the X-recognition element that mediates the dosage 
+compensation of genes on chromosome X (Csankovszki et al., 2004).
+
+The comparison of the 5 worm genomes will undoubtedly yield conserved 
+elements that cannot be accounted for by one of the above classes of 
+functional elements.  These can be tested for function using the full 
+array of tools available in the worm.  These could include sequences 
+controlling DNA replication and recombination, dosage compensation and 
+inheritance.  Sequences that might explain the distinctive differences in 
+behavior between chromosome arms and centers in C. elegans would be one 
+interesting target.
+Coordination of efforts
+
+A worm model organism ENCODE project could take advantage of the breadth 
+and the collaborative nature of the C. elegans research community.  To 
+maximize efficiency, certain core resources should be made available for 
+all ENCODE researchers (and the community where possible).  These include:
+
+	Full genome tiling microarrays
+	Affinity reagents such as antibodies or tagged strains for all of 
+the transcription factors and RNA binding proteins
+	Knockout strains for predicted regulatory genes
+	Open reading frame, full gene, and intergenic clones
+	Transgenic worms expressing reporter genes under the control of 
+candidate regulatory regions
+
+This coordination should also occur at the informatics level as well.  We 
+consider it highly desirable that the worm ENCODE project should develop a 
+common database that is shared with Drosophila ENCODE and other organism 
+ENCODE projects. This would maximize the ability to migrate information 
+across species, and allow one organism ENCODE project easy access to the 
+experimental resources developed by another project. Recent developments 
+in data model sharing, notably the Sequence Ontology of functional 
+elements and the development of a common model organism database schema 
+under the GMOD project, make this a realistic expectation.
+
+Individual labs can be funded to use these experimental and information 
+resources for systematic studies of elements or for new method 
+development.  Certain projects, such as biochemical determination of 
+transcription factor binding specificities, antibody generation, etc are 
+species-independent and a single mod-ENCODE/ENCODE grant recipient might 
+perform these projects for all species simultaneously.
+Conclusion
+
+We have presented reasons why C. elegans should be included in a model 
+organism ENCODE effort, which in turn could guide future expansion of the 
+human ENCODE project. The worm combines a simple genome and development 
+with animal complexity. We believe that because of these factors and the 
+wealth of experimental methods there is no better system in which to 
+understand animal genome function in vivo.
+
+While worm has unique contributions to offer the overall effort to define 
+functional elements in genomic sequences, a broader approach exploiting 
+advantages of other organisms, will likely provide the highest quality 
+information.  For example, Saccharomyces cerevisiae and Drosophila 
+melanogaster should be similarly leveraged for their strengths. For 
+example, Drosophila has stable cell lines that could be used to test the 
+types of cell line-based methods being used in human on a simpler genome, 
+and yeast is in a position to synthesize the vast amounts of data that are 
+already available to determine higher order rules of eukaryotic genome 
+function.  Doing this work in multiple organisms will also provide 
+information about how well the general principles uncovered are conserved 
+between diverse phyla.
+
+The ENCODE project we envision would provide a critical set of resources 
+in the form of detailed high quality genome annotations that will 
+ultimately be the basis for developing comprehensive models of development 
+and animal life. Just as was true for the genome sequencing projects, an 
+effort to comprehensively understand genome function in model organisms 
+will provide both technological and biological insight that will 
+ultimately lead to a better understanding of our own genome.
+
+References
+Barrett, P.L., Fleming, J.T., and Gobel, V. (2004). Targeted gene 
+alteration in Caenorhabditis elegans by gene conversion. Nat Genet 36, 
+1231-1237.
+Beer, M.A., and Tavazoie, S. (2004). Predicting gene expression from 
+sequence. Cell 117, 185-198.
+Boulton, S.J., Martin, J.S., Polanowska, J., Hill, D.E., Gartner, A., and 
+Vidal, M. (2004). BRCA1/BARD1 orthologs required for DNA repair in 
+Caenorhabditis elegans. Curr Biol 14, 33-39.
+Brenner, S. (1974). The genetics of Caenorhabditis elegans. Genetics 77, 
+71-94.
+Christensen, M., Estevez, A., Yin, X., Fox, R., Morrison, R., McDonnell, 
+M., Gleason, C., Miller, D.M., 3rd, and Strange, K. (2002). A primary 
+culture system for functional analysis of C. elegans neurons and muscle 
+cells. Neuron 33, 503-514.
+Csankovszki, G., McDonel, P., and Meyer, B.J. (2004). Recruitment and 
+spreading of the C. elegans dosage compensation complex along X 
+chromosomes. Science 303, 1182-1185.
+Deplancke, B., Dupuy, D., Vidal, M., and Walhout, A.J. (2004). A 
+gateway-compatible yeast one-hybrid system. Genome Res 14, 2093-2101.
+Dupuy, D., Li, Q.R., Deplancke, B., Boxem, M., Hao, T., Lamesch, P., 
+Sequerra, R., Bosak, S., Doucette-Stamm, L., Hope, I.A., Hill, D.E., 
+Walhout, A.J., and Vidal, M. (2004). A first version of the Caenorhabditis 
+elegans Promoterome. Genome Res 14, 2169-2175.
+Ellis, H.M., and Horvitz, H.R. (1986). Genetic control of programmed cell 
+death in the nematode C. elegans. Cell 44, 817-829.
+Fox, R.M., Von Stetina, S.E., Barlow, S.J., Shaffer, C., Olszewski, K.L., 
+Moore, J.H., Dupuy, D., Vidal, M., and Miller, D.M., 3rd. (2005). A gene 
+expression fingerprint of C. elegans embryonic motor neurons. BMC Genomics 
+6, 42.
+Gaudet, J., and Mango, S.E. (2002). Regulation of organogenesis by the 
+Caenorhabditis elegans FoxA protein PHA-4. Science 295, 821-825.
+Gerhard, D.S., Wagner, L., Feingold, E.A., Shenmen, C.M., Grouse, L.H., 
+Schuler, G., Klein, S.L., Old, S., Rasooly, R., Good, P., Guyer, M., Peck, 
+A.M., Derge, J.G., Lipman, D., Collins, F.S., Jang, W., Sherry, S., Feolo, 
+M., Misquitta, L., Lee, E., Rotmistrovsky, K., Greenhut, S.F., Schaefer, 
+C.F., Buetow, K., Bonner, T.I., Haussler, D., Kent, J., Kiekhaus, M., 
+Furey, T., Brent, M., Prange, C., Schreiber, K., Shapiro, N., Bhat, N.K., 
+Hopkins, R.F., Hsie, F., Driscoll, T., Soares, M.B., Casavant, T.L., 
+Scheetz, T.E., Brown-stein, M.J., Usdin, T.B., Toshiyuki, S., Carninci, 
+P., Piao, Y., Dudekula, D.B., Ko, M.S., Kawakami, K., Suzuki, Y., Sugano, 
+S., Gruber, C.E., Smith, M.R., Simmons, B., Moore, T., Waterman, R., 
+Johnson, S.L., Ruan, Y., Wei, C.L., Mathavan, S., Gunaratne, P.H., Wu, J., 
+Garcia, A.M., Hulyk, S.W., Fuh, E., Yuan, Y., Sneed, A., Kowis, C., 
+Hodgson, A., Muzny, D.M., McPherson, J., Gibbs, R.A., Fahey, J., Helton, 
+E., Ketteman, M., Madan, A., Rodrigues, S., Sanchez, A., Whiting, M., 
+Madari, A., Young, A.C., Wetherby, K.D., Granite, S.J., Kwong, P.N., 
+Brinkley, C.P., Pearson, R.L., Bouffard, G.G., Blakesly, R.W., Green, 
+E.D., Dickson, M.C., Rodriguez, A.C., Grimwood, J., Schmutz, J., Myers, 
+R.M., Butterfield, Y.S., Griffith, M., Griffith, O.L., Krzywinski, M.I., 
+Liao, N., Morrin, R., Palmquist, D., Petrescu, A.S., Skalska, U., Smailus, 
+D.E., Stott, J.M., Schnerch, A., Schein, J.E., Jones, S.J., Holt, R.A., 
+Baross, A., Marra, M.A., Clifton, S., Makowski, K.A., Bosak, S., and 
+Malek, J. (2004). The status, quality, and expansion of the NIH 
+full-length cDNA project: the Mammalian Gene Collection (MGC). Genome Res 
+14, 2121-2127.
+GuhaThakurta, D., Palomar, L., Stormo, G.D., Tedesco, P., Johnson, T.E., 
+Walker, D.W., Lithgow, G., Kim, S., and Link, C.D. (2002). Identification 
+of a novel cis-regulatory element involved in the heat shock response in 
+Caenorhabditis elegans using microarray gene expression and computational 
+methods.[erratum appears in Genome Res 2002 Aug;12(8):1301]. Genome 
+Research 12, 701-712.
+GuhaThakurta, D., Schriefer, L.A., Waterston, R.H., and Stormo, G.D. 
+(2004). Novel transcription regulatory elements in Caenorhabditis elegans 
+muscle genes. Genome Res 14, 2457-2468.
+Han, M., and Sternberg, P.W. (1990). let-60, a gene that specifies cell 
+fates during C. elegans vulval induction, encodes a ras protein. Cell 63, 
+921-931.
+Harris, T.W., Chen, N., Cunningham, F., Tello-Ruiz, M., Antoshechkin, I., 
+Bastiani, C., Bieri, T., Blasiar, D., Bradnam, K., Chan, J., Chen, C.K., 
+Chen, W.J., Davis, P., Kenny, E., Kishore, R., Lawson, D., Lee, R., 
+Muller, H.M., Nakamura, C., Ozersky, P., Petcherski, A., Rogers, A., Sabo, 
+A., Schwarz, E.M., Van Auken, K., Wang, Q., Durbin, R., Spieth, J., 
+Sternberg, P.W., and Stein, L.D. (2004). WormBase: a multi-species 
+resource for nematode biology and genomics. Nucleic Acids Res 32 Database 
+issue, D411-417.
+Hengartner, M.O., and Horvitz, H.R. (1994). C. elegans cell survival gene 
+ced-9 encodes a functional homolog of the mammalian proto-oncogene bcl-2. 
+Cell 76, 665-676.
+Hutvagner, G., Simard, M.J., Mello, C.C., and Zamore, P.D. (2004). 
+Sequence-specific inhibition of small RNA function. PLoS Biol 2, E98.
+Kamath, R.S., Fraser, A.G., Dong, Y., Poulin, G., Durbin, R., Gotta, M., 
+Kanapin, A., Le Bot, N., Moreno, S., Sohrmann, M., Welchman, D.P., 
+Zipperlen, P., and Ahringer, J. (2003). Systematic functional analysis of 
+the Caenorhabditis elegans genome using RNAi. Nature 421, 231-237.
+Koch, R., van Luenen, H.G., van der Horst, M., Thijssen, K.L., and 
+Plasterk, R.H. (2000). Single nucleotide polymorphisms in wild isolates of 
+Caenorhabditis elegans. Genome Res 10, 1690-1696.
+Lamesch, P., Milstein, S., Hao, T., Rosenberg, J., Li, N., Sequerra, R., 
+Bosak, S., Doucette-Stamm, L., Vandenhaute, J., Hill, D.E., and Vidal, M. 
+(2004). C. elegans ORFeome version 3.1: increasing the coverage of ORFeome 
+resources with improved gene predictions. Genome Res 14, 2064-2069.
+Lee, R.C., Feinbaum, R.L., and Ambros, V. (1993). The C. elegans 
+heterochronic gene lin-4 encodes small RNAs with antisense complementarity 
+to lin-14. Cell 75, 843-854.
+Lim, L.P., Lau, N.C., Weinstein, E.G., Abdelhakim, A., Yekta, S., Rhoades, 
+M.W., Burge, C.B., and Bartel, D.P. (2003). The microRNAs of 
+Caenorhabditis elegans. Genes Dev 17, 991-1008.
+Lund, J., Tedesco, P., Duke, K., Wang, J., Kim, S.K., and Johnson, T.E. 
+(2002). Transcriptional profile of aging in C. elegans. Current Biology 
+12, 1566-1573.
+Maeda, I., Kohara, Y., Yamamoto, M., and Sugimoto, A. (2001). Large-scale 
+analysis of gene function in Caenorhabditis elegans by high-throughput 
+RNAi. Curr Biol 11, 171-176.
+Praitis, V., Casey, E., Collar, D., and Austin, J. (2001). Creation of 
+low-copy integrated transgenic lines in Caenorhabditis elegans. Genetics 
+157, 1217-1226.
+Reboul, J., Vaglio, P., Rual, J.F., Lamesch, P., Martinez, M., Armstrong, 
+C.M., Li, S., Jacotot, L., Bertin, N., Janky, R., Moore, T., Hudson, J.R., 
+Jr., Hartley, J.L., Brasch, M.A., Vandenhaute, J., Boulton, S., Endress, 
+G.A., Jenna, S., Chevet, E., Papasotiropoulos, V., Tolias, P.P., Ptacek, 
+J., Snyder, M., Huang, R., Chance, M.R., Lee, H., Doucette-Stamm, L., 
+Hill, D.E., and Vidal, M. (2003). C. elegans ORFeome version 1.1: 
+experimental verification of the genome annotation and resource for 
+proteome-scale protein expression. Nat Genet 34, 35-41.
+Reboul, J., Vaglio, P., Tzellas, N., Thierry-Mieg, N., Moore, T., Jackson, 
+C., Shin-i, T., Kohara, Y., Thierry-Mieg, D., Thierry-Mieg, J., Lee, H., 
+Hitti, J., Doucette-Stamm, L., Hartley, J.L., Temple, G.F., Brasch, M.A., 
+Vandenhaute, J., Lamesch, P.E., Hill, D.E., and Vidal, M. (2001). 
+Open-reading-frame sequence tags (OSTs) support the existence of at least 
+17,300 genes in C. elegans. Nat Genet 27, 332-336.
+Rivas, E., and Eddy, S.R. (2001). Noncoding RNA gene detection using 
+comparative sequence analysis. BMC Bioinformatics 2, 8.
+Schumacher, B., Hofmann, K., Boulton, S., and Gartner, A. (2001). The C. 
+elegans homolog of the p53 tumor suppressor is required for DNA 
+damage-induced apoptosis. Curr Biol 11, 1722-1727.
+Sonnichsen, B., Koski, L.B., Walsh, A., Marschall, P., Neumann, B., Brehm, 
+M., Alleaume, A.M., Artelt, J., Bettencourt, P., Cassin, E., Hewitson, M., 
+Holz, C., Khan, M., Lazik, S., Martin, C., Nitzsche, B., Ruer, M., 
+Stamford, J., Winzi, M., Heinkel, R., Roder, M., Finell, J., Hantsch, H., 
+Jones, S.J., Jones, M., Piano, F., Gunsalus, K.C., Oegema, K., Gonczy, P., 
+Coulson, A., Hyman, A.A., and Echeverri, C.J. (2005). Full-genome RNAi 
+profiling of early embryogenesis in Caenorhabditis elegans. Nature 434, 
+462-469.
+Stein, L.D., Bao, Z., Blasiar, D., Blumenthal, T., Brent, M.R., Chen, N., 
+Chinwalla, A., Clarke, L., Clee, C., Coghlan, A., Coulson, A., 
+D'Eustachio, P., Fitch, D.H., Fulton, L.A., Fulton, R.E., Griffiths-Jones, 
+S., Harris, T.W., Hillier, L.W., Kamath, R., Kuwabara, P.E., Mardis, E.R., 
+Marra, M.A., Miner, T.L., Minx, P., Mullikin, J.C., Plumb, R.W., Rogers, 
+J., Schein, J.E., Sohrmann, M., Spieth, J., Stajich, J.E., Wei, C., 
+Willey, D., Wilson, R.K., Durbin, R., and Waterston, R.H. (2003). The 
+Genome Sequence of Caenorhabditis briggsae: A Platform for Comparative 
+Genomics. PLoS Biol 1, E45.
+Stinchcomb, D.T., Shaw, J.E., Carr, S.H., and Hirsh, D. (1985). 
+Extrachromosomal DNA transformation of Caenorhabditis elegans. Mol Cell 
+Biol 5, 3484-3496.
+Sulston, J.E., and Horvitz, H.R. (1977). Post-embryonic cell lineages of 
+the nematode, Caenorhabditis elegans. Developmental Biology 56, 110-156.
+Sulston, J.E., Schierenberg, E., White, J.G., and Thomson, J.N. (1983). 
+The embryonic cell lineage of the nematode Caenorhabditis elegans. 
+Developmental Biology 100, 64-119.
+Tabara, H., Motohashi, T., and Kohara, Y. (1996). A multi-well version of 
+in situ hybridization on whole mount embryos of Caenorhabditis elegans. 
+Nucleic Acids Res 24, 2119-2124.
+Tatusov, R.L., Fedorova, N.D., Jackson, J.D., Jacobs, A.R., Kiryutin, B., 
+Koonin, E.V., Krylov, D.M., Mazumder, R., Mekhedov, S.L., Nikolskaya, 
+A.N., Rao, B.S., Smirnov, S., Sverdlov, A.V., Vasudevan, S., Wolf, Y.I., 
+Yin, J.J., and Natale, D.A. (2003). The COG database: an updated version 
+includes eukaryotes. BMC Bioinformatics 4, 41.
+The_C._elegans_knockout_consortium. 
+"http://www.celeganskoconsortium.omrf.org/".
+The_ENCODE_(ENCyclopedia_Of_DNA_Elements)_Project. (2004). Science 306, 
+636-640.
+Waterston, R.H., Lindblad-Toh, K., Birney, E., Rogers, J., Abril, J.F., 
+Agarwal, P., Agarwala, R., Ainscough, R., Alexandersson, M., An, P., 
+Antonarakis, S.E., Attwood, J., Baertsch, R., Bailey, J., Barlow, K., 
+Beck, S., Berry, E., Birren, B., Bloom, T., Bork, P., Botcherby, M., Bray, 
+N., Brent, M.R., Brown, D.G., Brown, S.D., Bult, C., Burton, J., Butler, 
+J., Campbell, R.D., Carninci, P., Cawley, S., Chiaromonte, F., Chinwalla, 
+A.T., Church, D.M., Clamp, M., Clee, C., Collins, F.S., Cook, L.L., 
+Copley, R.R., Coulson, A., Couronne, O., Cuff, J., Curwen, V., Cutts, T., 
+Daly, M., David, R., Davies, J., Delehaunty, K.D., Deri, J., Dermitzakis, 
+E.T., Dewey, C., Dickens, N.J., Diekhans, M., Dodge, S., Dubchak, I., 
+Dunn, D.M., Eddy, S.R., Elnitski, L., Emes, R.D., Eswara, P., Eyras, E., 
+Felsenfeld, A., Fewell, G.A., Flicek, P., Foley, K., Frankel, W.N., 
+Fulton, L.A., Fulton, R.S., Furey, T.S., Gage, D., Gibbs, R.A., Glusman, 
+G., Gnerre, S., Goldman, N., Goodstadt, L., Grafham, D., Graves, T.A., 
+Green, E.D., Gregory, S., Guigo, R., Guyer, M., Hardison, R.C., Haussler, 
+D., Hayashizaki, Y., Hillier, L.W., Hinrichs, A., Hlavina, W., Holzer, T., 
+Hsu, F., Hua, A., Hubbard, T., Hunt, A., Jackson, I., Jaffe, D.B., 
+Johnson, L.S., Jones, M., Jones, T.A., Joy, A., Kamal, M., Karlsson, E.K., 
+Karolchik, D., Kasprzyk, A., Kawai, J., Keibler, E., Kells, C., Kent, 
+W.J., Kirby, A., Kolbe, D.L., Korf, I., Kucherlapati, R.S., Kulbokas, 
+E.J., Kulp, D., Landers, T., Leger, J.P., Leonard, S., Letunic, I., 
+Levine, R., Li, J., Li, M., Lloyd, C., Lucas, S., Ma, B., Maglott, D.R., 
+Mardis, E.R., Matthews, L., Mauceli, E., Mayer, J.H., McCarthy, M., 
+McCombie, W.R., McLaren, S., McLay, K., McPherson, J.D., Meldrim, J., 
+Meredith, B., Mesirov, J.P., Miller, W., Miner, T.L., Mongin, E., 
+Montgomery, K.T., Morgan, M., Mott, R., Mullikin, J.C., Muzny, D.M., Nash, 
+W.E., Nelson, J.O., Nhan, M.N., Nicol, R., Ning, Z., Nusbaum, C., 
+O'Connor, M.J., Okazaki, Y., Oliver, K., Overton-Larty, E., Pachter, L., 
+Parra, G., Pepin, K.H., Peterson, J., Pevzner, P., Plumb, R., Pohl, C.S., 
+Poliakov, A., Ponce, T.C., Ponting, C.P., Potter, S., Quail, M., Reymond, 
+A., Roe, B.A., Roskin, K.M., Rubin, E.M., Rust, A.G., Santos, R., 
+Sapojnikov, V., Schultz, B., Schultz, J., Schwartz, M.S., Schwartz, S., 
+Scott, C., Seaman, S., Searle, S., Sharpe, T., Sheridan, A., Shownkeen, 
+R., Sims, S., Singer, J.B., Slater, G., Smit, A., Smith, D.R., Spencer, 
+B., Stabenau, A., Stange-Thomann, N., Sugnet, C., Suyama, M., Tesler, G., 
+Thompson, J., Torrents, D., Trevaskis, E., Tromp, J., Ucla, C., 
+Ureta-Vidal, A., Vinson, J.P., Von Niederhausern, A.C., Wade, C.M., Wall, 
+M., Weber, R.J., Weiss, R.B., Wendl, M.C., West, A.P., Wetterstrand, K., 
+Wheeler, R., Whelan, S., Wierzbowski, J., Willey, D., Williams, S., 
+Wilson, R.K., Winter, E., Worley, K.C., Wyman, D., Yang, S., Yang, S.P., 
+Zdobnov, E.M., Zody, M.C., Lander, E.S., and Mouse Genome Sequencing, C. 
+(2002). Initial sequencing and comparative analysis of the mouse 
+genome.[comment]. Nature 420, 520-562.
+Wei, C., Lamesch, P., Arumugam, M., Rosenberg, J., Hu, P., Vidal, M., and 
+Brent, M.R. (2005). Closing in on the C. elegans ORFeome by cloning 
+TWINSCAN predictions. Genome Res 15, 577-582.
+Wenick, A.S., and Hobert, O. (2004). Genomic cis-regulatory architecture 
+and trans-acting regulators of a single interneuron-specific gene battery 
+in C. elegans. Dev Cell 6, 757-770.
+White, J.G., Southgate, E., Thomson, J.N., and Brenner, S. (1986). The 
+Structure of the Nervous System of the Nematode Caenorhabditis elegans. 
+Phil. Trans. Royal Soc. London. 314, 1-340.
+Wilm, T., Demel, P., Koop, H.U., Schnabel, H., and Schnabel, R. (1999). 
+Ballistic transformation of Caenorhabditis elegans. Gene 229, 31-35.
+
+

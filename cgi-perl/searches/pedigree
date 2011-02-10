@@ -1,0 +1,299 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# file: pedigree
+# C. elegans pedigree browser
+
+
+use lib '../lib';
+use strict;
+use vars qw($DB %SEQ_CACHE);
+use Ace 1.51;
+use Ace::Browser::AceSubs qw(:DEFAULT !TypeSelector);
+use ElegansSubs;
+use CGI 2.42 qw(:standard *ul *table);
+use vars qw($DB $open_all $opened $closed $found $highlighted %REMARKS %EXCLUDED);
+use constant A_OPEN    => '/images/menu-images/menu_corner_minus.gif';
+use constant A_CLOSED  => '/images/menu-images/menu_corner_plus.gif';
+use constant A_CORNER  => '/images/menu-images/menu_corner.gif';
+use constant A_TEE     => '/images/menu-images/menu_tee.gif';
+use constant A_BAR     => '/images/menu-images/menu_bar.gif';
+use constant A_LEAF    => '/images/menu-images/menu_leaf.gif';
+use constant A_FILL    => '/images/menu-images/menu_blank.gif';
+use constant A_WIDTH  => 18;
+use constant A_HEIGHT  => 18;
+
+# these lineages are too large to display
+%EXCLUDED = map {$_=>1} (
+			 'AB Cell Lineage',
+			 'MS Cell lineage',
+			 'C elegans Cell Lineage',
+			 'cells_that_die',
+			);
+
+# print HTTP header & open the database
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+($open_all,$opened,$closed,$highlighted,$found) = process_args(); #function call
+
+# declare variables
+my ($object,$class);
+
+if (param('go_neuron')) {
+  print redirect(-location=>'neuron_display', -nph=>1);
+} elsif (param('name')) {
+  ($object,$class) = (join (' ',param('name')),'Cell');
+} elsif (param('show_lineage') and param('lineage') ne '-') {
+  ($object,$class) = (param('lineage'),'Lineage');
+} elsif (param('show_group') and param('group') ne '-') {
+  ($object,$class) = (param('group'),'Cell_Group');
+}
+
+my $obj = $DB->fetch($class=>$object) if ($object);
+
+PrintTop($obj || $object,$class,
+	 $object ? "Pedigree Browser for $object" : "Pedigree Browser",
+	 '-Class' =>'search');
+
+my @lineages = ('-',sort {$a->name cmp $b->name} get_lineages());
+my @groups   = ('-',sort {$a->name cmp $b->name} get_groups());
+
+print start_form(-action=>url(-relative=>1)),
+    table({-border=>0,-width=>'100%',-class=>'searchbody'},
+	TR(td({-align=>'RIGHT'},'Cell:'),
+	   td([textfield(-size=>12,-name=>'name'),
+	       submit(-name=>'show_cell',-value=>'Show Cell')])),
+	       
+	TR(td({-align=>'RIGHT'},'Lineage:'),
+	   td([popup_menu(-name=>'lineage',-value=>\@lineages),
+	       submit(-name=>'show_lineage',-value=>'Show Lineage')])),
+	       
+	TR(td({-align=>'RIGHT'},'Cell Group:'),
+	   td([popup_menu(-name=>'group',-value=>\@groups),
+	       submit(-name=>'show_group',-value=>'Show Group')])),
+
+
+	TR(td({-colspan=>2, -width=>400},b('Click on the right button to visit the
+	   neuron page')),
+	   td(submit(-name=>'go_neuron', -value=>'Go to Neuron Page'))),
+
+ 	TR(td({-colspan=>2,-width=>400},i('Click on +/- symbols to open &amp; 
+		collapse levels. Click on cell name for more information.')),
+	   td(submit(-name=>'close_all',-value=>'Close All')))),
+
+end_form;
+print hr;
+
+
+display_search_form();
+
+# add a horizontal bar, ok
+print h1({-class=>'error'},param('name'),"not found") if param('name') && !$found;
+Delete('name');
+
+my @top_level = get_top_level();
+
+foreach (@top_level) {
+  # knowledge-specific hacks
+  if ($_ eq 'P0') {
+    print h3('Full lineage');
+    print p(em('Select arrows to open pedigree'));
+} 
+  print hr,h3('Neuronal lineages') if $_ eq 'P1';
+
+  print qq(<font size="-2">);
+  my @open = ();
+  print_level($_, 0, \@open, 0);
+  print qq(</font>);
+}
+
+PrintBottom();
+########################################################################################
+#subroutines starts:
+
+sub display_search_form{
+
+
+}
+sub print_level {
+    my ($cell, $depth, $open, $end) = @_;
+
+    my @daughters = get_daughters($cell);
+    my $desc = get_remark($cell);
+    my $label = a({-href=>Object2URL($cell), 
+		   $desc ? (-onMouseOver=>"window.status='$desc'"):(),
+		   ($highlighted->{$cell} ? (-style=>'background-color: yellow') : ()),
+		  },$cell);
+
+    for(2..$depth){
+      print @$open[$_-1] ? img({-src=>A_BAR, alt=>'|',-align=>'middle'}):
+                         img({-src=>A_FILL,alt=>' ',-align=>'middle'});
+    }
+
+    if($end eq 'first')  { print img({-src=>A_TEE,-alt=>'T',-align=>'middle'});
+			   @$open[$depth] = 1;
+			 }
+    elsif($end eq 'last'){ print img({-src=>A_CORNER,-alt=>'L',-align=>'middle'});
+			   @$open[$depth] = 0;
+			 }
+    elsif($depth > 0)    {     print img({-src=>A_TEE,-alt=>'T',-align=>'middle'});}
+
+    print @daughters ? toggle($cell,$label) : img({-src=>A_LEAF,-alt=>'o',-align=>'middle'}), $label;
+    print br;
+
+    return unless $opened->{$cell} || $open_all;
+    return if $closed->{$cell};
+    return unless @daughters;
+
+    #in case the first is also the last
+    my $last  = pop   @daughters;
+    my $first = shift @daughters;
+
+    $depth++;
+    print_level($first, $depth, $open, 'first') if $first;
+    print_level($_,     $depth, $open, 0      ) foreach @daughters;
+    print_level($last,  $depth, $open, 'last' );
+    $depth--;
+}
+
+sub get_top_level {
+  return grep(/^[^ab]/i,$DB->fetch(-query=>'find Cell !Parent AND Daughter'));
+#  return @TOP_LEVEL if @TOP_LEVEL;
+#  return @TOP_LEVEL =
+}
+
+sub get_lineages {
+  return grep !$EXCLUDED{$_},$DB->fetch(Lineage=>'*');
+}
+
+sub get_groups {
+  return grep !$EXCLUDED{$_},$DB->fetch(-query=>'find Cell_group Cell');
+}
+
+sub process_args {
+    my $open_all = param('open_all');
+    my $close_all = param('close_all');
+    Delete('close_all');
+    return (undef,{},{}) if $close_all;
+    my (%opened,%closed,%highlight);
+    %opened = map { $_ => 1 } split(/[+ ]/,param('o')) if param('o');
+    %closed = map { $_ => 1 } split(/[+ ]/,param('c')) if param('c');
+
+    my $found = 0;
+
+    my %doneit;
+    if (param('show_lineage')) {
+      Delete('name');
+      for my $lineage (param('lineage')) {
+	next unless my $l = $DB->fetch(Lineage=>$lineage);
+	my $parent = $l->Root->Cell;
+	open_parents($parent,\%opened,\%doneit);
+	my @cells = open_root($parent,\%opened);
+	%highlight = map { $_=>1 } @cells;
+      }
+      Delete('show_lineage');
+      Delete('name');
+      Delete('group');
+      param('o'=>join '+',keys %opened);
+    } elsif (param('show_group')) {
+      for my $cell (get_group(param('group'))) {
+	open_parents($cell,\%opened,\%doneit);
+	$highlight{$cell}++;
+      }
+      Delete('name');
+      Delete('lineage');
+    } elsif (param('name')) {
+      my @cells = map { $DB->fetch(-query=>qq(find Cell IS "$_" AND Lineage)) } param('name');
+      unless (@cells) {
+	@cells = map { $DB->fetch(-query=>qq(find Cell IS "$_*" AND Lineage)) } param('name');
+      }
+      $found = @cells;
+      for my $cell (@cells) {
+	open_parents($cell,\%opened,\%doneit);
+	$highlight{$cell}++;
+      }
+      Delete('lineage');
+      Delete('group');
+    }
+    return ($open_all,\%opened,\%closed,\%highlight,$found);
+}
+
+sub open_root {
+  return unless my $root = shift;
+  return unless my $open = shift;
+  $open->{$root}++;
+  my @daughters = get_daughters($root);
+  foreach (@daughters) { $open->{$_}++ }
+  return ($root,open_root($daughters[0],$open),open_root($daughters[1],$open));
+}
+
+sub open_parents {
+  my $cell = shift;
+  my $open = shift;
+  my $doneit = shift;
+  return unless my $c = $DB->fetch(Cell => $cell);
+  for (my $p=$c->Parent(-filled=>1);$p;$p=$p->Parent(-filled=>1)) {
+    last if $doneit->{$p}++;
+    $open->{$p}++;
+  }
+}
+
+sub toggle {
+    my ($tag,$label) = @_;
+    my $img;
+
+    # copy hashes into locals
+    my %o   = %$opened;
+    my %c   = %$closed;
+    $label     ||= $tag;
+
+    if ($open_all) {  # process %closed  ( we never do this )
+
+	if (exists $c{$tag}) {
+	    delete $c{$tag};
+	    $img =  img({-src=>A_CLOSED,-alt=>'-',-border=>'0',-align=>'middle'}),
+	} else {
+	    $c{$tag}++;
+	    $img =  img({-src=>A_OPEN,-alt=>'+',-border=>'0',-align=>'middle'}),
+	}
+    } else {     # process %opened
+	if (exists $o{$tag}) {
+	    delete $o{$tag};
+
+	    $img =  img({-src=>A_OPEN,-alt=>'-',-border=>'0',-align=>'middle'}),
+	} else {
+	    $o{$tag}++;
+	    $img =  img({-src=>A_CLOSED,-alt=>'+',-border=>'0',-align=>'middle'}),
+	}
+    }
+    CGI::Delete('o'); CGI::Delete('c');
+    param(-name=>'o',-value=>join(' ',keys %o)) if keys %o;
+    param(-name=>'c',-value=>join(' ',keys %c)) if keys %c;
+    my $url = url(-relative=>1,-path_info=>1,-query=>1);
+    $url=~s!^[^/]+/!!;
+    return a({-href=>"$url\#$tag",-name=>$tag},$img).' ';#.$label;
+}
+
+
+sub get_daughters {
+  my $cell = shift;
+  my @d = $cell->Daughter(-filled=>1);
+  @d;
+#  $DAUGHTERS{$cell} ||= [$cell->Daughter];
+#  @{$DAUGHTERS{$cell}};
+}
+
+sub get_remark {
+  my $cell = shift;
+  $REMARKS{$cell} = $cell->Remark unless exists $REMARKS{$cell};
+  return $REMARKS{$cell};
+}
+
+sub get_group {
+  my $group = shift;
+  return unless my $g = $DB->fetch('Cell_group'=>$group);
+  my @cells = ($g->Cell,$g->Nucleus);
+  return @cells if @cells;
+  if (my @sub_groups = $g->Sub_group) {
+    push @cells,get_group($_) foreach @sub_groups;
+  }
+  @cells;
+}

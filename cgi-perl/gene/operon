@@ -1,0 +1,324 @@
+#!/usr/bin/perl
+##############################################################
+# REIMPLEMENTATION:                                          #
+#    THIS SCRIPT IS NOW FROZEN! (v1.16)                      #
+#       Please do not make edits to it.                      #
+#       Frozen by: tharris on 02.09.2008                     #  
+##############################################################
+
+# $Id: operon,v 1.1.1.1 2010-01-25 15:36:09 tharris Exp $
+
+use strict;
+use Ace::Browser::AceSubs;
+use ElegansSubs qw(:DEFAULT Bestname);
+use CGI qw(:standard *table *TR *td *iframe);
+use WormBase;
+use Bio::Graphics::Browser::Markup;
+use vars qw/$DB $DBGFF $WORMBASE $operon $SPECIES/;
+
+END {
+  undef $operon;
+}
+$DB    = OpenDatabase() || AceError("Couldn't open database.");
+$WORMBASE = WormBase->new($DB);
+
+# We need more error checking here and true database accessors
+$operon = GetAceObject();
+$DBGFF = OpenGFFDB($DB,get_species($operon)) || AceError("Couldn't open GFF database.") if $operon;
+
+#Set up $BROWSER
+$SPECIES = get_species($operon) if $operon;
+
+PrintTop($operon,'Operon',$operon ? "Operon summary for $operon" : $operon);
+print_prompt();
+print_report() if $operon;
+PrintBottom;
+exit;
+
+
+##### subroutines ###########
+
+sub print_prompt {
+  $WORMBASE->print_prompt(-message  => 'Specify an operon ID such as',
+              -class    => 'operon',
+              -examples => [ {'no_message'   => 'CEOP1140'},
+                       ]);
+}
+
+# print report on the given operon
+sub print_report {
+  StartDataTable;
+  print_desc_data();        # Print the Description section
+  print_struct_data();      # Print the Structure section
+  print_history_data();     # Print the History section
+  print_remark_data();      # Print the Remark section
+  EndDataTable;
+}
+
+# gets all data for the History section
+# ret hash data
+sub get_all_history_data {
+  my %data;
+  my %history_types;
+  foreach my $history_type ($operon->History) {
+    my %histories;
+    foreach my $h ($history_type->col) {
+        my @evidence = $h->col;
+        @evidence = get_evidence_names(\@evidence);
+        if ($history_type ne "Deprecated") {
+          $h = a({-href=>Object2URL($h)}, $h)
+        } 
+        $histories{$h} = \@evidence;                    #Each history has an array of evidences
+    }
+    $history_type =~ s/_/ /;
+    $history_types{$history_type} = \%histories;        #Each history_type is linked to a hash of histories
+  }    
+  $data{'History'} = \%history_types;
+
+  return \%data;
+}
+
+# gets and prints all data for the history section
+sub print_history_data {
+  my $history_data = get_all_history_data();
+
+  # print data in History
+  my %history_types = %{$history_data->{'History'}};
+  my $history_content;
+  if(%history_types) {                                  #Only print section if History items exist
+    StartSection('History');
+    $history_content = start_table() . TR({-align=>'left'},th(''), th(''), th('Evidence:'));
+    foreach my $history_type (sort keys %history_types) {
+        my %operons = %{$history_types{$history_type}};           
+        my $num_rows = keys(%operons);
+        $num_rows = 1 if $num_rows == 0;
+        $history_content .= TR({-valign=>'top'}).td({-align=>'left',-rowspan=>$num_rows},$history_type.': ');
+        foreach my $operon (sort keys %operons) {
+            my @evidence = @{$operons{$operon}};        
+            $history_content .= td($operon).td(join('<br>',@evidence)).TR({-valign=>'top'});    
+        }
+     }
+    $history_content .= end_table();
+    SubSection("", $history_content);
+    EndSection;
+  }
+}
+
+# gets all data for the remark section
+# ret hash data
+sub get_all_remark_data {
+  my %data;
+  # get remarks and remark evidence data
+  my @remarks = $operon->Remark;
+  my %remark_evidence;
+  for my $remark (@remarks) {
+    my @evidence = $remark->col;
+    @evidence = get_evidence_names(\@evidence);
+    $remark_evidence{$remark} = \@evidence;
+  }
+  $data{'Remark_Evidence'} = \%remark_evidence;
+  return \%data;
+}
+
+# gets and prints all data for the remark section
+sub print_remark_data {
+  my $remark_data = get_all_remark_data();
+ 
+  # print remarks & evidence into a table
+  my %remarks = %{$remark_data->{'Remark_Evidence'}};
+  if(%remarks) {
+    StartSection('Remark');
+    my $subsection_content = start_table() . TR({-align=>'left'}, th(''), th('Evidence:'));
+    foreach my $remark_ev (sort keys %remarks) {
+      my @evidence = @{$remarks{$remark_ev}};
+      $subsection_content .= TR({-valign=>'top'},td($remark_ev), td(join('<br>', @evidence)));
+    }
+    $subsection_content .= end_table();
+    SubSection("", $subsection_content);
+    EndSection;
+  }
+}
+
+# gets all data for the description section
+# ret hash data
+sub get_all_desc_data {
+  my %data;
+  
+  # get Name data 
+  $data{'Name'} = $operon;
+
+  # get Species data
+  $data{'Species'} = $operon->Species;
+  
+  # remove eval in WS209
+  # get Description data
+  eval { $operon->Description };
+  unless ($@) {
+      $data{'Description'} = $operon->Description;
+  }
+
+  # get Reference data
+  $data{'Reference'} = ObjectLink($operon->Reference,$operon->Reference->Title) if $operon->Reference;
+
+  return \%data;
+}
+
+# gets and prints all data for the description section
+sub print_desc_data {
+  my $desc_data = get_all_desc_data();
+  StartSection('Description');
+
+  # print Name data
+  SubSection("Name", ${$desc_data}{'Name'});
+
+  # print Species data
+  SubSection("Species", ${$desc_data}{'Species'});
+
+  # print Description data
+  SubSection("Description", ${$desc_data}{'Description'});
+  
+  # print reference data
+  SubSection("Reference", ${$desc_data}{'Reference'});
+
+  EndSection();
+}
+
+# gets all data for the structure section
+# ret hash data
+sub get_all_struct_data {
+  my %data;
+ 
+  # get data on genes in operon 
+  my %genes;
+  my @gene_list;
+  foreach my $gene (sort by_loc $operon->Contains_gene) {
+    my $gene_name = a({-href=>Object2URL($gene)}, $gene->CGC_name || $gene->Sequence_name);
+    push(@gene_list, $gene_name);		# get list of gene names in order
+    my %spliced_leader;
+    foreach my $sl ($gene->col) {
+        my @evidence = $sl->col;
+        @evidence = get_evidence_names(\@evidence);
+        $spliced_leader{$sl} = \@evidence;      # each spliced leader key is linked to an array of evidence 
+    }
+    $genes{$gene_name} = \%spliced_leader;      # each gene key is linked to a hash of splioed leaders for the gene
+  } 
+  $data{'Genes'} = \%genes;
+  $data{'Gene_List'} = \@gene_list;
+  
+  #get data on associated features
+  $data{'Associated'} = a({-href=>Object2URL($operon->Associated_feature)}, $operon->Associated_feature) if $operon->Associated_feature;
+  
+  if (my $segment = $DBGFF->segment('Operon' => $operon)) {
+
+    # get genomic position
+    my ($ref,$start,$stop) = ($segment->abs_ref,$segment->abs_start,$segment->abs_stop);
+    my $browser_url = a({-href=>HunterUrl($ref,$start,$stop)},"$ref:$start..$stop");
+    $data{'Genomic_Position'} = $browser_url;
+
+    # get gbrowse embedded image
+    my $genomic_picture = genomic_picture($segment);
+    $data{'Genomic_Picture'} = $genomic_picture;
+  }
+
+  return \%data;
+}
+
+# used to sort genes by location on operon from promoter to 3' end
+sub by_loc {
+  my $segment_a = $DBGFF->segment('Gene' => $a);
+  my $segment_b = $DBGFF->segment('Gene' => $b);
+  if(($segment_a->abs_start - $segment_a->abs_stop) < 0) {
+    $segment_a->abs_start <=> $segment_b->abs_start;
+  } else {
+    $segment_b->abs_start <=> $segment_a->abs_start;
+  }
+}
+
+# gets and prints all data for the structure section
+sub print_struct_data {
+  my $struct_data = get_all_struct_data();
+  StartSection('Structure');
+
+  # print data in Genes
+  my @gene_list = @{$struct_data->{'Gene_List'}};
+  my $genes_content;
+  if(@gene_list) {
+    my %genes = %{$struct_data->{'Genes'}};
+    $genes_content = start_table({-border=>1}) . TR({-align=>'left'},th('Genes:'), th('Spliced Leader:'), th('Evidence:'));
+    foreach my $gene (@gene_list) {
+        my %spliced_leader = %{$genes{$gene}};                  # get spliced leaders for each gene
+        my $num_rows = keys(%spliced_leader);
+        $num_rows = 1 if $num_rows == 0;
+        $genes_content .= TR().td({-align=>'left',-rowspan=>$num_rows},$gene);
+        foreach my $sl (sort keys %spliced_leader) {
+            my @evidence = @{$spliced_leader{$sl}};             # get evidence for each spliced leader
+            $genes_content .= td($sl).td(join('<br>',@evidence)).TR();    
+        }
+     }
+    $genes_content .= end_table();
+  }
+  SubSection("", $genes_content);
+
+  # print data in Associated  -- I never see anything 
+  my $associated_content = ${$struct_data}{'Associated'};
+  $associated_content = start_table().TR({-align=>'left'},th('Associated:'), td($associated_content).end_table()) if $associated_content;
+  SubSection("", $associated_content);
+  
+  # print data in Genomic Position
+  my $genomic_position = ${$struct_data}{'Genomic_Position'};
+  SubSection("", start_table().TR(th('Genomic Position:'),td($genomic_position)).end_table()) if $genomic_position;
+  
+  # print data in Genomic Picture
+  my $genomic_picture = ${$struct_data}{'Genomic_Picture'};
+  SubSection("", start_table().TR({-valign=>'top'},th('Genomic Environs:'),td($genomic_picture)).end_table()) if $genomic_picture;
+  
+  EndSection();
+}
+
+
+# input: array of types of evidences for specific remark/gene
+# ret: array of links to evidences with proper description
+sub get_evidence_names {
+  my ($evidences)=shift;
+  my @ret;
+  
+  foreach my $ev (@$evidences) {
+    my @names = $ev->col;
+    if($ev eq "Person_evidence" || $ev eq "Author_evidence" || $ev eq "Curator_confirmed") {    
+      $ev =~ /(.*)_(evidence|confirmed)/;  #find a better way to do this?    
+      @names =  map{$1 . ': ' . a({-href=>Object2URL($_)},$_->Full_name || $_)} @names;
+    }elsif ($ev eq "Paper_evidence"){
+      @names = map{'Paper: ' . a({-href=>Object2URL($_)},$_->Brief_citation || $_)} @names;
+    }elsif ($ev eq "Feature_evidence"){
+      @names = map{'Feature: '.a({-href=>Object2URL($_)},$_->Visible->right || $_)} @names;
+    }elsif ($ev eq "From_analysis"){
+      @names = map{'Analysis: '.a({-href=>Object2URL($_)},$_->Description || $_)} @names;
+    }else {
+      @names = map{$ev . ': ' . a({-href=>Object2URL($_)},$_)} @names;
+    }
+    push(@ret, @names);
+  }
+  return @ret;
+}
+
+
+# Stolen from Gene
+# ret: image link to gbrowse
+sub genomic_picture {
+
+  my $segment = shift;
+  return unless $segment;
+
+  my $absref   = $segment->abs_ref;
+  my $absstart = $segment->abs_start;
+  my $absend   = $segment->abs_end;
+  ($absstart,$absend) = ($absend,$absstart) if $absstart>$absend;
+  my $length = $segment->length;
+
+  # add another 10% to left and right
+  my $start = int($absstart - 0.1*$length);
+  my $stop  = int($absend   + 0.1*$length);
+ 
+  my $type = $SPECIES =~ /elegans/ ? "t=CG;t=OP;t=TS;t=ESTB":"t=WBG"; 
+  return InlineImage($type,$SPECIES,$absref,$start,$stop);
+}

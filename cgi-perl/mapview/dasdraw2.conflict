@@ -1,0 +1,116 @@
+#!/usr/bin/perl
+
+use strict;
+use Bio::Das;
+use Bio::Graphics::Panel;
+#use Ace::Graphics::Panel;
+use Ace::Browser::AceSubs qw/:DEFAULT/;
+use CGI qw/:standard/;
+use constant DEBUG => 0;
+
+my @COLORS = qw(yellow cyan blue red green wheat turquoise orange);  # default colors
+my $color = 0;      # position in color cycle
+my $default_glyph = 'generic';
+my @default_attributes = (
+			  -height  => 5,
+			  -bgcolor => 'yellow',
+			  -label   => 1,
+			  -fgcolor => 'black',
+			 );
+
+my $map        = param('map');
+my $comb       = param('comb');
+my $url        = param('url');
+my $dsn        = param('dsn');
+my @feature    = param('feature');
+my $start      = param('start');
+my $end        = param('end');
+my $refseq     = param('refseq');
+   $refseq     = "Locus:$refseq" if $refseq =~ /^[a-z]{3}-\d+$/;
+my $db         = Bio::Das->new($url=>$dsn) or die "Can't get DAS server";
+# $db->debug(1);
+my $style      = $db->stylesheet;
+my $segment    = $db->segment(-refseq=>$refseq,-start=>$start,-stop=>$end);
+
+@feature       = grep {defined $_} @feature; #clean up
+warn "fetching features" if DEBUG;
+my @features   = $segment->features(@feature); #note the 's'
+<<<<<<< dasdraw2
+warn "got features" if DEBUG;
+=======
+warn "got features @features" if DEBUG;
+>>>>>>> 1.13
+
+#my %feature;
+#foreach(@feature){$feature{lc($_)} = 1;}
+
+#start the panel
+#my $panel = Ace::Graphics::Panel->new(-segment=>$segment,-width=>600);
+my $panel = Bio::Graphics::Panel->new(-segment=>$segment,-width=>600);
+
+#add a comb
+$panel->add_track(arrow => $segment,-bump => 0,-tick=>2) if $comb == 1;
+
+#make a hash of tracks to be shown;
+my %track;
+foreach my $f (@features){
+  my $type = lc( $f->type );
+
+  warn "feature = $f" if DEBUG;
+
+ # push @{$track{$type}},$f if $feature{$type};
+  push @{$track{$type}},$f;
+}
+unless (%track || $comb) {  # no tracks, nothing to show
+  print redirect('/images/no_das_data.gif');
+  exit 0;
+}
+
+#now make the tracks;
+foreach my $track (sort keys %track){
+
+  my @lanes = @{$track{$track}};
+  my ($glyph,@attributes) = $style->glyph($track{$track}[0]);
+<<<<<<< dasdraw2
+  warn "$glyph => @attributes" if DEBUG;
+
+  warn "track = $track" if DEBUG;
+  warn "lanes = @lanes" if DEBUG;
+=======
+  unless ($glyph) {
+    ($glyph,@attributes) = ($default_glyph,
+			    @default_attributes,
+			    -bgcolor => $COLORS[$color++ % @COLORS],
+			   );
+  }
+  warn "track = $track" if DEBUG;
+  warn "lanes = @lanes" if DEBUG;
+  warn "$glyph => @attributes" if DEBUG;
+>>>>>>> 1.13
+  $panel->add_track( $track{$track} =>$glyph,@attributes,-key=>$track) if @lanes;
+}
+
+if($map){
+  warn "calling boxes" if DEBUG;
+  my $boxes = $panel->boxes;
+  warn "done boxes" if DEBUG;
+  foreach (@$boxes){
+    next if ref $_->[0] eq 'Bio::Das::Segment';
+    my $alt  = $_->[0]->description || $_->[0];
+    my $href = $_->[0]->link || '/das_missing.html';
+    print qq(<AREA SHAPE="RECT" COORDS="$_->[1],$_->[2],$_->[3],$_->[4]" HREF="$href" ALT="$alt" TITLE="$alt">);
+  }
+} else {
+  warn "calling gd" if DEBUG;
+  my $gd = $panel->gd;
+  warn "gd done" if DEBUG;
+  if ($gd->can('gif')) {
+    print header(-type=>'image/gif');
+    print $gd->gif;
+  } else {
+    print header(-type=>'image/png');
+    print $gd->png;
+  }
+#  print header(-type=>'image/gif');
+#  print $panel->gif;
+}

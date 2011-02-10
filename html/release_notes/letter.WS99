@@ -1,0 +1,169 @@
+New Release of acedb WS99, Wormpep99 and Wormrna99 Thu Apr 17 15:57:52 BST 2003
+
+======================================================================
+
+This directory includes:
+i)	database.WS99.*.tar.gz    -   compressed data for new release
+ii)	models.wrm.WS99           -   the latest database schema (also in above database files)
+iii)	CHROMOSOMES/subdir        -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)	WS99-WS98.dbcomp          -   log file reporting difference from last release
+v)	wormpep99.tar.gz          -   full Wormpep distribution corresponding to WS99
+vi)	wormrna99.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)	confirmed_genes.WS99.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS99
+------------------------------------
+brigdb : 2003-04-06 - updated
+camace : 2003-04-07 - updated
+citace : 2003-04-06 - updated
+cshace : 2003-03-20
+genace : 2003-04-09 - updated
+stlace : 2003-04-07 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS99       	WS98      	change
+----------------------------------------------
+a    	32364259	32364259	  +0
+c    	17778485	17778485	  +0
+g    	17755881	17755881	  +0
+t    	32365361	32365361	  +0
+n    	95      	95      	  +0
+-    	0       	0       	  +0
+
+Total	100264081	100264081	  +0
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 19541 CDS in autoace, 21511 when counting 1967 alternate splice forms.
+
+The 21511 sequences contain 9,485,434 base pairs in total.
+
+Modified entries              94
+Deleted entries               48
+New entries                   99
+Reappeared entries             1
+
+Net change  +52
+
+
+
+Status of entries: Confidence level of prediction
+-------------------------------------------------
+Confirmed              3856 (17.9%)
+Partially_confirmed    8879 (41.3%)
+Predicted              8776 (40.8%)
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2272 (10.6%)
+TrEMBL accessions     18384 (85.5%)
+TrEMBLnew accessions    849 (3.9%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            21505 (100.0%)
+
+
+
+Locus <-> Sequence connections (cgc-approved)
+---------------------------------------------
+Entries with locus connection   3941
+
+
+GeneModel correction progress WS98 -> WS99
+-----------------------------------------
+Confirmed introns not is a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|    595  |   -33  |
+St Louis 	|    119  |   -18  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|     25  |     1  |
+St Louis 	|     24  |     0  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+CHROMOSOME_III	sequence L14745
+CHROMOSOME_III	sequence L14745
+
+There are no gaps remaining in the genome sequence
+---------------
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+
+New Data:
+---------
+WS99 includes ~23000 ORFeome sequence tags (OSTs) from Marc Vidals' lab aligned to the genome
+
+48 Expression pattern images from the Hope Lab
+
+New Fixes:
+----------
+
+
+Known Problems:
+--------------
+
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

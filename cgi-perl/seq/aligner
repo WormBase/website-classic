@@ -1,0 +1,342 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# file: aligner
+# Show EST alignments
+
+use lib '../lib';
+use strict;
+use Ace 1.51;
+use CGI qw(:standard *pre -no_xhtml :center);
+# use Ace::Sequence;
+use Ace::Browser::AceSubs;
+use Bio::Graphics::Browser::Util;
+use ElegansSubs qw/:DEFAULT FetchGene/;
+use Seqview;
+use Bio::Graphics::Browser::PadAlignment;
+use LWP::Simple;
+use Data::Dumper;
+use Bio::Graphics::Browser::Markup;
+
+
+# Aligner expects Sequence objects - these should automatically be
+# generated in the navbar
+
+use constant TOO_BIG => 50_000;
+use constant BLUMENTHAL_FACTOR => 23; # rough size of trans-spliced leader
+use constant DEFAULT_ALGORITHM => 'BLAT_EST_BEST';
+use constant TARGET    => 0;
+use constant SRC_START => 1;
+use constant SRC_END   => 2;
+use constant TGT_START => 3;
+use constant TGT_END   => 4;
+use constant DEBUG     => 0;
+use vars qw/%LABELS $bestname $DB $sequence/;
+
+END {
+  undef $bestname;
+  undef $sequence;
+}
+
+# Portability breaking urls
+my $url_root = (Configuration->Development) ? 'http://dev.wormbase.org' : 'http://www.wormbase.org';
+#my $url_root = "http://$ENV{SERVER_NAME}";
+$url_root .= '/db/gb2/gbrowse/c_elegans?';
+
+# This does not work for urls passed in with CDS as class...
+$DB = OpenDatabase;
+eval {($sequence,$bestname) = FetchGene($DB,param('name')) if (param('name'));};
+my $dbgff = OpenGFFDB($sequence->db,get_species($sequence)) || AceError("Couldn't open GFF database.") if ($sequence);
+$dbgff->add_aggregator('waba_alignment') if ($dbgff);
+
+# this should be consolidated into configuration file
+# there are nasty interactions between Seqview.pm, wormbase.css, and elegans.pm
+my %TYPES    = (BLAT_EST_BEST  => [qw(alignment:BLAT_EST_BEST)],
+		BLAT_EST_OTHER  => [qw(alignment:BLAT_EST_OTHER)],
+		BLAT_mRNA_BEST => [qw(alignment:BLAT_mRNA_BEST)],
+		BRIGGSAE   => [qw(waba_alignment)]
+	       );
+%LABELS   = (
+	     BLAT_EST_BEST  => 'ESTs Aligned with BLAT (best)',
+	     BLAT_EST_OTHER => 'ESTs aligned by BLAT (other)',
+	     BLAT_mRNA_BEST => 'full-length mRNAs Aligned with BLAT (best)',
+	     BRIGGSAE   => 'Briggsae Alignments (WABA)',
+	     );
+
+unless ($sequence) {
+  PrintTop(undef,undef,'Nucleotide Aligner');
+  print_prompt();
+  AceError("No such sequence ID known.") if param();
+  PrintBottom;
+  exit 0;
+}
+
+PrintTop($sequence,'Sequence',"Nucleotide Alignments for " . param('name'));
+
+$sequence->db->class('Ace::Object::Wormbase');
+warn "ALIGNER: $sequence before\n" if DEBUG;
+my $is_transcript = eval{$sequence->CDS} || eval {$sequence->Corresponding_CDS} || eval {$sequence->Corresponding_transcript};
+
+#if (!$is_coding && !(eval { $sequence->CDS } || eval {$sequence->Corresponding_CDS })){
+#  AceError("Sequence is not a transcript.");
+#} elsif (!$is_coding && (eval { $sequence->CDS} || eval { $sequence->Corresponding_CDS } )) {
+#  #  $sequence = eval { $sequence->CDS} || eval {$sequence->Corresponding_CDS};
+#  # No longer any need to set up the coordinate system using a CDS
+#}
+
+if (!$is_transcript) {
+  # $sequence = eval{$sequence->CDS} || eval {$sequence->Corresponding_CDS} || eval {$sequence->Corresponding_transcript};
+  AceError("Sequence is not a transcript.");
+}
+
+warn "ALIGNER: Now the sequence is: $sequence\n" if DEBUG;
+my ($align_start,$align_end);
+
+#allow for offsets
+my $user_start = param('start');
+my $user_end   = param('end');
+my $flip_user  = param('flip');
+my $user_ragged = param('ragged') || BLUMENTHAL_FACTOR;
+my $user_override = defined $user_start && defined $user_end && ($user_start || $user_end);
+if ($user_override && ($user_end - $user_start > TOO_BIG)) {
+  print_coordinates($user_start,$user_end);
+  print h3({-class=>'error',-align=>'CENTER'},"Sorry, alignment display is limited to ${\TOO_BIG} bp");
+  PrintBottom;
+  exit 0;
+}
+
+my ($seq) = $dbgff->segment(-name => $sequence,
+			    $user_override ? (-start	=>	$user_start,
+					      -stop	=>	$user_end) : ());
+
+my (@algorithms, @alignments);
+$algorithms[0] = DEFAULT_ALGORITHM if ( !( @algorithms = param('algorithm')));
+
+foreach (@algorithms){
+  push @alignments,$seq->features(@{$TYPES{$_}});
+}
+
+# get the DNA for each of the alignment targets
+my %dna;
+foreach (@alignments) {
+  my $target = $_->target;
+  next if $dna{$target};  # already got it or some reasn
+  my $dna = $target->asDNA;
+
+  unless ($dna) {
+    warn "ALIGNER missing target = $target" if DEBUG;
+    $dna = $dbgff->dna($target->name);
+  }
+
+  unless ($dna) {
+    print p({-class=>'error'},"The DNA sequence is missing for $target.\n");
+    next;
+  }
+  $dna{$target} = $dna;
+  clean_fasta(\$dna{$target});
+}
+
+# sort the alignments by their start position -- this looks nicer
+@alignments = sort { $a->start <=> $b->start } @alignments;
+
+
+# the coding sequence is going to begin at nucleotide 1, but one or
+# more of the alignments may start at an earlier position.
+# calculate an offset, which when subtracted from the first alignment,
+# puts the first nucleotide at string position 0
+
+if ($user_override) {
+  ($align_start,$align_end) = ($user_start,$user_end);
+} else {
+  $align_start    =  $seq->start;
+  $align_start    =  $alignments[0]->start
+    if $alignments[0] && $alignments[0]->start < $seq->start;
+
+  # the same thing applies to the end of the aligned area
+  my @reversed_alignments = sort { $b->end <=> $a->end } @alignments;
+  $align_end           = $seq->end;
+  $align_end = $reversed_alignments[0]->end
+    if $reversed_alignments[0] && $reversed_alignments[0]->end > $seq->end;
+}
+
+warn "ALIGNER: $align_start, ...now\n" if DEBUG;
+# FUDGE FACTOR FOR TOM BLUMENTHAL
+unless ($user_override) {
+  $align_start -= BLUMENTHAL_FACTOR;
+  $align_end   += BLUMENTHAL_FACTOR;
+}
+
+# align_length holds the full length of the alignment
+my $align_length = $align_end - $align_start + 1;
+
+# we're going to grow two arrays, one holding each row of the
+# sequences, and the other holding the alignments
+# The catch here is that if the cDNAs extend beyond the boundary of the
+# gene, we want to extend the genomic sequence, so we refetch the DNA
+
+my ($genomic) = $dbgff->segment(-name  => $sequence,
+				-start => $align_start,
+				-end   => $align_end);
+##eval{$genomic->absolute(1)};
+# WHAT IS THIS BEING USED FOR?
+my @dnas   = ($genomic->display_name => $genomic->dna);
+
+# fill out form to change
+if ($flip_user){
+  ($align_start, $align_end) = ($align_end, $align_start);
+}
+
+# Determine if the plugin should flip the alignment
+my $calculated_flip = $genomic->abs_strand == -1 ? 1 : 0; 
+# Flip it by default if genomic sequence is on neg strand and request comes from outside of the page
+$calculated_flip = $flip_user if param('override_flip');
+print_coordinates($align_start,$align_end,$genomic,$calculated_flip);
+
+# experimental -- do an image
+my @align_types;
+foreach (@algorithms){
+  push @align_types,$LABELS{$_};
+}
+
+#in case of flip, the image also flip orientation
+if ($flip_user){
+  ($align_start, $align_end) = ($align_end, $align_start);
+}
+
+print_image($sequence,$align_start,$align_end,\@align_types);
+
+##################################################
+my ($start,$end) = $align_start < $align_end ? ($align_start,$align_end) : ($align_end,$align_start);
+my $name = $genomic->ref .":$start..$end";
+my $flip_format = "Aligner.flip=" . $calculated_flip;
+my $ragged = "Aligner.ragged=". $user_ragged || "Aligner.ragged=BLUMENTHAL_FACTOR";
+
+my %types = map {$_=>1} param('algorithm');
+my @types = 'CG';
+push @types,'ESTB'  if $types{BLAT_EST_BEST} || !%types;
+push @types,'ESTO' if $types{BLAT_EST_OTHER};
+push @types,'mRNAB' if $types{BLAT_mRNA_BEST};
+push @types,'WABA'  if $types{BRIGGSAE};
+
+my $test =  "$sequence:$start..$end";
+#my $plugin_url = $url_root . "name=$test;plugin=Aligner;plugin_action=Go;label=ESTB;Aligner.upcase=CDS;Aligner.align=ESTB;". $ragged . ";" . $flip_format;
+my $plugin_url = $url_root . "name=$test;plugin=Aligner;plugin_action=Go;label=ESTB;Aligner.upcase=CDS;Aligner.align=ESTB;";
+$plugin_url .= 'Aligner.align=ESTO;' if $types{BLAT_EST_OTHER};
+$plugin_url .= $ragged . ";" . $flip_format;
+
+warn "ALIGNER: URL: $plugin_url\n" if DEBUG;
+my $content = get $plugin_url;
+die "Couldn't get $plugin_url" unless defined $content;
+print $content, "\n";
+##################################################
+
+PrintBottom();
+exit 0;
+
+sub clean_fasta {
+  my $stringref = shift;
+  $$stringref =~ s/^>.*//;
+  $$stringref =~ s/\n//g;
+}
+
+# insert HTML tags into a string without disturbing order
+sub markup {
+  my $string = shift;
+  my $markups = shift;
+  for my $m (sort by_position @$markups) { #insert later tags first so position remains correct
+    my ($position,$markup) = @$m;
+    next unless $position <= length $$string;
+    substr($$string,$position,0) = $markup;
+  }
+}
+
+sub by_position {
+  return $b->[0]<=>$a->[0] || $b->[1] cmp $a->[1];
+}
+
+sub print_prompt {
+
+  print start_form,
+    p({-class=>'caption'},"Type in a predicted sequence name, such as",
+      cite('AC3.6'),'or',cite('B0019.1'),':'
+     ),
+       p("Symbol: ",
+	 textfield(-name=>'name')
+	),
+	  hidden(-name=>'class',-value=>'CDS'),
+    end_form;
+}
+
+sub reversec {
+  my $dna = shift;
+  $dna    = reverse $dna;
+  $dna    =~ tr/gatcnGATCN/ctagnCTAGN/;
+  $dna;
+}
+
+sub print_coordinates {
+  my ($start,$end,$genomic,$calculated_flip) = @_;
+  my $strand = $genomic->abs_strand < 0 ? '(- strand)' : '(+ strand)' if $genomic;
+  my @algorithms = sort keys %TYPES;
+
+  print start_form(-name=>'f'),
+    p('<b>Modify parameters for display: &nbsp</b>', br,
+      'Gene', textfield(-name=>'name',-size=>length(param('name'))||8),
+      'from',
+      textfield(-name=>'start',-value=>$start,-size=>5,-override=>1),
+      'to',
+      textfield(-name=>'end',-value=>$end,-size=>5,-override=>1),
+      hidden('class'),br,
+      '<b>Alignment method: </b>',br,checkbox_group(-name=>'algorithm',-values=>[sort keys %TYPES],-labels=>\%LABELS,-default=>DEFAULT_ALGORITHM),
+      '&nbsp;',br,
+      '<b>Flip Sequences</b>', checkbox(-name =>'flip', -value=>1, -label=>'Flip', -checked=>$calculated_flip),br, # If flip was checked or set by default previously, make sure it's checked
+      '<b>Length of unaligned sequence allowed at ends</b>', 
+       hidden(-name=>'override_flip', -value=>1),
+	   popup_menu(-name    => 'ragged', 
+                  -value   => [0, 5, 10, BLUMENTHAL_FACTOR, 50, 100], 
+                  -default => BLUMENTHAL_FACTOR), br,
+     ),
+     submit(-name=>'Change'), br,
+     end_form;
+}
+
+sub print_image {
+  warn "ALIGNER: before print_image: $align_start $align_end\n" if DEBUG;
+  my ($sequence,$start,$stop,$align_types) = @_;
+  my $dasdraw = Configuration->Das_draw;
+  warn "ALIGNER: DASDRAW: $dasdraw\n" if DEBUG;
+
+  my @features;
+  my $feature_url;
+  push (@features,'Predicted Genes');
+
+  foreach (@$align_types){
+    push (@features,$_);
+    $_ = CGI->escape($_);
+    $feature_url .= "feature=$_;"
+  }
+
+  my %types = map {$_=>1} param('algorithm');
+  my @types = 'CG';
+  push @types,'ESTB'  if $types{BLAT_EST_BEST} || !%types;
+  push @types,'ESTO' if $types{BLAT_EST_OTHER};
+  push @types,'mRNAB' if $types{BLAT_mRNA_BEST};
+  push @types,'WABA'  if $types{BRIGGSAE};
+  my $type = join '+',@types;
+  my $width = 700;
+
+  # Link into gbrowse image using the sequence object (a gene object)
+  
+
+my $img = InlineImage($type, get_species($sequence), $sequence, $start, $stop);
+# my $url =  HunterUrl($sequence,$start,$stop) . ";type=$type";
+  print center(hr,
+	       $img,
+#     start_form,
+#     button({-name=>'View Image in New Window',
+# 	    -onClick=>"window.open('$url','dasdraw','page=1,status=yes,menubar=yes,resizable=yes,scrollbars=yes')"}
+# 	  ),
+#     end_form,
+hr);
+}
+
+

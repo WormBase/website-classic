@@ -1,0 +1,152 @@
+#!/usr/bin/perl
+
+use strict;
+use lib '../lib'; 
+use vars qw($DB $WORMBASE $LIFESTAGE $DETAILS);
+use CGI qw(:standard *table);
+use Ace::Browser::AceSubs qw(:DEFAULT);
+use ElegansSubs qw(:DEFAULT);
+use WormBase;
+
+END {
+  undef $WORMBASE;
+  undef $LIFESTAGE;
+  undef $DETAILS;
+}
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$WORMBASE = WormBase->new($DB);
+$LIFESTAGE = $DB->fetch(-class=>'Life_stage',-name=>param('name')) if (param('name'));
+$DETAILS = param('details');
+$DETAILS =~ s/_/ /g;
+PrintTop($LIFESTAGE,'Life Stage',param('details') ? "Life Stage Summary: $LIFESTAGE - $DETAILS"
+	 : $LIFESTAGE ? "Life Stage Summary for $LIFESTAGE" : 'Life Stage Summary');
+
+$WORMBASE = WormBase->new($DB);
+$WORMBASE->print_prompt(-message  => 'Type in a life stage such as',
+			-class    => 'Life_stage',
+			-examples => ['embryo','L4 larva']);
+
+if (param('details') eq 'expression_patterns') {
+  display_expression_patterns();
+} elsif (param('details') eq 'references') {
+  display_references();
+} elsif (param('details') eq 'cells') {
+  display_cells();
+} elsif (param('name' && !$LIFESTAGE)) {
+  print h3({-class=>'warning'},"No life stage corresponding to " . param('name') . ' was found.');
+} elsif (param('name') && $LIFESTAGE) {
+  display_report();
+}
+
+print end_table;
+PrintBottom();
+exit;
+
+
+sub display_expression_patterns {
+  print start_table({-border=>1});
+  StartSection('General Info');
+  SubSection('Life Stage',$LIFESTAGE);
+  my @exp = $LIFESTAGE->Expr_pattern;
+  SubSection('Expression patterns',@exp . " overlapping expression patterns " . br
+	     . join(br,map {
+	       my $pattern = $_->Pattern;
+	       my $author  = $_->Author;
+	       my $ref     = $_->Reference;
+	       my $substring = substr($pattern,0,50);
+	       my $string = ObjectLink($_);
+	       $string .= ($author) ? ' (' . ObjectLink($author) . ')' : ': ';
+	       "$string $substring " . a({-href=>Object2URL($ref)},"$ref");
+	     } @exp));
+  EndSection();
+}
+
+sub display_cells {
+  print start_table({-border=>1});
+  StartSection('General Info');
+  SubSection('Life Stage',$LIFESTAGE);
+  my @cells = $LIFESTAGE->Cell;
+  SubSection('Cells',"Includes " . @cells . " cells ");
+  SubSection('',Tableize(\@cells));
+  EndSection();
+}
+
+sub display_references {
+  print start_table({-border=>1});
+  StartSection('General Info');
+  SubSection('Life Stage',$LIFESTAGE);
+  my @refs = $LIFESTAGE->Reference;
+  SubSection('','Referred to in ' . @refs . ' references');
+  SubSection('',join(br,format_papers(@refs)));
+  EndSection();
+}
+
+sub display_report {
+  if ($LIFESTAGE) {
+    print start_table({-border=>1});
+    StartSection('General Info');
+    SubSection('Life Stage',$LIFESTAGE);
+    SubSection('Definition',$LIFESTAGE->Definition);
+    SubSection('Other name',$LIFESTAGE->Other_name);
+    SubSection('Remark',$LIFESTAGE->Remark);
+    my @exp = $LIFESTAGE->Expr_pattern;
+    if (@exp < 30) {
+      SubSection('Expression patterns',
+		 join(br,map {
+		   my $pattern = $_->Pattern;
+		   my $author  = $_->Author;
+		   my $ref     = $_->Reference;
+		   my $substring = substr($pattern,0,50);
+		   my $string = ObjectLink($_);
+		   $string .= ($author) ? ' (' . ObjectLink($author) . ')' : ': ';
+		   "$string $substring " . a({-href=>Object2URL($ref)},"$ref");
+		 } @exp));
+    } else {
+      SubSection('Expression patterns',@exp . " overlapping expression patterns " 
+		 . a({-href=>url(-absolute=>1)
+		      . ';details=expression_patterns',-target=>'_blank'},'[details]')) if @exp;
+    }
+    EndSection();
+
+    StartSection('Cells');
+    my @cells = $LIFESTAGE->Cell;
+    if (@cells < 30) {
+      SubSection('Cells',@cells);
+    } else {
+      SubSection('Cells',"Includes " . @cells . " cells "
+		 . a({-href=>url(-absolute=>1) . ';details=cells',-target=>'_blank'},'[details]')) if @cells;
+    }
+    SubSection('Cell_group',$LIFESTAGE->Cell_group);
+    SubSection('Sub-stage',$LIFESTAGE->Sub_stage);
+
+    EndSection();
+
+    StartSection('Timing');
+    SubSection('Contained in life stage',$LIFESTAGE->Contained_in);
+    SubSection('Preceded by life stage',$LIFESTAGE->Preceded_by);
+    SubSection('Followed by life stage',$LIFESTAGE->Followed_by);
+    EndSection();
+
+    StartSection('References');
+    my @refs = $LIFESTAGE->Reference;
+    if (@refs < 50) {
+      SubSection('',join(br,format_papers(@refs)));
+    } else {
+      SubSection('','Referred to in ' . @refs . ' references '
+		 . a({-href=>url(-absolute=>1) . ';details=references',-target=>'_blank'},'[details]')) if @refs;
+    }
+    EndSection();
+  }
+}
+
+
+
+
+sub format_papers {
+  my @refs = @_;
+  my @formatted = map {a({-href=>Object2URL($_)},($_->Author || '')
+			 . ' (' . $_->Year . '). ' . $_->Title) }
+    sort {$b->Year <=> $a->Year } @refs;
+  return @formatted;
+}

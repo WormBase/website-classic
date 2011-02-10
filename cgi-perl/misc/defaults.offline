@@ -1,0 +1,49 @@
+<wormbase_defaults>
+    <install_root>/usr/local/wormbase</install_root>
+    <mysql_data_dir>/usr/local/mysql/data</mysql_data_dir>
+    <tmp_dir>/tmp</tmp_dir>
+    <rsync>
+        <url>rsync://dev.wormbase.org</url>
+        <module>wormbase-live</module>
+    </rsync>
+    <ftp_site>
+        <host>dev.wormbase.org</host>
+        <root>/usr/local/ftp</root>
+        <base>/pub/wormbase</base>
+        <database_repository>/pub/wormbase/mirror/database_tarballs</database_repository>
+    </ftp_site>
+    <live_server>
+        <name>WormBase live server</name>
+        <url>http://www.wormbase.org/</url>
+        <description>The primary WormBase public server</description>
+        <version_cgi>http://www.wormbase.org/db/gmod/version?site=live</version_cgi>
+    </live_server>
+    <development_server>
+        <name>WormBase development server</name>
+        <url>http://dev.wormbase.org/</url>
+        <description>The WormBase semi-public development server</description>
+        <version_cgi>http://dev.wormbase.org/db/gmod/version?site=development</version_cgi>
+    </development_server>
+    <components>
+        <acedb>
+            <install_path>/usr/local/acedb</install_path>
+            <tarball>acedb_%s.ace.tgz</tarball>
+            <md5>acedb_%s.ace.md5</md5>
+            <download_space>3</download_space>
+            <unpacked_space>10</unpacked_space>
+        </acedb>
+        <elegans_gff>
+            <tarball>elegans_%s.gff.tgz</tarball>
+            <md5>elegans_%s.gff.md5</md5>
+            <download_space>0.5</download_space>
+            <unpacked_space>3.5</unpacked_space>
+        </elegans_gff>
+        <briggsae_gff>
+            <tarball>briggsae_%s.gff.tgz</tarball>
+            <md5>briggsae_%s.gff.md5</md5>
+            <download_space>0.5</download_space>
+            <unpacked_space>5</unpacked_space>
+        </briggsae_gff>
+    </components>
+</wormbase_defaults>
+

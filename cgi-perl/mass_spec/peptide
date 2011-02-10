@@ -1,0 +1,148 @@
+#!usr/bin/perl
+
+# Mass_spec_peptide report
+# 
+
+use strict;
+use lib '../lib';
+use vars qw($DB $DBGFF $BROWSER $WORMBASE $PEPTIDE @RESULTS);
+
+use CGI qw(:standard *table *TR *td escape *ul *div *iframe);
+use Ace::Browser::AceSubs qw(:DEFAULT AceRedirect);
+
+use ElegansSubs qw(:DEFAULT);
+
+#use Bio::Graphics::Browser;
+#use Bio::Graphics::Browser::Markup;
+use WormBase;
+
+END {
+  undef $PEPTIDE;
+  undef @RESULTS;
+}
+
+use constant DEBUG         => 0;
+use constant PICTURE_WIDTH => 500;
+use constant STRUCTURE_DATA_SIMILARITY => 99; # Percent similarity cut-off to display
+                                              # mapped Structure_data objects
+
+$Ace::DEBUG_LEVEL=0;
+
+$|++;
+
+# print HTTP header & open the ace database
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$DB->class('Ace::Object::Wormbase');
+
+$WORMBASE = WormBase->new($DB);
+
+$PEPTIDE = fetch_object() if param('name');
+
+# open elegans and briggsae GFF databases
+$DBGFF   = OpenGFFDB($DB,$PEPTIDE->Species)   || AceError("Couldn't open GFF database.") if $PEPTIDE;
+
+# If the URL contains the details parameter, we are displaying
+# what amounts to a Mass_spec_peptide_result object
+if (param('details')) {
+    PrintTop($PEPTIDE,'Mass_spec_peptide_result',$PEPTIDE ? "Mass Spec Result: $PEPTIDE" : 'Mass Spec Peptide Result');
+} else {
+    PrintTop($PEPTIDE,'Mass_spec_peptide',$PEPTIDE ? "Mass Spec Peptide: $PEPTIDE" : 'Mass Spec Peptide');
+}
+
+if (param('name') && !$PEPTIDE) {
+  PrintWarning(param('name'),"mass_spec_peptide");
+  print_prompt();
+  PrintBottom();
+  exit 0;
+} elsif ($PEPTIDE) {
+  @RESULTS = $PEPTIDE->Mass_spec_peptide_result;
+  print_prompt();
+  print_report();
+} else {
+  print_prompt();
+}
+
+PrintBottom();
+
+exit 0;
+
+
+
+sub print_report {
+  print start_table({-border=>1});
+  
+  StartSection('Identification');
+  print_identification();
+  
+  StartSection('Experimental results');
+  print_results();
+  print end_table;
+}
+
+
+sub print_identification {
+  my $sequence = $PEPTIDE;  # Well, it could also be $PEPTIDE->Peptide if we aren't using sequence as obj name
+  my $protein_obj = $PEPTIDE->Protein_seq;
+  
+  # Fetch all proteins/CDS to which this peptide maps.
+  # This is not the most efficient way to go about this...
+  my (%cds,%proteins);
+  foreach (@RESULTS) {
+    map { $cds{$_} = $_      } $_->CDS;
+    map { $proteins{$_} = $_ } $_->Protein;
+  }
+  SubSection('Peptide',"$sequence");
+  SubSection('Times observed',scalar @RESULTS);
+  SubSection('Contained in CDS',join('; ', map { ObjectLink($cds{$_}) } keys %cds));
+  SubSection('Contained in Protein',join('; ', map { ObjectLink($proteins{$_}) } keys %proteins));
+  EndSection();
+}
+
+
+sub print_results {
+  # Collate all results into a table that shows
+  # resultID   experiment    Pep_prophet Protein_prophet
+
+    my $table = 
+	start_table(-border=>1)
+	. TR(th(['Localization','Life stage','Laboratory','From experiment','Details']));
+
+    foreach (@RESULTS) {
+	my $experiment = $_->Mass_spec_experiment;
+	my $stage      = $experiment->Life_stage;
+	my $local      = $experiment->Sub_cellular_localization;
+	my $lab        = $experiment->Laboratory;
+	 
+	my $url = url(-absolute=>1,-query=>1);
+	$table .= TR(
+		     td(ObjectLink($local)),
+		     td(ObjectLink($stage)),
+		     td(ObjectLink($lab)),
+		     td(ObjectLink($experiment)),
+		     td(a({-href=>$url . ";details=$_",-target=>'_blank'},$_)));
+
+
+
+
+    }
+
+    SubSection('',$table . end_table());
+    EndSection;
+}
+
+
+sub fetch_object {
+    my $obj = $DB->fetch(Mass_spec_peptide => param('name'));
+    return $obj;
+}
+
+
+
+############################## the prompt #########################
+sub print_prompt {
+  param(-name=>'name',-value=>$PEPTIDE || '');
+  $WORMBASE->print_prompt(-message  => 'Specify a peptide using',
+			  -class    => 'Mass_spec_peptide',
+			  -examples => [ {'Mass_spec_peptide'   => 'unc-26'},
+				       ]);
+}

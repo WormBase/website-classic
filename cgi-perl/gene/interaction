@@ -1,0 +1,836 @@
+#!/usr/bin/perl
+
+use strict;
+use lib '../lib';
+use Ace::Browser::AceSubs;
+use ElegansSubs qw/:DEFAULT Bestname Species2URL/;
+
+use CGI qw(:standard *table escape toggle);
+# use CGI::Toggle;
+use WormBase::Table;
+use GD::Graph::pie;
+use vars qw/$WORMBASE $DB $query $name $list $gene $disease $interaction $list $sort_by $GENE $im/;
+use strict;
+
+
+# Why all the globals?
+END {
+  undef $WORMBASE;
+  undef $name;
+  undef $gene;
+  undef $list;
+  undef $DB;
+  undef $disease;
+  undef $sort_by;
+  undef	$GENE;
+	undef $im;
+}
+
+
+
+$interaction = param('name');
+$list = param('list');
+$sort_by = param('sort_by');
+my $demo = param('demo');
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+my $version = $DB->version;
+my $cgi = new CGI;
+# my $data_dir = "./interaction_data/";
+#my $data_dir = "../../databases/$version/interaction";
+my $data_dir = "/usr/local/wormbase/databases/$version/interaction";
+
+my $script_url = "/db/";
+### sort options
+my %sort_options;
+$sort_options{'interaction_type'} = 1;
+$sort_options{'effector'} = 3;
+$sort_options{'effected'} = 5;
+
+
+
+#### data ###
+
+StartCache();
+
+# If you don't know what a var is for, don't use it.
+#$WORMBASE = WormBase->new();
+
+# Preferred formatting
+my $title;
+if ($interaction) {   # spacing adds legibility.
+    $title= "Interaction Summary for $interaction";
+} elsif ($list =~ m/^WBGene/) {
+    $title= "Interaction Summary for $list";
+} else {
+    $title= "Interaction Summary";
+}
+
+=head 
+
+Original formatting.
+
+my $title;
+if($interaction){
+	$title= "Interaction Summary for $interaction";
+}
+elsif($list =~ m/^WBGene/){
+	$title= "Interaction Summary for $list";
+}
+else{
+	$title= "Interaction Summary";
+}
+
+=cut
+
+# Relocated from below
+my $int_object = $DB->fetch(-class=> 'Interaction', -name=> $interaction) if $interaction;
+
+# No! see below
+#PrintTop($query,'Interaction',$title);
+# This should be an object
+PrintTop($int_object,'Interaction',$int_object ? "Interaction Summary for $int_object" : "Interaction Summary");
+
+# This type of thing ALWAYS belongs at the TOP of your script, not here.
+my $datafile = $data_dir."/compiled_interaction_data.txt";
+
+# Why not make the OBJECT global to the script? Move it to the TOP of the script.
+# Compare formatting of these two blocks of code, too.
+
+=head
+
+Original formatting.
+
+
+
+if($interaction){
+	my $int_object = $DB->fetch(-class=> 'Interaction', -name=> $interaction);
+	print_interaction_data($int_object) if $int_object;
+}
+elsif($list){
+    if ($list =~ m/^WBGene/){
+	my @list_data = get_gene_interaction_data($datafile,$list);
+	
+
+	print_interaction_data_list(\@list_data,"1");
+    } elsif($list =~ m/all/) {
+		my @list_data = get_all_interaction_data($datafile);
+		print_interaction_data_list(\@list_data,"1"); 
+		# print "All_data<br>";
+	    }
+    else{
+	my $list_all = a({-href=>"/db/gene/interaction?list=all"},"all");
+	print "Go to list of $list_all interactions. Please note that the list is very long.";
+    }
+}
+else{
+	my $list_all = a({-href=>"/db/gene/interaction?list=all"},"all");
+	print "Go to list of $list_all interactions.  Please note that the list is very long.";
+}
+
+=cut
+
+my $gene_il;
+
+if ($int_object) {
+    print_interaction_data($int_object);
+} elsif ($list) {
+    if ($list =~ m/^WBGene/) {
+	my @list_data = get_gene_interaction_data($datafile,$list);
+
+	## get gene object
+	$GENE = $DB->fetch(-class=>'Gene', -name=>$list);
+	print_interaction_data_list(\@list_data,"1");
+	
+	print hr();
+	print "<h3> Interaction Matrix </h3><br>";
+
+	$im = interaction_matrix();	
+	print "$im";
+	
+    } elsif ($list =~ m/all/) {
+	my @list_data = get_all_interaction_data($datafile);
+	print_interaction_data_list(\@list_data,"1"); 	
+	# print "All_data<br>";
+    } else {
+	my $list_all = a({-href=>"/db/gene/interaction?list=all"},"all");
+	print "Go to list of $list_all interactions. Please note that the list is very long.";
+    }
+} else {
+    my $list_all = a({-href=>"/db/gene/interaction?list=all"},"all");
+    print "Go to list of $list_all interactions.  Please note that the list is very long.";
+}
+
+ClosePage;
+
+exit 0;
+
+##### subroutines ###########
+
+
+sub get_all_interaction_data{
+	my ($datafile) = shift @_;
+	open DATAFILE, "<$datafile" or die;
+	my @interaction_data;
+	foreach my $dataline (<DATAFILE>){
+		chomp $dataline;
+		my @dataline_set = split /\|/,$dataline;
+		#print "$dataline_set[0]\n";
+		push @interaction_data, [$dataline_set[0],$dataline_set[1],$dataline_set[3],$dataline_set[4],$dataline_set[5],$dataline_set[6],$dataline_set[8]];
+		#print "ok\n";
+	}
+	
+	return @interaction_data;
+}
+
+sub print_interaction_data_list {
+	my ($interaction_data_ar,$sort_index) = @_;
+	## get array of arrays
+	my @unsorted_interaction_data = @{$interaction_data_ar};
+	
+	## sort array 
+	my @a;
+	my @b;
+	my @sorted_interaction_data = sort { $a[$sort_index] cmp $b[$sort_index] } @unsorted_interaction_data; 
+	my %directions;
+	
+	$directions{'non_directional'} = 'Non-directional';
+	
+	$directions{'eftr\-\>eftd'} = 'Interactor 1 --> 2';
+	
+	
+	print start_table({-border=>1});
+    print TR({},
+ 			th({-align=>'center',-width => '15%',-class=>'databody'},'Interactor 1'),  
+			th({-align=>'center',-width => '15%',-class=>'databody'},'Interactor 2'), 		
+			th({-align=>'center',-width => '15%',-class=>'databody'},'Effector to Effected'),	
+            th({-align=>'center',-width => '15%',-class=>'databody'},'Type'),	
+            th({-align=>'center',-width => '15%',-class=>'databody'},'Phenotype'),            
+            th({-align=>'center',-width => '15%',-class=>'databody'},'Interaction')
+
+    );
+	
+	foreach my $interaction_data_ar (@sorted_interaction_data){
+		my($interaction_id,$type,$effector_id,$effector_name,$effected_id,$effected_name,$phenotype_id,$direction,$phenotype_name) = @{$interaction_data_ar};
+		
+		if(!($effector_name)){
+			$effector_name = 'gene';
+		}
+		if(!($effected_name)){
+			$effected_name = 'gene';
+		}
+		my $interaction_url = "/db/gene/interaction?name=".$interaction_id;
+		my $interaction_link = a({-href=>$interaction_url},$interaction_id);
+		
+		my $effector_url = "/db/gene/gene/?name=".$effector_id;
+		my $effector_link = a({-href=>$effector_url},$effector_name);
+		
+		my $effected_url = "/db/gene/gene/?name=".$effected_id;
+		my $effected_link = a({-href=>$effected_url},$effected_name);
+		
+		my $phenotype_url = "/db/misc/phenotype?name=" . $phenotype_id;
+		my $phenotype_link = a({-href=>$phenotype_url},$phenotype_name);
+		
+		
+		print TR({},
+				td({-align=>'center',-width => '15%',-class=>'databody'},$effector_link),	
+				td({-align=>'center',-width => '15%',-class=>'databody'},$effected_link),			
+				td({-align=>'center',-width => '15%',-class=>'databody'},$directions{$direction}),
+	            td({-align=>'center',-width => '15%',-class=>'databody'},$type),
+	            td({-align=>'center',-width => '15%',-class=>'databody'},$phenotype_link),	            
+	            td({-align=>'center',-width => '15%',-class=>'databody'},$interaction_link)
+		);
+	}
+	print end_table();
+}
+
+sub get_gene_interaction_data{
+	my ($datafile,$gene_id) = @_;
+	my $gene_data_lines = `grep $gene_id $datafile`;
+	my @gene_data_lines = split /\n/,$gene_data_lines;
+	
+	my @interaction_data;
+	foreach my $dataline (@gene_data_lines){
+		chomp $dataline;
+		my @dataline_set = split /\|/,$dataline;
+		push @interaction_data, [$dataline_set[0],$dataline_set[1],$dataline_set[3],$dataline_set[4],$dataline_set[5],$dataline_set[6],$dataline_set[7],$dataline_set[8],$dataline_set[9]];
+	}
+	return @interaction_data;
+}
+
+
+
+sub print_interaction_data{
+	my ($int_id) = @_;
+	
+	my $inteaction_data_hr = get_interaction_data($int_id);
+	
+    print start_table({-border=>1,width=>"100%"});        
+    #### interaction summary info #####
+
+	my $type_data;
+	my $reference_data;
+	my $phenotype_data;
+	my $remark;
+	my $phenotype_name;
+	my $rnai;
+
+	$type_data = ${$inteaction_data_hr}{'type'};
+	$reference_data = ${$inteaction_data_hr}{'reference'};
+	$phenotype_data = ${$inteaction_data_hr}{'phenotype'};
+	$phenotype_name = ${$inteaction_data_hr}{'phenotype_name'};
+	$remark = ${$inteaction_data_hr}{'remark'};
+	$rnai = ${$inteaction_data_hr}{'rnai'};
+
+    StartSection('Interaction Summary');    
+    SubSection("Type",$type_data);
+    SubSection("Phenotype",a({-href=>Object2URL($phenotype_data)},$phenotype_name)) if $phenotype_data;
+    SubSection("RNAi Report", a({-href=>Object2URL($rnai)},$rnai)) if $rnai;
+    SubSection("Remark", $remark) if $remark;
+	SubSection("Reference", map { a({-href=>Object2URL($_)},$_->Brief_citation) } @$reference_data) if $reference_data;
+
+
+    EndSection(); 
+     	 
+    #### effector info #####
+    
+    if (${$inteaction_data_hr}{'effector'}){
+    
+		my $effector = ${$inteaction_data_hr}{'effector'};
+	
+		display_interactor_data("Effector",$effector);
+	
+		### effected info
+		
+		my $effected = ${$inteaction_data_hr}{'effected'};
+		
+		display_interactor_data('Effected',$effected);
+    }
+    
+	else {
+	
+		my $nd1 = ${$inteaction_data_hr}{'nd1'};
+		display_interactor_data("Non-directional Interactor 1",$nd1);
+		
+		my $nd2 = ${$inteaction_data_hr}{'nd2'};
+		display_interactor_data("Non-directional Interactor 2",$nd2);
+	
+	}
+
+    EndSection();
+
+	print end_table();      
+}
+
+sub display_interactor_data{
+	
+	my ($interactor_type,$gene_id) = @_;
+	my $interactor_data_hr = get_interactor_data($gene_id);
+
+	StartSection($interactor_type);
+
+	my $gene_name = ${$interactor_data_hr}{'gene_name'};
+	if($gene_name){
+		SubSection("Gene",$gene_name,hr);
+	}else{
+		SubSection("Gene",$gene_id,hr);
+		$gene_name = $gene_id;
+	}
+    
+	
+	my $proteins_ar = ${$interactor_data_hr}{'proteins'};
+	if(@{$proteins_ar}){
+		my @protein_list;
+		foreach my $protein (@{$proteins_ar}){
+		my $protein_url = "/db/seq/protein?class=Protein;name=".$protein;
+		my $protein_link = a({-href=>$protein_url},$protein);
+		push @protein_list,$protein_link;
+		}
+	my $protein_list = join " \| ",@protein_list;
+	SubSection("Protein","$protein_list",hr);
+	}
+	
+	my $go_terms_hr = ${$interactor_data_hr}{'go_terms'};
+	
+	if(%{$go_terms_hr}){
+		my @term_list;
+		foreach my $go_term (sort keys %{$go_terms_hr}){
+			my $term_url = "/db/ontology/gene?name=".${$go_terms_hr}{$go_term};
+			my $term_link = a({-href=>$term_url},$go_term);
+			push @term_list,$term_link;
+		}
+
+
+	my $term_list = join "<br>", @term_list;
+	# tableize(@term_list);
+	SubSection("GO terms","$term_list",hr);
+	# SubSection("GO terms",tableize(@term_list),hr);
+	}	
+	
+	my $interactions_ar = ${$interactor_data_hr}{'interactions'};
+	my @interactions_list;
+	foreach my $interaction (@{$interactions_ar}){
+		my $int_url = "/db/gene/interaction?name=".$interaction;
+		my $int_link = a({-href=>$int_url},$interaction);
+		push @interactions_list,$int_link;
+	}
+	
+	my $interaction_count = @interactions_list;
+	if ($interactions_ar && ($interaction_count > 10)) {
+		my @truncated_interactions_list = @interactions_list[0 .. 9];
+		my $last_int_index = $interaction_count - 1;
+		my @rest_of_interactions = @interactions_list[10 .. $last_int_index];
+		
+		SubSection("Interactions","@truncated_interactions_list",hr);
+		my $rest_of_interactions = @rest_of_interactions;
+		my $interaction_list_url = "/db/gene/interaction?list=".$gene_id;
+		my $interaction_list_link = a({-href=>$interaction_list_url},'Go to full list of interactions.');
+		SubSection("Additional Interactions","There are(is) ".$rest_of_interactions." more interaction(s). ".$interaction_list_link,hr);
+	}
+	else{
+		SubSection("Interactions","@interactions_list",hr);	
+	}
+	
+	
+
+    EndSection();
+}
+
+##### cnp from tree_lister!!!! #######
+sub build_hash{
+	my ($file_name) = @_;
+	open FILE, "<./$file_name" or die "Cannot open the file: $file_name\n";
+	my %hash;
+	foreach my $line (<FILE>) {
+		chomp ($line);
+		my ($key, $value) = split '=>',$line;
+		$hash{$key} = $value;
+	}
+	return %hash;
+}
+
+##### end cnp from tree_lister!!!! #######
+
+sub get_interaction_data {
+	my ($interaction) = @_;
+	my %data;
+    my $it = $interaction->Interaction_type;
+
+	$data{'type'} = $it;
+	$data{'rnai'} = $it->Interaction_RNAi->right; ## $it_data->{'Interaction_RNAi'}
+	
+	my $phenotype = $it->Interaction_phenotype->right;
+	$data{'phenotype'} = $phenotype;
+	$data{'phenotype_name'} = $phenotype->Primary_name;
+	$data{'remark'} = $interaction->Remark;
+	
+	my @non_directional_interactors;
+	
+	eval {
+		@non_directional_interactors = $it->Non_directional->col;
+	};
+	
+	if ( @non_directional_interactors ) {
+		$data{'nd1'} = shift @non_directional_interactors; 
+		$data{'nd2'} = shift @non_directional_interactors;
+	}
+	
+	else {
+		$data{'effector'} = $it->Effector->right;
+		$data{'effected'} = $it->Effected->right;
+	}
+	
+	
+	my @papers = $interaction->Paper;
+	$data{'reference'} = \@papers;
+    return \%data;  ## returns text
+}
+
+sub get_interactor_data {
+	my ($gene_obj) = @_;
+	my %data;
+	my $gene_name = $gene_obj->CGC_name;
+	$data{'gene_name'} = $gene_name;
+	my 	@interactions = $gene_obj->Interaction;
+	$data{'interactions'} = \@interactions;
+	# $data{'phenotype'} = $gene_obj->Phenotype;
+	my @go_terms = $gene_obj->GO_term;
+	my %go_terms;
+	foreach my $go_term_obj (@go_terms){
+		my $go_term = $go_term_obj->Term;
+		$go_terms{$go_term} = $go_term_obj;
+	}
+	$data{'go_terms'} = \%go_terms;
+	my @cds = $gene_obj->Corresponding_CDS;
+  	my @proteins  = map {$_->Corresponding_protein(-fill=>1)} @cds if (@cds);
+	$data{'proteins'} = \@proteins;
+	return \%data;
+}	
+
+sub interaction_matrix {
+    my @interactions = get_compiled_gene_interactions($datafile,$GENE); #get_filtered_gene_interactions(); # $GENE->Interaction
+    my @yh_baits     = $GENE->Yh_bait;
+    my @yh_targets   = $GENE->Yh_target;
+
+    # The following are passed onto the WormBase::Table module
+    my @x_labels;
+    my @y_labels;
+
+    my $x_label_info = {};
+    my $y_label_info = {};
+
+    my $data_content = {};
+    my $data_info    = {};
+
+    # All interactor GO Terms
+    my @go_terms;
+    my %seen_interactors;
+
+    # Interaction objects
+    foreach my $interaction (@interactions) {
+        my @interactors       = $interaction->Interactor;
+        my @interaction_types = $interaction->Interaction_type;
+        my @papers            = $interaction->Paper;
+
+        if (@interactors != 2) {
+            print STDERR
+              "Interaction object ($interaction) has incorrect number of interactors!";
+            next;
+        }
+
+        if (@interaction_types != 1) {
+            print STDERR
+              "Interaction object ($interaction) has incorrect number of interaction types!";
+            next;
+        }
+
+        my $type = $interaction_types[0];
+        $type =~ s/_interaction$//;
+        $type = lc($type);
+
+        my $interactor =
+          $interactors[0] ne $GENE ? $interactors[0] : $interactors[1];
+
+        push @go_terms, $interactor->Go_term unless $seen_interactors{"$interactor"};
+        $seen_interactors{"$interactor"}++;
+
+        my $interactor_best_name = Bestname($interactor);
+        $data_content->{$interactor_best_name}->{$type}++;
+        push @{$data_info->{$interactor_best_name}->{$type}}, @papers;
+        $x_label_info->{$interactor_best_name} =
+          qq[onclick="balloon.showTooltip(event,'url:/db/gene/interaction_details?mode=gene;gene=$interactor', 1)"]
+          unless $x_label_info->{$interactor_best_name};
+    }
+
+    #YH objects
+     foreach my $yh (@yh_baits, @yh_targets) {
+         my @baits            = $yh->Bait_overlapping_gene;
+         my @targets          = $yh->Target_overlapping_gene;
+         my @experiment_types = $yh->Experiment_type;
+         my @references       = $yh->Reference;
+ 
+         if (@baits != 1) {
+             print STDERR "YH object ($yh) has incorrect number of baits!";
+             next;
+         }
+ 
+         if (@targets != 1) {
+             print STDERR "YH object ($yh) has incorrect number of targets!";
+             next;
+         }
+ 
+         if (@experiment_types != 1) {
+             print STDERR
+               "YH object ($yh) has incorrect number of experiment types!";
+             next;
+         }
+ 
+         my $bait   = $baits[0];
+         my $target = $targets[0];
+         my $type   = $experiment_types[0];
+ 
+         my ($sub_type, $interactor) =
+           $bait ne $GENE ? ('(bait)', $bait) : ('(target)', $target);
+         $type .= $sub_type;
+ 
+         push @go_terms, $interactor->Go_term unless $seen_interactors{"$interactor"};
+         $seen_interactors{"$interactor"}++;
+ 
+         my $interactor_best_name = Bestname($interactor);
+         $data_content->{$interactor_best_name}->{$type}++;
+         push @{$data_info->{$interactor_best_name}->{$type}}, @references;
+         $x_label_info->{$interactor_best_name} =
+           qq[onclick="balloon.showTooltip(event,'url:/db/gene/interaction_details?mode=gene;gene=$interactor', 1)"]
+           unless $x_label_info->{$interactor_best_name};
+     }
+
+    my %x_labels;
+    my %y_labels;
+    foreach my $x_label (keys %{$data_content}) {
+        $x_labels{$x_label}++;
+        foreach my $y_label (keys %{$data_content->{$x_label}}) {
+            $y_labels{$y_label}++;
+            $y_label_info->{$y_label} =
+              qq[onclick="balloon.showTooltip(event,'url:/db/gene/interaction_details?mode=type;type=$y_label', 1)"]
+              unless $y_label_info->{$y_label};
+
+        }
+    }
+    @x_labels = keys %x_labels;
+    @y_labels = keys %y_labels;
+
+    # Prepare info for each node
+    my $gene_best_name = Bestname($GENE);
+    foreach my $x_label (keys %{$data_info}) {
+        foreach my $y_label (keys %{$data_info->{$x_label}}) {
+            my @papers = @{$data_info->{$x_label}->{$y_label}};
+
+            my $papers = join(',', @papers);
+
+            $data_info->{$x_label}->{$y_label} =
+              qq[onclick="balloon.showTooltip(event,'url:/db/gene/interaction_details?mode=count;gene=$GENE;interactor=$x_label;type=$y_label;papers=$papers', 1)"];
+        }
+    }
+
+    my $chunk_size = @x_labels < 10 ? @x_labels : int(@x_labels / 3) + 1;
+    my $last_index = $#x_labels;
+
+    my $start = 0;
+    my $end   = -1;
+
+    # Prepare html and return it
+    my $interaction_matrix_html;
+    
+    $interaction_matrix_html .= qq[<table><tr>\n]; 
+
+    while ($end < $last_index) {
+        $start = $end + 1;
+        $end   =
+            $start + $chunk_size - 1 > $last_index
+          ? $last_index
+          : $start + $chunk_size - 1;
+
+        my $table = WormBase::Table->new(
+            x_labels     => [@x_labels[$start .. $end]],
+            y_labels     => \@y_labels,
+            x_label_info => $x_label_info,
+            y_label_info => $y_label_info,
+            data_content => $data_content,
+            data_info    => $data_info,
+            rotate       => 1,
+        );
+
+        $interaction_matrix_html .= qq[<td valign="top">\n];
+        $interaction_matrix_html .= $table->render_html;
+        $interaction_matrix_html .= qq[</td>\n];
+    }
+
+    $interaction_matrix_html .= qq[</tr>\n];
+    $interaction_matrix_html .= qq[</table>\n];
+
+    # Separate go terms into types
+    my %all_go_terms;
+    foreach my $go_term (@go_terms) {
+        my ($type) = $go_term->Type;
+        push @{$all_go_terms{$type}}, $go_term;
+    }
+    
+    foreach my $type (sort keys %all_go_terms) {
+        $interaction_matrix_html .= go_pie_charts($all_go_terms{$type}, $type);
+    }    
+
+    # Add a link to N-Browse interaction viewer
+    my $gene_name = $GENE->name;
+    return $interaction_matrix_html unless ($GENE->Species =~ /elegans/i);
+
+    my $interaction_viewer = a({-href=>Object2URL($gene_name,'Nbrowse'), -target=>'_blank'}, img({src=>'INTERACTION_VIEWER_IMAGE'}));
+#                             . '&nbsp;&nbsp;' 
+#                             . a({-href=>Object2URL($gene_name,'Nbrowse'), -target=>'_blank'},'Launch N-Browse')
+#                             . '&nbsp;&nbsp;' 
+#                             . a({-href=>Object2URL('','Nbrowse'), -target=>'_blank'},'[More details]');
+                             
+                             
+     ##  
+    
+    return $interaction_viewer . br() . $interaction_matrix_html; ## knocked out nBrowse till I can figure out how to populate data!
+	#return $interaction_matrix_html;
+}
+
+sub get_compiled_gene_interactions {
+
+
+my ($datafile,$gene_id) = @_;
+	my $gene_data_lines = `grep $gene_id $datafile`;
+	my @gene_data_lines = split /\n/,$gene_data_lines;
+	
+	my @interaction_data;
+	my %interactions;
+	foreach my $dataline (@gene_data_lines){
+		chomp $dataline;
+		my @dataline_set = split /\|/,$dataline;
+		$interactions{$dataline_set[0]} = 1;
+	}
+	
+	foreach my $int_id (keys %interactions) {
+	
+		my $int_obj = $DB->fetch(-class=>'Interaction',-name=>$int_id);
+		push @interaction_data,$int_obj;
+	
+	}
+	
+	return @interaction_data;
+
+
+}
+
+sub go_pie_charts{
+    my ($go_terms_ref, $type) = @_;
+
+    my @go_terms = @$go_terms_ref;
+
+    # Process GO Terms
+    my %go_terms;
+    my %go_term_objects;
+    my %go_term_defs;
+    foreach my $go_term (@go_terms) {
+        next unless $go_term;
+        $go_term_objects{"$go_term"} = $go_term;
+        $go_terms{"$go_term"}++;
+        my ($term) = $go_term->Term;
+        $go_term_defs{$go_term} =
+          ($term && $type) ? qq[$go_term: $term] : $go_term;
+    }
+    $go_term_defs{'Other'} = 'Other';
+    
+    my $go_terms_total;
+    foreach (keys %go_terms) {
+        $go_terms_total += $go_terms{$_};
+    }    
+
+    my @colors = qw[
+      #0000FF
+      #FF7F50
+      #00FFFF
+      #FFD700
+      #808080
+      #008000
+      #4B0082
+      #E6E6FA
+      #FFB6C1
+      #FFA07A
+      #800000
+      #FFE4E1
+      #808000
+      #FFA500
+      #FF0000
+      #4682B4
+      #FF6347
+      #EE82EE
+      #F5DEB3
+      #FFFF00
+    ];
+
+    my %go_pie_chart;
+    my $go_pie_chart_total;
+    
+    foreach
+      my $go_term (sort { $go_terms{$b} <=> $go_terms{$a} } keys %go_terms) {
+        if ($go_terms{$go_term} / $go_terms_total < 0.050) {
+            $go_pie_chart{Other} += $go_terms{$go_term};
+        }
+        else {
+            $go_pie_chart{$go_term} = $go_terms{$go_term};
+        }
+        $go_pie_chart_total += $go_terms{$go_term};
+    }
+
+    my @pie_chart_keys;
+    my @pie_chart_values;
+    my @pie_chart_colors;
+    foreach my $go_term (
+        sort {
+                $a eq 'Other' ? 1
+              : $b eq 'Other' ? -1
+              : $go_pie_chart{$b} <=> $go_pie_chart{$a}
+        } keys %go_pie_chart
+      ) {
+        push @pie_chart_keys,   $go_term_defs{$go_term};
+        push @pie_chart_values, $go_pie_chart{$go_term};
+        push @pie_chart_colors, $colors[$#pie_chart_keys % @colors];
+    }
+
+    # Pie chart legend
+    my $pie_chart_legend_html;
+    $pie_chart_legend_html  = qq[<table class="pie_chart_legend">\n];
+    $pie_chart_legend_html .= qq[<tr><td colspan="3"><b>GO Terms - $type</b></td></tr>\n];
+    foreach my $i (0 .. $#pie_chart_keys) {
+        my $key   = $pie_chart_keys[$i];
+        my $value = $pie_chart_values[$i];
+        my $color = $pie_chart_colors[$i];
+
+        my $percent = int($value / $go_pie_chart_total * 1000) / 10;
+
+        $pie_chart_legend_html .=
+          qq[<tr><td style="background-color: $color">&nbsp;&nbsp;&nbsp;<td></td><td>$key</td><td>$percent%</td></tr>\n];
+    }
+    $pie_chart_legend_html .= qq[</table>\n];
+
+
+    # HACK HACK HACK HACK!
+    # This TOTALLY diverges from our normal tmpdir image handling
+    my ($server) = $ENV{SERVER_NAME} =~ /(.*?)\..*/;
+    $server    ||= 'local';
+
+    # OLD WAY
+    # my $temp_dir    = Configuration->Wormbase . '/html/blast_blat/tmp';
+    # my $temp_dir_eq = "/blast_blat/tmp";
+
+    my $temp_dir_eq = "/dynamic_images/$server";
+    my $temp_dir = "/var/tmp/dynamic_images/$server";
+    system("mkdir $temp_dir");
+
+    # Clean temp dir
+    my $clean_cmd =
+          "find $temp_dir -name \'pie_chart_*\' -amin +20 -exec rm -f {} \\;";
+    system($clean_cmd);      
+    
+    my $temp_file = File::Temp->new(
+        TEMPLATE => "pie_chart_XXXXX",
+        DIR      => $temp_dir,
+        SUFFIX   => ".png",
+        UNLINK   => 0,
+    );
+    my $temp_image = $temp_file->filename;
+
+    my $graph = GD::Graph::pie->new(120, 120)
+      or croak("Cannot create an GD::Graph object!");
+
+    $graph->set(
+        '3d'          => 1,
+        'start_angle' => 180,
+        'accentclr'   => 'dgray',
+        'label'       => "GO Terms (total: $go_terms_total)",
+        'dclrs'       => \@pie_chart_colors,
+      )
+      or croak($graph->error);
+
+    my $icon =
+      $graph->plot([[map { undef } @pie_chart_keys], \@pie_chart_values])
+      or croak($graph->error);    # Convert to GD object
+
+    open(IMG, ">$temp_image")
+      or croak("Cannot write file ($temp_image): $!");
+    binmode IMG;
+    print IMG $icon->png;
+    close IMG;
+
+    my ($temp_image_file_name) = $temp_image =~ /([^\/]+)$/;
+    
+    my $go_pie_chart_html;
+    $go_pie_chart_html .= qq[<table>\n];    
+    $go_pie_chart_html .= qq[<tr>\n];
+    $go_pie_chart_html .= qq[<td valign="top"><img src="$temp_dir_eq/$temp_image_file_name"/></td>\n];
+    $go_pie_chart_html .= qq[<td>$pie_chart_legend_html</td></tr>\n];
+    $go_pie_chart_html .= qq[</table>\n];
+
+    return $go_pie_chart_html;
+}

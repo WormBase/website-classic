@@ -1,0 +1,410 @@
+#!/usr/bin/perl
+
+use strict;
+use vars qw/$DB/;
+
+use lib '../lib';
+
+use Ace 1.50;
+use CGI::Carp qw/fatalsToBrowser/;
+use CGI qw/:standard :html3 escape center *table *TR *td *pre/;
+use Ace::Browser::AceSubs qw(:DEFAULT Style Configuration ResolveUrl Style);
+use Ace::Browser::SearchSubs;
+use ElegansSubs qw(:DEFAULT PrintRNAiPattern GetInterpolatedPosition);
+
+use vars qw/%PDESC @POSTEMBRYONIC %CHOSEN_DATASETS %po_terms/;
+
+# fetch database handle
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$|++;
+
+PrintTop(undef,undef,undef,
+	 '-Title' =>'RNAi Phenotype Search',
+	 '-Style' =>Style(),
+#	 '-Target'=>'_top',
+	 '-Class' =>'search');
+
+%CHOSEN_DATASETS = map { $_ => 1 } param('datasets');
+display_rnai_search_form();
+#display_rnai_search();
+
+PrintBottom();
+
+
+# Some top-level terms to make available for the search
+%po_terms = (
+		WBPhenotype0000001 => 'body posture abnormal',
+		WBPhenotype0000033 => 'developmental timing abnormal',
+		WBPhenotype0000035 => 'larval body morphology abnormal',
+		WBPhenotype0000036 => 'adult body morphology abnormal',
+		WBPhenotype0000037 => 'egg morphology abnormal',
+		WBPhenotype0000039 => 'life span abnormal',
+		WBPhenotype0000043 => 'general pace of development abnormal',
+		WBPhenotype0000049 => 'postembryonic development abnormal',
+		WBPhenotype0000050 => 'embryonic lethal',
+		WBPhenotype0000054 => 'larval lethal',
+		WBPhenotype0000060 => 'adult early lethal',
+		WBPhenotype0000062 => 'lethal',
+		WBPhenotype0000065 => 'male specific lethality',
+		WBPhenotype0000066 => 'hermaphrodite specific lethality',
+		WBPhenotype0000069 => 'progeny abnormal',
+		WBPhenotype0000072 => 'body morphology abnormal',
+		WBPhenotype0000074 => 'genetic pathway abnormal',
+		WBPhenotype0000093 => 'lineage abnormal',
+		WBPhenotype0000104 => 'cell polarity abnormal',
+		WBPhenotype0000145 => 'fertility abnormal',
+		WBPhenotype0000165 => 'cell fusion abnormal',
+		WBPhenotype0000171 => 'cell proliferation abnormal',
+		WBPhenotype0000200 => 'pericellular component development abnormal',
+		WBPhenotype0000216 => 'cell fate specification abnormal',
+		WBPhenotype0000258 => 'cell secretion abnormal',
+		WBPhenotype0000269 => 'unclassified',
+		WBPhenotype0000277 => 'rhythms slow',
+		WBPhenotype0000315 => 'mechanosensory abnormal',
+		WBPhenotype0000354 => 'cell differentiation abnormal',
+		WBPhenotype0000478 => 'isothermal tracking behavior abnormal',
+		WBPhenotype0000504 => 'nuclear division abnormal',
+		WBPhenotype0000511 => 'nuclear positioning abnormal',
+		WBPhenotype0000525 => 'organism behavior abnormal',
+		WBPhenotype0000526 => 'cell pigmentation abnormal',
+		WBPhenotype0000527 => 'organism pigmentation abnormal',
+		WBPhenotype0000529 => 'cell development abnormal',
+		WBPhenotype0000530 => 'organ system development abnormal',
+		WBPhenotype0000531 => 'organism development abnormal',
+		WBPhenotype0000533 => 'cell morphology abnormal',
+		WBPhenotype0000534 => 'organ system morphology abnormal',
+		WBPhenotype0000535 => 'organism morphology abnormal',
+		WBPhenotype0000536 => 'cell physiology abnormal',
+		WBPhenotype0000575 => 'organ system physiology abnormal',
+		WBPhenotype0000576 => 'organism physiology abnormal',
+		WBPhenotype0000577 => 'organism homeostasis metabolism abnormal',
+		WBPhenotype0000585 => 'cell homeostasis metabolism abnormal',
+		WBPhenotype0000594 => 'cell migration abnormal',
+		WBPhenotype0000598 => 'alimentary system morphology abnormal',
+		WBPhenotype0000599 => 'coelomic system morphology abnormal',
+		WBPhenotype0000600 => 'epithelial system morphology abnormal',
+		WBPhenotype0000601 => 'excretory secretory system morphology abnormal',
+		WBPhenotype0000603 => 'muscle system morphology abnormal',
+		WBPhenotype0000604 => 'nervous system morphology abnormal',
+		WBPhenotype0000605 => 'reproductive system morphology abnormal',
+		WBPhenotype0000606 => 'alimentary system physiology abnormal',
+		WBPhenotype0000607 => 'coelomic system physiology abnormal',
+		WBPhenotype0000608 => 'epithelial system physiology abnormal',
+		WBPhenotype0000609 => 'excretory secretory system physiology abnormal',
+		WBPhenotype0000610 => 'excretory system physiology abnormal',
+		WBPhenotype0000611 => 'muscle system physiology abnormal',
+		WBPhenotype0000612 => 'nervous system physiology abnormal',
+		WBPhenotype0000613 => 'reproductive system physiology abnormal',
+		WBPhenotype0000617 => 'alimentary system development abnormal',
+		WBPhenotype0000618 => 'coelomic system development abnormal',
+		WBPhenotype0000619 => 'epithelial system development abnormal',
+		WBPhenotype0000620 => 'excretory secretory system development abnormal',
+		WBPhenotype0000621 => 'excretory system development abnormal',
+		WBPhenotype0000622 => 'muscle system development abnormal',
+		WBPhenotype0000623 => 'nervous system development abnormal',
+		WBPhenotype0000624 => 'reproductive system development abnormal',
+		WBPhenotype0000626 => 'habituation abnormal',
+		WBPhenotype0000634 => 'pharyngeal pumping abnormal',
+		WBPhenotype0000640 => 'egg laying abnormal',
+		WBPhenotype0000643 => 'locomotion abnormal',
+		WBPhenotype0000647 => 'copulation abnormal',
+		WBPhenotype0000650 => 'defecation abnormal',
+		WBPhenotype0000659 => 'feeding behavior abnormal',
+		WBPhenotype0000662 => 'foraging behavior abnormal',
+		WBPhenotype0000666 => 'ovulation abnormal',
+		WBPhenotype0000722 => 'nucleoli abnormal',
+		WBPhenotype0000729 => 'cell death abnormal',
+		WBPhenotype0000738 => 'organism environmental stimulus response abnormal',
+		WBPhenotype0000740 => 'cell cycle abnormal',
+		WBPhenotype0000746 => 'cell division abnormal',
+		WBPhenotype0000749 => 'embryonic development abnormal',
+		WBPhenotype0000763 => 'embryonic cell physiology abnormal',
+		WBPhenotype0000770 => 'embryonic cell morphology abnormal',
+		WBPhenotype0000821 => 'sexually dimorphic behavior abnormal',
+		WBPhenotype0000886 => 'Abnormal',
+		WBPhenotype0000889 => 'sexually dimorphic physiology abnormal',
+		WBPhenotype0000930 => 'sexually dimorphic development abnormal',
+		WBPhenotype0000934 => 'developmental morphology abnormal',
+		WBPhenotype0001000 => 'developmental behavior abnormal',
+		WBPhenotype0001023 => 'sexually dimorphic morphology abnormal',
+		WBPhenotype0001028 => 'nuclear appearance abnormal',
+		WBPhenotype0001049 => 'chemosensory behavior abnormal',
+		WBPhenotype0001206 => 'movement abnormal',
+		WBPhenotype0001210 => 'pericellular component physiology abnormal',
+		WBPhenotype0010001 => 'cell growth abnormal',
+		WBPhenotype0010002 => 'cell organization and biogenesis abnormal',
+	       );
+		
+
+################# RNAi SECTION ######################
+sub display_rnai_search_form {
+    my $wm = a({-href=>'http://www.wormbase.org/Multi/martview'},'WormMart');
+    print h1(span({-name => 'warning'}),'Note: RNAi search temporarily unavailable.'
+	     ),
+	p("The original RNAi search script has been retired.  Interested users can
+           now search all RNAi experiments through $wm.");
+    return;
+  print
+    h1(a({-name=>'rnai'},'RNAi Phenotype Search')),
+      p({-class=>'small'},
+	font({-size=>-1},
+	     'Select one or more of the following top level phenotypes associated with RNAi experiments.',
+	     'Optionally, you may choose to limit results to specific datasets or chromosomal locations.'));
+
+
+  # ACk!  The old style terms have disappeared!
+  #  unless (@POSTEMBRYONIC) {
+  #    @POSTEMBRYONIC = grep { /^[A-Z]/ }
+  #      sort $DB->fetch(-query=>
+  #		      'find Phenotype "post-embryonic defect" ; >Generalisation_of');
+  #    %PDESC = map {$_ => "&nbsp;($_)&nbsp;".$_->Description} @POSTEMBRYONIC;
+  #  }
+
+  # sort into generic and specific postembryonic findings
+  # DEPRECATED
+  # my @generic     = grep {!/^[A-Z][a-z]{2}$/} @POSTEMBRYONIC;
+  # my @specific    = grep {/[A-Z][a-z]{2}$/} @POSTEMBRYONIC;
+
+  # Should still work
+  my @chromosomes = (qw/I II III IV V X/);
+  my @datasets    = (qw/ahringer hyman maeda piano simmer vidal sieburth other/);
+  my %dataset_labels = (
+			ahringer => 'Ahringer, 2003',hyman => 'Hyman, 2000',
+			maeda    => 'Maeda, 2001',
+ 			piano    => 'Piano, 2002',
+			simmer   => 'Simmer, 2003',
+			vidal    => 'Vidal, 2004',
+			sieburth => 'Sieburth, 2004', 
+			other => 'other');
+
+  autoEscape(0);
+  print start_form(-action=>'#rnai_results');
+
+    print start_table({-width => '100%'}),
+    TR(td({-class=>'searchtitle',-colspan=>2},
+	  h3('Phenotypes'))),
+    TR(td({-class=>'searchbody',-colspan=>2},
+	  center(scrolling_list(-name   => 'phenotypes',
+				-values => [ keys %po_terms ],
+				-labels => \%po_terms,
+#			 -values => [qw/ eeenie meenie moe/],
+				-size   => 10,
+				-multiple => 'true'
+				) )));
+    
+    print TR({-class=>'searchtitle'},td({-colspan=>2},h3('Limit results'))),
+    
+    TR({-class=>'searchbody'},
+       td({-align=>'top'},'Limit results to the following datasets:'),
+       td(
+	  checkbox_group(-name     => 'datasets',
+			 -value    => \@datasets,
+			 -labels   => \%dataset_labels,
+			 -defaults => \@datasets,
+			 -linebreak=> 'true'))),
+	   TR({-class=>'searchbody'},
+td('Limit results to the following chromosomal range in genetic map vallues (ie -1.0 or 4.3):'),
+	      td(
+		 popup_menu(-name      => 'chromosome',
+			    -value     => \@chromosomes,
+			    -default  => [qw//]),
+		 textfield({-name=>'gstart',-width=>10}),' to ',
+		 textfield({-name=>'gstop',-width=>10}))),
+	      TR({-class=>'searchbody'},
+td('Limit results to experiments with movies'),
+		 td(radio_group(-name      => 'movies',
+				-value     => [qw/yes no/],
+				-default  => 'no')));
+
+
+       
+#  print
+#    start_table({-width=>'100%'}),
+#      TR(th({-class=>'searchtitle'},['Maternal Phenotype','Embryonic Phenotype'])),
+#	TR(td({-class=>'searchbody'},
+#	      [
+#	       b('Partly or completely sterile:').radio_group(-name=>'sterile',
+#							      -values=>['yes','no',"don't care"],
+#							      -default=>"don't care"),
+#	       b('Embryonic lethal:').radio_group(-name=>'embryonic_lethal',
+#						  -values=>['yes','no',"don't care"],
+#						  -default=>"don't care"),
+#	      ]
+#	     )
+#	  );
+
+  # I believe that this will need to go away
+
+#  print TR(th({-class=>'searchtitle',-colspan=>2},'General Postembryonic Phenotypes')),
+#    TR(
+#       td({-align=>'CENTER',-class=>'searchbody',-colspan=>2},
+#	  checkbox_group(-name=>'postembryonic',-value=>\@generic)
+#	 )
+#      ),
+#	TR(th({-class=>'searchtitle',-colspan=>2},'Specific Postembryonic Phenotypes')),
+#	  TR(
+#	     td({-class=>'searchbody',-colspan=>2},
+#		checkbox_group(-name=>'postembryonic',-value=>\@specific,-labels=>\%PDESC,-rows=>5)
+#	       )
+#	    );
+#
+    
+    # Will I need to dispense with this as well?
+#  print TR(th({-class=>'searchbody',-colspan=>2},
+#	      'Combine conditions with ',radio_group(-name=>'junction',-values=>['AND','OR'])
+#	     ));
+
+#  print TR(th({-class=>'searchtitle',-colspan=>2},'Limits')),
+    
+    #  print TR(th({-class=>'searchtitle',-colspan=>2},'Prominent datasets')),
+
+
+  print TR(th({-class=>'searchtitle',-colspan=>2,-align=>'right'},
+	      defaults(-name=>'Reset'),
+	      submit(-name=>'Search')));
+#		TR(th({-class=>'searchbody',-colspan=>2},
+#		      submit(-name=>'List genes with wild type RNAi assays'),
+#		      submit(-name=>'List genes with positive RNAi assays'),
+#		      submit(-name=>'List genes with ANY RNAi assay')
+#		     ));
+
+  autoEscape(1);
+  print end_table;
+  print hidden(-name=>'rnai',-value=>1),end_form;
+}
+
+sub display_rnai_search {
+  return unless param('phenotypes');
+  if (param('List genes with positive RNAi assays')) {
+    list_RNAi('positive');
+    return;
+  } elsif (param('List genes with ANY RNAi assay')) {
+    list_RNAi('all');
+    return;
+  } elsif (param('List genes with wild type RNAi assays')) {
+    list_RNAi('WT');
+    return;
+  }
+  
+  my @phenes = param('phenotypes');
+  unless (@phenes) {
+    print p(font({-color=>'red'},'Please select one or more phenotype descriptions'));
+    return;
+  }
+  
+  # Find all RNAi objects that have been annotated with the
+  # appropriate phenotype objects, booleaned if necessary
+  my $junction = param('junction') || 'AND';
+  
+#  my $query_string = 'find RNAi';
+  my $query_string = 'find Phenotype';
+  my @queries;
+  foreach (@phenes) {
+      push @queries,$_;
+#    $query_string .= qq{RNAi = "$_"};
+  }
+  
+  $query_string .= ' ' . join " $junction ",@queries;
+  my @selected_phenes = $DB->fetch(-query=>$query_string,-filled=>1);
+  my @preliminary_results;
+  foreach (@selected_phenes) {
+      push @preliminary_results,$_->RNAi;
+      print $_;
+  }
+  # Purge those that are not part of the requested datasets
+  my @results = filter_results(\@preliminary_results);
+  
+  print h2(a({-name=>'rnai_results'},scalar(@results),' Results Found' ));
+  PrintRNAiPattern(\@results);
+}
+
+sub list_RNAi {
+  my $type = shift;
+  my $query = $type eq 'all' ? 'find RNAi'
+             :$type eq 'WT'  ? 'find RNAi Phenotype = WT'
+             : 'find RNAi Phenotype != WT';
+  my @results  = $DB->fetch(-query=>$query,-fill=>1);
+  print start_pre;
+  print sprintf("%20s %20s %-30s\n",'Gene','RNAi Assay','Phenotype');
+  my $index = 0;
+  foreach (@results) {
+    my $flag = filter_inline($_);
+    next unless $flag;
+    my $predicted_gene = $_->Predicted_gene;
+
+
+#    my $phenotype = join(br,map { best_phenotype_name($_) } @phenotypes);
+    my $phenotype;
+#    print ++$index,".",
+#      ' ' x (20 - length $predicted_gene),ObjectLink($predicted_gene),
+#	' ' x (20 - length $_),a({-href=>Object2URL($_)},($_->History_name ? $_->History_name : $_)),
+#	  ' ' x 2,$phenotype,
+#      "\n";
+    print $_,"\n";
+  }
+  print end_pre;
+}
+
+
+sub filter_results {
+  my $preliminary_results = shift;
+  my @results;
+  foreach (@$preliminary_results) {
+    my $name = $_->History_name;
+    my $flag;
+    next if ($name =~ /^JA\:/       &&  !defined $CHOSEN_DATASETS{ahringer});
+    next if ($name =~ /^SA\:/       &&  !defined $CHOSEN_DATASETS{maeda});
+    next if ($name =~ /^TH\:/       &&  !defined $CHOSEN_DATASETS{hyman});
+    next if ($name =~ /^PF\:/       &&  !defined $CHOSEN_DATASETS{piano});
+    next if ($name =~ /^Simmer\:/   &&  !defined $CHOSEN_DATASETS{simmer});
+    next if ($name =~ /^MV_SV\:/    &&  !defined $CHOSEN_DATASETS{vidal});
+    next if ($name !~ /^JA|SA|TH|PF|Simmer|MV_SV/  && !defined $CHOSEN_DATASETS{other});
+
+    # Filter by presence of movies (if requested)
+    if (param('movies') eq 'yes') {
+      next unless $_->Movie;
+    }
+
+    # Filter based on chromosome, if requested
+    next unless filter_by_chromosome($_);
+    push (@results,$_);
+  }
+  return @results;
+}
+
+sub filter_inline {
+  my $rnai = shift;
+  my $name = $rnai->History_name;
+  return 1 if ($name =~ /^JA\:/       && defined $CHOSEN_DATASETS{ahringer});
+  return 1 if ($name =~ /^SA\:/       && defined $CHOSEN_DATASETS{maeda});
+  return 1 if ($name =~ /^TH\:/       && defined $CHOSEN_DATASETS{hyman});
+  return 1 if ($name =~ /^PF\:/       && defined $CHOSEN_DATASETS{piano});
+  return 1 if ($name =~ /^Simmer\:/   && defined $CHOSEN_DATASETS{simmer});
+  return 1 if ($name =~ /^MV_SV\:/    && defined $CHOSEN_DATASETS{vidal});
+  return 1 if ($name !~ /^JA|SA|TH|PF|Simmer|MV_SV/  && !defined $CHOSEN_DATASETS{other});
+
+  # Filter based on chromosome, if requested
+  return 1 if filter_by_chromosome($rnai);
+  return 0;
+}
+
+
+
+# Filter results by chromosome if requested
+# This isn't very efficient since I have to process all results already fetched.
+# Return false if experiment is not within range
+# Return true if experiment is within range
+sub filter_by_chromosome {
+  my $rnai = shift;
+  return 1 unless param('gstart') && param('gstop');
+  my $chrom = param('chromosome');
+  my $start = param('gstart');
+  my $stop  = param('gstop');
+  my $gene = $rnai->Gene;
+  return 0 unless $gene;
+
+  my ($exp_chrom,$pos) = GetInterpolatedPosition($DB,$gene);
+  return 0 unless ($exp_chrom eq $chrom);
+  return 0 unless ($pos > $start && $pos < $stop);
+  return 1;
+}

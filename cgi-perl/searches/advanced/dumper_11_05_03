@@ -1,0 +1,640 @@
+#!/usr/bin/perl -w
+#modified, Jack, July 2003
+#add C. briggsae option, Oct 2003
+
+use strict;
+use lib '../../lib';
+use CGI::Carp qw/fatalsToBrowser/;
+use CGI qw/:standard :html3 escape *table *TR *td *pre default/;
+use Ace::Browser::AceSubs qw(:DEFAULT Configuration ResolveUrl);
+use ElegansSubs qw(:DEFAULT FindPosition);
+use Bio::DB::GFF;
+use Bio::Graphics::Browser::Markup;
+use Bio::Graphics::FeatureFile;
+use constant CONFIG => '/usr/local/wormbase/conf/gbrowse.conf/wormbase.conf';
+use constant CONFIG_BRIGGSAE => '/usr/local/wormbase/conf/gbrowse.conf/briggsae.conf';
+use constant DEBUG => 1;
+use vars qw($DB $recurse %fmethod $seqfactory %examples);
+
+%examples = (elegans => 'AC3.8&nbsp;&nbsp;M7&nbsp;&nbsp;X&nbsp;&nbsp;IV&nbsp;&nbsp;III:1000..4000',
+             briggsae=> 'cb25.fpc2397');
+
+my (@results,$DBGFF, $fmethod);
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$DB->class('Ace::Object::Wormbase');
+
+if (param()){
+
+  #open corresponding databases
+  if (param('worm') eq 'briggsae') {
+    ($DBGFF, $fmethod) = openBriggsaeDB();
+  } else {
+    ($DBGFF, $fmethod) = openElegansDB();
+  }
+
+  #checking parameters
+  if (param('DNA') ne 'paste features back for further searches'){
+    if((param('dump') eq 'HTML') and (param('DNA'))){
+      PrintTop(undef,
+             undef,
+             undef,
+    	     '-Title'  =>'Batch Sequences Dump for  Wormbase',
+    	     '-Target' =>'_top',
+    	     '-Class'  =>'search');
+      print h1("Batch Sequences");
+      print h2 ("Search results:");
+      print pre("Legend: 
+            <font style=\"Background-color:pink\" >pink lowercase</font> = 5' (upstream) sequences
+            <font style=\"Background-color:cyan\">cyan lowercase</font> = 3' (downstream) sequences
+            <font style=\"Background-color:yellow\">YELLOW CAPITAL CASE</font> = Exons
+      ");
+
+    }elsif(param('dump') eq 'Save to disk (Plain TEXT)'){
+      print header(-attachment => 'wormbase_batch.txt',
+                         -type => 'application/octet-stream');
+    }
+
+    #the meat
+    @results = dumper($DBGFF, $fmethod,  param('DNA'));
+
+    #if no hits, show the blank form with error msg
+    if (!@results){
+      PrintTop(undef,
+           undef,
+           undef,
+        	 '-Title'  =>'Batch Sequences Dump for WormBase',
+        	 '-Target' =>'_top',
+        	 '-Class'  =>'search');
+      print h1("Batch Sequences");
+      print h3("No Results for This Search or Database Changed, Try Again.");
+      print_HTML ($fmethod); 
+      PrintBottom();
+      exit;
+    }
+  }else{
+    #recursive search option
+    $recurse = join ",\n",@results;
+    PrintTop(undef,
+         undef,
+         undef,
+         '-Title'  =>'Batch Sequences Dump for WormBase',
+         '-Target' =>'_top',
+         '-Class'  =>'search');
+
+    print $currentdb, " was the current db 003" if (defined $currentdb);
+    print h1("Batch Sequences");
+    print_HTML($fmethod);
+    $currentdb= param('worm'); #initial value
+    PrintBottom();
+    exit;
+  }
+  exit unless (param('DNA') eq 'paste features back for further searches');
+  
+}else{
+  ($DBGFF, $fmethod) = openElegansDB();
+   PrintTop(undef,
+         undef,
+         undef,
+	 '-Title'  =>'Batch Sequences Dump for WormBase',
+	 '-Target' =>'_top',
+	 '-Class'  =>'search');
+
+  print h1("Batch Sequences");
+  print_HTML($fmethod);
+  PrintBottom();
+  exit;
+} 
+
+########################### end of program    #################################
+
+# open C. elegans database
+sub openElegansDB{
+  my $DBGFF   = OpenDBGFF($DB)   || AceError("Couldn't open GFF database."); 
+  my $data = Bio::Graphics::FeatureFile->new(-file=>CONFIG) or die; 
+  my @aggregators  = split /\s+/,$data->setting(general => 'aggregators'); 
+  $seqfactory = Bio::DB::GFF->new(-adaptor => 'dbi::mysqlopt',
+			        -dsn     => 'dbi:mysql:database=elegans;host=localhost',
+				-aggregators => \@aggregators,
+				  );
+
+  #sth wron wtih list of aggregators
+  # Get info for the possible features
+  %fmethod = ();
+  my @tracks = $data->configured_types;
+
+  for my $track (@tracks) {
+    next unless $data->setting($track=>'feature') and
+      $data->setting($track=>'key');
+    my @low_level_features = split /\s+/,$data->setting($track=>'feature');
+    $fmethod{$data->setting($track=>'key')}=\@low_level_features;
+  }
+
+  # Add in these key and value pairs to make the "Gene Model" feature query more specific
+  $fmethod{'Gene Models (protein coding only)'} =["transcript:curated"];
+  $fmethod{'5\' UTRs'} = ["transcript:5_UTR"];
+  $fmethod{'3\' UTRs'} = ["transcript:3_UTR"];
+
+  return ($DBGFF, \%fmethod);
+} # end of openElegansDB
+
+#open C. briggsae database
+sub openBriggsaeDB{
+  my $DBGFF   = OpenBrigGFF($DB)   || AceError("Couldn't open GFF database."); 
+  my $data = Bio::Graphics::FeatureFile->new(-file=>CONFIG_BRIGGSAE) or die; 
+  my @aggregators  = split /\s+/,$data->setting(general => 'aggregators'); 
+  $seqfactory = Bio::DB::GFF->new(-adaptor => 'dbi::mysqlopt',
+			        -dsn     => 'dbi:mysql:database=briggsae;host=localhost',
+				-aggregators => \@aggregators,
+				  );
+
+  #sth wron wtih list of aggregators
+  # Get info for the possible features
+  %fmethod = ();
+  my @tracks = $data->configured_types;
+
+  for my $track (@tracks) {
+    next unless $data->setting($track=>'feature') and
+      $data->setting($track=>'key');
+    my @low_level_features = split /\s+/,$data->setting($track=>'feature');
+    $fmethod{$data->setting($track=>'key')}=\@low_level_features;
+  }
+
+  return ($DBGFF, \%fmethod);
+} # end of openBriggsaeDB
+
+
+sub print_HTML {
+  my $fmethod = shift;
+  # HTML form
+  print start_multipart_form,
+
+  p('Species: ',
+    popup_menu(-name=>'worm',
+	       -value=>[qw/elegans briggsae/],
+	       -labels => {elegans => 'C. elegans',
+			   briggsae => 'C. briggsae'},
+	       -default=>'elegans',
+	       -onChange => 'submit()',
+	      )
+   ),
+
+    table({-width=>'100%',-cellspacing=>'4', -cellpadding=>'8'},
+        TR({-class=>'searchtitle'},
+	   th({-class=>'searchtitle', -width=>'35%', align => 'left'},'
+            1. Input Options'),th({-class=>'searchtitle', -width =>'30%', align => 'left'},'
+            2. Select one feature to retrieve'), th({-class=>'searchtitle', -width =>'35%', align => 'left'},'
+            3. Output options')),
+        TR({-class=>'searchbody'},
+	   td({-align=>'center', -valign=>'top'},
+	      table({-align =>'center'},
+		    TR(td(#br,
+			  'Type in a list of sequence or chromosome names:',
+			  br,'e.g.','&nbsp',
+                          '"'.$examples{param('worm')||'elegans'}.'"')),
+			  #'"AC3.8','&nbsp','M7','&nbsp','X','&nbsp','IV', '&nbsp','III:1000..4000"')),
+		    TR(td(textarea(-name=>'list',
+				   -rows=>13,
+				   -cols=>30,
+				   -wrap=>'off',
+				   -value=>$recurse,
+				   -force=>1
+				  ),)),
+		    TR(td(
+			  br, 
+                          em('Or'),
+			  'upload a file with sequence or chromosome names separated by spaces:')),
+		    TR(td(filefield(-size=>20,
+				    -name=>'upload'
+				   ),)),
+		   ) #end mini table
+	     ),
+	
+           td({-align=>'left', -valign => 'top'},
+	      scrolling_list(-name=>'feature',
+			     -size=>21,
+			     -multiple=>0,
+		             -default => ['Gene Models'],
+                             -values=>[sort (keys(%$fmethod))])
+	     ),
+
+           td({-class=>'searchbody', -valign=>'top'},
+
+              '<b><i>What to output?</i></b>',
+              br,
+
+              radio_group(-name=>'DNA',
+                          -linebreak =>1,
+			  -values=>["feature coordinates only", 
+                                   'feature and flanking sequences',
+                                   'flanking sequences only',
+                                   'paste features back for further searches'],
+			  -default=>'feature and flanking sequences'),
+              "<b>Note: </b> The last option above allows users to paste results in the field in the <b>Input Options</b> panel for the next round of search.",
+
+	      br,br,
+
+              '<b><i>Flanking sequence lengths:</i></b>',
+              br,	
+
+	      textfield(-name=>'flank5',
+			   -size=>6,
+			   -maxlength=>6,
+			   -default=>0),'bp 5\' flank, ',
+	      textfield(-name=>'flank3',
+			   -size=>6,
+                           -maxlength=>6,
+			   -default=>0),'bp 3\' flank',
+
+              br,br,
+
+              '<b><i>Coordinates relative to:</i></b>',
+              br,
+	      radio_group(-name=>'relative',
+                          -linebreak => 1,
+			  -values=>['Chromosome','Query sequence'],
+			  -default=>'Chromosome'),
+              br,
+
+              '<b><i>Output format:</i></b>',
+              br,
+
+	      radio_group(-name=>'dump',
+                          -linebreak => 1,
+			  -values=>['Plain TEXT','HTML', 'Save to disk (Plain TEXT)'],
+			  -default=>'Plain TEXT'),br,
+	      ) 
+        ),
+
+        TR({-class =>'searchtitle'},
+	   td(reset()),
+           #td(defaults('Reset')),
+	   td({-align =>'CENTER',},submit("DUMP")),
+	   td("&nbsp")
+	  ),
+       ),
+  endform;
+  return (\%fmethod);
+}
+
+#******************************************************************************
+sub dumper { 
+  my $seqfac  = shift;	                #database
+  my $fmethod = shift;			#all sorts of features?
+  my $return  = shift;	                #'recursive' or not
+  my $match  = 0;
+  my ($feature) = param('feature');     #retrieve feature selected: 
+                                        #only allow one at a time
+
+  # Get sequence items ......
+  my @items;
+  #first, users want to get prefabricated queries
+  #if (param('prefab') ne "NONE" && !param('list')){
+  #  my $items = parse_prefab(param('prefab')); 
+  #  @items = @$items;
+  #} # => param prefab must be none
+
+  #or, users want to upload a file
+  if (my $fh = param('upload')){   # Use uploaded file
+    while(<$fh>){
+      @items = split /\s+|\s*,\s*/s, $_;  # split on white sp, or comma
+    }
+    if (!@items){
+      print h2("Error: File must contain sequences that are space or comma delimited.");
+      exit;
+    }
+  } # => param prefab is none, no file uploaded, => check list
+
+  #or, users want to type/paste a list of sequences
+  elsif (param('list')) {               # get info from list
+    @items = split /\s+|\s*,\s*/s, param('list');
+  }
+  if (!@items){
+    PrintTop(undef,undef,undef,
+	  '-Title'  =>'Batch Sequences Dump for  Wormbase',
+	  '-Target' =>'_top',
+	  '-Class'  =>'search');
+    print h1("Batch Sequences");
+    print_HTML(\%fmethod);
+    exit;
+  }
+  #****************************************************************************
+  my @returns;
+
+  #now deal with the @items retrieved above
+  foreach my $item (@items){
+    # foreach chosen seq, get the sequence from Bio::DB::GFF
+    #print "ITEM IS $item END";
+    my @segments;
+    my @prev_returns = @returns;        # make a copy of prev item's @returns;
+
+    if(($item =~ /(\w+\.?\d?):(\d+)=>(\d+)/)or ($item =~ /(\w+\.?\d?):(\d+)\.\.(\d+)/)) {
+      @segments = $seqfac->segment($1, $2 => $3);
+    } else {
+      @segments = $seqfac->segment($item);
+    }
+
+    unless (@segments) {
+      @segments = $seqfac->segment(Locus=>$item);
+    }
+
+    #**************************************************************************
+    foreach my $segment (@segments) {
+      my @get_features;
+      if ($fmethod->{$feature}){
+        @get_features = @{$fmethod->{$feature}}; 
+      }else{
+        @get_features = "Gene Models"; 
+      }
+      my $iterator =$segment->features(-type=>\@get_features,-iterator=>1);
+
+      while (my $i = $iterator->next_seq) { # was next_feature
+        
+        if (param('dump') eq 'HTML'){ 
+          $match = asHTML($segment,$i,$return);
+        }elsif(param('dump') eq 'Plain TEXT'){
+          $match = asTEXT($segment,$i,$return);
+        }elsif(param('dump') eq 'Save to disk (Plain TEXT)'){
+          $match = asFILE($segment,$i,$return);
+        }
+        push @returns, $match;
+      } # end while
+    } # end of foreach $segment
+  } # end of foreach $item
+
+  #****************************************************************************
+  # If there are no hits....
+  #if (!@returns){
+  #  my $print_features = $feature;
+  #  if ($print_features){
+  #    print"Results: No data for any features selected: ",$print_features,"\n";
+  #  }
+  #  else {print "Error: no features selected\n";}
+  #}
+  return @returns; # if ($return eq 'paste features back for further searches');
+}# end sub
+
+###############################################################################
+sub asHTML {
+  my ($segment,$feature,$return) = @_;
+
+  my ($query, $label, $dna);
+
+  $query   = (param('relative') eq 'Chromosome')? 
+                  $segment->abs_ref.':'.$feature->abs_start.'..'.$feature->abs_stop: 
+                  $segment->refseq.':'.$feature->start.'..'.$feature->stop;
+  $label   = $feature;
+
+  if (param('DNA') eq 'feature and flanking sequences'){
+    $dna = get_dna($segment, $feature, 1);
+  }elsif(param('DNA') eq 'feature coordinates only'){
+    print "<pre>&gt;$label ($query)\n</pre>";
+    return $feature;
+  }elsif(param('DNA') eq 'flanking sequences only'){
+    $dna = get_dna($segment, $feature, 0);
+  }
+
+  # Uppercase for coding sequence
+  my $flank = param('flank5') ? param('flank5') : 0;
+  my @subfeature = grep {$_->method eq 'CDS'} $feature->sub_SeqFeature;
+  my @subfeature_all = $feature->sub_SeqFeature;
+  my (%seen1, %seen2);
+  my $strand;
+
+  #figure out the 'base' coordinates
+
+  for my $as (@subfeature_all){
+
+    my ($st, $en) = ($as->abs_start, $as->abs_stop);
+    $strand = ($st >= $en)? '-':'+';
+    $seen1{$st} = $as->length; 
+  }
+  
+  my @sorted = sort {$a<=>$b}(keys %seen1);
+  my $base = ($strand eq '+')? $sorted[0]:$sorted[-1] ;
+
+  #retrieve exon coordinated, only markup exons
+  for my $s (@subfeature) {
+    my ($st, $en) = ($s->abs_start, $s->abs_stop);
+    $seen2{$st} = $s->length; 
+  }
+
+  my ($lent, @markups, $markup);
+
+  ####################
+  #then markup: exons: yellow
+  #             introns: don't do anything
+  #             5'UTR, 3'UTR: don't do anything 
+  
+  $markup = Bio::Graphics::Browser::Markup->new;
+  $markup->add_style('cds'	=>'UPPERCASE');
+  $markup->add_style('yellow'	=>'BGCOLOR yellow');
+  $markup->add_style('uc'   	=> 'UPPERCASE');
+  $markup->add_style('newline' 	=> "\n");
+  $markup->add_style('space'	=> ' ');
+  $markup->add_style('promotor5' => 'BGCOLOR pink');
+  $markup->add_style('promotor3' => 'BGCOLOR cyan');
+
+  if (param('DNA') eq 'feature and flanking sequences'){ 
+
+    #get the length of a string
+    $dna = lc $dna; 
+    my @string_array = split(//,$dna);
+    $lent = @string_array; 
+  
+    for my $k(keys %seen2){
+      my $style1 = 'yellow';
+      my $style2 = 'uc';
+      my $start = $flank + abs($k - $base);
+      my $end = $start + $seen2{$k};
+      push @markups, [$style1, $start, $end];
+      push @markups, [$style2, $start, $end];
+    }
+
+    push @markups, map {['newline',100*$_]} (1..length($dna)/100);
+    push @markups, ['promotor5', 0, param('flank5')]; 
+    push @markups, ['promotor3', $lent - param('flank3'), $lent];
+  }elsif(param('DNA') eq 'flanking sequences only'){
+    #get the length of a string
+    $dna = lc $dna; 
+    my @string_array = split(//,$dna);
+    $lent = @string_array;  
+
+    push @markups, map {['newline',100*$_]} (1..length($dna)/100);
+    push @markups, ['promotor5', 0, param('flank5')]; 
+    push @markups, ['promotor3', $lent - param('flank3')-1, $lent]; 
+  } 
+ 
+  $markup->markup(\$dna, \@markups);
+ 
+  return $query if ($return eq 'paste features back for further searches');
+  return undef if ($return eq 'paste features back for further searches');
+  $label   =  a({-href=>Object2URL($feature->group->name,$feature->group->class)},$feature->info||$feature);
+
+  print "<pre>&gt;$label ($query)\n";
+  print $dna;
+  print "</pre>";
+  return $feature;
+} # end
+
+#print out lengend for the HTML markup sequences
+
+sub asFILE {
+  my ($segment,$feature,$return) = @_;
+
+  my ($query, $label, $dna);
+
+  if (param('DNA') eq 'feature and flanking sequences'){
+    $dna = get_dna($segment, $feature, 1);
+  }elsif(param('DNA') eq 'feature coordinates only'){
+    $dna = '';   
+  }elsif(param('DNA') eq 'flanking sequences only'){
+    $dna = get_dna($segment, $feature, 0);
+  }
+
+  $query   = (param('relative') eq 'Chromosome')? 
+                  $segment->abs_ref.':'.$feature->abs_start.'..'.$feature->abs_stop: 
+                  $segment->refseq.':'.$feature->start.'..'.$feature->stop;
+  $label   = $feature;
+
+  # Uppercase for coding sequence
+  my $flank = param('flank5') ? param('flank5') : 0;
+  my @subfeature = grep {$_->method eq 'CDS'} $feature->sub_SeqFeature;
+  my @subfeature_all = $feature->sub_SeqFeature;
+  my (%seen1, %seen2);
+  my $strand;
+
+  #figure out the 'base' coordinates
+
+  for my $as (@subfeature_all){
+
+    my ($st, $en) = ($as->abs_start, $as->abs_stop);
+    $strand = ($st >= $en)? '-':'+';
+    $seen1{$st} = $as->length; 
+  }
+  
+  my @sorted = sort {$a<=>$b}(keys %seen1);
+  my $base = ($strand eq '+')? $sorted[0]:$sorted[-1];
+
+  #retrieve exon coordinated, only markup exons
+  for my $s (@subfeature) {
+    my ($st, $en) = ($s->abs_start, $s->abs_stop);
+    $seen2{$st} = $s->length; 
+  }
+
+  #then markup exons 
+  if (param('DNA') eq 'feature and flanking sequences'){
+    for my $k(keys %seen2){
+      my $start = $flank + abs($k - $base);
+
+      substr($dna,$start,$seen2{$k}) =~ tr/a-z/A-Z/;
+    }
+  }
+
+  return $query if ($return eq 'paste features back for further searches');
+  return undef if ($return eq 'paste features back for further searches');
+  
+  print ">", $query, "\t", $label, "\n";
+
+  for (my $i=0; $i < length $dna; $i +=100){
+    print substr ($dna, $i, 100), "\n";
+  }
+
+  return $feature;
+} # end
+
+###############################################################################
+sub asTEXT {
+  my ($segment,$feature,$return) = @_;
+
+  my ($query, $label, $dna);
+
+  $query   = (param('relative') eq 'Chromosome')? 
+                  $segment->abs_ref.':'.$feature->abs_start.'..'.$feature->abs_stop: 
+                  $segment->refseq.':'.$feature->start.'..'.$feature->stop;
+  $label   = $feature;
+
+  if (param('DNA') eq 'feature and flanking sequences'){
+    $dna = get_dna($segment, $feature, 1);
+  }elsif(param('DNA') eq 'feature coordinates only'){
+    print header('text/plain');
+    print ">", $query, "\t", $label, "\n";
+    return $query;
+  }elsif(param('DNA') eq 'flanking sequences only'){
+    $dna = get_dna($segment, $feature, 0);
+  }
+
+  # Uppercase for coding sequence
+  my $flank = param('flank5') ? param('flank5') : 0;
+  my @subfeature = grep {$_->method eq 'CDS'} $feature->sub_SeqFeature;
+  my @subfeature_all = $feature->sub_SeqFeature;
+  my (%seen1, %seen2);
+  my $strand;
+
+  #figure out the 'base' coordinates
+
+  for my $as (@subfeature_all){
+
+    my ($st, $en) = ($as->abs_start, $as->abs_stop);
+    $strand = ($st >= $en)? '-':'+';
+    $seen1{$st} = $as->length; 
+  }
+  
+  my @sorted = sort {$a<=>$b}(keys %seen1);
+  my $base = ($strand eq '+')? $sorted[0]:$sorted[-1];
+
+
+  #retrieve exon coordinated, only markup exons
+  for my $s (@subfeature) {
+    my ($st, $en) = ($s->abs_start, $s->abs_stop);
+    $seen2{$st} = $s->length; 
+  }
+
+  #then markup exons 
+  if (param('DNA') eq 'feature and flanking sequences'){
+    for my $k(keys %seen2){
+      my $start = $flank + abs($k - $base);
+
+      substr($dna,$start,$seen2{$k}) =~ tr/a-z/A-Z/;
+    }
+  }
+
+  return $query if ($return eq 'paste features back for further searches');
+  return undef if ($return eq 'paste features back for further searches');
+  
+  print header('text/plain');
+  print ">", $query, "\t", $label, "\n";
+
+  for (my $i=0; $i < length $dna; $i +=100){
+    print substr ($dna, $i, 100), "\n";
+  }
+  return $feature;
+} # end
+
+###############################################################################
+sub get_dna {
+  my($segment,$feature, $all_flag) = @_;
+  my $flank5 = param('flank5') or 0;
+  my $flank3 = param('flank3') or 0;
+  my $dna5 =$segment->subseq(($feature->start - ($flank5 - 1)),
+			     $feature->start)->dna if $flank5;
+  my $dna3 = $segment->subseq($feature->stop, 
+			      ($feature->stop  + ($flank3-1)))->dna if $flank3;
+  my $dnaed;
+
+  if (param('only_flanked')) {  
+    $dnaed = "" if (($dna5) and ($dna3));   
+  } else {
+    $dnaed = $feature->dna;     # tis flanked
+  }
+
+  $dna5  .= '';
+  $dnaed .= '';
+  $dna3  .= '';
+
+  if ($all_flag){
+    return $dna5.$dnaed.$dna3;
+  }else{
+    return $dna5.$dna3;
+  }
+}# end of sub get dna
+

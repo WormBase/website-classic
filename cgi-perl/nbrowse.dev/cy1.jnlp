@@ -1,0 +1,25 @@
+
+<?xml version="1.0" encoding="utf-8"?>
+<jnlp  codebase="http://nematoda.bio.nyu.edu:8080/iBrowse/"
+                   href="cy1.jnlp">
+  <information>
+    <title>Cytoscape WebStart, Figure #1</title>
+    <vendor>ISB, David J. Reiss, Galitskilab</vendor>
+    <homepage href="index.html"/>
+    <offline-allowed/>
+  </information>
+  <security>
+      <all-permissions/>
+  </security>
+  <resources>
+    <j2se version="1.4+" max-heap-size="1024M"/>
+    <jar href="jnlp/cytoscape.jar"/>
+    <jar href="data.jar"/>
+
+  </resources>
+  <application-desc>
+            <argument>-p</argument>                                 ";
+           <argument>jar://project</argument>
+  </application-desc>
+</jnlp>
+

@@ -1,0 +1,236 @@
+New release of acedb WS73, Wormpep73, and WormRNA73 07/02/2002
+==============================================================
+
+This directory includes:
+
+
+i)   database.WS73.*.tar.gz   - the compressed data for the new release
+
+ii)  models.wrm.WS73          - the latest database schema (also 
+                                included in the above database files)
+
+iii) CHROMOSOMES/ subdir      - contains three files (DNA, GFF, and 
+                                agp) for each chromosome  
+
+iv)  WS62-WS73.dbcomp         - log file reporting differences between 
+                                   WS62 and WS73 
+
+v)   wormpep73.tar.gz         - full Wormpep distribution corresponding 
+                                   to WS73
+
+vi)  wormrna73.tar.gz         - latest WormRNA release containing 
+                                   non-coding RNAs in the genome
+
+vii) confirmed_genes.WS73.gz  - DNA sequences of all genes confirmed by 
+                                either EST and/or cDNA
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1) Create a new directory to contain your copy of WormBase, 
+e.g. /users/keith/wormbase
+
+2) Unpack and untar all of the database.*.tar.gz files into 
+this directory. You will need approximately 2-3 Gb of disk space.  
+
+3) Obtain and install a suitable acedb binary for your system 
+(available from www.acedb.org).
+
+4) Use the acedb 'xace' program to open your database, e.g.
+type 'xace /users/keith/wormbase' at the command prompt.
+
+5) See the acedb website for more information about acedb and 
+using xace.
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+Primary databases used in this build:
+-------------------------------------
+
+brigdb : 2002-01-29 - updated
+camace : 2002-01-30 - updated
+citace : 2002-01-30 - updated
+cshace : 2001-12-17
+genace : 2002-01-30 - updated
+stlace : 2002-01-30 - updated
+
+Genome sequence composition:
+----------------------------
+
+6 sequences >= 0, 100,248,834 total
+
+  a 32,331,325    32 %
+  c 17,758,734    18 %
+  g 17,736,609    18 %
+  t 32,326,670    32 %
+  -     95,400     0 %
+  n         96     0 %
+
+this is an gross increase of 1,015 bp but a net increase of 1,1015 bp
+
+Remaining gaps:
+---------------
+
+For more info mail worm@sanger.ac.uk
+
+# Gaps are covered by a 950Kb SseI fragment 
+III      1005794   1028769   37  F    AC087078.1      1       22976  +
+III      1028770   1029769   38  N                             1000
+III      1029770   1075569   39  F    AC084156.1      1       45800  +
+
+III      1085494   1105060   41  F    AC084157.1      1       19567  +
+III      1105061   1106060   42  N                             1000
+III      1106061   1131923   43  F    AC092690.1      1       25863  +
+
+# Gap is approx 22 kb long and almost contiguous
+IV      16417471  16451107  492  F    AL161711.2      1       33637  +
+IV      16451108  16451207  493  N                              100
+IV      16451208  16720720  494  F    AL132952.1      1      269513  +
+
+# Gaps are covered by YAC clones in production at St Louis
+X              1      2649    1  F    AL031272.2      1        2649  +
+X           2650     63549    2  N                            60900
+X          63550     93313    3  F    Z83097.1        1       29764  +
+
+X          63550     93313    3  F    Z83097.1        1       29764  +
+X          93314     94313    4  N                             1000
+X          94314    111282    5  F    AC084160.2      1       16969  +
+
+X         273911    285321    8  F    AC087735.2      1       11411  +
+X         285322    316721    9  N                            31400
+X         316722    331261   10  F    AC024789.1      1       14540  +
+
+Also there is no right telomeric end for Chromosome II.
+ 
+Wormpep data set:
+-----------------
+
+There are 19,427 CDS in autoace, 20,379 when counting (952) alternate 
+splice_forms.  The 20,379 sequences containing 8,956,885 base pairs in
+total.
+
+ Modified entries      72
+ Deleted entries       32
+ New entries           41
+ Reappeared entries     4
+ ------------------------
+ Net Change          + 13
+
+
+GeneModel correction progress:
+------------------------------
+
+Number of confirmed introns not in a CDS gene model:
+
+           +----------+---------+
+           | Introns  | Change  |
+           +----------+---------+
+Cambridge  |     2196 |  + 1581 |
+St Louis   |     1608 |  + 1298 |
+           +----------+---------+
+
+Members of known repeat families that overlap predicted exons:
+
+           +----------+---------+
+           | Repeats  | Change  |
+           +----------+---------+
+Cambrige   |       28 |  +   0  |
+St Louis   |        0 |      -  |  
+           +----------+---------+
+
+Synchronisation with GenBank/EMBL:
+----------------------------------
+
+9 problesm with agp files:
+
+   I  Y51H10  [AC103567]
+  II  ZK1248  [  U29244]
+  II   T28D9  [  U28738]
+ III   R05D3  [  L07144]
+  IV   W03F8  [AF039041]
+   V   F53E2  [AF125953]
+   V   C04F5  [AF101305]
+   X   R11B5  [  U42831]
+   X   ZK813  [  U40954]
+ 
+New data:
+---------
+
+- An additional 56,065 EST sequences from Yuji Kohara's group. These 
+are named with the yk* nomenclature as yk1017 to yk1356. WS73 contains 
+the BLAT mappings for the new ESTs and confirmed_introns have been 
+derived.
+
+- 19 new ?Paper objects
+
+- 40 new ?Expr_pattern objects Expr1644 -> Expr1683
+
+- 8 new ?Transgene objects
+
+Known problems:
+---------------
+
+- New S-Map code will enforce greater accuracy in our data sets. The 
+cDNA_for_RNAi genomic mappings and WTP mappings will be particularly 
+problematic.
+
+- Loss of some ?Sequence <-> ?Locus XREFs due to synchronisation 
+problems between camace and geneace, (e.g. Sanger mir-* loci). These
+will be rectified for WS74.
+
+- Mis-mapping of confirmed_introns. Confirmed_introns are mapped to
+a DNA strand based on the sense of the EST sequence and the genomic
+DNA. A number of these intron spans appear to map to the incorrect
+strand because of the EST_5 and EST_3 tags in the ?Sequence object.
+We are working on this.
+
+Other changes:
+--------------
+
+- Numerous Model changes. 
+ 
+ - Added XREF between ?Phenotype and ?GO_term to accommodate the 
+ ?RNAi->?Phenotype->?GO_term mappings for Erich.
+
+ - Added ?Transposon class for moving Transposon objects out of the 
+ ?Sequence class.
+
+ - Added ?Operon class in preparation for incorporation of operon data
+
+ - Added UNIQUE Int tag to Genomic_canonical in ?Sequence model for 
+ tracking CDS numbers
+
+- Vidal Orfeome sequences are renamed from their accession to the OST* 
+nomenclature.
+
+- 
+
+Proposed changes / forthcoming data:
+------------------------------------
+
+- Model changes: some of the S-Map classes, namely 'PCR_product' and 
+'Nongenomic', require that the first integer is made UNIQUE. This is 
+in line with all the other S-Map classes and is a pre-requesite to 
+moving to the revamped S-Map code, (see later regarding this move and 
+data problems).
+
+- New S-Map code will enforce greater accuracy in our data sets. The 
+cDNA_for_RNAi genomic mappings and WTP mappings will be particularly 
+problematic. This relates to the ongoing problem with S-Mapping 
+spliced/gapped sequences to genomic. The new code will facilitate
+the S-Mapping of spliced cDNA alignements and ultimately gene models 
+(future wish list includes gaze and twinscan objects for improved 
+gene predictions).
+
+- Removal of hmmfs mapped repeats in Cambridge data to be replaced by 
+RepeatMasker. This is more sensitive, faster and will tidy much of the
+legacy repeat data in our database. This is a first step toward 
+mapping new repeat families in the worm. We currently have both sets 
+of data side by side.
+
+
+

@@ -1,0 +1,196 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# file: author
+# C. elegans author report
+
+use lib '../lib';
+
+use strict;
+use vars '$DB';
+use Ace 1.51;
+use Ace::Browser::AceSubs;
+use ElegansSubs qw(:DEFAULT PrintRefs);
+
+use CGI 2.42 qw/:standard :html3 escape/;
+
+# print HTTP header & open the database
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+my $query  = param('name');
+
+# Troubled support for returning multiple authors
+# Totally pointless given the non-unique nature of
+# author names
+
+my @authors = get_authors($query) if ($query);
+multiples(@authors) if (@authors > 1);
+my $author = @authors[0];
+
+my $title_name = $author;
+# Print the same name as that searched for / linked
+PrintTop($title_name);
+PrintWarning($query) if $query && !$author;
+### Is this also a ?Person
+### I can't use this since the XREF to ?Person is Possibly_publishes_as
+### (And there are sometimes multiple "Possible_persons"
+###if (my $possible = $author->Possible_person) {
+###  $author = $possible;
+###}
+print_prompt();
+print_report($author) if $author;
+PrintBottom();
+
+
+########################################################
+sub print_prompt {
+    print
+	start_form({-name=>'form1',-action=>Url(url(-relative=>1))}),
+	p("Name in format",i(qq("Last FM")),
+	  textfield(-name=>'name')
+	 ),
+	   end_form;
+}
+
+
+# Let's try to be as specific as possible with the query
+# (But we'd also like to return Jim Thomas if we search for J Thomas)
+sub get_authors {
+  my $input = shift;
+
+  # If their is a name provided, then the user has already 
+  # pinpointed an author of interest
+  # Let's just fetch that one
+  if (url_param('name')) {
+    my $author = $DB->fetch(-class=>'Author',-name=>url_param('name'));
+    return $author;
+  }
+
+  my @authors;
+  my @fields = split(/\s/,$input);
+  my @queries = join('* ',@fields);
+  push (@queries,param('name'));  # Search simply by the original param as well
+  push (@queries,join('* ',reverse @fields));
+#  print @queries,br;
+  foreach (@queries) {
+    push (@authors, $DB->fetch(-class =>'author',
+			       -name  => $_,
+			       -fill  => 1));
+  }
+  
+  # Uniquify the people returned
+  my %seen;
+  my @people;
+  push (@people, grep {!$seen{$_}++} @authors);
+  return @people;
+}
+
+sub print_report {
+    my $author = shift;
+    my ($name,@address,@phone,@fax,@email);
+
+    # We might be pulling this data from the ?Person class,
+    # which is structured a bit differently.
+    # This little trick will not work in all cases,
+    # possibly displaying someone else's information
+    # for the author!
+    if (0) {
+      if ($author->class eq 'Person') {
+	my %tags = map {$_=>[ $_->col ]} $author->Address;
+	($name) = $author->Standard_name || $author->Full_name;
+	push (@address,@{$tags{Street_address}},@{$tags{Country}});
+	(@phone)   = @{$tags{Main_phone}};
+	(@fax)     = @{$tags{Fax}};
+	@email     = @{$tags{Email}};
+      }
+    }
+
+    ($name)    = $author->Full_name || $author->Also_known_as;
+    print h3($name) if $name;
+
+    if (my @possible_names = $author->Possible_person) {
+      print hr;
+      print h4('Additional information may be available in the following Person Reports:'),
+	ul(
+	   map { li(a({-href=>Object2URL($_)},$_->Standard_name . " ($_)")) } @possible_names);
+      print p('The information in the Person report is curated and more likely to be up-to-date.');
+      print hr unless $author->Paper;
+    }
+
+    # 2004.03.30 - Post ABM
+    # We're now suppressing the display of ALL contact information
+    # deriving from the author class
+    if (0) {
+      (@address) = grep (!/OLD/,$author->Mail);
+      (@phone)   = $author->Phone;
+      (@fax)     = $author->Fax;
+      @email     = $author->at('Address.E_mail[1]');
+      my ($laboratory) = $author->Laboratory;
+      my @alleles      = $laboratory->Allele_designation if $laboratory;
+      my @gene_classes = $laboratory->Gene_classes if $laboratory;
+      
+      unless (@address) {
+	print p(font({-color=>'red'},'No contact information in database'));
+      } else {
+	push (@address,map { "$_ (voice)" } @phone) if @phone;
+	push (@address,map { "$_ (fax)" } @fax) if @fax;
+	push (@address,a({-href=>"mailto:$email[-1]"},"E-mail: $email[-1]"))
+	  if @email;
+	push (@address,a({-href=>Object2URL($laboratory)},"Laboratory $laboratory"))
+	  if $laboratory;
+	print address(join(br(),@address));
+      }
+
+      if (my @keywords = eval {$author->Keyword }) {  # Author class only
+	print p(b('Research interests:'),join ', ',map {ObjectLink($_)} @keywords);
+      }
+
+      if (@alleles) {
+	print p(b('Assigned allele class:'),join ', ',@alleles);
+      }
+
+      if (@gene_classes) {
+	print p(b('Assigned gene classes:'),join ', ',map {ObjectLink($_)} @gene_classes);
+      }
+    }
+
+    my @refs = $author->Paper;
+    PrintRefs($author,\@refs) if @refs;
+}
+
+
+
+
+
+
+sub multiples {
+  my @people  = @_;
+  PrintTop(undef,'author','Author Report');
+  if (@people > 100) {
+    print p(font({-color=>'red'},"Your search retrieved ", @people + 1,
+		 " hits. Please refine your search."));
+  } else {
+    print h3("Multiple authors correspond to your search for " . param('name') . '.');
+    print ol( li([
+		  		  map {
+		  		    a({-href=>"/db/misc/author?name=$_"},
+		  		      # Object2URL($_),
+		  		      font({-color=>'red'},$_->class).': '.
+		  		      $_ . ' ' .
+				      total_papers($_),
+				     ) } @people ]));
+  }
+  PrintBottom();
+  exit;
+}
+
+
+
+sub total_papers {
+  my $author = shift;
+  my @papers = $author->Paper;
+  if (@papers) {
+    return (' (' . scalar @papers . ' papers' . ')');
+  } else {
+    return '';
+  }
+}

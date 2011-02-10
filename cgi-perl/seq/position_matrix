@@ -1,0 +1,269 @@
+#!/usr/bin/perl
+
+use strict;
+use lib '../lib';
+use Ace::Browser::AceSubs;
+use ElegansSubs qw/:DEFAULT Bestname Species2URL/;
+use Data::Dumper;
+use CGI qw(:standard *table escape toggle img);
+# use CGI::Toggle;
+use WormBase;
+use vars qw/$WORMBASE $DB $query $name $list $gene $disease $position_matrix $list $sort_by $interaction $data_dir $img_dir $pm_object/;
+use strict;
+
+END {
+  undef $WORMBASE;
+  undef $name;
+  undef $gene;
+  undef $list;
+  undef $DB;
+  undef $disease;
+  undef $sort_by;
+  undef $pm_object;
+}
+
+$position_matrix = param('name');
+$list = param('list');
+$sort_by = param('sort_by');
+
+my $demo = param('demo');
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+my $version = $DB->version;
+my $cgi = new CGI;
+my $script_url = "/db/";
+$data_dir = "/usr/local/wormbase/databases/$version/position_matrix";
+$img_dir = "../../html/images/position_matrix";
+#### data ###
+
+StartCache();
+
+# $WORMBASE = WormBase->new();
+# my $title;
+# if($position_matrix){
+# 	$title= "Position Matrix Summary for $position_matrix";
+# }
+# else{
+# 	$title= "Position Matrix Summary";
+# }
+# 
+# PrintTop($query,'Position Matrix',$title);
+
+#my $int_object = $DB->fetch(-class=> 'Interaction', -name=> $interaction) if $interaction;
+
+if ($position_matrix) {
+
+	$pm_object = $DB->fetch(-class=> 'Position_matrix', -name=> $position_matrix);
+}
+
+
+
+PrintTop($pm_object ,'Position_matrix',$pm_object ? "Position Matrix Summary for $pm_object" : "Position Matrix Summary");
+
+my $datafile = $data_dir."/pm_id2consensus_seq.txt";
+my $image_pointer_file = $data_dir."/pm_id2source_pm.txt";
+my %name2consensus = build_hash($datafile);
+
+my %image_pointer = build_hash($image_pointer_file);
+
+if($pm_object){
+	print_pm_data($pm_object,\%image_pointer);
+	
+	my $list_all = a({-href=>"/db/seq/position_matrix?list=all"},"all");
+	print "Go to list of $list_all position_matrices.";
+	
+}
+elsif($demo){
+		my $demo_pm = $DB->fetch(-class=>'Position_matrix', -name=>'WBPmat00000039');
+		my $pm_data = get_summary_pm_data($demo_pm);
+		print_pm_data($demo_pm,\%image_pointer);
+		my $pm_matrix_data = get_matrix_data($demo_pm);		
+	}
+elsif($list =~ m/all/){
+		#my @list_data = get_all_pm_data($DB,\%name2consensus);
+		print_pm_data_list($DB,\%name2consensus); 
+		# print "All_data<br>";
+}
+else{
+	my $list_all = a({-href=>"/db/seq/position_matrix?list=all"},"all");
+	print "Go to list of $list_all position_matrices.";
+}
+ClosePage;
+
+exit 0;
+
+##### subroutines ###########
+
+
+sub get_all_pm_data{
+	my $db = shift @_;
+	my $name2consensus_hr = shift @_;
+	my @pms = $DB->fetch(-class => 'Position_matrix');
+	my @data;
+	# print "<pre>";
+	foreach my $pm (@pms){
+		my $pm_name = $pm->name;
+		my $pm_description = $pm->Description;
+		my $pm_type = $pm->Type;
+		# print "$pm_name\ \=\ ${$name2consensus_hr}{$pm_name}\n";
+		push @data, "$pm_name\|${$name2consensus_hr}{$pm_name}\|$pm_description\|$pm_type";
+	}
+	# print "<\/pre>";
+	return \@data;
+}
+
+sub print_pm_data_list {
+	my $db = shift @_;
+	my $name2consensus_hr = shift @_;
+	my $pm_data_ar = get_all_pm_data($db,$name2consensus_hr);
+	
+	print start_table();
+    print TR({},
+            th({-align=>'left',-width => '15%',-class=>'databody'},'Position Matrix'),
+            th({-align=>'left',-width => '25%',-class=>'databody'},'Consensus'),
+			th({-align=>'left',-width => '50%',-class=>'databody'},'Description'),
+			th({-align=>'left',-width => '10%',-class=>'databody'},'Type')
+    );
+	
+	foreach my $pm_line (@{$pm_data_ar}){
+		my ($pm_name,$pm_consensus,$pm_desc,$pm_type) = split /\|/,$pm_line;
+		my $pm_url = "/db/seq/position_matrix?name\=$pm_name";
+		my $pm_link = a({-href=>$pm_url},$pm_name);
+		
+		print TR({},
+	            td({-align=>'left',-width => '15%',-class=>'databody'},$pm_link),
+	            td({-align=>'left',-width => '25%',-class=>'databody'},$pm_consensus),
+				td({-align=>'left',-width => '50%',-class=>'databody'},$pm_desc),
+				td({-align=>'left',-width => '10%',-class=>'databody'},$pm_type)
+	    );
+	}
+	print end_table();
+	# print "<\/pre>";# print "$pm_line\n";# print "<pre>";
+}
+
+sub get_summary_pm_data{
+	my ($position_matrix_object,$name2consensus_hr) = @_;
+	my %data;
+    $data{'name'} = $position_matrix_object;
+	$data{'desc'} = $position_matrix_object->Description;
+	$data{'remark'} = $position_matrix_object->Remark;	
+	$data{'paper_evidence'} = $position_matrix_object->Paper_evidence;
+	$data{'associated_feature'} = $position_matrix_object->Associated_feature;
+	$data{'associated_pm'} = $position_matrix_object->Associated_with_Position_Matrix;
+	$data{'consensus'} = ${$name2consensus_hr}{$position_matrix_object};
+    return \%data;  ## returns text
+}
+sub site_values {
+    my ($position_matrix_object) = @_;
+    my $sv = $position_matrix_object->Site_values;
+        my @row_1 = $sv->row;
+        my @row_2 = $sv->down->row;
+        my @row_3 = $sv->down->down->row;
+        my @row_4 = $sv->down->down->down->row;
+        my @data = (\@row_1,\@row_2,\@row_3,\@row_4);
+    return \@data;  ## returns text
+}
+
+sub print_pm_data{
+	
+	my ($pm_obj,$image_hr) = @_;
+	
+	my $pm_data = get_summary_pm_data($pm_obj);
+	
+	    print start_table({-border=>1,width=>"100%"});        
+	    #### interaction summary info #####
+	
+	
+	    StartSection('Position Matrix Summary');    
+	    SubSection("Name", ${$pm_data}{'name'});
+		SubSection("Description", ${$pm_data}{'desc'}); # if $reference_data;
+		SubSection("Remark", ${$pm_data}{'remark'});
+		SubSection("Evidence", ${$pm_data}{'paper_evidence'});
+		SubSection("Associated Feature", ${$pm_data}{'associated_feature'});
+		SubSection("Associated PM", ${$pm_data}{'associated_pm'});
+		SubSection("Consensus", ${$pm_data}{'consensus'});
+		EndSection();
+		 
+		StartSection('Sequence Logo');
+		
+		my $pm_name= ${$pm_data}{'name'};
+		my $pm_target = ${$image_hr}{$pm_name}; #${$image_hr}{}'WBPmat00000050'
+		if ($pm_target){
+			$pm_name = $pm_target;
+		}
+		my $pm_href = '/images/position_matrix/'.$pm_name.'.jpg';
+		# my $pm_href = '/images/position_matrix/W	.jpg';
+		SubSection ("",img({-src=>$pm_href, -width=>'50%'})); #a({href=>$pm_href,, -heigth =>'30%' target=>'new'},'see logo')
+		
+		EndSection();
+		my $pmatrix_data = site_values($pm_obj);
+		StartSection('Position Data');
+		print start_table(-border =>1, -cellspacing=>3, -cellpadding =>4 );
+		foreach my $row (@{$pmatrix_data}){
+			# my @row = map {if ~(($_)){$_ = 0;}}, @$row;
+			# my $position_data = ${$pmatrix_data}{$base};
+			# 			my @position_data = @{$position_data}; 
+			print "\<tr\>";
+				foreach my $position (@$row){
+					if ($position){
+						print "<td align='left'>".$position."\&nbsp\;<\/td>";
+					}
+					else {
+						print "<td align='left'>0\&nbsp\;<\/td>";
+					}
+				}
+			print "\<\/tr\>";	
+			# print "$base\|@position_data\<br\>";
+		}
+		print end_table();
+		EndSection();
+		
+		print end_table();
+	
+}
+
+##### cnp from tree_lister!!!! #######
+sub build_hash{
+	my ($file_name) = @_;
+	open FILE, "<./$file_name" or die "Cannot open the file: $file_name\n";
+	my %hash;
+	foreach my $line (<FILE>) {
+		chomp ($line);
+		my ($key, $value) = split '=>',$line;
+		$hash{$key} = $value;
+	}
+	return %hash;
+}
+
+##### end cnp from tree_lister!!!! #######
+
+
+sub get_matrix_data {
+	
+		my ($position_matrix_object) = @_;
+		my $sv = $position_matrix_object->Site_values;
+		my @row_1 = $sv->row;
+		my @row_2 = $sv->down->row;
+		my @row_3 = $sv->down->down->row;
+		my @row_4 = $sv->down->down->down->row;
+		# my %data;
+		my $base_r1 = shift @row_1;
+		my $base_r2 = shift @row_2;
+		my $base_r3 = shift @row_3;
+		my $base_r4 = shift @row_4;
+		my $data = {$base_r1 => \@row_1,
+			$base_r2 => \@row_2,
+			$base_r3 => \@row_3,
+			$base_r4 => \@row_4
+		};
+	    return $data;  ## returns text
+}
+
+
+
+
+
+
+
+
+
+

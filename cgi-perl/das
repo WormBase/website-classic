@@ -1,0 +1,1001 @@
+#!/usr/local/bin/perl
+
+# minimal annotation server
+# can probably be a reference server too
+# $Id: das,v 1.1.1.1 2010-01-25 15:35:54 tharris Exp $
+
+use strict;
+use Bio::DB::GFF 1.02;
+use File::Basename 'basename';
+use CGI qw/header path_info param url request_method/;
+use Carp;
+use vars qw($DB $DSN $HEADER %ERRCODES $CONFIG $CFG %STYLESHEETS $VERSION $CONF_DIR);
+
+###################################################################
+# Non-modperl users should change this constant if needed
+#
+$CONF_DIR = '/usr/local/wormbase/conf/das.conf';
+#
+###################################################################
+
+BEGIN {
+  if ($ENV{MOD_PERL}) {
+    eval "use Apache::DBI";
+    eval "use Apache";
+    $CONF_DIR = Apache->server_root_relative(Apache->request->dir_config('DasConfigFile'))
+      if Apache->request->dir_config('DasConfigFile');
+  }
+}
+
+my $VERSION = 'DAS/1.50';
+use constant CAPABILITIES => join '; ',qw(error-segment/1.0 unknown-segment/1.0 unknown-feature/1.0
+					  feature-by-id/1.0 group-by-id/1.0 component/1.0 supercomponent/1.0
+                                          dna/1.0 features/1.0 stylesheet/1.0 types/1.0
+                                          entry_points/1.0 dsn/1.0 sequence/1.0
+                                          );
+
+(my $BASENAME = url(-absolute=>1)) =~ s!http://[^/]+/!!;
+%ERRCODES = (
+	     200 => 'OK',
+	     400 => 'Bad command',
+	     401 => 'Bad data source',
+	     402 => 'Bad command arguments',
+	     403 => 'Bad reference object',
+	     404 => 'Bad stylesheet',
+	     405 => 'Coordinate error',
+	     500 => 'Internal server error (oops)',
+	     501 => 'Unimplemented feature',
+	     );
+read_configuration(\$CONFIG,$CONF_DIR);
+$HEADER = 0;
+
+my ($junk,$dsn,$operation) = split '/',path_info();
+$DSN = $dsn;
+$CFG = $CONFIG->{$dsn};
+
+do { error_header('invalid request',400); exit 0 } unless $DSN;
+do { list_dsns();   exit 0 } if $dsn eq 'dsn' or $operation eq 'dsn';
+do { error_header('invalid data source, use the dsn command to get list',401); exit 0 } unless $CFG;
+
+do { error_header('Could not open database',500); exit 0 }
+     unless $DB = openDB();
+
+do { entry_points(); exit 0 }      if $operation eq 'entry_points';
+do { types();        exit 0 }      if $operation eq 'types';
+do { features();     exit 0 }      if $operation eq 'features';
+do { stylesheet();   exit 0 }      if $operation eq 'stylesheet';
+do { dna();          exit 0 }      if $operation eq 'dna';
+
+error_header('invalid request',400);
+exit 0;
+
+# -----------------------------------------------------------------
+sub openDB {
+  my $adaptor  = $CFG->{DSN}{adaptor};
+  my $database = $CFG->{DSN}{database};
+  my $fasta    = $CFG->{DSN}{fasta};
+  my $username = $CFG->{DSN}{user};
+  my $password = $CFG->{DSN}{passwd};
+  my @args = (-adaptor => $adaptor);
+  push @args,(-dsn     => $database) if $database;
+  push @args,(-fasta   => $fasta)    if $fasta;
+  push @args,(-user    => $username) if $username;
+  push @args,(-pass    => $password) if $password;
+  my $db = eval { Bio::DB::GFF->new(@args) };
+  unless ($db) {
+    warn $@;
+    return;
+  }
+  $db->automerge(0);
+  $db->debug(0);
+  $db->fast_queries(1);
+  $db->strict_bounds_checking(1);
+  return $db;
+}
+
+# -----------------------------------------------------------------
+sub list_dsns {
+  my $j = ' 'x3;
+  ok_header();
+  print qq(<?xml version="1.0" standalone="yes"?>\n<!DOCTYPE DASDSN SYSTEM "http://www.biodas.org/dtd/dasdsn.dtd">\n);
+  print "<DASDSN>\n";
+
+  for my $dsn (sort keys %$CONFIG) {
+    print "$j<DSN>\n";
+    print qq($j$j<SOURCE id="$dsn">$dsn</SOURCE>\n);
+    print qq($j$j<MAPMASTER>$CONFIG->{$dsn}{DSN}{mapmaster}</MAPMASTER>\n);
+    print qq($j$j<DESCRIPTION>$CONFIG->{$dsn}{DSN}{description}</DESCRIPTION>\n);
+    print "$j</DSN>\n";
+  }
+  print "</DASDSN>\n";
+}
+
+# -----------------------------------------------------------------
+sub dna {
+  my $segments = get_segments();
+
+  ok_header();
+  print qq(<?xml version="1.0" standalone="yes"?>\n);
+  print qq(<!DOCTYPE DASDNA SYSTEM "http://www.wormbase.org/dtd/dasdna.dtd">\n);
+  print qq(<DASDNA>\n);
+  for my $segment (@$segments) {
+    my ($reference,$refclass,$start,$stop) = @$segment;
+    my @seq = get_segment_obj($reference,$refclass,$start,$stop);
+    error_segment($reference,$start,$stop) unless @seq;
+
+    for my $obj (@seq) {
+      my $dna = $obj->dna;
+      my $length = length $dna;
+      $dna =~ s/(.{60})/$1\n/g;
+      my $ref = $obj->ref;
+      my $s   = $obj->start;
+      my $e   = $obj->end;
+      print <<END
+<SEQUENCE id="$ref" start="$s" stop="$e" version="1.0">
+<DNA length="$length">
+$dna
+</DNA>
+</SEQUENCE>
+END
+    }
+  }
+  print qq(</DASDNA>\n);
+}
+
+# -----------------------------------------------------------------
+sub entry_points {
+  my $segments = get_segments();
+
+  my @parts;
+  if (my $entry_point_types = $CFG->{ENTRY_POINTS}) {
+    if ($segments) {
+      @parts = map { get_segment_obj(@$_) } @$segments;
+      @parts = map { $_->contained_features(-types=>$entry_point_types,-merge=>0) } @parts;
+    } else {
+      @parts = $DB->features(-types=>$entry_point_types,-merge=>0);
+    }
+  }
+
+  my $url = get_url();
+
+  ok_header();
+  print <<END;
+<?xml version="1.0" standalone="no"?>
+<!DOCTYPE DASEP SYSTEM "http://www.biodas.org/dtd/dasep.dtd">
+<DASEP>
+<ENTRY_POINTS href="$url" version="1.0">
+END
+;
+
+  for my $part (@parts) {
+    next unless $part->ref eq $part->group;
+    $part->absolute(1);
+    my $name  = $part->name;
+    my $st    = $part->start;
+    my $en    = $part->stop;
+    my $class = $part->class;
+    my $length = $part->length;
+    my $orientation = $part->strand >= 0 ? '+' : '-';
+    my $subparts    = $CFG->{COMPONENTS}{subparts}{$part->type} ? 'yes' : 'no';
+    print qq(<SEGMENT id="$name" size="$length" start="$st" stop="$en" class="$class" orientation="$orientation" subparts="$subparts">$name</SEGMENT>\n);
+  }
+  print "</ENTRY_POINTS>\n</DASEP>\n";
+}
+
+# -----------------------------------------------------------------
+# get the features for the segment indicated
+sub features {
+  my @segments = get_segments();
+
+  my $summary = param('summary');
+  my $url = get_url();
+  my @filter   = param('type');
+  my @category = param('category');
+
+  my (@ordinary_categories,$want_supercomponent,$want_component);
+  foreach (@category) {
+    if (lc($_) eq 'component') {
+      $want_component++;
+    }
+    elsif (lc($_) eq 'supercomponent') {
+      $want_supercomponent++;
+    }
+    else {
+      push @ordinary_categories,$_;
+    }
+  }
+
+  push @filter,make_categories(@ordinary_categories);
+
+  ok_header();
+  print <<END
+<?xml version="1.0" standalone="yes"?>
+<!DOCTYPE DASGFF SYSTEM "http://www.biodas.org/dtd/dasgff.dtd">
+<DASGFF>
+<GFF version="1.01" href="$url">
+END
+;
+
+  foreach (@segments) {
+    my ($reference,$refclass,$start,$stop) = @$_;
+
+    dump_components($reference,$refclass,$start,$stop)      if $want_component;
+    dump_supercomponents($reference,$refclass,$start,$stop) if $want_supercomponent;
+
+    next if !@filter && ($want_supercomponent || $want_component);
+
+    my @segs = get_segment_obj($reference,$refclass,$start,$stop);
+    error_segment($reference,$start,$stop) unless @segs;
+
+    for my $seq (@segs) {
+      dump_segment($seq,\@filter);
+    }
+  }
+
+  # dump feature requests, if any
+  foreach (param('feature_id'),param('group_id')) {
+    my @segments = get_feature_obj($_);
+    error_id($_) unless @segments;
+    foreach (@segments) { $_->absolute(1) }
+    dump_segment($_,\@filter) foreach @segments;
+  }
+
+print <<END;
+</GFF>
+</DASGFF>
+END
+}
+
+sub dump_segment {
+  my $seq = shift;
+  my $filter = shift;
+
+  my $r = $seq->refseq;
+  my $s = $seq->start;
+  my $e = $seq->stop;
+  ($s,$e) = ($e,$s) if $s > $e;
+
+  my $version = seq2version($r);
+  print qq(<SEGMENT id="$r" start="$s" stop="$e" version="$version">\n);
+
+  my $iterator = $seq->features(-types=>$filter,-merge=>0,-iterator=>1);
+  while (my $f = $iterator->next_seq) {
+    my $type        = $f->type;
+    next if $CFG->{EXCLUDE} && $CFG->{EXCLUDE}{lc $type};
+    next if $CFG->{INCLUDE} && !$CFG->{INCLUDE}{lc $type};
+
+    my $flabel      = $f->info || $f->type;
+    my $source      = $f->source;
+    my $method      = $f->method;
+    my $start       = $f->start;
+    my $end         = $f->stop;
+    my $score       = $f->score;
+    my $orientation = $f->strand;
+    my $phase       = $f->phase;
+    my $group       = $f->group;
+    my $gclass      = $group->class if $group;
+    my $id          = $f->id;
+    my $fid         = $id;
+	
+    $phase       ||= 0;
+    $orientation ||= 0;
+    $score       ||= '-';
+    $orientation = $orientation >= 0 ? '+' : '-';
+
+    my $category = transmute($type);
+    ($start,$end) = ($end,$start) if $start > $end;
+
+    # group stuff
+    my $groupid       = "$gclass:$group";
+    my @notes;
+    my $info       = $f->info;
+    my ($group_info,$link,$gclass);
+
+    if (ref($info)) {
+      my $class = $info->class;
+      $fid = "$class:$info/$id";
+      $id = $info;
+      if (!defined($CFG->{LINKS}{$type}) or $CFG->{LINKS}{$type} ne 'none') {
+	my $url = $CFG->{LINKS}{$type} || $CFG->{LINKS}{default};
+	$url =~ s/\$name/$info/g;
+	$url =~ s/\$class/$class/g;
+	$link = qq(<LINK href="$url">$info</LINK>);
+	$gclass = qq( type="$class")
+      }
+    } else {
+      $groupid       = $group;
+      $group_info = join "\n",map {qq(<NOTE>$_</NOTE>)} @notes;
+    }
+
+    my ($target,$target_info);
+    if (($target = $f->target) && $target->can('start')) {
+      my $start = $target->start;
+      my $stop  = $target->stop;
+      $target_info = qq(<TARGET id="$target" start="$start" stop="$stop" />);
+    }
+	
+    if ($category eq 'component') {
+      my $strt = 1;
+      my $stp  = $end - $start + 1;
+      $target_info = qq(<TARGET id="$id" start="$strt" stop="$stp" />);
+    }
+
+    my $map;
+
+    if ($CFG->{COMPONENTS}{subparts}{$type} || $CFG->{COMPONENTS}{superparts}{$type})  {
+      $map = qq( reference="yes")
+    } else {
+      $map = qq() 
+    }
+    $map .= qq( subparts="yes")   if $CFG->{COMPONENTS}{subparts}{$type};
+    $map .= qq( superparts="yes") if $CFG->{COMPONENTS}{superparts}{$type};
+
+    print <<END;
+   <FEATURE id="$fid" label="$flabel">
+      <TYPE id="$type" category="$category"$map>$type</TYPE>
+      <METHOD id="$method">$method</METHOD>
+      <START>$start</START>
+      <END>$end</END>
+      <SCORE>$score</SCORE>
+      <ORIENTATION>$orientation</ORIENTATION>
+      <PHASE>$phase</PHASE>
+END
+;
+    print qq(      $link\n) if $link;
+    print qq(      $target_info\n) if $target_info;
+
+    if ($info) {
+      if ($group_info) {
+	print qq(      <GROUP id="$groupid"$gclass>\n);
+	print qq(        $group_info\n)  if $group_info;
+	print qq(      </GROUP>\n);
+      } else {
+	$groupid   ||= '';
+	$gclass ||= '';
+	print qq(      <GROUP id="$groupid"$gclass />\n);
+      }
+    }
+    print <<END;
+   </FEATURE>
+END
+    ;
+  }
+
+  print qq(</SEGMENT>\n);
+}
+
+sub error_segment {
+  my ($reference,$start,$stop) = @_;
+  my $tag = $CFG->{DSN}{authorative} ? 'ERRORSEGMENT' : 'UNKNOWNSEGMENT';
+  my $attributes;
+  $attributes .= qq( start="$start") if defined $start;
+  $attributes .= qq( stop="$stop")   if defined $stop;
+  print qq(    <$tag id="$reference"$attributes />\n);
+}
+
+sub error_id {
+  my $id = shift;
+  print qq(    <UNKNOWNFEATURE id="$id" />\n);
+}
+
+sub dump_components {
+  my ($reference,$refclass,$reqstart,$reqend) = @_;
+  my @seq = grep {lc($_->abs_ref) eq lc($reference)} get_segment_obj($reference,$refclass,$reqstart,$reqend);
+
+  error_segment($reference,$reqstart,$reqend) unless @seq;
+
+  for my $seq (@seq) {
+    $seq->absolute(1);
+    my $refseq = $seq->refseq;
+    my $start = defined $reqstart ? $reqstart : $seq->start;
+    my $stop  = defined $reqend   ? $reqend   : $seq->end;
+
+    my $component_type = 'superparts';
+
+    my @types = keys %{$CFG->{COMPONENTS}{$component_type}} or return;
+    my @parts = $seq->contained_features(-type=>\@types,-merge=>0);
+    @parts    = grep { $_->name ne $refseq } @parts;
+    return unless @parts;
+
+    my $version = seq2version($refseq);
+    print qq(<SEGMENT id="$refseq" start="$start" stop="$stop" version="$version">\n);
+
+    for my $part (@parts) {
+
+      my $length = $part->length;
+      my ($start,$end,$tstart,$tend,$targetid);
+
+      ($start,$end)   =  ($part->start,$part->stop);
+      if (my $target = $part->target) {
+	($tstart,$tend) =  ($target->start,$target->end);
+      } else {
+	($tstart,$tend) = (1,$length);
+      }
+      $targetid = $part->target;
+
+      my $orientation = $part->strand >= 0 ? '+1' : '-1';
+      my $type   = $part->type;
+      my $method = $type->method;
+      my $description = qq(category="component" reference="yes");
+      $description .= qq( subparts="yes")   if $CFG->{COMPONENTS}{subparts}{$type};
+      $description .= qq( superparts="yes") if $CFG->{COMPONENTS}{superparts}{$type};
+      my $id = $part->info;
+
+      if ($tstart > $tend) {
+	$orientation = '-1';
+	($tstart,$tend) = ($tend,$tstart);
+      }
+
+      # avoid giving out information on nonrequested parts
+      if (defined($reqstart) && defined($reqend)) {
+	next unless $start <= $reqend && $end >= $reqstart;
+      }
+
+      my $part_id = $part->name;
+    print <<END
+   <FEATURE id="$id" label="$part_id">
+      <TYPE id="$type" $description>$part_id</TYPE>
+      <METHOD id="$method">$method</METHOD>
+      <START>$start</START>
+      <END>$end</END>
+      <SCORE>-</SCORE>
+      <ORIENTATION>$orientation</ORIENTATION>
+      <PHASE>-</PHASE>
+      <TARGET id="$targetid" start="$tstart" stop="$tend">$part_id</TARGET>
+   </FEATURE>
+END
+  ;
+    }
+    print qq(</SEGMENT>\n);
+  }
+}
+
+sub dump_supercomponents {
+  my ($reference,$refclass,$reqstart,$reqend) = @_;
+  my @seq = get_segment_obj($reference,$refclass,$reqstart,$reqend);
+
+  error_segment($reference,$reqstart,$reqend) unless @seq;
+
+  for my $seq (@seq) {
+
+    $seq->absolute(1);
+
+    my @types = keys %{$CFG->{COMPONENTS}{'subparts'}};
+    my @parts = $seq->features(-type=>['Supercomponent'],-merge=>0);
+
+    for my $part (@parts) {
+      my $target          = $part->target or next;
+
+      $target->can('start') or next;
+
+      my $start = defined $reqstart ? $reqstart : $part->start;
+      my $stop   = defined $reqend   ? $reqend  : $part->end;
+
+      my ($tstart,$tstop) = ($target->start,$target->stop);
+      my $version = seq2version($part->name);
+
+      print qq(<SEGMENT id="$reference" start="$start" stop="$stop" version="1.0">\n);
+      my ($start,$end) =  ($part->start,$part->end);
+
+      my $orientation = '+1';
+      my $type   = $part->type;
+      my $method = $part->method;
+
+      $type =~ s/Super//i;
+      $type = ucfirst $type;
+
+      my $description = qq(category="supercomponent" reference="yes");
+      $description .= qq( subparts="yes")   if $CFG->{COMPONENTS}{subparts}{$type};
+      $description .= qq( superparts="yes") if $CFG->{COMPONENTS}{superparts}{$type};
+      my $id       = $target;
+      my $targetid = $target;
+
+      # avoid giving out information on nonrequested parts
+      if (defined($reqstart) && defined($reqend)) {
+	next unless $start <= $reqend && $end >= $reqstart;
+      }
+      # flip start and end coordinates of target on negative strands
+      ($tstart,$tstop) = ($tstop,$tstart) if $part->strand < 0;
+
+      print <<END
+   <FEATURE id="$id" label="$id">
+      <TYPE id="$type" $description>$part</TYPE>
+      <METHOD id="$method">$method</METHOD>
+      <START>$start</START>
+      <END>$end</END>
+      <SCORE>-</SCORE>
+      <ORIENTATION>$orientation</ORIENTATION>
+      <PHASE>-</PHASE>
+      <TARGET id="$id" start="$tstart" stop="$tstop">$id</TARGET>
+   </FEATURE>
+END
+  ;
+      print qq(</SEGMENT>\n);
+    }
+  }
+}
+
+sub types {
+  return all_types() unless param('ref') or param('segment');
+
+  my $summary = param('summary');
+  my $url     = get_url();
+  my @filter  = param('type');
+
+  my @segments = get_segments() or return;
+
+  ok_header();
+
+  print <<END;
+<?xml version="1.0" standalone="yes"?>
+<!DOCTYPE DASTYPES SYSTEM "http://www.biodas.org/dtd/dastypes.dtd">
+<DASTYPES>
+<GFF version="1.2" summary="yes" href="$url">
+END
+;
+
+  foreach (@segments) {
+    my ($reference,$class,$start,$stop) = @$_;
+    next unless $reference;
+    my ($seq) = get_segment_obj($reference,$class,$start,$stop) or next;
+    unless ($seq) {  #empty section
+      my $version = seq2version($reference);
+      print qq(<SEGMENT id="$reference" start="$start" stop="$stop" version="$version">\n);
+      print qq(</SEGMENT>\n);
+      next;
+    }
+
+    my $s = $seq->start;
+    my $e = $seq->stop;
+
+    # use absolute coordinates -- people expect it
+    my $name = $seq->refseq;
+
+    my $version = seq2version($name);
+    print qq(<SEGMENT id="$name" start="$s" stop="$e" version="$version">\n);
+
+    my @args = (-enumerate=>1);
+    push @args,(-types=>\@filter) if @filter;
+    my %histogram = $seq->types(@args);
+    foreach (keys %histogram) {
+      next if $CFG->{EXCLUDE} && $CFG->{EXCLUDE}{$_};
+      next if $CFG->{INCLUDE} && !$CFG->{INCLUDE}{$_};
+      my ($method,$source) = split ':';
+      my $count = $histogram{$_};
+      my $category  = transmute($_);
+      print qq(\t<TYPE id="$_" category="$category" method="$method" source="$source">$count</TYPE>\n);
+    }
+    print qq(</SEGMENT>\n);
+  }
+print <<END;
+</GFF>
+</DASTYPES>
+END
+}
+
+# list of all the types
+sub all_types {
+  my @methods = $DB->types;
+
+  ok_header();
+  my $url = get_url();
+  print <<END;
+<?xml version="1.0" standalone="yes"?>
+<!DOCTYPE DASTYPES SYSTEM "http://www.biodas.org/dtd/dastypes.dtd">
+<DASTYPES>
+<GFF version="1.2" summary="yes" href="$url">
+<SEGMENT>
+END
+    ;
+
+  for my $id (@methods) {
+    next if $CFG->{EXCLUDE} && $CFG->{EXCLUDE}{$id};
+    next if $CFG->{INCLUDE} && !$CFG->{INCLUDE}{$id};
+    my $category = transmute($id);
+    my $method   = $id->method;
+    my $source   = $id->source;
+    print qq(\t<TYPE id="$id" category="$category" method="$method" source="$source" />\n);
+  }
+
+  print <<END
+</SEGMENT>
+</GFF>
+</DASTYPES>
+END
+    ;
+
+}
+
+# Big time kludge -- just outputs the prebuilt stylesheet in this
+# directory.  Used primarily for testing.
+sub stylesheet {
+  my $stylesheet = read_stylesheet($DSN);
+  unless ($stylesheet) {
+    error_header('no stylesheet',404);
+    exit 0;
+  }
+
+  ok_header();
+  print <<END;
+<?xml version="1.0" standalone="yes"?>
+<!DOCTYPE DASSTYLE SYSTEM "dasstyle.dtd">
+<DASSTYLE>
+<STYLESHEET version="1.0">
+END
+;
+  for my $cat (keys %$stylesheet) {
+    print qq(  <CATEGORY id="$cat">\n);
+
+    for my $type (keys %{$stylesheet->{$cat}}) {
+      print qq(     <TYPE id="$type">\n);
+
+      for my $mag (keys %{$stylesheet->{$cat}{$type}}) {
+
+	for my $glyph (keys %{$stylesheet->{$cat}{$type}{$mag}}) {
+	  my $zoom = $mag ? qq( zoom="$mag") : '';
+	  print qq(        <GLYPH$zoom>\n);
+	  print qq(           <\U$glyph\E>\n);
+	  for my $attribute (keys %{$stylesheet->{$cat}{$type}{$mag}{$glyph}}) {
+	    next if $attribute eq 'glyph';
+	    print qq(              <\U$attribute\E>$stylesheet->{$cat}{$type}{$mag}{$glyph}{$attribute}<\U/$attribute\E>\n);
+	  }
+	  print qq(           </\U$glyph\E>\n);
+	  print qq(        </GLYPH>\n);
+	}
+	
+      }
+
+      print qq(     </TYPE>\n);
+    }
+
+    print qq(  </CATEGORY>\n);
+  }
+
+  print <<END;
+</STYLESHEET>
+</DASSTYLE>
+END
+;
+}
+
+# calculate type and category from acedb type and method
+sub transmute {
+    my $type = shift;
+
+    # look in $TYPE2CATEGORY first to see if we have an exact match
+    my $category = $CFG->{TYPE2CATEGRY}{$type};
+    return $category if $category;
+
+    # otherwise do a fuzzy match using the values of %{$CFG->{TYPEOBJECTS}}
+    for my $typeobj (values %{$CFG->{TYPEOBJECTS}}) {
+
+      if ($typeobj->match($type)) {
+	$category = $CFG->{TYPE2CATEGORY}{$typeobj};  # fetch category for this object
+	$CFG->{TYPE2CATEGORY}{$type} = $category;     # remember this match for later
+	return $category;
+      }
+    }
+    return 'miscellaneous';  # no success
+}
+
+# -----------------------------------------------------------------
+sub get_url {
+  my $url = url(-path=>1, -query=>1);
+  $url =~ tr/&/\;/;
+  return $url;
+}
+
+sub seq2version {
+  my $seqname = shift;
+  return $seqname =~ /\.(\d+)$/ ? $1 : '1.0';
+}
+
+# -----------------------------------------------------------------
+sub error_header {
+  my ($message,$code) = @_;
+  $code ||= 500;
+  print header(-type          =>'text/plain',
+	       -X_DAS_Version => $VERSION,
+	       -X_DAS_Status  => $code,
+	       -X_DAS_Capabilities => CAPABILITIES,
+	      ) unless $HEADER++;
+  return if request_method() eq 'HEAD';
+  print $message;
+}
+
+sub ok_header {
+  print header(-type          =>'text/plain',
+	       -X_DAS_Version => $VERSION,
+	       -X_DAS_Status  => "200",
+	       -X_DAS_Capabilities => CAPABILITIES,
+	      ) unless $HEADER++;
+}
+
+# phony dtd
+sub dtd {
+    ok_header();
+    print <<DTD;
+<!-- phony dtd for debugging parsers -->
+DTD
+}
+
+# -----------------------------------------------------------------
+sub get_segments {
+  # extended segment argument
+  my @segments;
+  foreach (param('segment')) {
+    my ($ref,$start,$stop) = /^(\S+?)(?::(\d+),(\d+))?$/;
+    push @segments,[$ref,$start,$stop];
+  }
+  push @segments,[scalar param('ref'),scalar param('start'),scalar param('stop')] if param('ref');
+  return unless @segments;
+
+  foreach (@segments){
+    my ($reference,$start,$stop) = @$_;
+    my $class = param('entry_type') || 'Sequence';
+    my $name  = $reference;
+
+    if ($reference =~ /^(\w+):(\S+)$/) {
+      $class = $1;
+      $name  = $2;
+    }
+    my @values = ($name,$class,$start,$stop);
+    $_ = \@values;
+  }
+
+  return wantarray ? @segments : \@segments;
+}
+
+# -----------------------------------------------------------------
+sub get_feature_obj {
+  my $id = shift;
+  if ($id =~ m!^(.+)/(\d+)$!) {
+    return $DB->fetch_feature_by_id($2);
+  } elsif ($id =~ /^(\w+):(\S+)$/) {
+    return $DB->segments($1 => $2);
+  }  else {
+    return $DB->segments($_);
+  }
+}
+
+# -----------------------------------------------------------------
+sub get_segment_obj {
+  my ($reference,$class,$start,$stop,$as_feature) = @_;
+  my @args = (-name=>$reference);
+  push @args,(-class=>$class) if defined $class;
+  push @args,(-start=>$start) if defined $start;
+  push @args,(-stop=>$stop)   if defined $stop;
+
+
+  # the "feature" flag is used when we are looking for supercomponents
+  # and we want to fetch the segment as a feature object so as to find its parent
+  if ($as_feature) {
+    my @segments = $DB->fetch_feature(@args);
+    warn $DB->error unless @segments;
+    @segments;
+  }
+
+  else {
+    my @segments = $DB->segment(@args);
+    warn $DB->error unless @segments ;
+    my @s = grep {$_->abs_ref eq $reference} @segments;
+    return @s if @s;
+    return @segments;
+  }
+}
+
+
+# -----------------------------------------------------------------
+sub make_categories {
+  my @filter;
+  for my $category (@_) {
+    my $c = lc $category;
+    push @filter,@{$CFG->{CATEGORIES}{$c}} if $CFG->{CATEGORIES}{$c};
+    push @filter,$category            unless  $CFG->{CATEGORIES}{$c};
+  }
+  return @filter;
+}
+
+##################################################################################################
+# configuration file reading code
+##################################################################################################
+
+sub read_configuration {
+  my $conf_ref = shift;
+  my $conf_dir = shift;
+  die "$conf_dir: not a directory" unless -d $conf_dir;
+
+  my $config = $$conf_ref ||= {};
+
+  opendir(D,$conf_dir) or die "Couldn't open $conf_dir: $!";
+  my @conf_files = map { "$conf_dir/$_" }readdir(D);
+  close D;
+
+  # try to work around a bug in Apache/mod_perl which takes effect when
+  # using glibc 2.2.1
+  unless (@conf_files) {
+    @conf_files = glob("$conf_dir/*.conf");
+  }
+
+  foreach (@conf_files) {
+    next unless /\.conf$/;
+    my $basename = basename($_,'.conf');
+    next if $config->{$basename} && $config->{$basename}{mtime} >= (stat($_))[9];
+
+    my $conf   = read_configfile($_) or next;
+    $config->{$basename} = $conf;
+  }
+}
+
+sub read_configfile {
+  my $file = shift;
+  my (%c,$current_section,$current_tag);
+
+  open (F,$file) or die "Can't open configuration file $file: $!";
+  while (<F>) {
+    chomp;
+    next if /^\#/;  # ignore comments
+
+    if (/^\s*\[([^\]]+)\]/) {  # beginning of a configuration section
+      $current_section = lc($1);
+      next;
+    }
+
+    if (/^(\w+)\s*=\s*(.+)/ && $current_section) {   # key value pair within a configuration section
+      my $tag = lc $1;
+      my $value = $2;
+      $c{$current_section}{$tag} = $2;
+      $current_tag = $tag;
+      next;
+    }
+
+    if (/^\s+(.+)/ && $current_tag) { # continuation line
+      my $value = $1;
+      $c{$current_section}{$current_tag} .= ' ' . $value;
+      next;
+    }
+
+    if (/^(\S.+)/ && $current_section) { # valueless tag
+      $c{$current_section}{$1}++;
+      next;
+    }
+  }
+  close F;
+
+  # Now rearrange and error-check the sections
+  my %config;
+
+  my $dsn = $c{'data source'};
+  unless ($dsn) {
+    warn "No [data source] section in configuration file\n";
+    return;
+  }
+  $config{DSN}{description}   = $dsn->{description} or die "No description field in [data source] section";
+  $config{DSN}{adaptor}       = $dsn->{adaptor} || 'dbi::mysqlopt';
+  $config{DSN}{authoritative} = $dsn->{authoritative};
+  $config{DSN}{fasta}         = $dsn->{fasta_files};
+  $config{DSN}{user}          = $dsn->{user};
+  $config{DSN}{passwd}        = $dsn->{passwd};
+  $config{DSN}{database}      = $dsn->{database}  or die "No database field in [data source] section";
+  $config{DSN}{mapmaster}     = $dsn->{mapmaster} or die "No mapmaster field in [data source] section";
+
+  # get the type and category information
+  my $types = $c{categories} or die "No [categories] section in configuration file";
+  for my $category (keys %{$types}) {
+    my @types = split /\s+/,$types->{$category};
+
+    # from category to list of types
+    $config{CATEGORIES}{$category} = \@types;
+
+    # from types to list of categories
+    for my $typename (@types) {
+      my $typeobj      = Bio::DB::GFF::Typename->new($typename);
+      $config{TYPE2CATEGORY}{$typeobj} = $category;
+      $config{TYPEOBJECTS}{$typeobj}   = $typeobj;
+    }
+  }
+  # hard-code Component and Supercomponent
+  foreach ('Component','Supercomponent') {
+    my $typeobj      = Bio::DB::GFF::Typename->new($_);
+    $config{TYPE2CATEGORY}{$typeobj} = 'structural';
+    $config{TYPEOBJECTS}{$typeobj}   = $typeobj;
+  }
+
+  # entry points to fetch
+  $c{components}{entry_points} ||= 'entry_point';
+  $config{ENTRY_POINTS}   = [ split /\s+/,$c{components}{entry_points}];
+
+  # included features
+  $config{INCLUDE} = { map {$_=>1} 
+		       split /\s+/,$c{filter}{include} } if $c{filter}{include} =~ /\S/;
+
+  # excluded features
+  $config{EXCLUDE} = { map {$_=>1} 
+		       split /\s+/,$c{filter}{exclude} } if $c{filter}{exclude} =~ /\S/;
+
+  # structural information
+  $config{COMPONENTS}{subparts}    =  { map {$_     =>1} split /\s+/,$c{components}{has_subparts} };
+  $config{COMPONENTS}{superparts}  =  { map {$_     =>1} split /\s+/,$c{components}{has_superparts} };
+
+  # links
+  $config{LINKS} = $c{links};
+
+  return \%config;
+}
+
+#################################### style sheet reading ####################
+sub read_stylesheet {
+  my $dsn = shift;
+  if (exists($STYLESHEETS{$dsn})) {
+    return $STYLESHEETS{$dsn} || $STYLESHEETS{default};
+  }
+
+  $STYLESHEETS{$dsn}    = eval { parse_stylesheet("$CONF_DIR/$dsn.style") };
+  $STYLESHEETS{default} = eval { parse_stylesheet("$CONF_DIR/default.style") };
+  return $STYLESHEETS{$dsn} || $STYLESHEETS{'default'};
+}
+
+sub parse_stylesheet {
+  my $file = shift;
+  open F,$file or die "Can't open stylesheet $file: $!";
+
+  my (%c,$current_section,$current_magnification,$current_tag);
+  while (<F>) {
+    chomp;
+    next if /^\#/;  # ignore comments
+
+    if (/^\s*\[([^\]]+)\]/) {  # beginning of a configuration section
+      $current_section = lc $1;
+      if ($current_section =~ /(.+):(.+)$/) {
+	$current_section = $1;
+	$current_magnification = $2;
+      } else {
+	$current_magnification = '';
+      }
+      next;
+    }
+
+    if (/^(\w+)\s*=\s*(.+)/ && $current_section) {   # key value pair within a configuration section
+      my $tag = lc $1;
+      my $value = $2;
+      $c{$current_section}{$current_magnification}{$tag} = $2;
+      $current_tag = $tag;
+      next;
+    }
+
+    if (/^\s+(.+)/ && $current_tag) { # continuation line
+      my $value = $1;
+      $c{$current_section}{$current_tag} .= ' ' . $value;
+      next;
+    }
+
+  }
+  close F;
+
+  # reorganize according to the category structure
+  my %style;
+  my $default_glyph = $c{default}{''}{glyph};
+  my @categories = keys %{$CFG->{CATEGORIES}};
+
+  for my $cat (@categories) {
+    my @types = @{$CFG->{CATEGORIES}{$cat}};
+
+    for my $type (map {lc $_} @types,$cat) {
+
+      next unless $c{$type};
+      my $t = $type eq $cat ? 'default' : $type;
+
+      for my $mag (keys %{$c{$type}}) {
+	my $glyph = $c{$type}{$mag}{glyph} || $default_glyph || 'box';
+
+	for my $att (keys %{$c{$type}{$mag}}) {
+	  $style{$cat}{$t}{$mag}{$glyph}{$att} = $c{$type}{$mag}{$att};
+	}
+
+      }
+    }
+  }
+
+  return \%style;
+}
+

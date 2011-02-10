@@ -1,0 +1,940 @@
+#!/usr/bin/perl
+
+#file: neuron_display
+#author: Jack Chen
+
+use strict;
+use vars qw/$DB/;
+use lib '../lib';
+use CGI::Carp qw/fatalsToBrowser/;
+use CGI qw/:standard :html3 escape *table *TR *td *pre/;
+use Ace 1.51;
+use CGI 2.42 qw(:standard *ul *table);
+use Ace::Browser::AceSubs qw(:DEFAULT Configuration ResolveUrl Style !TypeSelector);
+use Ace::Browser::SearchSubs;
+use Ace::Browser::TreeSubs qw(AceImageHackURL);
+use ElegansSubs;
+
+#fetch database handle
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+#actions to clear the parameters
+Delete_all() if param('Clear');
+param(-name=>'limit',-value=>10) unless param('limit');
+
+#redirecting to a new page!
+if (param('neuron302')){
+	print redirect("neuron302.cgi");
+}elsif (param('text302')){
+	print redirect("text302");
+}
+
+#print top, same to each page
+PrintTop(undef,undef,undef,
+	 '-Title' =>'Neurobiological Data Search',
+	 '-Style' =>Style(),
+#	 '-Target'=>'_top',
+	 '-Class' =>'search');
+
+my $url = url(-absolute=>1);
+print start_form(-name=>'form1',-action=>"$url#results");
+#display_instructions();
+
+#display empty forms when first loading the script
+if ( (!param('neuronfind')) 
+	&& (!param('add_all'))
+	&& (!param('add_some'))
+	&& (!param('sum'))
+	&& (!param('syn'))
+#	&&(!param('view_sum'))
+#	&&(!param('view_syn')) 
+	){
+	#display empty fields on first loading
+	my @empty_tmp = ();
+	display_instructions();
+	display_search_forms(0,\@empty_tmp, \@empty_tmp);
+	display_what();
+}
+
+#retrive values and create table
+if (param('neuronfind')){
+	my ($nok, $cok, $neuron_find);
+     	#each time 'Find" pressed, @neurons_T is cleared.
+     	my @neurons_T = ();
+     	my @empty_tmp = ();
+     	$cok = param('classok');
+     	if (!param('neuronok')){
+		$nok = '*';
+	}else{
+		$nok = param('neuronok');
+	}
+     	#get all neurons belong to the selected class and follow specified name pattern
+     	my $query = qq(query find cell Neurodata AND "$nok" AND cell_group = "$cok");
+     	@neurons_T = $DB->fetch(-query=>"$query");
+     	display_instructions();
+	display_search_forms(1, \@neurons_T, \@empty_tmp);
+     	display_what();
+
+}elsif(param('add_some')){ #when Add Selected is clicked
+	#get value from "Search Result"
+	my @tmp_T = param('Neuron_Class_List');
+	my @neurons_T = ();
+	display_instructions();
+	display_search_forms(0, \@neurons_T, \@tmp_T);
+	display_what();
+
+	#for testing
+	my (@items);	#default set to show all fields, can change upon request
+	@items= 	('Brief ID',
+           		'Overview', 
+	  		'Group',
+  			'Lineage_name',
+	   		'Num neurons by synapses',
+   			'Num neurons by gaps',
+   			'Num neurons connected',
+   			'Num total connections'),
+	#need to add up neurons from textarea and scrolling list (only selected neurons)
+	@neurons_T = split( /\s+/, uc param ('Neuron_Input')); #allow arbitrary cases
+	push (@neurons_T, @tmp_T);
+	display_summary(\@neurons_T, \@items);
+}elsif(param('add_all')){ #when Add All is clicked
+	
+	my ($nok, $cok);
+     	$cok = param('classok');
+     	if (!param('neuronok')){
+		$nok = '*';
+	}else{
+		$nok = param('neuronok');
+	}
+     	my $query = qq(query find cell Neurodata AND "$nok" AND cell_group = "$cok");
+	#get value from "Search Result", both selected and unselected, do a query here
+	my @tmp_T = $DB->fetch(-query=>"$query");
+	my @neurons_add = ();
+	push (@neurons_add, @tmp_T);
+	#clear the "Search Result" field when the "data transfer" is done
+	my @neurons_T = ();
+	display_instructions();
+	display_search_forms(0, \@neurons_T, \@neurons_add);
+	display_what();
+
+	#for testing
+	my (@items);	#default set to show all fields, can change upon request
+	@items= 	('Brief ID',
+           		'Overview', 
+	  		'Group',
+  			'Lineage_name',
+	   		'Num neurons by synapses',
+   			'Num neurons by gaps',
+   			'Num neurons connected',
+   			'Num total connections'),
+	#need to add up neurons from textarea and scrolling list (only selected neurons)
+	@neurons_T = split( /\s+/, uc param ('Neuron_Input')); #allow arbitrary cases
+	push (@neurons_T, @tmp_T);
+	display_summary(\@neurons_T, \@items);
+
+#when "Submit" (the left one) is clicked
+#testing new function
+}elsif(param('view_sum')){
+	#when "view summary data" is clicked
+	
+	display_what_summary();
+}elsif(param('view_syn')){
+	#when "view wiring data" is clicked
+	display_what_wiring();
+}elsif (param('sum')){
+	my (@items, @neurons_T);
+	@items = param ("summ");
+	@neurons_T = split( /\s+/, uc param ('Neuron_Input')); #allow arbitrary cases
+	
+	foreach my $neuron_T(@neurons_T){
+		chomp($neuron_T);
+	}
+	my @empty_tmp = ();
+	display_summary(\@neurons_T, \@items);
+	display_instructions();
+	display_search_forms(0, \@empty_tmp, \@empty_tmp);
+	display_what();
+	display_what_summary();
+	#display_summary(\@neurons_T, \@items);
+}elsif (param('syn')){
+	my (@neurons_add, $T_type, $T_certainty, $T_animal);
+	$T_type = param ("T_type");
+	$T_certainty = param ("T_certainty");
+	$T_animal = param ("T_animal");
+	@neurons_add = split (/\s+/, uc param ('Neuron_Input')); # allow arbitrary cases
+	my @empty_tmp = ();
+	display_connections(\@neurons_add, $T_type, $T_certainty, $T_animal);
+	display_instructions();
+	display_search_forms (0, \@empty_tmp, \@empty_tmp);
+	display_what();
+	display_what_wiring();
+	#display_connections(\@neurons_add, $T_type, $T_certainty, $T_animal);
+}
+
+print end_form();
+PrintBottom();
+
+#============================#
+# #========================# #
+# # subroutines start here # #
+# #========================# #
+#============================#
+
+sub display_instructions {
+	
+	print 
+		h1("Neuron Search"),
+	 	h2("Step 1: Search for Neurons for Display (Or Click below to View all 302 Neurons)"),
+  		submit(-name=>'neuron302', -label=>"View All Neurons (Warning! Big File)"), " or\n",
+		submit(-name=>'text302', -label=>"View All Neurons (Text file)");
+}
+
+sub display_search_forms {
+  my ($tmp0, $tmp1, $tmp2) = @_;
+  my (@neurons_T, @neurons_subtracted);
+  
+  if ($tmp0 == 1){
+  	@neurons_subtracted = @$tmp1;
+  }else{
+  	#my @neurons_T_help = param ('Neuron_Class_List');
+  	#push (@neurons_T, @neurons_T_help);
+	if(param('add_some')){
+		#first do another search
+		my ($nok, $cok);
+     		$cok = param('classok');
+     		if (!param('neuronok')){
+			$nok = '*';
+		}else{
+			$nok = param('neuronok');
+		}
+     		my $query = qq(query find cell Neurodata AND "$nok" AND cell_group = "$cok");
+		#get value from "Search Result", both selected and unselected, do a query here
+		my @tmp_T = $DB->fetch(-query=>"$query");
+		push (@neurons_T, @tmp_T);
+
+		#then retrieve neurons from the textarea
+		my @neurons_add_help = split (/\s+/, uc param ('Neuron_Input')); # allow arbitrary cases
+		# and retrieve neurons from the scrolling_list to get the selected neruons
+		my @neurons_selected_help = param('Neuron_Class_List');
+		#combinte the two together
+		push (@neurons_add_help, @neurons_selected_help);
+		#finally subtract @neurons_add_help from @neurons_T
+		my %neurons_add_hash;
+		foreach my $neuron_add_help(@neurons_add_help){
+			$neurons_add_hash{$neuron_add_help} = 1;
+		}
+		foreach my $neuron_T(@neurons_T){
+			if (!exists $neurons_add_hash{$neuron_T}){
+				push @neurons_subtracted, $neuron_T;
+			}
+		}
+	}
+  }
+  my @neurons_add = @$tmp2;	#value retrieved from the scrolling list
+  my @neurons_add_help = param ('Neuron_Input');
+  push (@neurons_add, @neurons_add_help);
+  #need to eleminate duplicates from @neurons_add
+  #notice that @neurons_add is an array of elements, each of which is a "text"
+  #a "text" is a number of neurons separated by spaces
+  
+  #first, 'flattern' the array
+  my @tmp_add = ();
+  foreach my $neuron_add(@neurons_add){
+  	my @tmp_tmp = split( /\s+/, uc $neuron_add); #to allow lower cases
+						     #make adal and ADAL the same
+	push(@tmp_add, @tmp_tmp);
+  }
+
+  #second, elimintate duplicates
+  my %hash_tmp;
+  for my $key (@tmp_add){
+  	$hash_tmp{$key}++;
+  }
+  @neurons_add = keys %hash_tmp;
+
+  #query all classes of neurons to be displayed
+  my @clist = $DB->fetch(-query => qq(query find cell Neurodata; follow cell_group)); 
+
+  print 
+	table({-width=>'60%', -cellpadding=>'5',-cellspacing=>'1'},
+		TR(th({-class=>'searchtitle',-colspan=>2}, 'Selecting Neurons for Display')),
+		TR(th({-width=>'38%', -class=>'searchtitle', -align=>'RIGHT'},
+			'Selected a Class from the Neuron Class List'),
+		   td({-class=>'searchbody'},
+			popup_menu(-name=>'classok',
+					-value=>\@clist))),
+		TR(th({-class=>'searchtitle',-align=>'RIGHT'}, '(Optional) Set a Filter'),
+		   td({-class=>'searchbody'},
+			textfield(-name=>'neuronok',
+					-value=>"*",
+					-size=>10),
+		   '? for any one character, * for zero or more characters. Examples: "ad*", "ada?"')),
+		TR(th({-class=>'searchtitle', -align=>'RIGHT'}, 'Submit a Search Job'),
+		   td({-class=>'searchbody'},
+		   	submit(-name=>'neuronfind',
+				-label=>'Find'))));
+  print  h2("Step 2: Add Neurons to the display List"),
+         table({-width=>'60%', -cellpadding=>'5',-cellspacing=>'1'},  
+		TR(th({-class=>'searchtitle', -align=>'RIGHT', -width=>'38%'},'Select Neurons from the List'),
+		   td({-class=>'searchbody'},
+		   	scrolling_list(-name=>'Neuron_Class_List',
+					-value=>\@neurons_subtracted,
+					-size=>4,
+					-multiple=>1,
+					-override=>1
+						))),
+		TR(th({-class=>'searchtitle', -align=>'RIGHT'},'Add Selected Neurons to the Field Below'),
+		   td({-class=>'searchbody'},
+		   	submit(-name=>'add_some',
+				-label=>'Add Selected'),
+			'or',
+			submit(-name=>'add_all',
+				-label=>'Add All'), 
+			'preview data at the bottom after clicking')), 
+		TR(th({-class=>'searchtitle', -align=>'RIGHT'},'Selected Neurons for Display'),
+		   td({-class=>'searchbody'},
+		   	textarea(-name=>'Neuron_Input',
+				-value=>"@neurons_add",
+				-rows=>4,
+				-columns=>25,
+				-override=>1,
+				-wrap=>'virtual'
+				),
+			'Or manually input neurons in the text area (names of neurons separated by spaces)'))
+	);
+}
+
+######testing new function
+
+sub display_what_summary{
+	print	h3("For Summary Data, Select One or More Properties and Click Go Button");
+	print ul(
+		#li(["<b>JSH and N2U:</b> Names of experimental <i>C. elegans</i> 
+		#individuals described in White <i>et al.</i>(1986)."]),
+		li(["<b>Num neurons by synapses:</b> Number of neurons connected to 
+		this neuron through synaptic connections."]),
+	);
+
+     	#print table, starting here
+     	print start_table({-width=>'60%'});
+     	print start_TR{-class=>'databody', -align=>'CENTER'};
+     	print td({-class=>'datatitle',-align=>'CENTER'},"<strong>Summary Data</strong>"),
+     	      td({-width=>'30%', -class=>'datatitle',-align=>'CENTER'},"<strong>Display</strong>"),
+		   end_TR;
+     	print start_TR{-class=>'databody',-align=>'CENTER'};   
+     	print td(({-class=>'databody'},
+		  scrolling_list(-name=>"summ",
+				 -Values=>['Select All Fields',
+				 	   'Brief ID',
+				           'Overview', 
+					   'Group',
+					   'Lineage_name',
+					   'Num neurons by synapses',
+					   'Num neurons by gaps',
+					   'Num neurons connected',
+					   'Num total connections'],
+				 -size=>4, 			#window size
+				 -multiple=>1,			#multiple allowed
+				 -override=>0)));		#to remove stickiness
+     	print td({-class=>'databody'},submit(-name=>'sum',-label=>'Go!'));
+     	print end_TR,end_table;
+}
+######testing new function
+
+sub display_what_wiring{
+
+     	print 	h3(a({-name=>'results'},
+		     "For Detailed Wiring Data, Check Radio Buttons and Click Go Button")); 
+
+     	print ul(
+		li(["<b>JSH and N2U:</b> Names of experimental <i>C. elegans</i> 
+		individuals described in White <i>et al.</i>(1986)."]),
+		);
+    
+     	# Repeat here: print table, starting here
+     	print 
+  		start_table({-width=>'60%'}),
+     		start_TR{-class=>'databody', -align=>'CENTER'};
+		   print td({-class=>'datatitle',-align=>'CENTER'},"<strong>Wiring Data</strong>"),
+     	      td({-width=>'30%',-class=>'datatitle',-align=>'CENTER'},"<strong>Display</strong>"),
+	   
+		end_TR;
+     	print start_TR{-class=>'databody',-align=>'CENTER'};   
+     	print td;
+     	print start_table({-width=>'100%'});
+     	print start_TR;
+    		print th({-class=>'databody'}, 'Type of Connections');
+		print td({-class=>'databody'},
+			radio_group(-name=>'T_type',
+			            -values=>['Synaptic Input','Synaptic Output','Gap','All'],
+				    -default=>'All'));
+     	print end_TR;
+     	print start_TR;
+    		print th({-class=>'databody'}, 'Certainty of Evidence');
+		print td({-class=>'databody'},
+			radio_group(-name=>'T_certainty',
+			            -values=>['Definitive','Not Definitive','All'],
+				    -default=>'All'));
+     	print end_TR;
+     	print start_TR;
+    		print th({-class=>'databody'}, 'Experimental Animal');
+		print td({-class=>'databody'},
+			radio_group(-name=>'T_animal',
+			            -values=>['JSH','N2U','All'],
+				    -default=>'All'));
+	print end_TR;
+	print end_table;
+     
+     print td({-class=>'databody'},submit(-name=>'syn', -label=>'Go!'));
+     print end_TR,end_table;
+}
+######testing new function
+
+sub display_what{
+
+	print
+		h2("Step 3: Display Data for Selected Neurons"),  
+		table({-width=>'60%', -cellpadding=>'5',-cellspacing=>'1'},
+			TR(th({-class=>'searchtitle',-colspan=>2}, 'Display Data for Selected Neurons')),
+			TR(th({-width=>'38%', -class=>'searchtitle', -align=>'RIGHT'},
+				'For Summary Data, Click'),
+			   td({-class=>'searchbody'},
+				submit(-name=>'view_sum', -label=>'View Summary Data'))),
+			TR(th({-class=>'searchtitle',-align=>'RIGHT'}, 'For Detailed Wiring Data, Click'),
+			   td({-class=>'searchbody'},
+				submit(-name=>'view_syn', -label=>'View Wiring Data')))
+		);
+}
+
+sub display_summary{
+ 	my ($arg1, $arg2) = @_;
+	my @neuronsTotal = @$arg1;
+	my @items = @$arg2;
+	foreach my $item_tmp_item (@items){
+		if ($item_tmp_item eq 'Select All Fields'){
+			
+			@items = (      
+					'Brief ID', 
+					'Overview', 
+					'Group', 
+					'Lineage_name',
+					'Num neurons by synapses',
+					'Num neurons by gaps',
+					'Num neurons connected', 
+					'Num total connections'
+			);
+		}
+	}
+	
+	my @selected_neurons;
+	foreach (@neuronsTotal){
+		push @selected_neurons, $DB->fetch(Cell=>$_);
+	}
+	my $time = localtime;
+	print h1(a({-name=>'results'},'Search Result'));
+	print h1("Summary of selected neurons in <i>C. elegans</i>");
+	print ul(
+		li(["<b>Note: </b>To see more details about each neuron, 
+			click on the name.".
+			
+			ol(li(["<b>Num: </b> serial number in alphabetical order.",
+			       "<b>Neuron: </b>name of neurons.",
+			       "<b>Brief ID: </b>brief identification statement.",
+			       "<b>Lineage_name: </b>lineage of each neuron.",
+			       "<b>Num total connections: </b> number of all connections
+			       		for the neuron, including gap junctions and 
+					synapses.",
+			       ]))]),
+			       
+		li(["<b>Time this table generated:</b> $time."]),
+		li(["<b>Reference:</b> White <i>et al.</i>(1986) (unless otherwise 
+			specified)."])
+	);#end of ul
+
+  	my (@headings, @row_items) = ();
+	push (@headings, 'Num');
+	push (@headings, 'Name');
+	
+	for my $item(@items){
+		#double check whether the order is right
+		if ($item eq 'Select All Fields'){
+			@headings = (   'Num',
+					'Name',
+					'Brief ID', 
+					'Overview', 
+					'Group', 
+					'Lineage_name',
+					'Num neurons by synapses',
+					'Num neurons by gaps',
+					'Num neurons connected', 
+					'Num total connections'
+					);
+		}else{
+			push (@headings, $item);
+		}
+	}
+  	
+	#for checking which columns are selected.
+	my %tmp_hash;
+  	
+	foreach my $item_tmp (@items){
+		#checking if "All Fields" is selected
+		if ($item_tmp eq 'Select All Fields'){
+			%tmp_hash = (
+					'Num' => '+',
+					'Name' => '+',
+					'Brief ID' => '+',
+					'Overview' => '+',
+					'Group' => '+',
+					'Lineage_name' => '+',
+					'Num neurons by synapses' => '+',
+					'Num neurons by gaps' => '+',
+					'Num neurons connected' => '+',
+					'Num total connections' => '+'
+			);
+		}else {
+			$tmp_hash{$item_tmp} = '+';
+		}
+  	}
+  	my @rows = th({-class=>'resultstitle'},\@headings);
+
+	# VISIT EACH CONNECTED CELL, DETERMINE ITS TYPE OF CONNECTION
+  	# AND FORMAT A LINK TO IT
+  	my $hilite;
+  	my $number = 0;
+	
+	#calling functions by references
+	my %DISPATCH = (
+		"Brief ID" => \&get_id,
+		"Overview" => \&get_remark,
+		"Group" => \&get_cell_group,
+		"Lineage_name" => \&get_lineage,
+		"Num neurons by synapses" => \&get_total_neurons_synapse,
+		"Num neurons by gaps" => \&get_total_neurons_gap,
+		"Num neurons connected" => \&get_total_neurons_connected,
+		"Num total connections" => \&get_total_connections,
+	);
+  	
+	foreach my $each_neuron (sort @selected_neurons) {
+		@row_items = ();
+		# FORMAT A LINK TO THE CONNECTING CELL
+  		my $link = ObjectLink($each_neuron,"$each_neuron");
+		
+		foreach my $item (@items){
+			
+			my $tmp_data = $DISPATCH{$item}->($each_neuron);
+			$tmp_data = "&nbsp" unless $tmp_data;
+			push (@row_items, $tmp_data);
+		}
+		# SWITCH THE HILIGHT COLOR AND MAKE A ROW
+    		$hilite = ($hilite eq 'resultsbodyalt') ? 
+			'resultsbody' : 'resultsbodyalt';
+		$number ++;
+    		push (@rows,td({-align=>'LEFT', -class=>"$hilite"},
+			[$number, $link, @row_items]));
+  	}
+  	print table({-border=>'0'}, Tr(\@rows));
+	#print hr;
+} 
+
+sub get_id{
+	# get value for Brief_ID
+	my $each_neuron=shift;
+	my $briefid = $each_neuron->get ('Brief_id'=>1);
+}
+
+sub get_remark{
+	# get value for Overview
+	my $each_neuron=shift;
+	my $overview = $each_neuron->get ('Remark'=>1);
+}
+
+sub get_cell_group{
+	# get value for Group
+	my $each_neuron=shift;
+	my $group = $each_neuron->get('Cell_group'=>1);
+}
+
+sub get_lineage{
+	# get value for lineage
+	my $each_neuron=shift;	
+	my $lineage = $each_neuron->get('Lineage_name'=>1);
+}
+
+sub get_total_neurons_connected{
+	# get value for total number of neurons connected
+	my $each_neuron=shift;
+	my @con_neurons = $each_neuron->Neurodata;
+	my $total_neurons = @con_neurons;
+}
+
+sub get_total_neurons_gap{
+	# get value for total number of neurons connected through gap junctions
+	my $each_neuron=shift;
+	my @con_neurons = $each_neuron->Neurodata;
+	my $gap_neurons = 0;
+	foreach my $gapN (@con_neurons){
+		my @con_types = $gapN->col;
+		foreach my $con_type(@con_types){
+			if ($con_type=~/^Gap/i){
+				$gap_neurons++;
+			}
+		}
+	}
+	return $gap_neurons;
+}
+
+sub get_total_neurons_synapse{
+	# get value for total number of neurons connected through synapses 
+	my $each_neuron=shift;
+	my @con_neurons = $each_neuron->Neurodata;
+	my $gap_only = 0;
+	my %synapse_hash; #note: the size of this hash is 0, if defined as '', size is 1.
+	foreach my $chemicalN (@con_neurons){
+		my @con_types = $chemicalN->col;
+		for (my $i = 0; $i <= $#con_types; $i++){
+			if (
+ 				($con_types[$i]=~/^Send$/i) ||
+ 				($con_types[$i]=~/^Send_joint$/i)||
+				($con_types[$i]=~/^Receive$/i) ||		
+				($con_types[$i]=~/^Receive_joint$/i)
+			){
+				$synapse_hash{$chemicalN}='+';
+			}
+		}
+	};
+	my $synapse_neurons = scalar(keys %synapse_hash);
+}
+
+sub get_total_connections{
+	# get value for total number of connections (how matter if its gap junction,
+	#	or synapses)
+	my $each_neuron=shift;
+	my @con_neurons = $each_neuron->Neurodata;
+	my $total_connects = 0;
+
+	foreach my $totalN (@con_neurons){
+		my @con_types = $totalN->col;
+		
+		foreach my $con_type(@con_types){
+			my @connectionNumbers = $totalN->at($con_type)->col(2);
+
+			foreach my $connectionNumber(@connectionNumbers){
+				$total_connects += $connectionNumber;
+			}
+		}
+	}
+	return $total_connects;
+}
+
+sub get_total_connected_neurons{
+	#to be implemented today
+	my $each_neuron = shift;
+	my @con_neurons = $each_neuron->Neurodata;
+	my @buds = ();
+	
+	#create a new array with linked neurons
+	for my $item(sort @con_neurons){
+		my $link = ObjectLink ($item, "$item");
+		push (@buds, $link);
+		push (@buds, ",");
+	}
+	return @buds;
+}
+
+sub display_connections {
+	my ($arg1, $arg2, $arg3, $arg4) = @_;
+	my @neurons_add = sort @$arg1;
+	my $T_type = $arg2;
+	my $T_certainty = $arg3;
+	my $T_animal = $arg4;
+  	my $hilite;
+  	my $number = 0;
+	#retrieve all 302 neurons
+	my $query = qq(query find cell Neurodata AND cell_type = "JW-Designated Neuron");
+	my @nlist = $DB->fetch(-query => "$query");
+
+	my @row;
+	my @row_tmp;				#tmp array to be converted to generate @row.
+	my (@tmp_array1, @tmp_array2); 		#the first array is numbers, the second array is names
+	
+	push @tmp_array1, 'Num';
+	
+	for (my $i = 1; $i<=302; $i++){
+		push @tmp_array1, $i;
+	}
+	push @row_tmp, \@tmp_array1;
+
+	push @tmp_array2, 'Name';
+	
+	foreach my $each_neuron_tmp (sort @nlist){
+		
+		my $link = ObjectLink($each_neuron_tmp, "$each_neuron_tmp");
+		push @tmp_array2, $link;
+	}
+	push @row_tmp, \@tmp_array2;
+	
+	#starting from the third element, store data for each selected neuron
+	foreach my $each_selected(sort @neurons_add){
+		# need to create a hash for checking if a connection exists
+		my @selected_array;		#will be used to push into the big array
+		
+		$each_selected = $DB->fetch(Cell=>"$each_selected");
+		
+		my $link_selected = ObjectLink($each_selected, "$each_selected");
+		push @selected_array, $link_selected;
+
+		my @nlist_connected  =  $each_selected->Neurodata;
+		my %connected_hash_tmp;		#will be used for checking
+
+		foreach my $nlist_connected_tmp(@nlist_connected){
+			$connected_hash_tmp{$nlist_connected_tmp} = '+';
+		}
+
+		foreach my $each_neuron(sort @nlist){
+			#purpose is to assign value for each array, check if connectecd, if yes, call subroutine, 
+			#otherwise, assign "&nbsp"
+			if (exists $connected_hash_tmp{$each_neuron}){
+
+ 				my $tmp_neuron_data = synaptic_connection_display(
+								   $each_neuron,
+								   $each_selected,
+								   $T_type,
+								   $T_certainty,
+								   $T_animal);
+				push @selected_array, $tmp_neuron_data;
+			}else{
+				push @selected_array, "&nbsp";
+			}	
+		}
+		push @row_tmp, \@selected_array;
+	}
+
+	#calculate @row from @row_tmp
+	my ($array_count1, $array_count2);
+	$array_count1 = @row_tmp;
+ 	#my $array_ref = $row_final[0];
+	#my @array_array = @$array_ref;
+	#$array_count2 = @array_array; #303
+	$array_count2 = 303;		#just for now
+		
+	for (my $i=0; $i<$array_count2; $i++){
+		my @row_final = ();
+		for (my $j = 0; $j<$array_count1; $j++){
+			my $element_local = $row_tmp[$j];
+		
+			my @array_local = @$element_local;
+			push @row_final,$array_local[$i]; 
+		}
+ 
+		$hilite = ($hilite eq 'resultsbodyalt') ? 'resultsbody' : 'resultsbodyalt';
+		push @row, td({-align=>'LEFT', class=>"$hilite", -width=>'2'}, [@row_final]); 	
+	}
+	
+	#print out the captions
+	my $time = localtime;
+	print h1('Search Result');
+	print h2("Number of <u>$T_certainty</u> <u>$T_type connections</u> between 
+		Selected Neurons and All 302 Neurons in <u>$T_animal</u> individual of <i>C. elegans</i>");
+	print ul(
+		li(["<b>Note: </b>To see more details about each neuron, 
+			click on the name."]),
+		li(["<b>Time this table generated:</b> $time"]),
+		li(["<b>Reference:</b> White et al., 1986 (unless otherwise specified)."])
+	);#end of ul
+	#printing table
+
+	print table({-border=>'0'}, Tr(\@row)); #just for testing, need to calculate @rows.
+}
+
+sub synaptic_connection_display{
+	my ($each_neuron, $each_selected, $T_type, $T_certainty, $T_animal) = @_;
+
+	#declare hashes for convinence
+	my %T_type_hash =(Gap => 'Gap_junction',
+	                 'Synaptic Input' => 'Receive',
+			 'Synaptic Output' => 'Send',
+			 All => 'ALL');
+	my %T_certainty_hash =(Definitive =>'',
+			 'Not Definitive' =>'_joint',
+			 All => 'ALL');
+	my %T_animal_hash =(JSH => 'JSH',
+	                   N2U => 'N2U',
+			   All => 'ALL');
+	#for regular expression 
+	my @All_types = ('Gap_junction','Receive','Send');
+	my @All_certaintys = ('','_joint');
+	my @All_animals = ('JSH', 'N2U');
+	
+	my $T_type_var = $T_type_hash{$T_type};
+	my $T_certainty_var = $T_certainty_hash{$T_certainty};
+	my $T_animal_var = $T_animal_hash{$T_animal};
+	
+	#declare a variable for the value to be returned
+	my $data_selected;
+
+	##just for testing here
+	$each_selected = $DB->fetch(Cell=>"$each_selected");
+	my @connected_cells_tmp = $each_selected->Neurodata;
+	
+	#for checking: declare and initialize a hash
+	my %connected_cells_hash;
+
+	#initializing the hash table
+	foreach my $connected_cell_tmp(sort @connected_cells_tmp){
+		$connected_cells_hash{$connected_cell_tmp} = $connected_cell_tmp;
+	}
+
+	#retrieving value for $data_selected: central part of this subroutine
+	#idea: if each_neuron is connected to each_selected, get the value
+	#otherwise, assign an empty value
+	if (exists ($connected_cells_hash{$each_neuron})){
+		
+		$each_neuron = $connected_cells_hash{$each_neuron};
+		# query the connection type information
+		my @connected_types = $each_neuron->col;
+
+		if(@connected_types){
+
+			for my $connection_type(@connected_types){
+
+				#check type of animals used for experiment
+				my @animalTypes = $each_neuron
+					->at($connection_type)
+					->col;
+				#number of each type of connections for 
+				#corresponding animal
+				my @connectionNumbers = $each_neuron
+					->at($connection_type)
+					->col(2);
+				#tally up the types of connections
+				#assign value to $data_selected
+				
+				for (my $m =0; $m<=$#animalTypes; $m++){
+					my $tmp = 0;
+
+					if (($T_type_var ne 'ALL')&&
+					    ($T_certainty_var ne 'ALL')&&
+					    ($T_animal_var ne 'ALL')){
+
+						#conbine $T_type and T_certainty as T_tmp
+						my $T_tmp = $T_type_var.$T_certainty_var;
+						
+						if ($animalTypes[$m]=~/^$T_animal_var/i){ 
+							$tmp = $connectionNumbers[$m]
+								if ($connection_type 
+									=~/^$T_tmp$/i);
+							$data_selected += $tmp;
+						}
+
+					}elsif(($T_type_var eq 'ALL')&&
+					       ($T_certainty_var ne 'ALL')&&
+					       ($T_animal_var ne 'ALL')){
+							
+						if ($animalTypes[$m]=~/^$T_animal_var$/i){ 
+							foreach my $All_type(@All_types){	
+							   my $T_type_tmp = $All_type.$T_certainty_var;
+							   $tmp = $connectionNumbers[$m]
+								if ($connection_type 
+									=~/^$T_type_tmp$/i);
+							   $data_selected += $tmp;
+							   $tmp = 0;
+							}
+						}
+
+					}elsif(($T_type_var ne 'ALL')&&
+					       ($T_certainty_var eq 'ALL')&&
+					       ($T_animal_var ne 'ALL')){
+						
+						#my $T_tmp = $T_type_var.$T_certainty_var;
+						if ($animalTypes[$m]=~/^$T_animal_var/i){ 
+							$tmp = $connectionNumbers[$m]
+								if ($connection_type 
+									=~/^$T_type_var/i);
+							$data_selected += $tmp;
+						}
+
+					}elsif(($T_type_var ne 'ALL')&&
+					       ($T_certainty_var ne 'ALL')&&
+					       ($T_animal_var eq 'ALL')){
+						
+						my $T_tmp = $T_type_var.$T_certainty_var;
+						if (($animalTypes[$m]=~/^N2U/i)||
+						    ($animalTypes[$m]=~/^JSH/i)){ 
+							$tmp = $connectionNumbers[$m]
+								if ($connection_type 
+									=~/^$T_tmp/i);
+							$data_selected += $tmp;
+						}
+
+
+					}elsif(($T_type_var ne 'ALL')&&
+					       ($T_certainty_var eq 'ALL')&&
+					       ($T_animal_var eq 'ALL')){
+						
+						if (($animalTypes[$m]=~/^N2U/i)||
+						    ($animalTypes[$m]=~/^JSH/i)){ 
+							$tmp = $connectionNumbers[$m]
+								if ($connection_type 
+									=~/^$T_type_var/i);
+							$data_selected += $tmp;
+						}
+
+						#compare here (5)
+					}elsif(($T_type_var eq 'ALL')&&
+					       ($T_certainty_var ne 'ALL')&&
+					       ($T_animal_var eq 'ALL')){
+					
+						if (($animalTypes[$m]=~/^N2U/i)||
+						    ($animalTypes[$m]=~/^JSH/i)){ 
+							foreach my $All_type(@All_types){
+							   my $T_type_tmp = $All_type.$T_certainty_var;
+							   $tmp = $connectionNumbers[$m]
+
+								if ($connection_type 
+									=~/^$T_type_tmp/i);
+							   $data_selected += $tmp;
+							   $tmp = 0;
+							}
+						}
+					}elsif(($T_type_var eq 'ALL')&&
+					       ($T_certainty_var eq 'ALL')&&
+					       ($T_animal_var ne 'ALL')){
+					
+						if ($animalTypes[$m]=~/^$T_animal_var/i){ 
+							
+							foreach my $All_type(@All_types){	
+							   my $T_type_tmp = $All_type;
+							   $tmp = $connectionNumbers[$m]
+								if ($connection_type 
+									=~/^$T_type_tmp/i);
+							   $data_selected += $tmp;
+							   $tmp = 0;
+							}
+						}
+
+					}elsif(($T_type_var eq 'ALL')&&
+					       ($T_certainty_var eq 'ALL')&&
+					       ($T_animal_var eq 'ALL')){
+
+						if (($animalTypes[$m]=~/^N2U/i)||
+						    ($animalTypes[$m]=~/^JSH/i)){ 
+							foreach my $All_type(@All_types){
+							   my $T_type_tmp = $All_type;
+							   $tmp = $connectionNumbers[$m]
+								if ($connection_type 
+									=~/^$T_type_tmp/i);
+							   $data_selected += $tmp;
+							   $tmp = 0;
+							}
+						}
+					}
+				}
+			}
+		}
+	}else{
+		$data_selected = "&nbsp";
+	}
+	$data_selected = "&nbsp" if ($data_selected == 0);
+	return $data_selected;
+}

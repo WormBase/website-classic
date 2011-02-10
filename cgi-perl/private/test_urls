@@ -1,0 +1,110 @@
+#!/usr/bin/perl
+# Creator: T. Harris, 7.2004
+
+# Problematic URLs to test prior to each WormBase update
+# Each entry has three columns: URL, type of object, problems to check for
+
+use strict;
+use Ace::Browser::AceSubs;
+use ElegansSubs;
+use CGI qw(:standard :form *div *table *center);
+use vars qw/$PAGES @ORDER %URLS/;
+
+use constant LIVE => 'http://www.wormbase.org';
+use constant DEV  => 'http://dev.wormbase.org';
+
+@ORDER = ('Gene Summary','Sequence Summary','Citation');
+%URLS  = ( 'Gene Summary'    => '/db/gene/gene',
+	   'Sequence Summary' => '/db/seq/sequence',
+	   'Citation'         => '/db/misc/paper',
+	 );
+
+$PAGES->{'Gene Summary'} =
+  [ {
+     url   => "$URLS{'Gene Summary'}?name=unc-26;class=Gene_name",
+     desc  => 'The Gene Summary page should be able to handle searches with locus names (Gene_name)...',
+    },
+    {
+     url   => "$URLS{'Gene Summary'}?name=WBGene00002993;class=Gene",
+     desc  => '...or WBGene IDs...',
+     align => 'right',
+    },
+    {
+     url   => "$URLS{'Gene Summary'}?name=WP:CE31438;class=Protein",
+     desc  => '...or WormPep protein IDs...',
+     align => 'right',
+    },
+    {
+     url    => "$URLS{'Gene Summary'}?name=unc-2;class=Gene;details=1;dna=T02C5.5c",
+     desc   => 'Test the ability of the Gene Summary to retrieve sequence, correctly marked up. Make sure transcripts start with ATG...',
+    },
+  ];
+
+
+$PAGES->{'Sequence Summary'} =
+  [ {
+     url  => "$URLS{'Sequence Summary'}?name=WBGene00006742;class=Gene",
+     desc => 'Check the sequence markup for genes.',
+    },
+  ];
+
+$PAGES->{'Citation'} =
+  [ {
+     url  => "$URLS{'Citation'}?name=WBPaper00002500;class=Paper",
+     desc => 'Check the citation of entries in books for formatting problems',
+    },
+    {
+     url  => "$URLS{'Citation'}?name=WBPaper00002500;class=Paper",
+     desc => 'Verify that abstracts are displayed correctly',
+    },
+  ];
+
+
+OpenDatabase;
+
+PrintTop(undef,undef,'WormBase Test URLs');
+print start_div({-class=>'container'});
+
+print p('The following are representative URLs that should be spot
+checked for bugs prior to a WormBase update. Specific features to
+examine are noted when appropriate.');
+
+print start_div({-class=>'blue'});
+
+foreach my $category (@ORDER) {
+  print a({-name=>$category},'');
+  print div({-class=>'category'},$category . ' (' . a({-href=>LIVE . $URLS{$category}},"$URLS{$category}") . ')');
+  print start_table({-class=>'incontainer',-cellpadding=>10});
+  print TR(
+	   th(b('Description')),
+#	   th({-width=>'30%'},b('Object/Class')),
+	   th({-width=>'40%'},b('URL')),
+	   th(b('Test URLs')),
+
+	  );
+  
+  foreach (@{$PAGES->{$category}}) {
+    my $url    = $_->{url};
+    my $params = ($url =~ /(\?.*)/)       ? $1 : $url;
+    my $object = ($url =~ /name=(.*);+?.*/)  ? $1 : 'not provided';
+    my $class  = ($url =~ /class=(.*);??.*?/) ? $1 : 'not provided';
+    my $align  = $_->{align} || 'left';
+
+    print TR({-class=>'pageentry'},
+	     td({-align=>$align,-class=>'pagedescription'},$_->{desc}),
+	     td({-class=>'pagetitle'},font({-size=>'2'},"$params")),
+	     #	     td({-class=>'pagetitle'},"$object / $class"),
+	     td({-class=>'pagetitle'},
+		a({-href=>DEV . $url},'dev')
+		. ' | '
+		. a({-href=>LIVE . $url},'live')
+	       ),
+
+	    );
+  }
+  print end_table;
+}
+
+print end_div,end_div;
+
+PrintBottom;

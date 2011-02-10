@@ -1,0 +1,12 @@
+#!/usr/bin/perl
+
+# A simple redirect script to handle users with javascript disabled
+
+use CGI qw/:standard/;
+use strict;
+use vars qw/$url/;
+
+$url = param('url');
+redirect($url);
+
+exit 0; 

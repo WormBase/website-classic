@@ -1,0 +1,286 @@
+#!/usr/bin/perl
+
+use CGI qw(:standard *table *TR *td escape);
+use strict;
+
+
+my $cgi = new CGI;
+
+print $cgi->header;
+print $cgi->start_html('Form Development');
+
+print_search_form($cgi,'multi');
+
+print $cgi->end_html;
+
+
+### subroutines ###
+
+sub print_search_form {
+    
+    my $cgi = shift @_;
+    my $form_type = shift @_;
+    
+    print $cgi->startform(-method=>'GET', 
+			  -action=>'search');   
+
+	print "<table>";
+	
+
+	if ($form_type=~ m/multi/) {
+	
+		print "<tr><td>";
+		print_ontology_instruction($form_type);
+		print "</td></tr>";
+	
+	
+		print "<tr><td>";
+		print_ontology_choices($cgi);
+		print "</td></tr>";
+		
+		print "<tr><td>";
+		print_entry_items($cgi);
+		print "</td></tr>";		
+	}
+
+	else {
+	
+		print "<tr><td>";
+		print_ontology_instruction($form_type);
+		print "</td></tr>";
+	
+		print "<tr><td>";
+		print_entry_items($cgi);
+		print "</td></tr>";	
+
+		print "<tr><td>";
+		print_ontology_choices($cgi);
+		print "</td></tr>";		
+	}
+	
+	print "<tr><td>";
+	print_return_choices($cgi);
+	print "</td></tr>";
+	
+	print "</table>";
+
+	print "<br><br>\n";
+
+    print $cgi->submit('Submit');
+    print "\&nbsp\;\&nbsp\;";
+    print $cgi->defaults('  Reset  ');
+
+	print $cgi->endform;
+}
+
+sub print_ontology_choices {
+
+	my $cgi = shift;
+
+    #print "<br><br>In the following ontologies\:<br><br>\n";
+
+    my %ontologies = ('biological_process'=>'GO: Biological Process',
+                      'cellular_component'=>'GO: Cellular Component',
+                      'molecular_function'=>'GO: Molecular Function',
+		      'anatomy'=>'Anatomy',
+		      'phenotype'=>'Phenotype'
+		      );
+
+
+    print $cgi->checkbox_group({-name=>'ontologies', 
+			       -values=>['biological_process','cellular_component','molecular_function','anatomy','phenotype'], 
+			       -default=>['biological_process','cellular_component','molecular_function'], 
+			       -multiple=>'true', 
+			       -labels=>\%ontologies,
+			       -linebreak=>1});
+}
+
+sub print_return_choices {
+
+	my $cgi = shift;
+	
+	print "<br>";
+	
+	print $cgi->checkbox(-name=>'string_modifications', 
+			 #-checked=>'checked', 
+			 -value=>'ON', 
+			 -label=>'Query Stands Alone');
+	
+	print "<br>";
+    print $cgi->checkbox(-name=>'with_annotations_only', 
+			 #-checked=>'checked', 
+			 -value=>'ON', 
+			 -label=>'Return Only Terms with Annotations');
+
+    print "<br><br>Sort Annotations \&nbsp\;\&nbsp\;";
+    
+    my %sorting_choices = ('alpha'=>'Alphabetically',
+			   'annotation_count'=>'By number of annotations'
+			   );
+
+    print $cgi->popup_menu(-name=>'sort',
+                           -values=>[
+                                     'alpha',
+                                     'annotation_count'],
+                           -default=>'alpha',
+		       -labels=>\%sorting_choices);
+
+    print "<br><br>";
+
+    print "Include the following areas in the search\:<br><br>\n";
+
+
+ my %filter_choices = (
+ 				'd'=>'definition',
+			   	's'=>'synonyms'
+			   	);
+
+    print $cgi->scrolling_list(-name=>'filters',
+                           -values=>[
+                                     'd',
+                                     's'],
+						   -default=>[
+						         'd',
+                                 's'],
+		      				-multiple=>'true',
+		      				-labels=>\%filter_choices);
+}
+
+sub print_entry_items {
+
+	my $cgi = shift;
+
+    my %string_choices = (#'before'=>'Starts with', 
+			  #'after'=>'Followed by', 
+			  'middle'=>'Contains',
+			  'stand_alone'=>'Stands Alone'
+			  );
+
+    print "<h3>Enter a term, phrase, or term ID </h3>";
+
+    print $cgi->textfield(-name=>'query', 
+			  -size=>50, 
+			  -maxlength=>80);
+ 
+ 	 print "<br>\n";
+ 
+#    print $cgi->popup_menu(-name=>'string_modifications', 
+#			   -values=>[
+#				     #'before',
+#				     #'after',
+#				     'middle',
+#				     'stand_alone'], 
+#			   -default=>'middle', 
+#			   -labels=>\%string_choices);
+}
+
+
+sub print_ontology_instruction {
+
+	my $form_type = shift;
+	
+	my $instruction;
+	
+	if ( $form_type=~ m/multi/){
+	
+		$instruction = "Select ontologies you wish to search";
+	}
+	else {
+	
+		$instruction = "Ontology search";
+	}
+
+	print "<h3>" . $instruction . "</h3>";
+
+}
+
+
+
+########################
+#sub DisplayGeneOntologySearch {
+#    my $url = url(-absolute=>1);
+##  my @values = qw/go_term gene motif definition phenotype expression anatomy pseudogene homology cell reference/;
+#    my @values = qw/go_term gene motif definition phenotype/;
+#    my %search_by = (gene   => 'Gene ' 
+#		     . '('
+#		     . a({-href=>"$url?name=unc-26;class=Gene"},'unc-26')
+#		     . '; '
+#		     . a({-href=>"$url?name=T20H4.4;class=Gene"},'T20H4.4')
+#		     . ')',
+#		     'go_term' => 'GO ID ' . '(' . a({-href=>"$url?name=GO:0004437;class=GO_term"},'GO:0004437') . ')',
+#		     'definition' => 'Description '
+#		     . ' (' . a({-href=>"$url?name=endocytosis;class=definition"},'endocytosis') . ')',
+#		     'motif' => 'Motif ' . '(' . a({-href=>"$url?name=SH3;class=Motif"},'SH3') . ')',
+#		     'phenotype' => 'Phenotype',
+#		     );
+#    #		   'expression' => 'Expression pattern',
+#    #		   'phenotype'  => 'Phenotype',
+#    #		   'anatomy'    => 'Anatomy ontology term',
+#    #		   'pseudogene' => 'Pseudogene',
+#    #		   'homology'   => 'Homology group',
+#    #		   'cell'       => 'Cell',
+#    #		   'reference'  => 'Reference'
+#    
+#    my %limit_to = (
+#		    Gene           => 'Genes',
+#		    CDS            => 'CDS',
+##		    Transcript     => 'Transcripts',
+##		    Pseudogene     => 'Pseudogenes',
+#		    Motif          => 'Motifs',
+##		    Expr_pattern   => 'Expression patterns',
+##		    Homology_group => 'Homology groups',
+##		    Anatomy_term   => 'Anatomy ontology',
+##		    Cell           => 'Cells',
+##		    Reference      => 'Publications',
+#		    Phenotype       => 'Phenotypes',);
+#    
+#    autoEscape(0);
+#    print hr;
+#    print table({-width=>'100%'},
+#		start_form(),
+#		TR({-class=>'searchtitle'},
+#		   th('Query Term or ID'),
+##		 th('Search By'),
+#		   th('Aspect'),
+#		   th('Limit To Terms Attached To'),
+#		   th('')),
+#		TR({-class=>'searchbody',-align=>'center'},
+#		   td(
+#		      i('Enter a gene ontology ID ('
+#			. a({-href=>"$url?name=GO:0004437;class=GO_term"},'GO:0004437')
+#			. '), a gene ('
+#			. a({-href=>"$url?name=unc-26;class=Gene"},'unc-26')
+#			. '; '
+#			. a({-href=>"$url?name=T20H4.4;class=Gene"},'T20H4.4')
+#			. '), ' . br . 'or a brief text description ('
+#			. a({-href=>"$url?name=endocytosis;class=definition"},'endocytosis') . ')'),
+#		      br,br,
+#		      textfield({-size=>50,-name=>'name'})),
+#		   
+#		   #		 td({-align=>'left'},
+#		   #		    radio_group({-name=>'class',
+#		   #				 -values => \@values,
+#		   #				 -labels => \%search_by,
+#		   #				 -linebreak => 1})),
+#		   td({-align=>'left'},
+#		      checkbox_group({-name=>'aspect',
+#				      -values => [ 'Biological process','Cellular component','Molecular function'],
+#				      -default => ['Biological process','Cellular component','Molecular function'],
+#				      -linebreak => 1})),
+#		   td({-align=>'left'},
+#		      checkbox_group({-name => 'limit_to',
+#				      -values => [sort keys %limit_to],
+#				      -labels => \%limit_to,
+#				      -linebreak => 1})),
+#		   #checkbox_group({-name   =>'limit_to',
+#		   #		    -values => \@values,
+#		   #		    -labels => \%labels,
+#		   #		    -linebreak => 1})),
+#		   #		    radio_group({-name=>'class',
+#		   #				    -values => \@values,
+#		   #				    -labels => \%labels,
+#		   #				    -linebreak => 1})),
+#		   td(submit())),
+#		end_form());
+#    autoEscape(1);
+#}

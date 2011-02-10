@@ -1,0 +1,204 @@
+New Release of WormBase WS83, Wormpep83 and Wormrna83 2/8/02 
+======================================================================
+
+This directory includes:
+
+i)	database.WS83.*.tar.gz  -   compressed data for new release
+
+ii)	models.wrm.WS83         -   the latest database schema (also in 
+                                    above database files)
+
+iii)	CHROMOSOMES/subdir      -   contains 3 files (DNA, GFF & AGP per 
+                                    chromosome)
+
+iv)	WS83-WS82.dbcomp        -   log file reporting difference from 
+                                    last release
+
+v)	wormpep83.tar.gz        -   full Wormpep distribution 
+                                    corresponding to WS83
+
+vi)	wormrna83.tar.gz        -   latest WormRNA release containing 
+                                    non-coding RNA's in the genome
+
+vii)	confirmed_genes.WS83.gz -   DNA sequences of all genes confirmed 
+                                    by EST &/or cDNA
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+Primary databases used in build WS83
+------------------------------------
+brigdb : 2002-07-19 - updated
+camace : 2002-07-23 - updated
+citace : 2002-07-19 - updated
+cshace : 2002-06-30
+genace : 2002-07-22 - updated
+stlace : 2002-07-19 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS83       	WS82      	change
+----------------------------------------------
+a    	32344796	32341760	+3036
+c    	17767733	17763359	+4374
+g    	17745345	17743847	+1498
+t    	32346366	32340044	+6322
+n    	95      	95      	  +0
+-    	62800   	62800   	  +0
+----------------------------------------------
+Total	100267135	100251905	+15230
+
+This is a net increase of 15,230 bp coming mainly from the incorporation
+of the telomere IIR (clone name 2RSSE).
+
+Remaining gaps: 
+---------------
+For more info mail worm@sanger.ac.uk 
+
+# Gaps are covered by a 950Kb SseI fragment 
+
+III      1005794   1028769   37  F    AC087078.1      1       22976  +
+III      1028770   1029769   38  N                             1000
+III      1029770   1075569   39  F    AC084156.1      1       45800  +
+
+# Gaps are covered by YAC clones in production at St Louis
+
+X              1      2649    1  F    AL031272.2      1       2649   +
+X           2650      3649    2  N                            1000
+X           3650     14860    3  F    AC087735.2      1       11211  +
+
+X         177585    194657    6  F    AC084160.2      1       17073  +
+X         194658    225057    7  N                            30400
+X         225058    254821    8  F    Z83097.1        1       29764  +
+
+X         225058    254821    8  F    Z83097.1        1       29764  +
+X         254822    285221    9  N                            30400
+X         285222    299761   10  F    AC024789.1      1       14540  +
+
+Wormpep data set:
+----------------------------
+
+There are 19466 CDS in autoace, 20732 when counting 1266 alternate splice forms.
+
+The 20732 sequences contain 9,156,670 base pairs in total.
+
+Modified entries              71
+Deleted entries               34
+New entries                   74
+Reappeared entries             4
+================================
+Net change                   +44
+
+
+GeneModel correction progress WS82 -> WS83
+-----------------------------------------
+
+Confirmed introns not is a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|   1973  |   -34  |
+St Louis 	|    683  |  -107  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|     29  |     0  |
+St Louis 	|    184  |    -1  |
+		+---------+--------+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+CHROMOSOME_I	sequence AC024866
+CHROMOSOME_I	sequence AC024866
+CHROMOSOME_I	sequence U88309
+CHROMOSOME_I	sequence AF106574
+CHROMOSOME_II	sequence AC084157
+CHROMOSOME_II	sequence AC087080
+CHROMOSOME_II	sequence AC084156
+CHROMOSOME_III	sequence U39851
+CHROMOSOME_IV	sequence U61957
+CHROMOSOME_IV	sequence U61957
+CHROMOSOME_IV	sequence U58755
+CHROMOSOME_X	sequence U40426
+CHROMOSOME_X	sequence U41542
+CHROMOSOME_X	sequence U53344
+CHROMOSOME_X	sequence U40945
+----------------------------------------------------------------
+
+
+New Data:
+---------
+
+C.briggsae sequence data is in WS83. The DNA is represented by the
+GSC fosmids (accession.ver_no) and raw contigs cxxxxxxxxx.Contigx. 
+These are assembled into 'ultracontigs' using a AGP_fragment S_Child 
+SMap procedure. The 'ultracontigs' are named cb25.fpcxxxx and 
+cb25.NA_XXX. These 578 sequences have been submitted to EMBL.
+
+A new UTR class is present in WS83 based on the initial mappings of
+Lincoln Stein. Nomenclature is UTRxxxxxx and they are attached to the 
+Predicted_gene subclass via the Matching_UTR tag.
+
+New sequence includes corrections from St Louis and the IIR telomeric
+clone 2RSSE.
+
+The wormpep history has been integrated into the database such that 
+prediction changes and name changes should be more transparent to the
+user. 
+
+New Transgenes, strains, alleles, and loci (amongst others).
+
+
+New Fixes:
+----------
+
+
+Known Problems:
+--------------
+
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+
+Large number of gene model changes to come from Sanger.
+
+Improvement of the UTR class.
+
+Gene predictions for C.briggsae data.
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

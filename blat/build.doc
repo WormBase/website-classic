@@ -1,0 +1,12 @@
+Copy and unzip the latest chromosome sequence files into this 
+directory and Do the following little script to convert them to 
+.nib format:
+     foreach i (*.dna)
+         /usr/local/blat/bin/faToNib $i $i:r.nib
+     end
+Clean up the DNA files as so
+     rm *.DNA
+Start up the blatServer as so:
+     /usr/local/blat/bin/gfServer start brie3 17777 *.nib &
+Test as so:
+     /usr/local/blat/bin/gfClient brie3 17777 /usr/local/wormbase/blat stdin stdout -nohead < test.fa

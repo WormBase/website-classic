@@ -1,0 +1,15 @@
+#!/usr/bin/perl
+
+use JSON; # imports encode_json, decode_json, to_json and from_json.
+
+my $perl_scalar = 'option-acceptab';
+
+my $json_text = JSON->new->allow_nonref->encode ("Hello, World!");
+#my $json_text   = to_json(\$perl_scalar);
+#, {ascii => 1});
+
+
+print $json_text;
+#        # pretty-printing
+#        $json_text = $json->pretty->encode($perl_scalar);
+

@@ -1,0 +1,389 @@
+#!/usr/bin/perl
+
+# TODO:
+# Confirm that accession numbers are working
+
+# Update matrix by search term:
+#  ie searching with Gene, hits:
+#      protein
+#      strain
+
+# Detailed output:
+   # Add option for browsing / displaying all hits
+   # Add option for fetching in CSV/Excel
+   # Add paged report browsing, customizable by items per page
+
+# Cross-browser issues
+   # Figure out cross-browser problem with safari
+   #  adding form element causes page to submit
+
+# Misc
+   # Strain description should include the genotype
+   # Add reagents like Antibody
+   # Add ability to search with sequences
+   # Add support for (not currently available from home page)
+       #    Laboratory
+       #    Life_stage
+       #    Mass_spec_experiment
+       #    Interaction
+       #    Expr_pattern
+
+# add sorting of results
+
+use strict;
+use CGI qw/:standard *table *TR *div/;
+use lib '../';
+use Ace::Browser::AceSubs qw/:DEFAULT AceRedirect/;
+#use ElegansSubs qw/:DEFAULT/;
+
+use vars qw/@CLASSES $DB $RESULTS_CONTAINER/;
+
+use constant DEBUG => 0;
+
+
+# Classes that will be available in the multi-class search.
+# These must exist in the autocomplete database!
+
+# The order classes appear in this list is the order in which they
+# will be searched
+@CLASSES = qw/
+	      Gene
+	      Paper
+	      Strain
+	      Clone
+	      Person
+	      Sequence
+              Expr_pattern
+	      Protein
+	      RNAi
+	      Variation
+	      Motif
+	      PCR_product
+              Laboratory
+	      GO_term
+	      Anatomy_term
+	      Gene_class
+	      Operon
+	      Microarray_experiment
+	      Phenotype
+	      Gene_regulation
+	      Species
+	      /;
+
+
+# Finish these
+#@CLASSES = qw/
+# Genetic_map
+# Models
+#    Accession_number
+#    Y2H
+#    /;
+
+#$DB = OpenDatabase() || AceError("Couldn't open database.");
+print display_page();# unless param('query');
+
+exit 0;
+
+
+##############################################
+# Begin Subs
+##############################################
+sub display_page {
+  my $content = start_page();
+  $content   .= search_box();
+  $content .= results();
+  $content .= end_page();
+  return $content;
+}
+
+
+
+
+sub start_page {
+    my $classes  = join(",", map { "'$_'"} @CLASSES);
+    my $rows     = (scalar @CLASSES) + 1;
+
+#    <script type="text/javascript" src="/js/multi.js"></script>
+
+    # We've followed a link to fetch a list of results
+    my $format   = url_param('name') ? 'list' : 'count';
+    my $query    = url_param('name');
+    my $database = url_param('database');
+    my $class    = url_param('class');
+
+    my $header = header();
+
+    $header .= <<EOF;
+<html>
+     <head>
+            <link rel="stylesheet" type="text/css" href="/stylesheets/multi.css">
+	    <script type="text/javascript" src="/js/jquery.js"></script>
+	    
+            <script language="javascript">
+	    
+	    // Functions for powering the Ajax multi search
+// Iteratively search a variety of classes
+// using either a customized autocomplete database (fast)
+// or acedb shallow and deep queries (slow)
+//jQuery(document).ready(function(){
+    
+    function getCounts() {
+	// Turn on display of the results block
+//	    jQuery("div#results").css({ display: "block" });
+	    jQuery("div#results").fadeIn("slow");
+
+	var url = '/db/searches/multi.search';
+	var query  = jQuery("#query").val();
+	var database = 'autocomplete';
+	var classes   = [$classes];
+	
+	for (var x=0; x < classes.length; x++) {
+	    var myclass = classes[x];
+	    display_indicator(myclass + '_count');
+
+	    var params = 'class=' + myclass + '&query=' + query + '&database=' + database + "&format=$format";
+	    var label_target = myclass + '_label';
+	    jQuery.ajax({
+	      url: url,
+	      type: "POST",
+	      dataType: "json",
+	      data: params,
+	      error: function(response,error,exception) {
+		  jQuery("span#" + myclass + '_count').empty().append("query failed: " + error);
+	      },
+	      success: function(json) {
+		  // jQuery(json.class + '_label').empty().append(json.class);
+		 		
+		  var title;
+		  // Grey out entries with no hits
+		      if (json.count == 0) {
+			  // Clean up from (possible) previous invocations
+			  jQuery("div#" + json.class + "_container").removeClass("active_container");
+
+			  // Make the entire div clickable for fetching results
+			      jQuery("div#" + json.class + '_container').removeAttr("onClick");
+
+			  // Add a new highlight
+			  jQuery("div#" + json.class + "_container").addClass("inactive_container");
+
+			  // Fade out entries with no hits
+			  jQuery("div#" + json.class + "_container").fadeTo('fast',0.3);
+
+			  // Fading out implies no hits, let's not display zero
+			  // title = json.count + '';
+
+                          // The indicator and counts reside in the same field
+                          hide_indicator(json.class + '_count');
+		      } else {			  			  
+			  // Change the hilight color
+			  // Clean up from (possible) previous invocations
+			  jQuery("div#" + json.class + "_container").removeClass("inactive_container");
+
+			  // Add a highlight
+			  jQuery("div#" + json.class + "_container").addClass("active_container");
+
+			  // Fade in to 100% opacity (might be less than that from earlier searches)
+			  jQuery("div#" + json.class + "_container").fadeTo('fast',1.0);
+
+			  // Make the entire div clickable for fetching results
+			      jQuery("div#" + json.class + '_container').attr({ onClick:"javascript:getResults('" + json.class + "')"});
+
+                          // The entire Class + count should probably be hyperlinked)
+			  title = '('+'<a href="javascript:getResults(' + "'" + json.class + "'" + ')">'
+			      + json.count + '</a>'+')';
+		      }
+
+		  // Insert the hyperlinked counts
+		      jQuery("span#" + json.class + '_count').empty().append(title);
+
+		  // Make the entry visible
+		      // jQuery("div#" + json.class + "_container").fadeIn('slow');
+	      },
+
+	    });
+	    
+	}
+
+
+    }
+
+
+    // Show the progress indicator
+    function display_indicator(target) {
+        jQuery("span#" + target).empty().append('<img src="/images/load_progress-wheel.gif">');
+    }
+
+    function hide_indicator(target) {
+        // jQuery("span#" + target + '_links').empty().append('<i>Search complete</i>');
+        jQuery("span#" + target).empty();
+    }
+
+    function clearContents() {
+	var classes   = [$classes];
+	// Turn off display of the results block
+	    jQuery("div#results").css({ display: "none" });
+	
+	// ... and reset the contents of each class
+	    for (var x=0;x<classes.length;x++) {
+		var myclass=classes[x] + '_count';
+		
+		jQuery("span#" + myclass).css({ color: "#000000" });
+		jQuery("span#" + myclass).empty().append('--');
+	    }
+    }
+    
+    
+    function getResults(myclass,query) {
+	var url = '/db/searches/multi.search';
+	var format   = 'list';
+	var query  = jQuery("#query").val();
+	// params to pass to the ajax handler
+	    var params = "class=" +  myclass + "&query=" +query+ "&format=" + format;
+	
+//	jQuery.ajax({
+//	  url: url,
+//	  type: "POST",
+//	  dataType: "html",
+//	  data: params,
+//	  error: function(response,error,exception) {
+//	      jQuery("span#" + myclass + '_count').empty().append("query failed: " + error);
+//	      alert(error);
+//	  },
+//	  success: function(html) {
+//	      jQuery("div#" + myclass + '_result').empty().append(html).slideToggle('fast');
+//	  }});
+
+
+	// I should run this conditionally only if I
+	    // 1. Am getting paged entries
+	    // 2. Is the first invocation
+	jQuery.ajax({
+	  url: url,
+	  type: "POST",
+	  dataType: "json",
+	  data: params,
+	  error: function(response,error,exception) {
+	      jQuery("span#" + myclass + '_count').empty().append("query failed: " + error + response + exception);
+	      alert(error + response + exception);
+	  },
+	  success: function(json) {
+	      // Parse the returned results and display them in the page
+		  jQuery.each(json.entries, function() {
+		      
+		      // Available fields: canonical, href_target, matching_text, description
+			  jQuery("div#" + myclass + '_result').append('<div class="hit"><span class="identification">' 
++ '<a href="/db/get?name=' + this.canonical + '">' + this.href_target + '</a></span>'
+								      + '<span class="description">'  + this.description + '</span></div>');
+		  });
+	  }
+	});
+	jQuery("div#" + myclass + '_result').toggle('fast');
+    }
+    
+    function reportError(request) {
+	\$F('results') = "Ajax Error";
+    }
+    //});
+    </script>
+	</head>
+	
+EOF
+;
+
+
+    if ($format eq 'list') {
+	$header .= '<body onload="getResults();">';
+    } else {
+	$header .= "<body>";
+    }
+    $header .= '<div id="container">';
+
+    return $header;
+}
+
+
+=pod
+
+function addResult(result) {
+   var newResultDiv = document.createElement('div');
+   Element.extend(newResultDiv);
+   newResultDiv.addIdName(result).show();
+}
+
+
+
+function addRow(target,transport) {
+  //	alert(target);
+
+  // This should maybe be document.write instead of altering the display parameter
+  document.getElementById(target).style.display = 'table-row';
+  document.getElementById(target).inlineHTML = transport;
+  
+  
+  // alert(transport);
+}
+
+=cut
+
+
+sub search_box {
+    my $html = <<EOF; 
+           <h3>WormBase Search</h3>
+	       <div id="searchfield">
+  	   <input type="text" name="query" id="query" size="40">
+	   <input type="submit" name="Search" value="Search" onclick="getCounts();" />
+	   <span class="button" name="Search" onclick="getCounts();" />Search</span>
+           <span class="button" name="clear" onclick="clearContents();" />Reset</span>
+
+<!--	   <input type="reset" name="clear" onclick="clearContents();" /> -->
+           <br>
+        </div>
+EOF
+}
+
+
+sub end_page {
+    return "</body></html>";
+}
+
+
+
+# The main results display
+sub results {
+    my $html;
+    $html .= start_div({-id=>'results'});
+    $html .= div({-class=>'paused_container',id => 'progress_indicator'},'');
+
+			
+    # This variant uses pure-CSS. In addition, we:
+    # - do not pre-display a list of available classes
+    # - only display classes which have hits
+    
+    # onclick of the search submit, the display property of the
+    # results table is change to block
+    foreach my $class (sort { $a cmp $b } @CLASSES) {
+	my $count_id      = $class . '_count';
+	my $label_id      = $class . '_label';
+	my $links_id      = $class . '_links';
+	my $container_id  = $class . '_container';
+	my $results_id    = $class . '_result';
+	my $header_id     = $class . '_header';
+	$class =~ s/_/ /g;
+
+	$html .=
+		div({-class=>'paused_container',id => $container_id},
+		    div({-id => $header_id},
+			span({-id => $label_id },$class),
+			span({-id => $count_id },''),
+			span({-id => $links_id },'')),
+		    div({-class=>'hits'},
+			div({-id  => $results_id },'')));
+	#);
+#	    );
+    }
+    $html .= end_div();
+    return $html;
+}
+
+
+

@@ -1,0 +1,182 @@
+#!/usr/bin/perl
+##############################################################
+# REIMPLEMENTATION:                                          #
+#    THIS SCRIPT IS NOW FROZEN! (v1.12)                      #
+#       Please do not make edits to it.                      #
+#       Frozen by: tharris on 02.10.2008                     #   
+##############################################################
+
+# A skeleton script for showing Wen Chen's gene regulation data
+
+use strict;
+use lib '../lib';
+use vars qw($DB $WORMBASE @GR $GR);
+use CGI qw(:standard *table);
+use Ace::Browser::AceSubs qw(:DEFAULT);
+use ElegansSubs qw(:DEFAULT Bestname);
+use WormBase;
+
+END {
+  undef $WORMBASE;
+  undef @GR;
+  undef $GR;
+}
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+@GR = fetch_GR();
+
+if (param('name') && @GR) {
+  $GR = (@GR == 1) ? $GR[0] : param('name');  # : would be > 1
+}
+
+PrintTop($GR,'Gene Regulation',$GR ? "Gene Regulation Summary for $GR" : 'Gene Regulation Summary');
+
+$WORMBASE = WormBase->new($DB);
+$WORMBASE->print_prompt(-message  => 'Specify a ',
+			-class    => 'Gene_regulation',
+			-examples => [ { Locus           => 'par-2'},
+				       { Gene            => 'JC8.10'},
+				       { Gene_regulation => 'cgc5377_lin-11.a'},
+				     ]);
+
+if (scalar @GR > 1) {
+  print h3("Your search had ", scalar @GR," hits.  Please choose one:");
+  print ol(li([
+	       map {
+		 ObjectLink($_) } @GR]))
+} elsif (param('name') && @GR == 0) {
+  print h3({-class=>'warning'},"No gene regulation data corresponding to " . param('name') . ' was found.');
+} elsif (param('name') && @GR) {
+  display_report();
+}
+
+PrintBottom();
+exit 0;
+
+
+sub fetch_GR {
+  my $name  = param('name');
+  return unless $name;
+  my @obj;
+  @obj = $DB->fetch(-class=>'Gene_regulation',-name=>$name);
+  unless (@obj) {
+    my %seen;
+    my @temp = grep {!$seen{$_}++ } $DB->fetch(-query=>qq/Find Gene_name "$name"; follow Public_name_for; where Gene_regulation/);
+    # Let's try sequences as well
+    push(@temp,grep {!$seen{$_}++ } $DB->fetch(-query=>qq/Find Gene_name "$name"; follow Sequence_name_for; where Gene_regulation/)) unless @temp;
+    push(@temp,grep {!$seen{$_}++ } $DB->fetch(-query=>qq/Find Gene_name "$name"; follow Molecular_name_for; where Gene_regulation/)) unless @temp;
+    @obj = map {$_->Trans_target} @temp;
+    push (@obj,map {$_->Trans_regulator} @temp);
+  }
+  return @obj;
+}
+
+sub display_report {
+  print start_table({-border=>1});
+  StartSection('General Info');
+  SubSection('Gene regulation ID',$GR);
+  SubSection('Summary',$GR->Summary);
+  EndSection();
+
+  # Method is the experimental approach
+  # DONE
+  if ($GR->Method) {
+    StartSection('Method');
+    SubSection('Antibody',$GR->Antibody);
+    SubSection('Reporter gene',$GR->Reporter_gene);
+    SubSection('In Situ hybridization',$GR->In_Situ);
+    SubSection('Northern',$GR->Northern);
+    SubSection('Western',$GR->Western);
+    SubSection('RT_PCR',$GR->RT_PCR);
+    SubSection('Other method',$GR->Other_method);
+    EndSection();
+  }
+  
+  # Regulator can be a gene, DNA sequence, protein, drug, condition...
+  StartSection('Regulator');
+  my @trans_regulator = ($GR->Trans_regulator_gene,$GR->Trans_regulator_seq);
+  SubSection('Gene(s)',
+	     join('; ',map { link_gene($_); } @trans_regulator)) if (@trans_regulator);
+  SubSection('Cis-regulator',join('; ',map { ObjectLink($_) } $GR->Cis_regulator_seq)) if $GR->Cis_regulator_seq;
+  SubSection('Allele used',$GR->Allele);
+  SubSection('RNAi used',$GR->RNAi);
+  SubSection('Condition',$GR->Other_regulator);
+  EndSection();
+
+  # Target / Regulates
+  StartSection('Regulates');
+  # Headings for more readable descriptions
+  my %headings = (Positive_regulate => 'Positively regulates',
+		  Negative_regulate  => 'Negatively regulates',
+		  Does_not_regulate  => 'Does not regulate');
+  
+  my @targets = ($GR->Trans_regulated_gene,$GR->Trans_regulated_seq,$GR->Other_regulated);
+  foreach my $target (@targets) {
+    my $bestname = Bestname($target);
+    foreach (qw/Positive_regulate Negative_regulate Does_not_regulate/) {
+      next unless ($GR->$_ || $GR->Result eq $_);
+      if (my @conditions = $GR->$_) {
+	my $string = "$headings{$_} ";
+	$string .= link_gene($target);
+	$string .= ' in ' . join('; ',map {
+	  my $label = $_;
+	  $label =~ s/_/ /g;
+	  lc("$label: ") .
+	    ObjectLink($_->right)} @conditions);
+	SubSection('',$string);
+      } else {
+	my $string = "$headings{$_} ";
+	$string .= link_gene($target);
+	SubSection('',$string);
+      }
+    }
+  }
+
+  SubSection('',
+	     map {
+	       'See ' . ObjectLink($_)
+		 . ' for the expression pattern of ' 
+		   . link_gene($_->Gene || $_->CDS) . ' in a wild type background.' . br
+		 } $GR->Target_info(2)) if $GR->Target_info;
+  EndSection();
+
+  StartSection('References');
+  my @refs = $GR->Reference;
+  SubSection('',join(br,format_papers(@refs)));
+  EndSection();
+
+  if ($GR->Remark) {
+    StartSection('Remark');
+    SubSection('',$GR->Remark);
+    EndSection();
+  }
+  print end_table;
+}
+
+
+sub link_gene {
+  my $target = shift;
+  my $string;
+  return unless $target;
+  if ($target->class eq 'Gene') {
+    $string = a({-href=>Object2URL($target)},Bestname($target));
+  } else {
+    $string = ObjectLink($target);
+  }
+  return $string;
+}
+
+
+sub format_papers {
+  my @refs = @_;
+  my @formatted;
+  
+  eval{@formatted = map {a({-href=>Object2URL($_)},($_->Author || '')
+			 . ' (' . $_->Year . '). ' . $_->Title) }
+    sort {$b->Year <=> $a->Year } @refs;}; 
+  return @formatted;
+}
+
+
+
+

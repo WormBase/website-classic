@@ -1,0 +1,389 @@
+#!/usr/bin/perl
+
+use strict;
+use lib '../lib';
+use Ace::Browser::AceSubs;
+use ElegansSubs qw/:DEFAULT Bestname Species2URL/;
+
+use CGI qw(:standard *table escape);
+use WormBase;
+use vars qw/$WORMBASE $DB $query $list $gene $disease $test $omim_id2gene_name_file $data_file_name/;
+use strict;
+
+END {
+  undef $WORMBASE;
+  undef $gene;
+  undef $list;
+  undef $DB;
+  undef $disease;
+}
+
+
+$query = param('call');
+my $string_modification = param('string_modifications');
+my $note_check = param('note_check');
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+my $version = $DB->version;
+my $data_dir = "/usr/local/wormbase/databases/$version/orthology/";  # "../../databases/$version/orthology/";
+my @filter_sections = (1,2,4);	
+if ($note_check){
+	push @filter_sections, 3;
+}
+my $script_url = "/db/";
+my $list_page_url = $script_url."orthology/disease?list=1";
+my $list_page_link = a({-href=>$list_page_url},'Go to list of all diseases with (a) C.elegans ortholog(s).');
+my $cgi = new CGI;
+my $resutls = 0;
+
+StartCache();
+
+$WORMBASE = WormBase->new();
+
+PrintTop($query,'Disease Search Results',$disease ? "Disease Search" : "Disease Search");
+
+$data_file_name = $data_dir."disease_search_data.txt";
+$omim_id2gene_name_file = $data_dir. "omim_id2gene_name.txt";
+my $results = 0;
+
+if($query){
+	my @search_results = run_search($data_file_name,
+					$query,
+					$string_modification,
+					$omim_id2gene_name_file);  #"quack"
+					
+					
+	my $annotation_search_result = run_annotation_search ($data_file_name,
+					$query,
+					$omim_id2gene_name_file);
+					
+	#my $filtered_lines;
+	
+	my $filtered_lines = filter_sections(\@search_results,\@filter_sections,$query);
+	
+	# $filtered_lines = $filtered_lines . $annotation_search_result;
+	
+	print_anchors($filtered_lines,$annotation_search_result);
+	
+	print start_table();
+	
+	print "<h3>Search results for <font color=red>$query\</font>.</h3>";
+	
+	if($filtered_lines=~ m/[a-z]/){
+		my @filtered_search_results = split /\n/,$filtered_lines;
+		print_search_results(\@filtered_search_results, 'text_search');
+		$results = 1;
+	}
+	
+	if ($annotation_search_result =~ m/[a-z]/) {
+		my @annotation_search_results = split /\n/,$annotation_search_result;
+		print_search_results(\@annotation_search_results, 'gene_annotation_search');
+		$results = 1;
+	
+	}
+	
+	if(!($results)){
+		my $list_url = a({-href=>'/db/orthology/disease?list=1'},'list of diseases');
+		print "Search returned no results <b><i>$query\</i></b>, Please check entry and try again. Alternatively, go to the $list_url in our database<br>";
+		
+	
+	}
+	
+	print end_table();
+	# print hr;
+	# print_search_form($cgi);
+	# print hr;
+	# print "<br>$list_page_link";
+}
+else{
+	print br;
+}
+print_search_form($cgi);
+print hr;
+print "<br>$list_page_link";
+
+# print "$filtered_lines\n";
+
+
+# print end_table();
+
+
+# subroutines
+
+
+##### cnp from tree_lister!!!! #######
+
+sub build_hash{
+	my ($file_name) = @_;
+	open FILE, "<./$file_name" or die "Cannot open the file: $file_name\n";
+	my %hash;
+	foreach my $line (<FILE>) {
+		chomp ($line);
+		my ($key, $value) = split '=>',$line;
+		$hash{$key} = $value;
+	}
+	return %hash;
+}
+
+
+sub print_anchors {
+
+	my %search_results;
+	
+	$search_results{'search_results'} = shift @_;
+	$search_results{'annotation_search'} = shift @_;
+	
+	my %anchor_texts = ('search_results' => '<a href=#search> [ Results from Searching Descriptions and Notes ]</a>',
+					'annotation_search' => '<a href=#annotation> [ Results from Searching gene annotations ] </a>'
+					);
+	
+	
+	foreach my $key (keys %anchor_texts){
+	
+		my $search_result = $search_results{$key};
+	
+		if ($search_result =~ m/[a-z]/) {
+		
+			print $anchor_texts{$key};
+		
+		} 
+		else {
+		
+			next;
+		}
+	}
+	print '<a name=top></a>';
+}
+
+sub print_search_form {
+    
+    my $cgi = shift @_;
+
+    print $cgi->startform(-method=>'GET', 
+			  -action=>'search');   
+
+    print "<br><hr><br>Search for disease related term, or phrase, that \&nbsp\;\&nbsp;";
+
+    my %string_choices = (#'before'=>'Starts with', 
+			  'middle'=>'Contains',
+			  'stand_alone'=>'Stands Alone'
+			  );
+
+    print $cgi->popup_menu(-name=>'string_modifications', 
+			   -values=>[
+				     'middle',
+				     'stand_alone'], 
+			   -default=>'stand_alone', 
+			   -labels=>\%string_choices);
+ 
+    
+    print "<br><br>\n";
+
+    print $cgi->textfield(-name=>'call', 
+			  -size=>50, 
+			  -maxlength=>80);
+    
+
+    print "<br><br>\n";
+
+    print $cgi->checkbox(-name=>'note_check', 
+			 -checked=>'checked', 
+			 -value=>'ON', 
+			 -label=>'Check OMIM notes also');
+
+    print "<br><br>";
+    print $cgi->submit('Submit');
+    print "\&nbsp\;\&nbsp\;";
+    print $cgi->defaults('  Reset  ');
+
+	print $cgi->endform;
+}
+
+
+sub print_search_results{
+	
+	my $script_url = "/db/";
+	my $results_ar = shift @_;
+	my $result_type = shift @_;
+
+	my %result_type2result_text = (
+		'text_search' => '<a name=search>Results from searching text and notes <a href=#top>[Back to Top] </a>',
+		'gene_annotation_search' => '<a name=annotation>Results from searching gene annotations <a href=#top>[Back to Top] </a>',
+	);
+	
+	
+	my %omim_id2gene_name = build_hash($omim_id2gene_name_file);
+	
+	print TR({},
+		th({-align=>'left', -colspan=>3, -class=>'databody'}, $result_type2result_text{$result_type})
+		);
+		
+	print TR({},
+		th({-align=>'left',-width => '20%',-class=>'databody'},'Disease'),
+		th({-align=>'left',-width => '40%',-class=>'databody'},'Description'),
+		th({-align=>'left',-width => '40%',-class=>'databody'},'Annotated Genes')
+		
+	);
+	
+	my @unsorted_search_results;
+	foreach my $search_result (@{$results_ar}){
+
+		if (!($search_result =~ m/^[0-9]{6}/)){
+			next;
+		}
+		else{
+			my ($omim_id,$disease_name,$desc,$notes,$synonyms,$phenotypes) = split /\|/,$search_result;
+			## clean up disease name
+			$disease_name =~ s/[{*,}*]//g;
+			$disease_name =~ s/\[*//g;
+			$disease_name =~ s/\]*//g;
+			push @unsorted_search_results, join "|", ($disease_name,$omim_id,$desc,$notes,$synonyms,$phenotypes);		
+		}
+	}
+	
+	my @sorted_search_results = sort @unsorted_search_results;
+	foreach my $sorted_search_result (@sorted_search_results){
+			my ($disease_name,$omim_id,$desc,$notes,$synonyms,$phenotypes) = split /\|/,$sorted_search_result;
+			my $disease_url = $script_url."orthology/disease?call=".$omim_id;
+			my $disease_link = a({-href=>$disease_url},$disease_name);
+			
+			my $omim_url = "http://www.ncbi.nlm.nih.gov/entrez/dispomim.cgi?id=".$omim_id;
+		    my $omim_link = a({-href=>$omim_url},'More from OMIM');
+			my $linked_desc = $desc . $omim_link;	
+	
+#### 20100129 upgrade to include list of annotated genes in results display #####			
+			
+			## get related genes from %omim_id2gene_name build above 
+			
+			my $annotated_genes = $omim_id2gene_name{$omim_id};
+			my @annotated_genes = split /\s/, $annotated_genes;
+			
+			## make annotated gene list active links
+			
+			my @annotated_gene_links;
+				
+			foreach my $annotated_gene (@annotated_genes){
+					if ($annotated_gene =~ m/[A-Z,a-z,0-9]/){
+					
+						my $annotated_gene_link =	a({-href=>"/db/gene/gene?Class=Gene;name=$annotated_gene"},$annotated_gene);
+					
+						push  @annotated_gene_links, $annotated_gene_link;
+					
+						}
+					else 
+						{
+							next;
+						}
+					}
+			
+			my $annotated_genes_line = join ", ",@annotated_gene_links;
+			
+			## concatenate 
+						
+			
+### end 20100129 upgrade
+
+			print TR({},
+				td({-align=>'left',-width => '20%',-class=>'databody'},$disease_link),
+				td({-align=>'left',-width => '40%',-class=>'databody'},$linked_desc),
+				td({-align=>'left',-width => '40%',-class=>'databody'},$annotated_genes_line)
+			);
+	}
+		
+}
+
+
+sub filter_sections {
+	my($results_ar,$sections2filter_array_ref,$query) = @_;
+	my $filtered_line;
+	# print "@{$sections2filter_array_ref}\n";
+	$filtered_line = "";
+	
+	foreach my $result (@{$results_ar}){
+			my $checked_line = check_section($sections2filter_array_ref,$query,$result);
+			$filtered_line = $filtered_line.$checked_line."\n";
+	}
+	return $filtered_line;
+}
+
+sub check_section {
+	my ($sections_ar,$query,$line) = @_;
+	my @sections = split /\|/,$line;
+	my $return_data = 0;
+	foreach my $check_section (@{$sections_ar}){
+		if($sections[$check_section] =~ m/$query/i){			
+			$return_data = $line;
+		}
+		else{
+			next;
+		}
+	}
+	return $return_data;
+}
+
+
+sub run_search {
+
+    my %search_results;
+    my ($data_file_name, $query, $string_modification,$discard) = @_;
+    my $search_data;
+
+	if($string_modification =~ m/alone/){
+		
+		$search_data = `grep -iw \'$query\'  \.\/$data_file_name \| grep \-v \'\|0\'`;
+	}
+	else{
+	    $search_data = `grep -i \'$query\' \.\/$data_file_name \| grep \-v \'\|0\'`;
+	}
+    
+    $search_data =~ s/$query/\<font color\=\'red\'\>$query\<\/font\>/g;
+    my @search_results = split '\n', $search_data;
+   
+    return @search_results;
+}
+
+
+sub run_annotation_search {
+
+    my %search_results;
+    my ($data_file_name, $query, $disease2gene_file) = @_;
+    
+    my $annotated_gene_lines = `grep -i $query \.\/$disease2gene_file`;
+
+	my @annotated_gene_lines = split '\n', $annotated_gene_lines;
+    my @annotated_disease_ids;
+    
+    foreach my $annotated_gene_line (@annotated_gene_lines) {
+    
+    	my ($disease_id, $discard) = split "\=\>",  $annotated_gene_line;
+    	push @annotated_disease_ids, $disease_id;
+    
+    }	
+
+    my $search_results = "";
+    
+    foreach my $ad_id (@annotated_disease_ids) {
+    
+    	my $disease_data = `grep \^$ad_id \.\/$data_file_name`;
+    	$search_results.= "$disease_data\n";
+    	
+    }
+  
+
+    #my @search_results = split '\n', $search_results;
+    #return @search_results;
+	
+	return $search_results;
+
+}
+
+
+
+ClosePage;
+
+exit 0;
+
+##### subroutines ###########
+
+
+
+

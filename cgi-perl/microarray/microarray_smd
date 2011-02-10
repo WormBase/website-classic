@@ -1,0 +1,37 @@
+#!/usr/bin/perl
+# file: microarray_result
+# $Id: microarray_smd,v 1.1.1.1 2010-01-25 15:36:01 tharris Exp $
+
+use strict;
+use Ace::Browser::AceSubs;
+use ElegansSubs qw(:DEFAULT  OverlappingGenes PrintMicroarray);
+use CGI qw(:standard *table);
+
+my $DB    = OpenDatabase() || AceError("Couldn't open database.");
+my $DBGFF = OpenDBGFF($DB) || AceError("Couldn't open GFF database.");
+
+my $result_group = GetAceObject();
+PrintTop($result_group, "","SMD Microarray Results for PCR $result_group");
+
+# find out what genes overlap...
+if (my @segment = $DBGFF->segment('Microarray_result' => $result_group)) {
+  my @genes   = OverlappingGenes($result_group);
+
+  print p(b("The gene(s) covered by this set of arrays oligos are ",join ",  ",map{ObjectLink($_)} sort @genes));
+
+  my @mic_array_groups;   # set of PCR products covered by this set of arrays
+
+  foreach (@segment){
+    my @segment_pcr = $_->features('structural:GenePair_STS','structural:PCR_product');
+    @mic_array_groups = map {$_->info} @segment_pcr;
+    #print p("mic array groups @mic_array_groups");
+  }
+  foreach (@mic_array_groups) { print PrintMicroarray ($_);  }
+}
+
+
+else { # No microarrays
+  print p(b("This microarray assay couldn't be located on the genome"));
+}
+PrintBottom();
+exit;

@@ -1,0 +1,98 @@
+/* 
+
+Author: Payan Canaran <canaran@cshl.edu>
+CSS for blast_blat page
+Copyright@2006 Cold Spring Harbor Laboratory
+$Id: blast_pages.css,v 1.1.1.1 2010-01-25 15:47:07 tharris Exp $
+
+*/
+ 
+/* Header */
+div.header_container {
+  clear: both;
+  margin-left: 6%;
+}
+
+/* Search form */
+div.form_container {
+  clear: both;
+  margin-left: 10%; 
+  width: 60%;
+}
+
+div.kviewer_container {
+  padding: 4px;
+}
+
+div.report_container {
+  border: 1px dashed #333;
+  padding: 4px;
+}
+
+/* Result page parts */
+div.report_images {
+  border: 1px dashed #333;
+  padding: 4px;
+}
+
+div.report_header {
+  border: 1px dashed #333;    
+  padding: 10px;  
+  font-size: 11px;
+}
+
+div.report_hit {
+  border: 1px dashed #333;    
+  padding: 10px;  
+  font-size: 11px;
+}
+
+div.report_hsp {
+  border: 1px dashed #333;    
+  padding: 10px;  
+  font-size: 11px;
+}
+
+div.report_footer {
+  border: 1px dashed #333;    
+  padding: 10px;  
+  font-size: 11px;
+}
+
+/* Fonts */
+.bold {
+ font-weight: bold;
+} 
+
+.italic {
+ font-style: italic;
+} 
+
+.blue {
+ color: blue;
+} 
+
+.red {
+ color: red;
+} 
+
+.fixed_width {
+  font-family: monospace;
+}
+
+
+/* Other */
+div.spacer {
+  clear: both;
+}
+
+.message {
+ font-weight: bold;
+ color: #005300;
+ font-style: italic;
+} 
+
+.sample {
+ color: blue;
+} 
+

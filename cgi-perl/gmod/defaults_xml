@@ -1,0 +1,221 @@
+#!/usr/bin/perl
+# filename: wormbase.pm.defaults
+# Author: T. Harris
+# This simple CGI collects default values for
+# those using WormBase.pm
+
+# In particular, it includes paths for building and installing
+# WormBase packages.
+
+use lib '../lib';
+use CGI 'param','header','path_info';
+use Ace;
+use Ace::Browser::AceSubs;
+use ElegansSubs;
+use XML::Writer;
+use strict;
+
+use vars qw($DB);
+use constant TOP_CONTAINER  => 'wormbase_defaults';
+use constant MYSQL_DATA_DIR => '/usr/local/mysql/data';
+use constant FTP_BASE       => '/pub/wormbase';
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+print header('text/plain');
+
+my $writer = new XML::Writer(DATA_INDENT => 4,DATA_MODE => 1);
+$writer->startTag(TOP_CONTAINER);
+
+
+$writer->startTag('install_root');
+$writer->characters('/usr/local/wormbase');
+$writer->endTag('install_root');
+
+$writer->startTag('mysql_data_dir');
+$writer->characters(MYSQL_DATA_DIR);
+$writer->endTag('mysql_data_dir');
+
+$writer->startTag('tmp_dir');
+$writer->characters('/tmp');
+$writer->endTag('tmp_dir');
+
+$writer->startTag('rsync');
+$writer->startTag('url');
+$writer->characters('rsync://dev.wormbase.org');
+$writer->endTag('url');
+
+$writer->startTag('module');
+$writer->characters('wormbase-live');
+$writer->endTag('module');
+$writer->endTag('rsync');
+
+#CVS_ROOT=:pserver:anonymous\@brebiou.cshl.org:/usr/local/cvs
+
+$writer->startTag('ftp_site');
+$writer->startTag('host');
+$writer->characters('dev.wormbase.org');
+$writer->endTag('host');
+
+$writer->startTag('root');
+$writer->characters('/usr/local/ftp');
+$writer->endTag('root');
+
+$writer->startTag('base');
+$writer->characters(FTP_BASE);
+$writer->endTag('base');
+
+$writer->startTag('database_repository');
+$writer->characters(FTP_BASE . "/mirror/database_tarballs");
+$writer->endTag('database_repository');
+$writer->endTag('ftp_site');
+
+
+#######################################;
+# SERVERS
+#######################################
+$writer->startTag('live_server');
+$writer->startTag('name');
+$writer->characters('WormBase live server');
+$writer->endTag('name');
+
+$writer->startTag('url');
+$writer->characters('http://www.wormbase.org/');
+$writer->endTag('url');
+
+$writer->startTag('description');
+$writer->characters('The primary WormBase public server');
+$writer->endTag('description');
+
+$writer->startTag('version_cgi');
+$writer->characters('http://www.wormbase.org/db/gmod/version?site=live');
+$writer->endTag('version_cgi');
+$writer->endTag('live_server');
+
+
+$writer->startTag('development_server');
+$writer->startTag('name');
+$writer->characters('WormBase development server');
+$writer->endTag('name');
+
+$writer->startTag('url');
+$writer->characters('http://dev.wormbase.org/');
+$writer->endTag('url');
+
+$writer->startTag('description');
+$writer->characters('The WormBase semi-public development server');
+$writer->endTag('description');
+
+$writer->startTag('version_cgi');
+$writer->characters('http://dev.wormbase.org/db/gmod/version?site=development');
+$writer->endTag('version_cgi');
+$writer->endTag('development_server');
+
+
+#######################################
+# COMPONENTS
+#######################################
+$writer->startTag('components');
+
+$writer->startTag('acedb');
+$writer->startTag('install_path');
+$writer->characters('/usr/local/acedb');
+$writer->endTag('install_path');
+
+$writer->startTag('tarball');
+$writer->characters('acedb_%s.ace.tgz');
+$writer->endTag('tarball');
+
+$writer->startTag('md5');
+$writer->characters('acedb_%s.ace.md5');
+$writer->endTag('md5');
+
+$writer->startTag('download_space');
+$writer->characters('3');
+$writer->endTag('download_space');
+
+$writer->startTag('unpacked_space');
+$writer->characters('10');
+$writer->endTag('unpacked_space');
+$writer->endTag('acedb');
+
+
+$writer->startTag('elegans_gff');
+#$writer->startTag('install_path');
+#$writer->characters(MYSQL_DATA_DIR);
+#$writer->endTag('install_path');
+
+$writer->startTag('tarball');
+$writer->characters('elegans_%s.gff.tgz');
+$writer->endTag('tarball');
+
+$writer->startTag('md5');
+$writer->characters('elegans_%s.gff.md5');
+$writer->endTag('md5');
+
+$writer->startTag('download_space');
+$writer->characters('0.5');
+$writer->endTag('download_space');
+
+$writer->startTag('unpacked_space');
+$writer->characters('3.5');
+$writer->endTag('unpacked_space');
+$writer->endTag('elegans_gff');
+
+$writer->startTag('briggsae_gff');
+$writer->startTag('version');
+$writer->characters('CB25');
+$writer->endTag('version');
+
+#$writer->startTag('install_path');
+#$writer->characters(MYSQL_DATA_DIR);
+#$writer->endTag('install_path');
+
+$writer->startTag('tarball');
+$writer->characters('briggsae_%s.gff.tgz');
+$writer->endTag('tarball');
+
+$writer->startTag('md5');
+$writer->characters('briggsae_%s.gff.md5');
+$writer->endTag('md5');
+
+$writer->startTag('download_space');
+$writer->characters('0.5');
+$writer->endTag('download_space');
+
+$writer->startTag('unpacked_space');
+$writer->characters('5');
+$writer->endTag('unpacked_space');
+$writer->endTag('briggsae_gff');
+
+
+#BLAST_TARBALL=blast_%s.tgz
+#BLAST_DISK_SPACE=0.5
+
+$writer->endTag('components');
+
+
+
+#######################################
+# DATA MINING CONSTANTS
+#######################################
+#
+# FOR HTTP-BASED REQUESTS
+#DATA_MINING_URL=http://aceserver.cshl.org
+## FOR DIRECT DATABASE REQUESTS
+#DATA_MINING_SERVER=aceserver.cshl.org
+#DATA_MINING_PORT=2005
+
+
+#
+#######################################
+# GENERIC QUERIES
+#######################################
+#
+#GENE_FETCH_QUERY=select a,a->Public_name,a->Concise_description from a in class Gene where a->Public_name="%s"
+
+
+$writer->endTag(TOP_CONTAINER);
+$writer->end();
+
+exit 0;

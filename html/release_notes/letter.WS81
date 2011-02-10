@@ -1,0 +1,169 @@
+New release of acedb WS81, Wormpep81, and Wormrna81 28/06/2002 
+==============================================================
+
+This directory includes: 
+
+i) database.WS81.*.tar.gz - the compressed data for the new release 
+
+ii)  models.wrm.WS81          - the latest database schema (also 
+                                included in the above database files)
+
+iii) CHROMOSOMES/ subdir      - contains three files (DNA, GFF, and 
+                                agp) for each chromosome  
+
+iv)  WS80-WS81.dbcomp         - log file reporting differences between 
+                                   WS79 and WS80
+
+v)   wormpep81.tar.gz         - full Wormpep distribution corresponding 
+                                   to WS80
+
+vi)  wormrna81.tar.gz         - latest WormRNA release containing 
+                                   non-coding RNAs in the genome
+
+vii) confirmed_genes.WS81.gz  - DNA sequences of all genes confirmed by 
+                                either EST and/or cDNA
+Release notes on the web: 
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE 
+
+
+Primary databases used in this build: 
+-------------------------------------
+
+brigdb : 2002-06-17 - updated
+camace : 2002-06-23 - updated
+citace : 2002-06-23 - updated
+cshace : 2002-06-11 - updated
+genace : 2002-06-23 - updated
+stlace : 2002-06-17 - updated
+
+Genome sequence composition: 
+----------------------------
+
+6 sequences >= 0, 100,251,905 total
+  a 32341760    32 %
+  c 17763359    18 %
+  g 17743847    18 %
+  - 62800       0 %
+  n 95  0 %
+  t 32340044    32 %
+
+Minor sequence corrections give a gross increase of 3 bp
+
+Wormpep data set: 
+-----------------
+
+
+There are 19,462 CDS in autoace, 20,639 when counting (1,177) alternate 
+splice_forms. The 20,639 sequences containing 9,106,233 base pairs in 
+total. 
+
+ Modified entries     164
+ Deleted entries       90
+ New entries          193
+ Reappeared entries     1
+ ------------------------
+ Net Change         + 104
+
+
+
+GeneModel correction progress: 
+------------------------------
+Number of confirmed introns not in a CDS gene model: 
+
+           +----------+---------+
+           | Introns  | Change  |
+           +----------+---------+
+Cambridge  |  2010    |  -17    |
+St Louis   |   971    |  -339   |
+           +----------+---------+
+
+
+Members of known repeat families that overlap predicted exons: 
+
+           +----------+---------+
+           | Repeats  | Change  |
+           +----------+---------+
+Cambrige   |    29    |  +1     |
+St Louis   |    185   |  -2     |  
+           +----------+---------+
+
+
+Synchronisation with GenBank/EMBL: 
+----------------------------------
+CHROMOSOME_I  sequence  Z79752
+
+CHROMOSOME_II  sequence  Z69902
+
+CHROMOSOME_III  sequence  Z35597
+
+CHROMOSOME_III  sequence  Z73424
+
+CHROMOSOME_III  sequence  AL132904
+
+CHROMOSOME_IV  sequence  Z82266
+
+CHROMOSOME_IV  sequence  Z83217
+
+CHROMOSOME_IV  sequence  Z70307
+
+CHROMOSOME_V  sequence  Z78013
+
+CHROMOSOME_V  sequence  Z81463
+
+CHROMOSOME_X  sequence  AL032630
+
+CHROMOSOME_X  sequence  Z70203
+
+
+
+New data:
+---------
+
+Operon data
+
+New fixes: 
+----------
+Any proteins SwissProt entries in WS80 had their accession and ID's swapped over.
+This has been remedied.
+
+
+
+Known Problems
+--------------
+Some protein homology data appears to have gone missing.
+This is NOT a loss of C. elegans proteins but those involved in homology anayses.
+This is being investigated.
+	
+
+Other changes: 
+--------------
+
+Remapped WTP objects - only those that conformed to the 
+original naming scheme (eg 1A123) are included.  Others subject to ongoing
+debate.
+WTP objects are now mapped to superlinks rather than clones.
+
+
+Proposed changes / forthcoming data: 
+------------------------------------
+
+
+
+Quick installation guide for UNIX/Linux systems 
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase, 
+e.g. /users/yourname/wormbase 
+  
+2. Unpack and untar all of the database.*.tar.gz files into 
+this directory. You will need approximately 2-3 Gb of disk space. 
+ 
+3. Obtain and install a suitable acedb binary for your system 
+   (available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g. 
+type 'xace /users/yourname/wormbase' at the command prompt. 
+
+5. See the acedb website for more information about acedb and
+using xace. 

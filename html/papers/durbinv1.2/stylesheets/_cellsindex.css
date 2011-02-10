@@ -1,0 +1,32 @@
+A {
+text-decoration : none; 
+font-style: normal; 
+font-family: sans-serif;
+color: #000000; 
+    }
+
+A.jumpto {
+    text-decoration : none;
+	font-style: normal;
+	font-weight: bold;
+	font-size: 14pt;
+	font-family: sans-serif;
+    color: #4568B5; 
+    }
+    
+A.toc {text-decoration : none;
+	font-style: normal;
+	font-size: 14pt;
+	font-family: sans-serif;
+	color: #BD0000;
+
+    }
+
+
+BODY              { background-color: white;
+	            font-style: normal;
+		    font-size: 16pt;
+	            font-family: sans-serif; 
+	            letter-spacing: normal;
+		    font-weight: bold;
+                  }

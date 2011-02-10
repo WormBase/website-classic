@@ -1,0 +1,1230 @@
+#!/lab/bin/perl
+# filename: info dump
+# Author: T. Harris
+# Serious revision 12.19.01 at 11pm or so.
+
+# This is a simple info dumper for retrieving a variety of info about a list
+# of genes.  It accepts a pasted list, with checkboxes for the desired
+# features, returning an html file, or tab-delimited text file.
+
+# Cases that must be dealt with
+# cloned genes (unc-47) and uncloned genes (ric-1)
+# seq ids of cloned genes (T20G5.6) and of uncloned genes (R13A5.9)
+
+## Suggestions
+# add descriptions of the databases to the bottom of the page
+# increasing spacing between checkboxes and text to clear things up
+# fix expression pattern
+# formatting of prominent motifs
+
+use CGI qw/:standard :Pretty *table *TR *td *center *ul pre/;
+use CGI::Carp qw/fatalsToBrowser/;
+use Ace;
+use Ace::Browser::AceSubs;
+use Ace::Sequence;
+
+use constant TOOMANYGENES => 99_999_999;  # essentially unlimited
+
+use lib '../';
+use ElegansSubs qw(:DEFAULT GenBankLink PrintRNAiPattern 
+		   PrintExpressionPattern Banner 
+		   GetInterpolatedPosition FindPosition FetchGene Bestname);
+use strict;
+
+use vars qw($DB $script $global $data);
+use constant NONE     => 'n/a';
+use constant UNCLONED => 'n/a';
+
+print redirect('/db/searches/batch_genes');
+
+$script = url({-relative=>1});
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$global = {};
+$data   = {};
+
+# Load up the global hash with some common parameters
+fill_hash();
+
+# Were genes passed in from elsewhere?
+# Let's give the users a chance to select the info they want
+draw_form() if (param('retrieve'));
+
+# Else script is being called by itself or for the first time
+process_request() if (param);
+draw_form();
+
+############################ end of program ###################################
+sub fill_hash {
+  # Some global parameters
+  # Classes:
+  # These are the general datatypes that can be requested from the
+  # form. (groups of checkboxes).
+  # Array is used to populate hash references in $global containing each parameter
+  # requested in that class.
+  $global->{classes} = [qw/wormbase db gene protein phene seq/];
+
+  # Headers are used for each class in HTML only formatted pages. 
+  # A small, but unnecessary nicety
+  $global->{headers} = ({ 'wormbase'=>'Wormbase IDs',
+			  'db'      =>'Database IDs',
+			  'gene'    =>'Gene Info',
+			  'protein' =>'Protein',
+			  'phene'   =>'Phenotypes',
+			  'seq'     =>'Sequence',
+			});
+  return;
+} # end sub fill_hash
+
+
+sub draw_form {
+  my $msg = shift;
+  PrintTop(undef,undef,undef, '-Title' => 'Batch Genes / Gene Summaries');
+  
+  # Each parameter will be used as a key in hash to store information.
+  # This is primarily a nicety for HTML formatted results.
+  my $params = ({'wormbase' => ['Locus','Other Locus Names','Gene','Wormpep ID'],
+		 'db'    => [qw/WormPD GenPep SwissProt EuGenes GenBank Intronerator/],
+		 'gene'  => ['Spliced Length','Unspliced Length',
+			     'Genetic Map Position','Physical Map Position','Gene Ontology Terms'],
+		  'phene' => ['Expression Data','Phenotype','Number Of Alleles','RNAi'],
+		 #'phene' => ['Phenotype','Number Of Alleles','RNAi'],
+		 'protein'=>['Remarks','Brief Identification','Protein Length',
+			     'Prominent Motifs'],
+		 'seq' => [qw/Protein Spliced Unspliced/],
+		 'express' =>[],
+		});
+  
+  # Should the checkboxes be on or off by default?
+  my %defaults = ('wormbase' => 'on',
+		  'db'       => 'on',
+		  'gene'     => 'off',
+		  'protein'  => 'off',
+		  'phene'    => 'off',
+		  'seq'      => 'off');
+
+  print h1("Batch Genes"); 
+  print p({-class=>'error'},$msg);
+
+  print p('This page facilitates the batch retrieval of information
+  for a given set of genes.  This is useful for cross-comparing
+  important parameters in a concise table-formatted
+  display. Tab-delimited text file output is also available for
+  post-processing.');
+  print  p('Type or paste in a list of genes, separated by &lt;return&gt;. You may use either genetic loci (eg',
+	   cite(' unc-26'),
+	   '), or gene identifiers (eg ',cite(' JC8.10'),').  The * wildcard is also accepted: ',
+	   cite('unc*'),' will list all unc genes,',
+	   cite(' T20G5*'),' will list all genes on T20G5.');
+  
+  print start_form,
+    start_table({-width=>'100%',-cellpadding=>0,-cellspacing=>1});
+  print TR(
+	   th({-class=>'searchtitle',-rowspan=>3},'Genes or Loci'),
+	   th({-class=>'searchtitle',-colspan=>4},'Prefabricated Queries'));
+
+  # Prefabricated queries in drop down menu
+  my %prefab = ( 'seqs_plain' => 
+		 'Spliced, unspliced, and translated sequences of your set, in plain text',
+		 'genes'    =>'List all genetically-defined genes',
+		 'cloned'   =>'List all genetically-defined genes that have been cloned',
+		 'confirmed'=>'List all confirmed genes',
+		 'rna'      =>'List all RNA genes',
+		 'pseudo'   =>'List all pseudogenes',
+		 'cgc'      =>'List all genes with CGC names',
+		 'partial'  =>'List all partially confirmed genes',
+		 'briggsae' =>'List all C. briggsae genes',
+	       );
+  
+  print TR(
+	   td({-class=>'searchtitle',-colspan=>3,-align=>'center'},
+	      popup_menu(-name=>'prefab',
+			 -values=>\%prefab,
+			 -linebreak=>'true',
+			 -default=>'')),
+	   td({-align=>'center',-class=>'searchtitle'},
+	      submit(-name=>'prefab_submit',
+		     -value=>'Submit Prefab Query')));  
+
+  # Print out the build your own options...
+  print TR({-class=>'searchtitle'},th({-colspan=>4},'Build Your Own'));  
+
+  # Use genes passed in from elsewhere as the default  
+  print TR(td({-class=>'searchtitle',
+	       -rowspan=>5,
+	       -align=>'center',
+	       -width=>'25%'},
+	      textarea(-name=>'genes',
+		       -cols=>25,
+		       -rows=>20,
+		       -default=>join("\n",param('retrieve')))));
+
+  # Printing two x two for now...
+  my $count = 1;
+  foreach my $class (@{$global->{classes}}) {
+    $count++;
+    print start_TR() if ($count % 2 == 0);
+    my @defaults = @{$params->{$class}} if ($defaults{$class} eq 'on');
+    print th({-class=>'searchtitle'},
+	     $global->{headers}->{$class},
+	     td({-class=>'searchbody'},
+		checkbox_group(-name=>$class,
+			       -values=>\@{$params->{$class}},
+			       -default=>\@defaults,
+			       -linebreak=>'true')));
+    print end_TR if ($count % 2 != 0);
+  }
+
+  print TR(td({-class=>'searchtitle',-colspan=>2},"&nbsp;"),
+	   th({-class=>'databody'},'Format'),
+	   td({-class=>'databody'},
+	      radio_group(-name=>'format',
+			  -values=>['HTML','Plain Text'],
+			  -default=>'HTML',
+			  -linebreak=>'true')));
+  print TR({-class=>'searchtitle'},
+	   td({-align=>'right',
+	       -colspan=>5},
+	      reset(-name=>'Reset'),
+	      submit(-name=>'submit',
+		     -value=>'Submit Query')));
+  print end_form,end_table();
+  PrintBottom;
+  exit;
+}# end sub draw_form
+
+sub process_request {
+  # Setup the prefab queries
+  if (param('prefab_submit')) {
+    if (param('prefab') ne 'seqs_plain'){
+      process_prefabs();
+    } else { # This is the plain text sequences query
+      # This prevents anything from inadvertently being passed in -
+      # user doens't get to select anything
+      draw_form('Please provide a list of genes or loci.')if (!param('genes'));
+      $global->{classes} = [];
+      $global->{classes} = [param('prefab')];
+      param(-name=>'format',value=>'Plain Text');
+      push(@{$global->{seqs_plain}},('Unspliced Length','Unspliced','Spliced Length',
+				     'Spliced','Protein Length','Protein'));
+    }
+  }
+  # No prefabs? Let's make sure some genes were provided.
+  my $genes = param('genes');
+
+  draw_form('Please provide a list of genes or loci.') if (!$genes);
+  my @input = split (/\s+/,$genes);
+
+  # Get out the parameters that were passed (grouped by category for formatting)
+  # and store them in the global hash ref
+  foreach my $class (@{$global->{classes}}) {
+    push (@{$global->{$class}},param($class)) unless (!param($class));
+  }
+
+  #    foreach my $key (keys %{$global}) {
+  #      print STDERR "pram : $key ", @{$global->{phene}},"\n\n";
+  #    }
+
+  # Start the page and print out some appropriate information...
+  begin_html_output() if (param('format') eq 'HTML');
+  begin_text_output() if (param('format') eq 'Plain Text');
+
+  # First, check for wildcards...
+  my @final_list;
+  foreach (@input) {
+    if (/\*$/) {
+      my @expanded = expand_wildcards($_);
+      push (@final_list,@expanded);
+    } else {
+      push (@final_list,$_);
+    }
+  }
+  
+  foreach my $input (@final_list) {
+    $data = {};
+    $global->{count}++;
+    determine_class($input);    
+    gather_info();
+    print_data_html() if (param('format') eq 'HTML');
+    print_data_text() if (param('format') eq 'Plain Text');
+  }
+  
+  if (param('format') eq 'HTML') {
+    print end_table;  
+    print_missing('No information was available for the following genes',
+		  'missing')
+      if (defined $global->{missing});
+    print_missing('The following genes were not processed because the ' .
+		  'limit was exceeded','extra'),
+		    if (defined $global->{extra});
+    PrintBottom; 
+  } else { }
+  exit;
+}# end sub process_request
+
+sub process_prefabs {
+  PrintTop(undef,undef,'Gene Summaries - Results');
+  print start_table({-width=>'100%',-cellpadding=>1,-cellspacing=>1,-border=>0});
+
+  my @input;
+  my $msg;
+  if (param('prefab') eq 'genes') {
+    @input = $DB->fetch(-query=>qq(find Locus where Allele AND NOT SNP AND NOT Transposon_insertion));
+    $msg = 'Genetically Defined Genes';
+  }
+  if (param('prefab') eq 'cloned') {
+    @input = $DB->fetch(-query=>qq(find Locus where Allele AND Molecular_information));
+    $msg = 'Genetically Defined Genes That Have Been Cloned';
+  }
+  if (param('prefab') eq 'confirmed') {
+    @input = $DB->fetch(-query=>qq(find CDS Confirmed_by));
+    $msg = 'Confirmed Genes';
+  }
+
+  # THIS DOES NOT WORK
+  if (param('prefab') eq 'rna') {
+    @input = $DB->fetch(-query=>qq(find CDS RNA));
+    $msg = 'RNA genes';
+  }
+
+  # THIS DOES NOT WORK
+  if (param('prefab') eq 'pseudo') {
+    @input = $DB->fetch(-query=>qq(find CDS Pseudogene));
+    $msg = 'Pseudogenes';
+  }
+  if (param('prefab') eq 'cgc') {
+    @input = $DB->fetch(-query=>qq(find Locus CGC_approved));
+    $msg = 'Genes with CGC names';
+  } 
+  if (param('prefab') eq 'briggsae') {
+    @input = $DB->fetch(-query=>qq(find Briggsae_loci));
+    #(find Locus  Species = "Caenorhabditis briggsae"));
+    $msg = 'Caenorhabditis briggsae genes';
+  }
+  if (param('prefab') eq 'partial') {
+    @input = $DB->fetch(-query=>qq(find Predicted_gene; !Confirmed_by; Matching_cDNA));
+    $msg = 'Partially confirmed genes';
+print h2("here are @input");
+  }
+  print TR(th({-colspan=>8,-class=>'datatitle'},"$msg: " . scalar @input));  
+
+  my $count = 0;
+  my $hilite;
+  foreach (@input) {
+    $count++;
+    if ($count == 1) {
+      $hilite = $hilite eq 'searchbodyalt' ? 'searchbody' : 'searchbodyalt';
+      print start_TR({-class=>$hilite});
+    }
+    print td(a({-href=>Object2URL($_)},$_));
+    print end_TR() if ($count == 8);
+    $count = 0 if ($count eq 8);
+  }
+  print end_table;
+  PrintBottom;
+  exit;
+} # end sub process_prefabs
+
+sub expand_wildcards {
+  my $input = shift;
+  my @results;
+
+  # This should be more robust - ignoring the history objects in the
+  # CDS class, as well as presenting a single entry for genes with
+  # splice variants.
+  push (@results,$DB->fetch(Locus => $input));
+  push (@results,$DB->fetch(CDS => $input));
+  return @results;
+}
+
+sub determine_class {
+  my $input = shift;
+  # Store everything in a hash reference for formatting later
+  $data->{input} = $input;
+
+  if ($global->{count} < TOOMANYGENES) {
+    # Decide if this is a gene or a locus identifier
+    if (my @genes = $DB->fetch(Gene_name => $input)) {
+      
+      #if (my @locus = $DB->fetch(Gene => $input)) {
+      foreach (@genes) {
+	if (my $gene = FetchGene($DB,$input)) {
+	  $data->{locus} = Bestname($gene);
+	} else {
+	  next if $_ =~ /\.$/;
+	  $data->{locus} = $_;
+	}
+
+	# Before I do any of this, check to see if there is a new name
+	# This is redundant with code below.  Oh well.	  
+	get_canonical_locus();
+	my $new = $data->{canonical} ? $data->{canonical} : $data->{locus};
+	# These parameters will all be used internally for fetching various bits.
+	# use the canonical locus to retrieve the sequence
+	$data->{gene}  = $new->CDS;
+	$data->{seq}   = $DB->fetch(CDS => $data->{gene}) if ($data->{gene});
+      }
+      # Perhaps the user passed in a Sequence id?
+    } elsif (my @seq = $DB->fetch(CDS => $input)) {
+      foreach my $seq (@seq) {
+	$data->{gene}  = $seq;
+	# Get genetic information, if it exists
+	$data->{locus} = $seq->Locus;
+	get_canonical_locus() if ($data->{locus});
+	$data->{seq} = $seq;
+      }
+    } else {
+      push (@{$global->{missing}},$input);
+    }
+  } else {   # we've exceeded 100 genes
+    push (@{$global->{extra}},$input);
+  }
+  return;
+} # end sub determine_class
+
+
+sub begin_html_output {
+  PrintTop(undef,undef,'Batch Information Retrieval - Results');
+  print start_table({-width=>'100%',-cellpadding=>1,-cellspacing=>1,-border=>1});
+  print start_TR({-class=>'datatitle'});
+  print th({-rowspan=>2},'INPUT');
+  # Print out a row of the appropriate headers...
+  foreach my $class (@{$global->{classes}}) {
+    print th({-colspan=>scalar @{$global->{$class}}},
+	     $global->{headers}->{$class})
+      if ($global->{$class});
+  }
+  print end_TR;
+  
+  print start_TR({-class=>'datatitle'});
+  # Print out the column types for each section that user requested
+  foreach my $class (@{$global->{classes}}) {
+    print th(\@{$global->{$class}}) if ($global->{$class});
+    #print join hr, @{$global->{$class}} if ($global->{$class});
+  }
+  print end_TR;
+  return;
+} # end sub begin_html_output
+
+sub begin_text_output {
+  print header('text/plain');
+  # Print out the column types for each section based on selections
+  #print "|---------------------------------------------|\n";
+  #print "|    Wormbase: Batch information retrieval    \n";
+  #print "| Reported generated at: ",localtime(),"\n";
+  #print "|---------------------------------------------|\n\n";
+ 
+  return if (param('prefab_submit'));
+  # This is used for output concatenated onto a single line only...
+  #  print "INPUT\t";
+  #  foreach my $class (@{$global->{classes}}) {
+  #    print join("\t",@{$global->{$class}}) if ($global->{$class});    
+  #    print "\t" if ($global->{$class}); # A trailing \t in case more columns are to follow...
+  #  }
+  #  print "\n";
+  return;
+} # end sub begin_test_output
+
+
+sub get_canonical_locus {
+  my $new = eval { $data->{locus}->New_name };
+  $data->{canonical} = $new if ($new);
+  return;
+}
+
+
+sub gather_info {
+  $global->{coderefs} = ( { 'WormPD'                => 'get_wormpd',
+			    'GenPep'                => 'get_genpep',
+			    'SwissProt'             => 'get_swissprot',
+			    'EuGenes'               => 'get_eugenes',
+			    'GenBank'               => 'get_genbank',
+			    'Intronerator'          => 'get_intronerator',
+			    'Unspliced Length'      => 'get_unspliced_length',
+			    'Spliced Length'        => 'get_spliced_length',
+			    'Physical Map Position' => 'get_pmap',
+			    'Genetic Map Position'  => 'get_genmap',
+			    'Remarks'               => 'get_remarks',
+			    'Brief Identification'  => 'get_identification',
+			    'Gene Ontology Terms'   => 'get_go',
+			    'Protein Length'        => 'get_protein_length',
+			    'Prominent Motifs'      => 'get_motifs',
+			    'Phenotype'             => 'get_phenotype',
+			    'Number Of Alleles'     => 'get_alleles',
+			    'RNAi'                  => 'get_rnai',
+			    'Expression Data'       => 'get_exp_pattern',
+			    'Protein'               => 'get_protein_seq',
+			    'Spliced'               => 'get_spliced_seq',
+			    'Unspliced'             => 'get_unspliced_seq',
+			    'Locus'                 => 'assign_locus',
+			    'Gene'                  => 'assign_gene',
+			    'Other Locus Names'     => 'get_other_names',
+			    'Wormpep ID'            => 'get_wormpep',
+			    'get_all_genes'         => 'stuff_genes',
+			    'get_all_cloned'        => 'stuff_genes'
+			  });
+  
+  # Gather some general info that will be necessary for all queries
+  # Flag for uncloned genes - might want to change it later...
+  if (!$data->{gene}) {
+    $data->{uncloned} = UNCLONED;
+  }
+  
+  unless ($data->{uncloned}) {
+    $data->{protein} = $data->{seq}->Corresponding_protein;
+  }
+  
+  # From here out, let's use the canonical locus to do look ups
+  # Assumption: locus is canonical if there is no new name associated with it
+  $data->{locus} = $data->{canonical} if ($data->{canonical});
+  
+  ## expression pattern not working
+  # Visit each of the standard classes
+  foreach my $class (@{$global->{classes}}) {
+    # Retrieve each of the options the user has selected
+    foreach my $selected (@{$global->{$class}}) {
+      my $coderef = $global->{coderefs}->{$selected};
+      next if ($coderef eq '');   # Some of the parameters have already been fetched...
+      no strict;
+      &$coderef($selected);  # $selected will be used as hash key for info retrieved...
+    }
+  }
+  return;
+}# end sub gather_info
+
+sub print_data_html {
+  # Link coderefs - data is either not_linked (not listed in hash), 
+  # linked using generic Object2URL sub (value is generic),
+  # or requires its own special parameters (has its own sub)
+  $global->{linkrefs} = ( { 
+			   'WormPD'                => 'link_wormpd',
+			   'GenPep'                => 'link_genpep',
+			   'SwissProt'             => 'link_swissprot',
+			   'GenBank'               => 'link_genbank',
+			   'EuGenes'               => 'link_eugenes',
+			   'Intronerator'          => 'link_intronerator',
+###			   'Unspliced Length'      => 'no_link',
+###			   'Spliced Length'        => 'no_link',
+###			   'Physical Map Position' => 'no_link',
+###			   'Genetic Map Position'  => 'no_link',
+###			   'Remarks'               => 'no_link',
+###			   'Brief Identification'  => 'no_link',
+###			   'Protein Length'        => 'no_link',
+			   'Prominent Motifs'      => 'format_array',
+###			   #'Phenotype'             => 'no_link',
+###			   #'Number Of Alleles'     => 'no_link',
+			   'RNAi'                  => 'format_array',
+#			   'Expression Data'       => 'get_exp_pattern',
+			   'Protein'               => 'format_sequence',
+			   'Spliced'               => 'format_sequence',
+			   'Unspliced'             => 'format_sequence',
+			   'Other Locus Names'     => 'link_other_names',
+			   'Wormpep ID'            => 'generic_object_link',
+			   'Locus'                 => 'generic_object_link',
+			   'Gene'                  => 'generic_object_link'
+			  });
+
+  # Push the input into the row
+  push (@{$data->{row}},$data->{input});
+
+  # The Object2Url doesn't handle other loci appropriately
+  
+  # Visit each of the main classes, to control the order of their presentation
+  foreach my $class (@{$global->{classes}}) {
+    # See which options the user requested
+    foreach my $selection (@{$global->{$class}}) {
+#      print STDERR "here are selection $selection\n";
+      my $coderef = $global->{linkrefs}->{$selection};
+
+#      print STDERR "here are cod4ref $coderef\n";
+      # Others can use a generic object link sub...
+      $coderef ||= 'no_link';
+      no strict;
+      &$coderef($selection);  # $selected will be used as hash key for info retrieved...
+    } # next selection
+  } # next class
+  
+  $global->{hilite} = ($global->{hilite} eq 'searchbody') ? 'searchbodyalt' : 'searchbody';
+  print TR({-class=>$global->{hilite}},td(\@{$data->{row}}));
+
+}# sub print_data_html
+
+
+sub print_data_text {
+  # Print the input
+  #print "INPUT: ",$data->{input},"\n";
+  # first, visit each of the main classes, to control the order of their presentation
+
+  if (@{$global->{seq}}) {
+    foreach my $selection (@{$global->{'seq'}}) {
+      # and print its value...
+      # Is this an array reference? Need to deref and join
+      if ((ref $data->{$selection}) =~ /ARRAY/) {
+        print join("\n",@{$data->{$selection}});
+      } else {	# a simple print will suffice...
+        print $data->{$selection};
+      }
+        print "\n";
+    } # next selection
+  } else {
+    foreach my $class (@{$global->{classes}}) {
+      # See which options the user requested
+      foreach my $selection (@{$global->{$class}}) {
+        print "$selection:\t";
+        # and print its value...
+        # Is this an array reference? Need to deref and join
+        if ((ref $data->{$selection}) =~ /ARRAY/) {
+          print join("\n",@{$data->{$selection}});
+        } else {	# a simple print will suffice...
+          print $data->{$selection};
+        }
+        print "\n";
+      } # next selection
+    } # next class
+    print "===\n";
+  }
+}# end sub print_data_text
+
+
+# This concatenates everything onto a single line...
+sub print_data_text_old {
+  # Print the input
+  print $data->{input},"\t";
+  # first, visit each of the main classes, to control the order of their presentation
+  foreach my $class (@{$global->{classes}}) {
+    # See which options the user requested
+    foreach my $selection (@{$global->{$class}}) {
+      # and print its value...
+      # Is this an array reference? Need to deref and join
+      if ((ref $data->{$selection}) =~ /ARRAY/) {
+	print join(",",@{$data->{$selection}});
+      } else {	# a simple print will suffice...
+	# Add a few more params to make the prefabs nice...
+	print "$selection: " if (param('prefab_submit'));
+	print $data->{$selection};
+	print "\n" if (param('prefab_submit'));
+      }
+      print "\t";
+    } # next selection
+  } # next class
+  print "\n";
+} # end sub print_data_text_old
+
+
+
+
+
+sub print_missing {
+  my ($msg,$list) = @_;
+  print hr,
+    table({-width=>'50%'},
+	  TR(
+	     th({-class=>'datatitle',-colspan=>scalar @{$global->{$list}}},
+		$msg)),
+	  TR(td(\@{$global->{$list}})));
+  return;
+}
+
+
+############################################
+#    Data retrieval and formatting subs    #
+############################################
+sub no_link {
+  my $key = shift;
+  push (@{$data->{row}},$data->{$key});
+}
+
+sub generic_object_link {
+  my $key = shift;
+  if ($data->{$key} ne 'n/a') {
+    push (@{$data->{row}},(a({-href=>Object2URL($data->{$key})},
+			     $data->{$key}))); 
+  } else {
+    push (@{$data->{row}},$data->{$key});
+  }
+  return;
+}
+
+sub get_other_names {
+  my $key = shift;
+  if ($data->{locus}) {
+    my %others;
+    if ($data->{canonical}) {
+      %others = map { $_,1 } $data->{canonical}->Other_name;
+    } else { 
+      %others = map { $_,1 } $data->{locus}->Other_name;
+    }
+    if (%others) {
+      foreach (sort keys %others) {
+	# Do not re-list the original locus
+	push (@{$data->{$key}},$_) unless ($_ eq $data->{locus});
+      }
+    } else {
+      push (@{$data->{$key}},NONE);
+    }
+  }
+  return;
+}
+
+
+sub link_other_names {
+  my $key = shift;
+  my @linked;
+  push (@linked,b(a({-href=>Object2URL($data->{canonical})},$data->{canonical}))) 
+    if ($data->{canonical});    
+  
+  foreach (@{$data->{$key}}) {
+    next if ($_ eq NONE);
+    push (@linked,a({-href=>Object2URL($_)},$_));
+  }
+  
+  if (@linked) {
+    push (@{$data->{row}},join(' ',@linked));
+  } else {
+    push (@{$data->{row}},NONE);
+  }
+}
+
+sub assign_locus {
+  my $key = shift;
+  if ($data->{canonical}) {
+    $data->{$key} = $data->{canonical};
+  } elsif ($data->{locus}) {
+    $data->{$key} = $data->{locus};
+  } else {
+    $data->{$key} = NONE;
+  }
+  return;
+}
+
+
+sub stuff_genes {
+  my $key = shift;
+  push (@{$data->{$key}},$data->{input});
+}
+
+
+sub assign_gene {
+  my $key = shift;
+  $data->{$key} = $data->{gene} ? $data->{gene} : $data->{uncloned};
+  return;
+}
+
+sub get_wormpep {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    $data->{$key} = $data->{uncloned};
+  } else {
+    my $temp = eval { $data->{seq}->Corresponding_protein };
+    $data->{$key} = ($temp) ? $temp : NONE;
+  }
+  return;
+}
+
+sub get_wormpd {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    $data->{$key} = $data->{uncloned};
+  } else { 
+    # Use the locus first if it exists, else, try the gene identifier
+    my $wormpd = (eval { $data->{seq}->Locus } ) || $data->{seq};
+    $data->{$key} = $wormpd;
+  }
+  return;
+}
+
+sub link_wormpd {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    push (@{$data->{row}},$data->{$key}); 
+  } else {
+    push (@{$data->{row}},a({-href=>Configuration->Proteome . 
+			     "$data->{$key}.html",-target=>'proteome'},$data->{$key})); 
+  }
+  return;
+}
+
+sub get_genpep {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    $data->{$key} = $data->{uncloned};
+  } else {
+    my @db = eval { $data->{protein}->Database };
+    foreach (@db) {
+      next unless $_ eq 'SwissProt';
+      my $genpep = $_->at('SwissProt_AC')->right;
+      if ($genpep) {
+	$data->{$key} = $genpep;
+	last;
+      }
+    }
+  }
+  return;
+}
+
+
+sub link_genpep {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    push (@{$data->{row}},$data->{$key});
+  } else {
+    push (@{$data->{row}},a({-href=>Configuration->Entrezp . $data->{$key}},$data->{$key}));
+  }
+  return;
+}
+
+sub get_swissprot {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    $data->{$key} = $data->{uncloned};
+  } else {     
+    my @db = eval { $data->{protein}->Database };
+    my $genpep;
+    foreach (@db) {
+      next unless $_ eq 'SwissProt';
+      $genpep = $_->at('SwissProt_ID')->right;
+      last if $genpep;
+    }
+    # No genpep? No swissprot.
+    $data->{$key} = ($genpep) ? "SWALL:$genpep" : '';
+  }
+  return;
+}
+
+
+sub link_swissprot {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    push (@{$data->{row}},$data->{$key});
+  } else {
+    # Kludge - this needs a big rewrite
+    my $link = $data->{$key} =~ /SWALL:(.*)/ ? $1 : '';
+    if ($link eq '') {
+      push (@{$data->{row}},'n/a');
+      return;
+    }
+    push (@{$data->{row}},a({-href=>sprintf(Configuration->Srs,$link)},$data->{$key}));
+  }
+}
+
+sub link_genbank {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    push (@{$data->{row}},$data->{$key}); 
+  } else {
+    push (@{$data->{row}},a({-href=>Configuration->Entrez . $data->{$key}},$data->{$key}));
+  }
+}
+
+
+sub get_eugenes {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    $data->{$key} = $data->{uncloned};
+  } else {
+    $data->{$key} = $data->{seq};
+  }
+  return;
+}
+
+sub get_genbank {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    $data->{$key} = $data->{uncloned}
+  }
+  elsif ($data->{seq}) {
+    my @databases = ($data->{seq}->Database,eval{$data->{seq}->Source->Database});
+    foreach (@databases) {
+      if (/^(NDB|embl)/i) {
+	$data->{$key} = $_->right(2);
+	last;
+      }
+      $data->{$key} ||= $data->{uncloned};
+    }
+  } else {
+    # ???
+  }
+  return;
+}
+
+sub link_eugenes {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    push (@{$data->{row}},$data->{$key});
+  } else {
+    my $meow = Configuration->Meow_predicted;
+    push (@{$data->{row}},a({-href=>$meow . $data->{$key}},$data->{$key})); 
+  }
+}
+
+sub get_intronerator {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    $data->{$key} = $data->{uncloned};
+  } else {
+    $data->{$key} = $data->{seq};
+  }
+  return;
+}
+
+sub link_intronerator {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    push (@{$data->{row}},$data->{$key});
+  } else {
+    my $intronerator = Configuration->Intronerator;
+    push (@{$data->{row}},a({-href=>$intronerator . $data->{$key}},$data->{$key}));
+  }
+}
+
+sub get_unspliced_length {
+  my $key = shift;     # $key = Unspliced Length
+  if ($data->{uncloned}) {
+    $data->{$key} = NONE;
+  } else {
+    my $s      = Ace::Sequence->new($data->{seq}) if ($data->{seq});
+    my $un     = $s->dna if ($s);
+    my $length = length $un;
+    $data->{$key} = $length ? $length : NONE;
+  }
+  return;
+}
+
+sub get_unspliced_seq {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    $data->{$key} = $data->{uncloned};
+  } else {
+    my $s      = Ace::Sequence->new($data->{seq}) if ($data->{seq});
+    my $un     = $s->dna if ($s);
+    #    $data->{$key} = $un ? $un : NONE;
+    my $fasta = to_fasta($data->{gene},$un);
+    $data->{$key} = $fasta ? $fasta : NONE;
+  }
+  return;
+}
+
+sub get_spliced_length {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    $data->{$key} = $data->{uncloned};
+  } else {
+    # If this was a gene that we were provided with...
+    my $spliced  = $data->{seq}->asDNA;
+    $spliced =~ s/^>.*//;
+    $spliced =~ s/\n//g;
+    my $length = length $spliced;
+    $data->{$key} = $length;
+  }
+  return;
+}
+
+sub get_spliced_seq {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    $data->{$key} = $data->{uncloned};
+  } else {
+    # If this was a gene that we were provided with...
+    my $spliced  = $data->{seq}->asDNA;
+    $spliced =~ s/^>.*//;
+    $spliced =~ s/\n//g;
+    my $fasta = to_fasta($data->{gene},$spliced);
+    $data->{$key} = $fasta ? $fasta : NONE;
+  }
+  return;
+}
+
+sub get_pmap {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    $data->{$key} = $data->{uncloned};
+  } else {
+    my ($begin,$end,$reference) = FindPosition($DB,$data->{seq});
+    $reference =~ /.*_+(.*)/;
+    $reference = $1;
+    $data->{$key} = "$reference: $begin-$end";
+    # warn $data->{seq},$begin,$end,$reference;
+  }
+  return;
+}
+
+sub get_genmap {
+  my $key = shift;
+  if ($data->{locus}) {
+    #	$locus = eval { $locus->New_name } || $locus;
+    my $chromosome = $data->{locus}->Map(1);
+    my $gmap       = $data->{locus}->Map(3);
+    if ($chromosome) {
+      $data->{$key} = "$chromosome:$gmap";
+    } else {
+      $data->{$key} = NONE;
+    }
+  } else { # get the interpolated gmap position
+    my ($chromosome,$gmap) = GetInterpolatedPosition($DB,$data->{seq});
+    if (defined $gmap) {
+      $data->{$key} = "$chromosome:$gmap";
+    } else {
+      $data->{$key} = 'No interpolated position.';
+    }
+  }
+  return;
+}
+
+sub get_remarks {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    $data->{$key} = $data->{uncloned};
+  } else {
+    my $remarks  = $data->{seq}->DB_remark;
+    $data->{$key} = $remarks ? $remarks : NONE;
+  }
+  return;
+}
+
+sub get_identification {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    $data->{$key} = $data->{uncloned};
+  } else {
+    my $brief_id = $data->{seq}->Brief_identification;
+    $data->{$key} = $brief_id ? $brief_id : NONE;
+  }
+  return;
+}
+
+sub get_go {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    $data->{$key} = $data->{uncloned};
+  } else {
+    my @go = $data->{gene}->GO_term;
+    my $string;
+    my $join = (param('format') eq 'HTML') ? br : '; ';
+    foreach (sort {$a->Type cmp $b->Type } @go) {
+      my $term = $_->Term;
+      my $type = $_->Type;
+      my $id = param('format') eq 'HTML' ? ObjectLink($_) : $_;
+      $string .= "$type:$term ($id)$join";
+    }
+    $data->{$key} = $string ? $string : NONE;
+  }
+  return;
+}
+
+sub get_protein_length {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    $data->{$key} = $data->{uncloned};
+  } else {
+    my $length = eval { $data->{protein}->at('Peptide[2]')->fetch };
+    $data->{$key} = $length ? $length : NONE;
+  }
+  return;
+}
+
+sub get_protein_seq {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    $data->{$key} = $data->{uncloned};
+  } else {
+    my $pro = eval { $data->{protein}->asPeptide};
+    
+    # For flattening
+    #my @lines = split("\n",$pro) if ($pro);
+    #shift @lines;
+    #my $flat = join('',@lines);
+    #$data->{$key} = $flat ? $flat : NONE;
+    chomp $pro;
+    $data->{$key} = $pro ? $pro : NONE;
+  }
+  return;
+}
+
+sub format_sequence {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    push (@{$data->{row}},$data->{$key});
+  } else {
+    push (@{$data->{row}},pre({-class=>'dna'},$data->{$key}));
+  }
+}
+
+sub to_fasta {
+  my ($name,$sequence) = @_;
+  # This is used for converting flattened sequences into fasta
+  my @markup;
+  push (@markup,">$name");
+  for (my $i=0; $i < length $sequence; $i += 50) {
+    push (@markup,substr($sequence,$i,50));
+  }
+  my $form = join("\n",@markup);
+ return $form;
+}
+
+sub get_motifs {
+  my $key = shift;
+  if ($data->{uncloned}) {
+    $data->{$key} = $data->{uncloned};
+  } else {
+    my @motifs = eval { $data->{protein}->Motif_homol };
+    if (@motifs) {
+      foreach (@motifs) {
+	my $title = $_->Title;
+	push (@{$data->{$key}},$title);
+      }
+    } else { 
+      push (@{$data->{$key}},NONE);
+    }
+  }
+  return;
+}
+
+sub format_motifs {
+  my $key = shift;
+  if ($data->{$key} ne UNCLONED) {
+    my @motifs = @{$data->{$key}};
+    my $cell;
+    if (@motifs) {
+      $cell .= '<UL>';
+      foreach (@motifs) {
+	$cell .= "<li>$_" if ($_ ne '');
+      }
+      $cell .= "</UL>";
+      push (@{$data->{row}},$cell);
+    } else {
+      push (@{$data->{row}},$data->{$key});
+    } 
+  } else {
+    push (@{$data->{row}},$data->{$key});
+  }
+  #  return;
+}
+
+sub get_phenotype {
+  my $key = shift;
+  if ($data->{locus}) {
+    $data->{$key} = eval { $data->{locus}->Phenotype } || NONE;
+  } else {
+    $data->{$key} = NONE;
+  }
+  return;
+}
+
+# I should probably list all of the alleles as well
+sub get_alleles {
+  my $key = shift;
+  if ($data->{locus}) {
+    my @alleles = $data->{locus}->Allele;
+    $data->{$key} = scalar @alleles
+  } else {
+    $data->{$key} = NONE;
+  }
+  return;
+}
+
+sub get_rnai {
+  my $key = shift;
+  if ($data->{seq}) {
+    my $rnai = eval { $data->{seq}->RNAi_result };
+    my @rnai_phene = eval { $rnai->Phenotype };
+    my $labHead = eval {$rnai->Laboratory->Representative->Last_name};
+    if (@rnai_phene) {
+      grep{$_ .=" (".$labHead.")"}@rnai_phene;
+      push (@{$data->{$key}},@rnai_phene);
+    } else {
+      push (@{$data->{$key}},NONE);
+    }
+  } else {
+    push (@{$data->{$key}},NONE);
+  }
+  return;
+}
+
+
+sub format_array {
+  my $key = shift;
+  if ($data->{$key} ne NONE) {  # bizarro logic
+    my @array = @{$data->{$key}};
+    if (@array > 1) {  # The array has more than one element
+      my $cell .= '<UL>';
+      foreach (@array) {
+	$cell .= "<li>$_" if ($_ ne '');
+      }
+      $cell .= "</UL>";
+      push (@{$data->{row}},$cell);
+    } else {
+      push (@{$data->{row}},$array[0]);
+    }
+  } else {
+    push (@{$data->{row}},$data->{$key});
+  }
+}
+
+sub get_exp_pattern {
+  my $key = shift;
+  my $pattern  = eval { $data->{seq}->Expr_pattern(1) };
+  my @patterns = eval { $data->{seq}->Expr_pattern(1) };
+  my $class    = eval { $data->{seq}->class };
+
+  unless ($pattern) {
+    if ($class eq 'Sequence' && ($data->{locus})) {
+      $pattern = $data->{locus}->Expr_pattern(1);
+      @patterns = eval { $data->{locus}->Expr_pattern(1) };
+    } elsif ($class eq 'Locus' && 
+	     (my $seq = $data->{seq}->Genomic_Sequence)) {
+      $pattern = $data->{seq}->Expr_pattern(1);
+      @patterns = eval { $data->{locus}->Expr_pattern(1) };
+    }
+  }
+  # This needs a bunch of work
+  if ($pattern) {
+    p(
+      ucfirst($pattern->Pattern),
+      #$pattern->Type ?( "(Assay: ".join(' ',$pattern->Type(1)->row) .")") :''
+     );
+  }
+
+  my @tmp;
+#####
+foreach (@patterns) {
+    push (@tmp, $_) if (param('format') eq 'Plain Text');
+    push (@tmp, a({-href=>Object2URL($_)} ,"$_")) if (param('format') eq 'HTML');
+  }
+
+  $data->{$key}= join "; ", @tmp if (param('format') eq 'Plain Text');
+  $data->{$key}= join "&nbsp;&nbsp;", @tmp if (param('format') eq 'HTML');
+#####
+
+#  foreach (@patterns) {
+#    push (@tmp, a({-href=>Object2URL($_)} ,"$_"));
+#  }
+#  $data->{$key}= td(join "&nbsp;&nbsp;", @tmp);
+#  push (@{$data->{row}},$data->{key});
+  return;
+}
+
+#sub get_exp_pattern {
+#  my ($seq,$locus) = @_;
+#  my $pattern  = $seq->Expr_pattern(1);
+#  my @patterns = $seq->Expr_pattern(1);
+#  my $class    = $seq->class;
+#  unless ($pattern) {
+#    if ($class eq 'Sequence' && ($locus)) {
+#      $pattern = $locus->Expr_pattern(1);
+#    } elsif ($class eq 'Locus' && 
+#	     (my $seq = $seq->Genomic_Sequence)) {
+#      $pattern = $seq->Expr_pattern(1);
+#    }
+#  }
+  
+#  if ($pattern) {
+#    p(
+#      ucfirst($pattern->Pattern),
+#      $pattern->Type ?  ( "(Assay: ". join(' ',$pattern->Type(1)->row) . ")")  : ''
+#     );
+#  }
+#  #	  print start_td;
+#  #	  print a({-href=>Object2URL($_)},"$_ ") foreach @patterns;
+#  #	  print end_td;
+#  return;
+#}
+

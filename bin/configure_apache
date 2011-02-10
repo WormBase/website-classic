@@ -1,0 +1,20 @@
+#!/bin/sh
+
+./configure \
+	--enable-rule=SHARED_CHAIN \
+	--datadir=/usr/local/apache \
+	--prefix=/usr/local/apache \
+	--activate-module=src/modules/perl/libperl.a \
+	--enable-module=info       --enable-shared=info \
+	--enable-module=status     --enable-shared=status \
+	--enable-module=expires    --enable-shared=expires \
+	--enable-module=mime_magic --enable-shared=mime_magic \
+	--enable-module=unique_id  --enable-shared=unique_id \
+	--enable-module=headers    --enable-shared=headers \
+	--enable-module=rewrite    --enable-shared=rewrite \
+	--enable-module=speling    --enable-shared=speling \
+	--enable-module=usertrack  --enable-shared=usertrack \
+	--enable-module=proxy      --enable-shared=proxy \
+	--enable-module=auth_db    --enable-shared=auth_db
+#	--show-layout
+

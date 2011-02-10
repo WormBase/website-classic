@@ -1,0 +1,6 @@
+1. Add in support for files served from a remote host (simple redirect should suffice)
+
+2. Alternatively, let squid handle this entirely
+
+3.  Add in auto discovery of releases that are present so that the xml file does not need to be updated by 
+hand.

@@ -1,0 +1,111 @@
+#!/usr/local/bin/perl
+
+# -*- Mode: perl -*-
+# file: laboratory
+# C. elegans laboratory report
+
+use lib '../lib';
+
+use strict;
+use vars qw/$DB $WORMBASE $analysis/;
+use Ace 1.51;
+use Ace::Browser::AceSubs qw/:DEFAULT AceMultipleChoices/;
+use ElegansSubs qw/:DEFAULT StartCache format_references/;
+use WormBase;
+use CGI 2.42 qw/:standard :html3 escape *table *TR *td *center *ul/;
+
+END {
+  undef $WORMBASE;
+  undef $analysis;
+}
+
+# print HTTP header & open the database
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+$WORMBASE = WormBase->new($DB);
+
+$analysis = $DB->fetch(-class =>'Analysis',
+		       -name  => param('name'),
+		       -fill  => 1,
+    ) if param('name');
+
+if ($analysis) {
+  PrintTop($analysis);
+  PrintWarning($analysis) if param('name') && !$analysis;
+  print_prompt();
+  print_report($analysis) if $analysis;
+  PrintBottom();
+  exit 0;
+} else {
+   PrintTop(undef,undef,'Analyis Report');
+   print_prompt();
+   PrintBottom;
+   exit;
+}
+
+sub print_prompt {
+$WORMBASE->print_prompt(-message  => 'Specify an analysis such as',
+			-class    => 'Analysis',
+			-examples => [qw/Treefam InParanoid_7/]);
+}
+
+sub print_report {
+  my $analysis = shift;
+
+  print start_table({-border=>1});
+
+  my $database = $analysis->Database;
+  my $url = $analysis->URL;
+  my $title = $analysis->Title;
+
+  StartSection('Source');            
+  SubSection('Database',$database) if $database;
+  SubSection('',a({-href=>$url},$url)) if $url;
+  SubSection('Title',$title) if $title;
+  EndSection();
+  
+  my $desc = $analysis->Description;
+  if ($desc) {
+      StartSection('Description');
+      SubSection('',$desc);
+      EndSection();
+  }
+  
+
+  my $based_on_wb_release = $analysis->Based_on_WB_Release;
+  my $based_on_db_release = $analysis->Based_on_DB_Release;
+
+  StartSection('');
+  SubSection('Based on WormBase release',$based_on_wb_release);
+  SubSection('Based on Database release',$based_on_db_release);
+  EndSection();
+
+
+  # Conducted by
+  my $person = $analysis->Conducted_by;
+  if ($person) {
+      StartSection('Conducted by');
+      SubSection('',a({-href=>Object2URL($person)},$person->Full_name));
+      EndSection();
+  }
+
+
+  # Reference
+  my @references = $analysis->Reference;
+  if (@references) {
+      StartSection('References');
+      format_references(-references=>\@references,-format=>'long',-pubmed_link=>'image',
+  		    -curator=>url_param('curator'));
+      EndSection();
+  }
+
+
+# Missing: support for Group, subproject, Sample
+
+   print end_table();
+}
+
+
+
+
+

@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="14695"
+   name=""
+   committed-date="2007-03-26T14:10:54.000000Z"
+   url="https://gmod.svn.sourceforge.net/svnroot/gmod/Generic-Genome-Browser/branches/stable/conf/MobyServices"
+   last-author="briano"
+   kind="dir"
+   uuid="224a875b-6a50-0410-9993-82261b5d0d45"
+   revision="22118"/>
+<entry
+   committed-rev="14695"
+   name="b64_encoded_gif_renderer.pm"
+   text-time="2009-09-27T20:05:57.000000Z"
+   committed-date="2007-03-26T14:10:54.000000Z"
+   checksum="acc74d6c690a156352be4ad80f640fe9"
+   last-author="briano"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="14695"
+   name="b64_encoded_jpeg_renderer.pm"
+   text-time="2009-09-27T20:05:57.000000Z"
+   committed-date="2007-03-26T14:10:54.000000Z"
+   checksum="b7543ac0bfb7b90ec1cddf7b1b6f42f8"
+   last-author="briano"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="14695"
+   name="text_xml_renderer.pm"
+   text-time="2009-09-27T20:05:57.000000Z"
+   committed-date="2007-03-26T14:10:54.000000Z"
+   checksum="78690cfd6f58b00ba6876829c6970961"
+   last-author="briano"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="14695"
+   name="text_plain_renderer.pm"
+   text-time="2009-09-27T20:05:57.000000Z"
+   committed-date="2007-03-26T14:10:54.000000Z"
+   checksum="c4053950ec1785f98608b63261032bae"
+   last-author="briano"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="14695"
+   name="text_html_renderer.pm"
+   text-time="2009-09-27T20:05:57.000000Z"
+   committed-date="2007-03-26T14:10:54.000000Z"
+   checksum="c5563f6287a89f13bb68faa96b0ed610"
+   last-author="briano"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="13496"
+   name="GbrowseServices.PMS"
+   text-time="2009-09-27T20:05:57.000000Z"
+   committed-date="2004-01-07T22:21:49.000000Z"
+   checksum="34fdd7ea1676b09889c8a1c69d1ebaa6"
+   last-author="markwilkinson"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="13496"
+   name="moby.conf"
+   text-time="2009-09-27T20:05:57.000000Z"
+   committed-date="2004-01-07T22:21:49.000000Z"
+   checksum="d520637a66d10ce729a7e140b7b5fa98"
+   last-author="markwilkinson"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="14695"
+   name="text_formatted_renderer.pm"
+   text-time="2009-09-27T20:05:57.000000Z"
+   committed-date="2007-03-26T14:10:54.000000Z"
+   checksum="828867aa1c37ea8f540fd5e22477f16b"
+   last-author="briano"
+   kind="file"
+   prop-time="2009-09-27T20:05:57.000000Z"/>
+</wc-entries>

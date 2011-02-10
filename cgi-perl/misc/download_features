@@ -1,0 +1,29 @@
+#!/usr/local/bin/perl
+# -*- Mode: perl -*-
+# file: align
+# Pull alignments out of db
+
+use strict;
+use vars '$DB';
+use Ace 1.51;
+use CGI qw/param header/;
+use Ace::Browser::AceSubs qw/AceInit OpenDatabase/;
+
+# print HTTP header & open the database
+AceInit();
+exit 0 unless $DB = OpenDatabase();
+
+exit 0 unless         my $sequence = param('name');
+my $start    = param('start');
+my $end      = param('end');
+
+my $opt = '';
+$opt = "-coords $start $end" if defined($start) && defined($end);
+
+my $query = "gif seqget $sequence $opt ; seqdisplay ; seqfeatures";
+
+exit 0 unless my $s = $DB->raw_query($query);
+$s =~ s!^//.*?\n!!mg;
+$s =~ s/\0//g;  # get rid of nulls
+print header('text/plain');
+print $s;

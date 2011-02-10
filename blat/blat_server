@@ -1,0 +1,4 @@
+#!/bin/bash
+# Start blat server
+
+/usr/local/blat/bin/gfServer start localhost 2003 /usr/local/wormbase/blat/*.nib & > /dev/null 2>&1

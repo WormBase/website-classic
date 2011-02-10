@@ -1,0 +1,302 @@
+#!/usr/bin/perl
+
+use strict;
+use lib '../lib';
+use Ace::Browser::AceSubs;
+use ElegansSubs qw/:DEFAULT format_reference/; 
+
+		# :locus PrintLongDescription
+		#  Best_BLAST_Table StartCache EndCache GetEvidence
+		#  GetInterpolatedPosition OverlappingOST OverlappingPCR OverlappingSAGE
+		#  FetchGene Bestname generate_reactome_table DisplayMoreLink
+   		#  LinkToGlossary format_references GetEvidenceNew ID2Species Species2URL
+		#  GenerateWikiLink is_new days_since_update filter_references filter_and_display_references
+		#  build_citation is_NOT_phene parse_year inline_evidence /;
+		#
+
+
+use CGI qw(:standard *table escape toggle);
+use vars qw/$WORMBASE $DB/;
+use strict;
+
+END {
+  undef $WORMBASE;
+  undef $DB;
+}
+
+our $DB = OpenDatabase();
+#our $DB = Ace->connect(-host='localhost',-port=>2005); 
+#our $DB = Ace->connect(-host=>'aceserver.cshl.edu',-port=>2005); 
+
+
+## main ###
+
+StartCache();
+PrintTop("Transgene Tables"); 
+
+my $xgene_markers_ar = get_xgene_marker_data();
+my $xgene_marker_table = print_xgene_marker_data($xgene_markers_ar);
+my $mapped_xgenes_ar = get_mapped_xgene_data();
+my $mapped_xgene_table =  print_mapped_xgene_data($mapped_xgenes_ar);
+
+print h3("Transgene Markers");
+print "$xgene_marker_table\<br\>";
+
+print h3("Mapped Transgenes");
+print hr();
+print "$mapped_xgene_table\n";
+
+
+ClosePage;
+
+exit 0;
+
+##### subroutines ###########
+
+sub get_mapped_xgene_data {
+
+my $class = "Transgene";
+my $tag = "Map";
+
+#my $aql_query = "select all class $class where exists_tag ->$tag";
+#my @objects = $DB->aql($aql_query);  ## _full_list
+
+
+my @objects;
+
+my @all_xgenes = $DB->fetch(-class=>$class);
+
+foreach my $xgene (@all_xgenes) {
+    my $mapped = $xgene->$tag;
+    if ($mapped) {
+	
+	push @objects, $xgene;
+
+    } else {
+
+	next;
+
+    }
+}
+
+
+my @return_data;
+
+foreach my $xgene_obj (@objects) {  ### $object_ar
+
+	my %xgene_data;
+
+	#my $xgene_obj = shift @$object_ar;	
+
+	$xgene_data{'xgene'} = $xgene_obj;
+	## summa
+	
+	my $summary = $xgene_obj->Summary;
+	$xgene_data{'summa'} = 	$summary;	
+
+
+	## map position	
+
+	my $map_position = $xgene_obj->Map;
+	$xgene_data{'map'} = $map_position;
+
+	## expression pattern
+	
+	my @exps = $xgene_obj->Expr_pattern;
+	my $dataline;
+	my @anatomy_term_collect;
+	my $anatomy_term;
+
+	if(@exps) {
+
+		my @anatomy_terms_per_xepr;
+		foreach my $exp (@exps) {
+		
+			my @anatomy_terms = $exp->Anatomy_term;
+			push @anatomy_terms_per_xepr, @anatomy_terms;
+	
+		}
+		
+		push @anatomy_term_collect, @anatomy_terms_per_xepr;
+	}
+
+	#
+	#	my $anatomy_term = join "<br>",@anatomy_term_collect;
+	#	my $exps = join "<br>", @exps;
+	#	my $dataline = "$xgene_obj\|$summary\|$map_position\|$exps\|$anatomy_term\n";
+	#
+
+	$xgene_data{'anatomy_terms'} = \@anatomy_term_collect;
+	$xgene_data{'exps'} = \@exps;
+
+	push @return_data, \%xgene_data;
+
+}
+
+return \@return_data;
+
+}
+
+sub print_mapped_xgene_data {
+
+	my $mapped_xgene_data_ar = shift @_;
+	
+##start table
+	
+	my $data_table = "";
+
+	$data_table .= start_table({border=>1});
+
+	## table headers ##
+	
+	$data_table .= TR(
+					td({-align => 'left', -width => '20%' }, i('Transgene')),
+					td({-align => 'left', -width => '35%' }, i('Summary')),
+					td({-align => 'left', -width => '5%' }, i('Map')),
+					td({-align => 'left', -width => '20%' }, i('Expression')),
+					td({-align => 'left', -width => '20%' }, i('Anatomy Term'))
+				);
+	
+
+	foreach my $xgene_data_hr (@$mapped_xgene_data_ar) {
+	
+	my @exps_links;
+
+	foreach my $exp (@{$$xgene_data_hr{'exps'}}) {
+		
+		my $exp_url = "/db/gene/expression?class=Expr_pattern;name=" . $exp;
+		my $exp_link = a({-href=>$exp_url},$exp);
+		push @exps_links, $exp_link;
+
+	}
+	
+	my $exps = join "<br>", @exps_links;
+
+
+	my @at_links;
+
+	foreach my $at (@{$$xgene_data_hr{'anatomy_terms'}}) {
+		
+
+		my $term = $at->Term;
+		my $at_url = "/db/ontology/anatomy?name=" . $at;
+		my $at_link = a({-href=>$at_url},$term);
+		push @at_links, $at_link;
+
+	}	
+
+	my $ats = join "<br>", @at_links ;
+
+	my $xgene_url = "/db/gene/transgene?;class=Transgene;name=" .  ${$xgene_data_hr}{'xgene'};
+	my $xgene_link = a({-href=>$xgene_url}, ${$xgene_data_hr}{'xgene'});
+
+	$data_table .=	TR(
+					td({-align => 'left', -width => '20%' }, ($xgene_link)),
+					td({-align => 'left', -width => '35%' }, ($$xgene_data_hr{'summa'})),
+					td({-align => 'left', -width => '5%' }, ($$xgene_data_hr{'map'})),
+					td({-align => 'left', -width => '20%' }, ($exps)),
+					td({-align => 'left', -width => '20%' }, ($ats))
+				);
+
+}
+
+	$data_table .= end_table();
+	return $data_table;
+
+}
+
+
+
+sub get_xgene_marker_data {
+
+
+my $class = "Transgene";
+my $tag = "Marker_for";
+
+#my $aql_query = "select all class $class where exists_tag ->$tag";
+my @objects; # = $DB->aql($aql_query);  ## _full_list
+
+my @all_xgenes = $DB->fetch(-class=>$class);
+
+foreach my $xgene (@all_xgenes) {
+    my $mapped = $xgene->$tag;
+    if ($mapped) {
+
+	push @objects, $xgene;
+
+    } else {
+
+	next;
+
+
+    }
+}
+
+my @return_data;
+
+
+foreach my $transgene (@objects) {
+
+	my %transgene_data;
+		
+	#my $transgene = shift @$transgene_ar;
+	my $markee = $transgene->Marker_for;
+	my $summary = $transgene->Summary;
+	my $ref = $markee->right(2);
+
+	$transgene_data{'transgene'} = $transgene;
+	$transgene_data{'markee'} = $markee;
+	$transgene_data{'summa'} = $summary;
+	$transgene_data{'ref'} = $ref;
+
+	push @return_data, \%transgene_data;  ### "$transgene\|$markee\|$summary\|$ref"
+
+}
+
+return \@return_data;
+
+}
+
+
+sub print_xgene_marker_data {
+
+	my $marker_data_ar = shift @_;
+	
+	##start table
+	
+	my $data_table = "";
+
+	$data_table .= start_table({border=>1});
+
+	## table headers ##
+	
+	$data_table .= TR(
+					td({-align => 'left', -width => '25%' }, i('Transgene')),
+					td({-align => 'left', -width => '25%' }, i('Marker')),
+					td({-align => 'left', -width => '25%' }, i('Summary')),
+					td({-align => 'left', -width => '25%' }, i('Reference'))
+				);
+	
+	foreach my $marker_data_hr (@$marker_data_ar) {
+	
+		my $ref_link = format_reference(-reference=>${$marker_data_hr}{'ref'},-format=>'short');
+
+		my $xgene_url = "/db/gene/transgene?;class=Transgene;name=" .  ${$marker_data_hr}{'transgene'};
+		my $xgene_link = a({-href=>$xgene_url}, ${$marker_data_hr}{'transgene'});
+
+		my $expr_url = "/db/gene/expression?class=Expr_pattern;name=" . ${$marker_data_hr}{'markee'};
+		my $expr_link = a({-href=>$expr_url}, ${$marker_data_hr}{'markee'});	
+
+		$data_table .= TR(
+					td({-align => 'left', -width => '25%' }, ($xgene_link)),
+					td({-align => 'left', -width => '25%' }, ($expr_link)),
+					td({-align => 'left', -width => '25%' }, (${$marker_data_hr}{'summa'})),
+					td({-align => 'left', -width => '25%' }, ($ref_link))
+				);
+
+	}
+
+	$data_table .= end_table();
+
+	return $data_table;
+}

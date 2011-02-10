@@ -1,0 +1,191 @@
+New release of WormBase WS119, Wormpep119 and Wormrna119 Fri Feb 13 15:38:16 GMT 2004
+
+
+WS119 was built by 
+======================================================================
+
+This directory includes:
+i)	database.WS119.*.tar.gz    -   compressed data for new release
+ii)	models.wrm.WS119           -   the latest database schema (also in above database files)
+iii)	CHROMOSOMES/subdir        -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)	WS119-WS118.dbcomp          -   log file reporting difference from last release
+v)	wormpep119.tar.gz          -   full Wormpep distribution corresponding to WS119
+vi)	wormrna119.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)	confirmed_genes.WS119.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+viii)	yk2orf.WS119.gz            -    Latest set of ORF connections to each Yuji Kohara EST clone
+ix)	gene_interpolated_map_positions.WS119.gz    - Interpolated map positions for each coding/RNA gene
+x)	clone_interpolated_map_positions.WS119.gz    - Interpolated map positions for each clone
+xi)	best_blastp_hits.WS119.gz    - for each C. elegans WormPep protein, lists Best blastp match to
+ 
+                                        human, fly, yeast, C. briggsae, and SwissProt & Trembl proteins.
+xii)	best_blastp_hits_brigprot.WS119.gz   - for each C. briggsae protein, lists Best blastp match to
+ 
+                                        human, fly, yeast, C. elegans, and SwissProt & Trembl proteins.
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS119
+------------------------------------
+brigdb : 2004-02-02 - updated
+camace : 2004-02-02 - updated
+citace : 2004-02-01 - updated
+cshace : 2003-11-26
+genace : 2004-02-05 - updated
+stlace : 2004-02-02 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS119       	WS118      	change
+----------------------------------------------
+a    	32368630	32368607	 +23
+c    	17781015	17780992	 +23
+g    	17758448	17758424	 +24
+t    	32369814	32369797	 +17
+n    	8       	95      	 -87
+-    	0       	0       	  +0
+
+Total	100277915	100277915	  +0
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 19891 CDS in autoace, 22239 when counting 2348 alternate splice forms.
+
+The 22239 sequences contain 9,732,776 base pairs in total.
+
+Modified entries              15
+Deleted entries                5
+New entries                    7
+Reappeared entries             0
+
+Net change  +2
+
+
+
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              3696 (16.6%)	Every base has transcription evidence (mRNA, EST etc )
+Partially_confirmed   13145 (59.1%)	Some but not all bases are covered by transcript evidence
+Predicted              5398 (24.3%)	No transcriptional evidence at all
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2462 (11.1%)
+TrEMBL accessions     18476 (83.1%)
+TrEMBLnew accessions   1235 (5.6%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            22172 (99.7%)
+
+
+
+Locus <-> Sequence connections (cgc-approved)
+---------------------------------------------
+Entries with locus connection   4908
+
+
+GeneModel correction progress WS118 -> WS119
+-----------------------------------------
+Confirmed introns not is a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|    701  |   265  |
+St Louis 	|    527  |   260  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|      0  |     0  |
+St Louis 	|     37  |     0  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+CHROMOSOME_I	sequence AC006676
+CHROMOSOME_III	sequence U40935
+CHROMOSOME_IV	sequence AC025715
+CHROMOSOME_IV	sequence AC084158
+CHROMOSOME_X	sequence AF067215
+
+There are no gaps remaining in the genome sequence
+---------------
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+
+New Data:
+---------
+87 of the remaining 95 n's in the genomic sequence have been resolved, leaving just 8 to go.
+
+Updated versions of the Gadfly and yeast protein sets were used in the BLAST analyses.
+
+
+New Fixes:
+----------
+
+
+Known Problems:
+--------------
+We have had some problems submitting genome sequence files to EMBL so there may be some delay this synchronisation.
+This has also meant that any new C.elegans proteins will not yet have a protein id.
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+The National Bioresources Project of Japan have submitted data for 792 alleles which will be in WS120.
+
+450 TC1 insertion alleles from the Plasterk.
+
+Several genomic sequence corrections will be made for WS120.
+
+An updated waba analysis for elegans vs briggsae will be available in a forthcoming release.
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

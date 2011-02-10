@@ -1,0 +1,15 @@
+#!/usr/bin/perl
+
+use lib '../lib';
+use strict;
+use CGI qw(param redirect);
+
+my $cell = param('name');
+unless ($cell) {
+  print redirect('/');
+  exit 0;
+}
+
+$cell =~ s/[RL]$//;
+print redirect("/proxy/www.wormatlas.org/MoW_built0.92/cells/\L$cell.html");
+

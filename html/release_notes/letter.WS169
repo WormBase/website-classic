@@ -1,0 +1,240 @@
+New release of WormBase WS169, Wormpep169 and Wormrna169 Fri Dec 22 15:09:52 GMT 2006
+
+
+WS169 was built by Paul
+======================================================================
+
+This directory includes:
+i)   database.WS169.*.tar.gz    -   compressed data for new release
+ii)  models.wrm.WS169           -   the latest database schema (also in above database files)
+iii) CHROMOSOMES/subdir         -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)  WS169-WS168.dbcomp         -   log file reporting difference from last release
+v)   wormpep169.tar.gz          -   full Wormpep distribution corresponding to WS169
+vi)   wormrna169.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)  confirmed_genes.WS169.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+viii) cDNA2orf.WS169.gz           -   Latest set of ORF connections to each cDNA (EST, OST, mRNA)
+ix)   gene_interpolated_map_positions.WS169.gz    - Interpolated map positions for each coding/RNA gene
+x)    clone_interpolated_map_positions.WS169.gz   - Interpolated map positions for each clone
+xi)   best_blastp_hits.WS169.gz  - for each C. elegans WormPep protein, lists Best blastp match to
+                            human, fly, yeast, C. briggsae, and SwissProt & TrEMBL proteins.
+xii)  best_blastp_hits_brigprot.WS169.gz   - for each C. briggsae protein, lists Best blastp match to
+                                     human, fly, yeast, C. elegans, and SwissProt & TrEMBL proteins.
+xiii) geneIDs.WS169.gz   - list of all current gene identifiers with CGC & molecular names (when known)
+xiv)  PCR_product2gene.WS169.gz   - Mappings between PCR products and overlapping Genes
+
+
+Release notes on the web:
+-------------------------
+http://www.wormbase.org/wiki/index.php/Release_notes
+
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS169       	WS168      	change
+----------------------------------------------
+a    	32365889	32365889	  +0
+c    	17779856	17779857	  -1
+g    	17756016	17756012	  +4
+t    	32365689	32365686	  +3
+n    	0       	0       	  +0
+
+Total	100267450	100267444	  +6
+Total number of bases has increased due to a number of genome sequence changes see notes further down.
+
+
+Chromosomal Changes:
+--------------------
+
+Chromosome: I
+7140372 7140372 1   ->   7140372 7140372 1
+13168444 13168443 0   ->   13168444 13168444 1
+
+Chromosome: II
+8870302 8870301 0   ->   8870302 8870302 1
+10828222 10828222 1   ->   10828223 10828223 1
+11864669 11864668 0   ->   11864670 11864670 1
+
+Chromosome: III
+3483743 3483742 0   ->   3483743 3483743 1
+
+Chromosome: IV
+12082434 12082433 0   ->   12082434 12082434 1
+12124684 12124704 21   ->   12124685 12124703 19
+
+Chromosome: V
+13100100 13100109 10   ->   13100100 13100111 12
+13100695 13100695 1   ->   13100697 13100696 0
+16896532 16896531 0   ->   16896533 16896533 1
+
+Chromosome: X
+9890865 9890864 0   ->   9890865 9890865 1
+11588899 11588899 1   ->   11588900 11588899 0
+14847044 14847043 0   ->   14847044 14847044 1
+
+
+Gene data set (Live C.elegans genes 23964)
+------------------------------------------
+Molecular_info              22264 (92.9%)
+Concise_description          4288 (17.9%)
+Reference                    6655 (27.8%)
+CGC_approved Gene name       8907 (37.2%)
+RNAi_result                 19841 (82.8%)
+Microarray_results          19132 (79.8%)
+SAGE_transcript             20026 (83.6%)
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 20083 CDS in autoace, 23221 when counting 3138 alternate splice forms.
+
+The 23221 sequences contain 10,183,692 base pairs in total.
+
+Modified entries              32
+Deleted entries                2
+New entries                   10
+Reappeared entries             1
+
+Net change  +9
+
+
+
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              7822 (33.7%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed   10737 (46.2%)	Some, but not all exon bases are covered by transcript evidence
+Predicted              4662 (20.1%)	No transcriptional evidence at all
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+UniProtKB/Swiss-Prot accessions   3270 (14.1%)
+UniProtKB/TrEMBL accessions     19461 (83.8%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            22731 (97.9%)
+
+
+
+Gene <-> CDS,Transcript,Pseudogene connections (cgc-approved)
+---------------------------------------------
+Entries with CGC-approved Gene name   7261
+
+
+GeneModel correction progress WS168 -> WS169
+-----------------------------------------
+Confirmed introns not in a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|     15  |     0  |
+St Louis 	|     11  |     1  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Repeats | Change |
+		+---------+--------+
+Cambridge	|      6  |     0  |
+St Louis 	|      6  |     0  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+CHROMOSOME_IV	sequence Z68507
+
+There are no gaps remaining in the genome sequence
+---------------
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+
+New Data:
+---------
+* Incorporation of new SAGE libraries.
+
+Genome sequence updates:
+-----------------------
+
+C27C12   Insertion    attcagcaagctattctagTctctcgactcatacgtcattt
+C34B4    Insertion    ttgagtttgatggttcaactgaaatTggtcagtgtc
+C34B4    Insertion    ggtcagtgtcTttcttcactttgcctgaaacttgga
+C34B4    Deletion     gagaataaacttcattAcctcagatattcctgtt
+C34C12   Insertion    gataaatccgacttggcgggGaagttcttgccgccctgg		
+F09C6    Insertion    tatccaaaaaaatcctatTtgaaggaagttcagaagctatac
+F11A10   Insertion    ttttgaagatgtacactGctttgcagcgacaaatgag
+F21G4    Insertion    accattgggaattcccggagGaaaagtgtgatgttttctttaaat
+F22G12   Insertion    attccctgaacttcggagcaatCactcatcaacgatcagctcgac
+F52D10   Deletion     cacatcacagtatttattcCcaacatcaatctttaacggta
+K10D3    Deletion     tatcgagcttgaagtaccgtGttcaattggagcctcagag
+K10D3    Insertion    tatcgagcttgaagtaccgtTttcaattggagcctcagag      
+K12D12   Insertion    gaaaaatttggcttgggCcacgaatctttctacgggcggt	
+M18      Deletion     aatattttacacaatcaccCaatttttatatttatcgttc
+M18      Deletion     atttttatatttatcgttcCtactactttcctttctcgtga
+T07D4    Insertion    aacctgatcccggcgGgcgttgacgtgcttttaa
+VM106R   Deletion     gtcctgatgatggcgagTgatacacgtcgcga
+VM106R   Insertion    gtcctgatgatggcgagCgatacacgtcgcga
+NET +6
+
+New Fixes:
+----------
+* Pictar binding sites have been updated as they have been discrepant in past releases.
+
+Known Problems:
+---------------
+Blast on 
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+-------------------------------------
+
+
+Model Changes:
+------------------------------------
+
+Added ?Homology_group Group_type  UNIQUE OrthoMCL_group for Erich
+
+and
+
+?Gene Orthologue_other  ?Database ?Database_field UNIQUE ?Accession_number ?Species  #Evidence
+so that we can connect Ortholog pairs to species outside those that we create ?Gene objects for eg Human
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

@@ -1,0 +1,37 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+use CGI qw(:standard);
+use CGI::Cache;
+
+# Set up cache
+CGI::Cache::setup({
+		   cache_options => {
+				     cache_root => '/usr/local/wormbase/cache',
+				     error_handle => \*STDERR,
+				    }
+		  }
+		 );
+
+my @key = CGI->new->Vars;
+warn "key = @key";
+CGI::Cache::set_key(@key);
+
+warn "Calling start\n";
+CGI::Cache::start() or exit;
+warn "Cache miss\n";
+
+print header(),start_html('hello world');
+print h1('This is a test');
+print start_form(-method=>'GET'),
+  textfield(-name=>'name',-value=>'fred'),
+  submit(),
+  end_form;
+print Dump();
+print hr,p('this was a test');
+print end_html();
+
+CGI::Cache::stop();
+
+exit 0;

@@ -1,0 +1,549 @@
+#!/usr/bin/perl
+
+use strict;
+use Ace::Browser::AceSubs qw/:DEFAULT/;
+use ElegansSubs qw/:DEFAULT/;
+use CGI qw/:standard *table *blockquote *div/;
+use vars qw/@wormbook_aspects @analysis @outreach $DB/;
+
+use constant SURVEY_LOG => '/usr/local/wormbase/logs/2007_wormbook.log';
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+@wormbook_aspects = ('Length',
+		     'Amount of detail',
+		     'Accurate representation of the field',
+		     'Readability',
+		     'Figures',
+		     'Movies');
+
+# Prioritizing datasets
+#@datasets = ( { Length => 'Systematic RNAi screens' } ,
+#	      { correct_gene_structures => 'Correct gene structures' },
+#	      { alternate_gene_structures => 'Alternate gene structures' },
+#	      { other_gene_structures     => '<i>C. briggsae/C. remanei</i> gene structures' },
+#	      { biochemical_pathways      => 'Biochemical pathways' },
+#	      { expression_patterns       => 'Expression patterns'  },
+#	      { gene_interactions         => 'Gene interaction data (e.g. suppression)' },
+#	      { physical_interactions     => 'Protein interaction data' },
+#	      { network_visualization     => 'Network visualization of gene and physical interactions' },
+#	      { allele_interactions       => 'Genetic interactions curated at the level of alleles' },
+#	      { genetic_map               => 'Genetic map' },
+#	      { protein_families          => 'Protein families, orthologs' },
+#	      { stocks_and_strains        => 'Stocks and strains' },
+#	      { cell_identification       => 'Cell identification and field guide' },
+#	      { population_data           => 'Population diversity data' },
+#	    );
+#
+#@analysis = ( { blast_search => 'BLAST searches' },
+#	      { database_queries => 'Complex database queries' },
+#	      { full_text_searches => 'Searches of the full text of <i>C. elegans</i> papers' },
+#	      { batch_download => 'Batch download of DNA sequence &amp; other types of raw data' },
+#	      { 'expression_search' => 'Search for cell-specific gene expression using clickable diagrams' },
+#	    );
+
+@outreach = ( { user_guide => 'Online user guide' },
+	      { elegans_demos => 'Demonstrations/workshops at <i>C. elegans</i> meetings' },
+	      { society_demos => 'Demonstrations/workshops at society meetings.' },
+	      { tutorials     => 'Tutorials' },
+	    );
+
+PrintTop(undef,undef,'WormBook Survey, Spring 2007');
+
+
+process_form() if param();
+print start_div({-class=>'container'});
+generate_form() unless param();
+print end_div();
+PrintBottom;
+exit;
+
+
+sub process_form {
+  print h3('Thank you!');
+  print p('Thank you for your time.  Your responses will help to make WormBook more useful and user-friendly.');
+
+  my $ip=$ENV{REMOTE_ADDR};
+  # These questions have a supporting textfield entry
+  my %others = map { $_ => 1 } (qw/
+				job_description
+				institution_type
+				primary_interest
+				educator_teaching_level
+				browsers_used
+				os_used
+				feedback_methods
+				response_satisfaction
+				usual_approach
+				/);
+
+  my %questions = ( general => [qw/job_description
+				   institution_type
+				   primary_interest
+				   access_frequency
+				   country_of_access/],
+		    reviews  => ['review_quality',
+				 'review_objectivity',
+				 'suggested_content',
+				 @wormbook_aspects,
+				 'suggested_additional_media'],
+		    wormmethods => [qw/wormmethods_usefulness
+				    wormmethods_suggested_content/],
+		    educators   => [qw/
+				    educator_teaching_level
+				    educator_use_reviews
+				    educator_use_wormmethods
+				    educator_suggested_content
+				    educator_suggested_features/],
+		    website     => [qw/ease_of_use
+				    website_speed
+				    search_usability
+				    browsers_used
+				    os_used
+				    mirror_usage
+				    feedback_methods
+				    response_satisfaction
+				    one_feature_suggestion
+				    print_frequency
+				    preferred_format
+				    rss_usage
+				    endnote_usage
+				    zip_usage
+				    usual_approach
+				    additional_links
+				    wormbook_wormbase_integration
+				    other_suggestions/]
+		    );
+  
+
+  my @sections = qw/general reviews wormmethods educators website/;
+
+  open LOG,">>" . SURVEY_LOG or die "$!";
+  my $count = 0;
+  print LOG "IP=$ip\n";
+  my %aspects = map { $_ => 1 } @wormbook_aspects;
+  foreach my $section (@sections) {
+    my @questions = @{$questions{$section}};
+    foreach my $question (@questions) {
+      $count++;
+
+      # Hack! The wormbook_aspects count as just one question
+      $count = 7 if (defined $aspects{$question});
+
+      my ($answer) = join(';',param($question));
+      print LOG "$count$question===$answer\n";
+
+      if (defined $others{$question}) {
+	my $other_response = param($question . '_other');
+	print LOG "$question" . "_other===$other_response\n";
+      }
+
+    }
+  }
+  print LOG "=\n";
+  close LOG;
+}
+
+
+sub display_greeting {
+    print p({-class=>'container'},qq{
+	Thank you for taking time to fill out this reader survey! It will
+        take only about three minutes to complete and your response will help
+	us improve the nature and quality of the service that we provide to
+        the community. The survey is completely anonymous and the results
+        will be available by the international worm meeting this June.   
+	});
+}
+
+sub generate_form {
+  display_greeting();
+  print start_form();
+  
+  # Biographical information
+  print hr;
+  print h3('General');
+  print h4('1. Who are you?');
+  print blockquote(
+		   table(
+			 TR(td(p('Your position:')),
+			    td(popup_menu(-name   => 'job_description',
+					  -values => ['--',
+						      'High school student',
+						      'College student',
+						      'Graduate student',
+						      'Postdoctoral fellow',
+						      'Research scientist',
+						      'Principal investigator',
+						      'Educator-college/university',
+						      'Educator-high school',
+						      'Other'],
+					  -default => '--')
+			       )),
+			 
+			 TR(td(),
+			    td(other('job_description_other'))
+			    ),
+			 
+			 TR(td(p('Your institution:')),
+			    td(popup_menu(-name   => 'institution_type',
+					  -values => ['--',
+						      'High school',
+						      'College',
+						      'University',
+						      'Government laboratory',
+						      'Research institute, non-profit',
+						      'Research institute, for-profit',
+						      'Private sector laboratory',
+						      'Other'],
+					  -default => '--'))),
+			 TR(td(),
+			    td(other('institution_type_other'))),
+			 
+			 TR(td('Your primary interest:'),
+			    td(
+			       popup_menu(-name   => 'primary_interest',
+					  -values => ['--',
+						      'Biological research - C. elegans',
+						      'Biological research - other organism',
+						      'Clinical/Medical research',
+						      'Biotechnology, industrial research',
+						      'Education',
+						      'Other'],
+					  -default => '--'),
+			       )),
+			 TR(td(),
+			    td(other('primary_interest_other')))
+			 ));
+  
+  print h4('2. How frequently do you visit WormBook?');
+  my @access_frequency = ('A few times per year',
+			  'A few times per month',
+			  'A few times per week',
+			  'Daily');
+  
+  print blockquote(radio_group({-name   => 'access_frequency',
+				-values => \@access_frequency,
+				-default => '',
+				-cols   => 1}));
+  
+  add_text_field('3. From which country do you primarily access WormBase?',
+		 'country_of_access');
+  
+  print hr;
+  print h3('Review Chapters');
+  
+  print h4('4. In general, how would you rate the quality of WormBook reviews?');
+  print blockquote(radio_group({-name   => 'review_quality',
+				-values => ['Excellent',
+					    'Good',
+					    'Fair',
+					    'Poor',
+					    'No opinion'],
+				-default => 'No opinion',
+				-cols   => 1}));
+  
+  print h4('5. In general, how would you rate the objectivity of WormBook reviews?');
+  print blockquote(radio_group({-name   => 'review_objectivity',
+				-values => ['Excellent',
+					    'Good',
+					    'Fair',
+					    'Poor',
+					    'No opinion'],
+				-default => 'No opinion',
+				-cols   => 1}));
+  
+  add_text_area('6. Are you aware of important content not currently covered in WormBook reviews that should be (Introduction and aging/dauer chapters are in progress)?',
+		'suggested_content');
+  
+  print h4('7. In general, how would you describe your satisfaction with the following aspects of WormBook reviews?');
+  display('Information type',@wormbook_aspects);
+  
+  add_text_area('8. Are there any additional types of media that you would like to see included in WormBook?',
+		'suggested_additional_media');  
+  
+  print hr;
+  print h3('WormMethods Chapters');
+  
+  print h4('9. How would you describe the usefulness of WormMethods chapters?');
+  print blockquote(radio_group({-name   => 'wormmethods_usefulness',
+				-values => ['Excellent',
+					    'Good',
+					    'Fair',
+					    'Poor',
+					    'No opinion'],
+				-default => 'No opinion',
+				-cols   => 1}));
+  
+  add_text_area('10. Are you aware of important content not currently covered in WormMethods that should be?',
+		'wormmethods_suggested_content');
+  
+  print hr;
+  print h3('For Educators');
+  
+  print h4('11. What level do you teach (please mark as many as apply)');
+  print blockquote(checkbox_group({-name   => 'educator_teaching_level',
+				   -values => ['High school',
+					       'College/University',
+					       'Graduate',
+					       'Other'],
+				   -default => '--',
+				   -cols   => 1}));
+  
+  print other('educator_teaching_level_other');
+  
+  print h4('12. Do you use WormBook reviews in your classes?');
+  print blockquote(radio_group({-name   => 'educator_use_reviews',
+				-values => [qw/Yes
+					    No
+					    /],
+					    -cols   => 1,
+					    -default => '--',
+					}));
+  
+  
+  print h4('13. Do you use WormMethods sections in your classes?');
+  print blockquote(radio_group({-name   => 'educator_use_wormmethods',
+				-values => [qw/Yes
+					    No
+					    /],
+					    -default => '--',
+					    -cols   => 1,
+					}));
+  
+  add_text_field('14. What content could WormBook include to make it more useful for your courses?',
+		 'educator_suggested_content');
+
+  add_text_field('15. What features could WormBook include to make it more useful for your courses?',
+		 'educator_suggested_features');
+  
+  
+  print hr;
+  print h3('Website Features');
+  
+  print h4('16. How easy is it to find information in WormBook?');
+  print blockquote(radio_group({-name   => 'ease_of_use',
+				-values => ['Very easy',
+					    'Relatively easy',
+					    'Sometimes confusing',
+					    'Difficult to navigate',
+					    'No opinion'],
+				-cols   => 1,
+				-default => 'No opinion'}));
+  
+  print h4('17. Is the speed of WormBook acceptable?');
+  print blockquote(radio_group({-name   => 'website_speed',
+				-values => ['Never',
+					    'Sometimes',
+					    'Usually',
+					    'Always',
+					    'No opinion'],
+				-default => 'No opinion',
+				-cols   => 1}));
+  
+  print h4('18. How easy is it to find the information you need with the search feature?');
+  print blockquote(radio_group({-name   => 'search_usability',
+				-values => ['Very easy',
+					    'Relatively easy',
+					    'Sometimes confusing',
+					    'Difficult to navigate',
+					    'No opinion'],
+				-cols   => 1,
+				-default => 'No opinion'}));
+  
+  print h4('19. Which browser do you use to access WormBook?');
+  print blockquote(radio_group({-name   => 'browsers_used',
+				-values => ['Internet Explorer',
+					    'Mozilla Firefox',
+					    'Safari',
+					    'Netscape',
+					    'Other'],
+				-default => '--',
+				-cols   => 1,
+			    }));
+
+  print other('browsers_used_other');
+  
+  print h4('20. Which type of operating system do you use to access WormBook?');
+  print blockquote(radio_group({-name   => 'os_used',
+				-values => ['Linux/Unix',
+					    'Windows',
+					    'Mac',
+					    'Other'],
+				-default => '--',
+				-cols   => 1,
+			    }));
+  print other('os_used_other');
+  
+  print h4('21. How often do you use the WormBook mirror site?');
+  print blockquote(radio_group({-name   => 'mirror_usage',
+				-values => ['Never',
+					    'Sometimes',
+					    'Usually',
+					    'Always',
+					    'No opinion'],
+				-default => 'No opinion',
+				-cols   => 1}));
+  
+  
+  print h4('22. What do you feel is the most useful way for readers to provide feedback on WormBook chapters?');
+  print blockquote(radio_group({-name   => 'feedback_methods',
+				-values => ['Discussion forum',
+					    'Wiki',
+					    'Email',
+					    'Other',
+					    'No opinion'],
+				-default => 'No opinion',
+				-cols   => 1}));
+  
+  print other('feedback_methods_other');
+  
+  print h4('23. If you have contacted WormBook, were you satsified with the response?');
+  print blockquote(radio_group({-name   => 'response_satisfaction',
+				-values => ['Yes',
+					    'No',
+					    'I have not contacted WormBook',
+					    ],
+				-default   => '--',
+				-linebreak => 'true',
+			    }));
+  
+  print add_text_field('If "No", please explain:',
+		       'response_satisfaction_other',
+		       'is_other');
+  
+  add_text_area('24. If you could add or improve one feature at WormBook right now, what would it be?',
+		'one_feature_suggestion');
+  
+  print h4('25. How often do you print material obtained from WormBook?');
+  print blockquote(radio_group({-name   => 'print_frequency',
+				-values => ['Always',
+					    'Most of the time',
+					    'Some of the time',
+					    'Rarely',
+					    'Never'],
+				-default => '--',
+				-cols   => 1}));
+  
+  print h4('26. Which format of WormBook material do you generally read?');
+  print blockquote(radio_group({-name   => 'preferred_format',
+				-values => ['PDF',
+					    'HTML',
+					    'Both'],
+				-default => '--',
+				-cols   => 1}));
+  
+  
+  print h4('27. Do you use the RSS feed for WormBook news?');
+  print blockquote(radio_group({-name   => 'rss_usage',
+				-values => ['Always',
+					    'Most of the time',
+					    'Some of the time',
+					    'Rarely',
+					    'Never'],
+				-default => '--',
+				-cols   => 1}));
+  
+  print h4('28. Do you use the EndNote library file provided by WormBook?');
+  print blockquote(radio_group({-name   => 'endnote_usage',
+				-values => ['Always',
+					    'Most of the time',
+					    'Some of the time',
+					    'Rarely',
+					    'Never'],
+				-default => '--',
+				-cols   => 1}));
+  
+  
+  print h4('29. Do you download the entire WormBook in the zip format?');
+  print blockquote(radio_group({-name   => 'zip_usage',
+				-values => [qw/Yes
+					    No
+					    /],
+					    -linebreak => 1,
+					    -default => '--',
+					}));
+  
+  print h4('30. How do you usually get to wormbook.org?');
+  print blockquote(radio_group({-name   => 'usual_approach',
+				-values => ['Directly',
+					    'Google',
+					    'WormBase',
+					    'Other',
+					    ],
+				-linebreak => 1,
+				-default => '--',
+			    }));
+
+  print other('usual_approach_other');
+  
+  add_text_area('31. WormBook text currently contains links to WormBase, PubMed, and the full text of references. What additional links do you think could enhance WormBook content?',
+		'additional_links');
+  
+  add_text_area('32. WormBook currently contains links from genes, cells, proteins, and alleles in its text to the relevant places in WormBase. Pages in WormBase list the relevant chapters in WormBook. In what ways do you think it would be most useful to further integrate  WormBook and WormBase?',
+		'wormbook_wormbase_integration');
+  
+  print hr;
+  add_text_area('33. Any other suggestions or comments?',
+		'other_suggestions');
+  print hr;
+  
+  print blockquote(submit({-name=>'submit',-value=>'Submit Questionnaire Now'}));
+  
+  print end_form,hr;
+  
+  print p('Thank you for your help!');
+  
+  print blockquote('The WormBook Consortium');
+}
+
+sub other {
+    my $field = shift;
+    return (add_text_field('If "Other", please specify: ',$field,'is other'));
+}
+
+
+sub add_text_field {
+    my ($text,$name,$is_other) = @_;
+    if ($is_other) {
+	return blockquote(i($text)
+			  . textfield({-name => $name,
+				       -size => 50}));
+    } else {
+	print h4($text);
+	print blockquote(textfield({-name => $name,
+				    -size => 50}));
+    }
+}
+
+
+sub add_text_area {
+    my ($text,$name) = @_;
+    print h4($text);
+    print blockquote(textarea({-name=>$name,-rows=>5,cols=>64,-wrap=>'virtual'}));
+}
+
+
+
+sub display {
+  my ($label,@list) = @_;
+  print start_blockquote(),
+    start_table({-border=>1,-width=>'80%'}),
+      TR(th(),
+	 th('',
+	    table({border=>'0',width=>"100%"},
+		  TR(td({-align=>'LEFT'},i('Unsatisfied')),
+		     td({-align=>'RIGHT'},i('Satisfied'))))
+	    ),
+	 );
+
+  foreach my $name (@list) {
+#    my ($name) = keys %$_;
+#    my ($label) = values %$_;
+    print TR(td($name),
+	     td(radio_group({-name=>$name,-rows=>1,-values=>[1..5],-default=>'--'})));
+	     
+  }
+
+  print end_table(),
+    end_blockquote();
+}

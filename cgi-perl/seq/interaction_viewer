@@ -1,0 +1,81 @@
+#!/usr/bin/perl
+# Intermediate page for launching NBrowse
+
+use strict;
+use lib '../lib';
+use ElegansSubs qw(:DEFAULT);
+use Ace::Browser::AceSubs qw(:DEFAULT);
+use CGI qw/:standard :html3 *table/;
+
+our $NBROWSE_URL = '/nbrowse_nbc/showNBrowser.jsp?species=0&root=__NAME__&unew=T';
+$NBROWSE_URL = 'http://dev.wormbase.org:9022' .  $NBROWSE_URL;
+
+# dev.wormbase.org requires 9022 to be specified
+# if (Configuration->Wormbase2blast =~ /dev\.wormbase\.org/) {
+#     #$NBROWSE_URL = 'http://dev.wormbase.org' .  $NBROWSE_URL;
+#     
+# }    
+
+my $name = param('name');
+
+if ($name) {
+    launch_nbrowse($name);
+}
+
+else {
+    PrintTop('Launch N-Browse Interaction Viewer');
+    print_prompt();
+    PrintBottom();
+}    
+
+# END
+
+sub print_prompt {
+  my $url = url(-absolute=>1) . '?name=';
+  print
+    start_form(),
+    p({-class=>'caption'},
+        p(b('Type in a gene/sequence identifier and press [Enter] to launch the viewer:'), textfield(-name=>'name')),
+    ),
+    p({-class=>'caption'},
+        b('The following types of identifiers are recognized:'),
+    ),
+    ul(
+        li('- CGC name '               . '(e.g. ' . a({-href=>$url . 'lin-14'},'lin-14') . ')'),
+        li('- WBGene Id '              . '(e.g. ' . a({-href=>$url . 'WBGene00003003'},'WBGene00003003') . ')'),
+        li('- [Cosmid name].[number] ' . '(e.g. ' . a({-href=>$url . 'R13G10.1'},'R13G10.1') . ')'),
+        li('- Isoform name '           . '(e.g. ' . a({-href=>$url . 'F02E9.2a '},'F02E9.2a')
+                                       . ', '     . a({-href=>$url . 'F36H1.4b.1 '},'F36H1.4b.1') . ')'),
+        li('- WormPep Id '             . '(e.g. ' . a({-href=>$url . 'CE33037'},'CE33037')
+                                       . ', '     . a({-href=>$url . 'WP:CE33037'},'WP:CE33037') . ')'),
+    ),
+	p({-class=>'caption'},
+        b('Notes:'),
+        ul(
+        li('This page launches the local WormBase installation of N-Browse Interaction Viewer. More information about the tool
+           can be obtained from the ' . a({-href=>'http://www.gnetbrowse.org'},'N-Browse Home Page') . '.'),
+        li('The viewer will launch in the same window. The node that was used to launch the viewer will be orange-colored and placed in the center.'),
+        li('The nodes in the viewer are represented with their CGC names where available. For some nodes sequence names are used. 
+            In order to retrieve more information about a node including all its synonyms mouse over the node. This will populate the information panel
+            on the left side of the viewer.'),
+        li('Once the viewer is launched, additional searches for other nodes can be performed without launching a new instance. 
+            In order to do this, type in a new gene name or another identifier as described above and press [Enter].'),
+        li('In addition, double-clicking on a node will expand the links around that node, which will allow navigating the graph
+            without the need to perform additional searches.'),
+        li('An ' . a({-href=>'http://nematoda.bio.nyu.edu:8080/NBrowse/N-Browse_tutorial.html'},'N-Browse Tutorial') .
+           ' and a '  . a({-href=>'http://nematoda.bio.nyu.edu:8080/NBrowse/info.html'},'a list of application requirements') .
+           ' are available from the ' . a({-href=>'http://www.gnetbrowse.org'},'N-Browse Home Page') . '.'), 
+        )
+    ),       
+    end_form();
+  return;
+}
+
+sub launch_nbrowse {
+    my ($name) = @_;
+
+    my $redirect_url = $NBROWSE_URL;
+    $redirect_url =~ s/__NAME__/$name/;
+    
+    print redirect($redirect_url);
+}    

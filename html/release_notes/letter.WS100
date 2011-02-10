@@ -1,0 +1,211 @@
+New Release of acedb WS100, Wormpep100 and Wormrna100 Fri May  2 13:50:03 BST 2003
+
+WS100 was built by Dan Lawson (and a little bit by Keith Bradnam)
+======================================================================
+
+This directory includes:
+i)	database.WS100.*.tar.gz    -   compressed data for new release
+ii)	models.wrm.WS100           -   the latest database schema (also in above database files)
+iii)	CHROMOSOMES/subdir        -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)	WS100-WS99.dbcomp          -   log file reporting difference from last release
+v)	wormpep100.tar.gz          -   full Wormpep distribution corresponding to WS100
+vi)	wormrna100.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)	confirmed_genes.WS100.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS100
+------------------------------------
+brigdb : 2003-04-18 - updated
+camace : 2003-04-23 - updated
+citace : 2003-04-22 - updated
+cshace : 2003-04-12 - updated
+genace : 2003-04-30 - updated
+stlace : 2003-04-18 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS100       	WS99      	change
+----------------------------------------------
+a    	32364258	32364259	  -1
+c    	17778488	17778485	  +3
+g    	17755882	17755881	  +1
+t    	32365362	32365361	  +1
+n    	95      	95      	  +0
+-    	0       	0       	  +0
+
+Total	100264085	100264081	  +4
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 19560 CDS in autoace, 21565 when counting 2002 alternate splice forms.
+
+The 21565 sequences contain 9,494,869 base pairs in total.
+
+Modified entries              96
+Deleted entries               45
+New entries                   95
+Reappeared entries             4
+
+Net change  +54
+
+
+
+Status of entries: Confidence level of prediction
+-------------------------------------------------
+Confirmed              3889 (18.0%)
+Partially_confirmed    8848 (41.0%)
+Predicted              8828 (40.9%)
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2287 (10.6%)
+TrEMBL accessions     18364 (85.2%)
+TrEMBLnew accessions    903 (4.2%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            21554 (99.9%)
+
+
+
+Locus <-> Sequence connections (cgc-approved)
+---------------------------------------------
+Entries with locus connection   3965
+
+
+GeneModel correction progress WS99 -> WS100
+-----------------------------------------
+Confirmed introns not is a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|   1099  |   504  |
+St Louis 	|   1274  |  1155  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|     25  |     0  |
+St Louis 	|     24  |     0  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+CHROMOSOME_I	sequence Z78420
+CHROMOSOME_I	sequence Z81587
+CHROMOSOME_II	sequence Z68318
+CHROMOSOME_II	sequence AL110484
+CHROMOSOME_II	sequence Z93393
+CHROMOSOME_V	sequence Z70780
+
+There are no gaps remaining in the genome sequence
+---------------
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+
+New Data:
+---------
+New ?GO_code class.  All use of GO terms in database are now followed by a three-letter 
+GO code (IEA, IMP etc.)
+
+New Orfeome data has produced many more confirmed introns. 
+
+Orfeome OST tags are now handled using separate database methods (BLAT_OST_BEST and
+BLAT_OST_OTHER) and therefore will be available as separate tracks on the 'Genome Browser'
+on the WormBase website.
+
+Some updates to operon data.
+
+Brigpep (set of C. briggsae peptides), now searched against Pfam domains and also now
+shows best matches to C. elegans proteins (Wormpep).
+
+Many alleles have had expanded information added to properly describe the sequence difference
+in the allele.  This is ongoing work, but this approach allows to accurately map allele
+positions each build (should genome sequence change).
+
+
+New Fixes:
+----------
+A number of corrections have been made to the genome sequence (based on analysis of transcript
+data by Danielle et Jean Thierry-Mieg).  This has led to a small change in the total genome
+size (see section above).
+
+Orfeome PCR products have a new database Method.
+
+C. briggsae RNA genes now in ?Transcript class.
+
+Much work done in trying to remove bad 'Matching_cDNA' tags that had incorrectly connected 
+predicted genes to cDNA sequences.
+
+New methods for Alleles to hopefully allow all alleles (not just Knockout consortium alleles)
+to be displayed in an 'Allele' track on the 'Genome Browser' part of WormBase.
+
+
+Known Problems:
+--------------
+
+
+Other Changes:
+--------------
+
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+All use of accession evidence to be standardised to include database names (EMBL, GenBank, RefSeq etc.)
+
+Changes to ?Feature model
+
+Hopefully incoroporate revised and updated interpolated genetic map, with each CDS (predicted gene)
+getting an interpolated genetic map position.
+
+Big tidy up of database schema to remove many unused tags.
+
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

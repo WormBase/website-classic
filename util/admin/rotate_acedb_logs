@@ -1,0 +1,1 @@
+/usr/local/acedb/bin/ace.pl -port 2005 -login admin -pass ace123 -e 'Serverlog'

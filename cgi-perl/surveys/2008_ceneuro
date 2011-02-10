@@ -1,0 +1,688 @@
+#!/usr/bin/perl
+
+use strict;
+use Ace::Browser::AceSubs qw/:DEFAULT/;
+use ElegansSubs qw/:DEFAULT/;
+use CGI qw/:standard *table *blockquote *div *TR *td/;
+use vars qw/@datasets @concise_descriptions @website_features @analysis @outreach $DB/;
+
+use constant SURVEY_LOG => '/usr/local/wormbase/logs/2008_ceneuro.log';
+#use constant SURVEY_LOG => './test.log';
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+
+PrintTop(undef,undef,'2008 C. elegans Neuroscience Meeting Evaluation');
+
+process_form() if param();
+print start_div({-class=>'container'});
+generate_form() unless param();
+print end_div();
+PrintBottom;
+exit;
+
+
+sub process_form {
+    print h3('Thank you!');
+    print p('Thank you for your time.  Your responses will help improve future Topic meetings.');
+    
+    print p('Continue to ' . a({-href=>'http://www.wormbase.org/'},'WormBase') . '...');
+    
+    # Track some statistics to generate a dynamic banner
+
+    # Fetch the correct IP passed along by squid
+    my $ip = $ENV{HTTP_X_FORWARDED_FOR} || $ENV{REMOTE_ADDR};
+    
+    my %questions = (meeting_logistics => [qw/
+				  meeting_preference
+				additional_areas
+				additional_topics
+				format_preference
+				other_meetings
+				  /],
+		      keynote_talks => [qw/
+					keynote_rating
+					more_keynotes
+					suggested_keynote
+					  /],
+		      meeting_venue => [qw/
+					food_rating
+					map_rating
+					staff_rating
+					presentation_rating
+					difficult_meal_access
+					suggested_improvements
+				    /],
+		      
+		      general => [qw/
+					good_meeting_size
+					good_talk_number
+					good_poster_time
+					attended_dance
+					good_topic_set
+					topic_suggestions
+					attend_next_meeting
+					/],
+		      about_you     => [ qw/
+					attendee_type
+					other_attendee
+					attendee_origin
+					other_origin
+					help_organize_next_meeting
+					comments_suggestions
+					/]
+		      );
+    
+    
+    
+    my @sections = qw/meeting_logistics
+ 					keynote_talks
+ 					meeting_venue
+ 					general
+					about_you/;
+    
+    open LOG,">>" . SURVEY_LOG or die "$!";
+    print LOG "IP=$ip\n";
+    
+    foreach my $section (@sections) {
+	my @questions = @{$questions{$section}};
+	foreach my $question (@questions) {
+	    
+	    my ($answer) = join(';',param($question));
+	    print LOG "$question===$answer\n";
+	}
+    }
+    print LOG "=\n";
+    close LOG;
+
+}
+
+
+sub reformat_questions {
+    my @list = @_;
+    my @formatted_list;
+    foreach (@list) {
+	s/ /_/g;
+	push @formatted_list,$_;
+    }
+    return @formatted_list;
+}
+
+sub display_greeting {
+    print p({-class=>'container'},qq{
+	The C. elegans Neuroscience Meeting organizers would like your feedback on the 2008 meeting.  This will take 5-10 minutes of your time.  Your collective responses will determine how the Neuroscience meetings will be run in 2010 and beyond.  THANKS!});
+}
+
+sub generate_form {
+    display_greeting();
+    print start_form();
+   
+    my $count = 1;
+    
+    # Biographical information
+    print hr;
+    print h3('Meeting Logistics');
+    print "$count. Do you prefer a topic-oriented biannual meeting or a regional-oriented meeting?";
+	
+	my @meeting_preferences = ('Prefer topics meeting',
+			    'Prefer regional meeting',
+			    'No opinion');
+			
+    print blockquote(
+		     (radio_group({-name   => 'meeting_preference',
+						  -values => \@meeting_preferences,
+						  -default => '',
+						  -cols   => 1}))
+		);
+		
+		
+		
+    print ++$count .'A. What areas might be added to the Neurobiology meeting?';
+    
+	my %additional_areas = ('developmental_timimg' => 'Dauer & Developmental timing', 
+				'aging_stress' => 'Aging and Stress', 
+				'genomics' => 'Genomics',
+				'cell_bio' => 'Cell Biology');
+			
+    print blockquote(
+		     (checkbox_group({-name   => 'additional_areas',
+						  -values => \%additional_areas,
+						  -default => '',
+						  -cols   => 1}))
+		);
+ 
+
+    add_text_area($count . 'B. Additional topics not listed?','additional_topics');
+
+	print ++$count .'. Would you prefer that:';
+	
+	my @format_preferences = ('Neuro meeting remain in a 4-day format', 
+								'Neuro meeting be increased to a 5-day format (independent of which topics are added)',
+	'No opinion'
+	);
+			
+    print blockquote(
+		     (radio_group({-name   => 'format_preference',
+						  -values => \@format_preferences,
+						  -default => '',
+						  -cols   => 1}))
+		);
+
+		print ++$count .'. Did you attend any other C. elegans topic meetings?';
+
+		my %other_meetings = (
+				      	'aging_et_al' => 'Aging, Stress, and Pathogenesis',
+				      	'no' => 'No',
+			'dev_evol' => 'Development and Evolution'
+		
+		);
+    
+    #my %sorted_other_meetings = sort keys %other_meetings;
+    
+	    print blockquote(
+			     (checkbox_group({-name   => 'other_meetings',
+							  -values => \%other_meetings,
+							  -default => '',
+							  -cols   => 1}))
+			);
+
+    
+    print hr;
+    print h3('Keynote talks');
+    # print i('The following questions pertain to gene structures at WormBase.') . br .br;
+    
+    print ++$count . '. Invited keynote speakers opened each session Neuro 2008 meeting.  How would you rate these talks?';
+
+	my @keynote_ratings = (
+		'Very good',
+		'Good',
+		'Adequate',
+		'Other'
+		
+	);
+
+    print blockquote(
+		     (radio_group({-name   => 'keynote_rating',
+						  -values => \@keynote_ratings,
+						  -default => '',
+						  -cols   => 1}))
+		);
+	
+
+    	print ++$count . '. Would you like to have more than one keynote speaker per session ?';
+
+		my @more_keynotes = (
+			'Yes',
+			'No'
+
+		);
+
+	    print blockquote(
+			     (radio_group({-name   => 'more_keynotes',
+							  -values => \@more_keynotes,
+							  -default => '',
+							  -cols   => 1}))
+			);
+    
+		add_text_area(++$count.'. Who would you like to have as a keynote speaker at future C. elegans neuro meetings (list speaker/topic)?','suggested_keynote');
+			
+
+    print hr;
+    print h3('Meeting Venue');
+
+	print ++$count . '. How would you rate the range and quality of the food?  ';
+
+	my @food_ratings = (
+		'Very good',
+		'Good',
+		'Adequate',
+		'Other'
+		
+	);
+
+    print blockquote(
+		     (radio_group({-name   => 'food_rating',
+						  -values => \@food_ratings,
+						  -default => '',
+						  -cols   => 1}))
+		);
+		
+		print ++$count . '. How would you rate the map of the venue?';
+
+		my @map_ratings = (
+			'Very good',
+			'Good',
+			'Adequate',
+			'Other'
+
+		);
+
+	    print blockquote(
+			     (radio_group({-name   => 'map_rating',
+							  -values => \@map_ratings,
+							  -default => '',
+							  -cols   => 1}))
+			);
+			
+			print ++$count . '. Were the Memorial Union Staff helpful?';
+
+			my @staff_ratings = (
+				'Very good',
+				'Good',
+				'Adequate',
+				'Other'
+
+			);
+
+		    print blockquote(
+				     (radio_group({-name   => 'staff_rating',
+								  -values => \@staff_ratings,
+								  -default => '',
+								  -cols   => 1}))
+				);
+
+				print ++$count . '. How would you rate the presentational aspects of the conference? ';
+
+				my @presentation_ratings = (
+					'Very good',
+					'Good',
+					'Adequate',
+					'Other'
+
+				);
+
+			    print blockquote(
+					     (radio_group({-name   => 'presentation_rating',
+									  -values => \@presentation_ratings,
+									  -default => '',
+									  -cols   => 1}))
+					);
+					print ++$count . '. Did you have difficulty with the lines for breakfast, lunch, or dinner?';
+
+					my @difficult_meal_access = (
+						'Yes',
+						'No'
+					);
+
+				    print blockquote(
+						     (radio_group({-name   => 'difficult_meal_access',
+										  -values => \@difficult_meal_access,
+										  -default => '',
+										  -cols   => 1}))
+						);
+
+    
+    add_text_area(++$count . '. How could we improve this venue for a future Neuroscience Meeting?',
+		  'suggested_improvements');
+    
+    
+    print hr;
+    print h3('General');
+   
+	my @yes_no_reply = (
+		'Yes',
+		'No'
+	);
+    
+	print ++$count . '. Did you like the size of this meeting?  ';
+
+    print blockquote(
+		     (radio_group({-name   => 'good_meeting_size',
+						  -values => \@yes_no_reply,
+						  -default => '',
+						  -cols   => 1}))
+		);
+    print ++$count . '. Were you happy with the number of talks at the meeting? ';
+
+	print blockquote(
+			  (radio_group({-name   => 'good_talk_number',
+							  -values => \@yes_no_reply,
+							  -default => '',
+							  -cols   => 1}))
+		);
+	print ++$count . '. Were you happy with the time allotted for posters?';
+	print blockquote(
+				     (radio_group({-name   => 'good_poster_time',
+								  -values => \@yes_no_reply,
+								  -default => '',
+								  -cols   => 1}))
+		);
+	print ++$count . '. Did you attend the Tuesday evening dance?';
+
+	print blockquote(
+					     (radio_group({-name   => 'attended_dance',
+									  -values => \@yes_no_reply,
+									  -default => '',
+									  -cols   => 1}))
+		);
+	print ++$count . '. Did you like the collection of topics that were covered at this meeting?  ';
+	print blockquote(
+						     (radio_group({-name   => 'good_topic_set',
+										  -values => \@yes_no_reply,
+										  -default => '',
+										  -cols   => 1}))
+		);
+		add_text_area(++$count . '. Should some topics be included/omitted? If so, which ones?','topic_suggestions');
+		
+	my @next_meeting_attendance = 	(
+			'Yes',
+			'No',
+			'Maybe'
+		);
+	print ++$count . '.Would you attend the next Neuroscience Meeting?';
+	print blockquote(
+							     (radio_group({-name   => 'attend_next_meeting',
+											  -values => \@next_meeting_attendance,
+											  -default => '',
+											  -cols   => 1}))
+			);
+						
+						
+    
+    
+    print hr;
+    print h3('About You');
+
+	my @attendee_types = 	(
+			'Keynote Speaker',
+			'Platform Session Presenter', 
+			'Poster Session Presenter',
+			'Session Chair',
+			'Sponsor', 
+			'Other'	
+		);
+		
+	
+		
+	print ++$count . '. Are you a:';
+	print blockquote(
+							     (radio_group({-name   => 'attendee_type',
+											  -values => \@attendee_types,
+											  -default => '',
+											  -cols   => 2}))
+			);
+			
+	add_text_area('If other, Please specify:','other_attendee');
+	
+	my @attendee_origins = (
+		'East Coast', 
+		'Midwest',
+		'West Coast',
+		'US South ',
+		'Mountain Timezone',
+		'Canada',
+		'Europe', 
+		'Asia',
+		'Other' 
+		);
+		
+	print ++$count . '. Where are you from?';
+	print blockquote(
+						(radio_group({-name   => 'attendee_origin',
+												  -values => \@attendee_origins,
+												  -default => '',
+												  -cols   => 2}))
+		);
+	
+	add_text_area('If other, Please specify:','other_origin');
+						
+	add_text_area(++$count.'. Are you willing to help organize the abstracts & program for the upcoming Neuro meeting? If Yes, please state your name, email and which topic.
+	','help_organize_next_meeting');
+
+	add_text_area(++$count.'. Any other comments/suggestions?','comments_suggestions');						
+    print hr;
+
+    print blockquote(submit({-name=>'submit',-value=>'Submit Questionnaire'}));
+
+	print blockquote(reset({-name=>'reset',-value=>'Reset Questionnaire'}));
+    
+	print end_form,hr;
+    
+    print p('Thank you for your help!');
+    
+    # print blockquote('The WormBase Consortium');
+}
+
+
+
+sub add_text_field {
+    my ($text,$name,$is_other) = @_;
+    if ($is_other) {
+	return blockquote(i($text)
+			  . textfield({-name => $name,
+				       -size => 50}));
+    } else {
+	print $text;
+	print blockquote(textfield({-name => $name,
+				    -size => 50}));
+    }
+}
+
+
+sub add_text_area {
+    my ($text,$name) = @_;
+    print $text;
+    print blockquote(textarea({-name=>$name,-rows=>5,cols=>64,-wrap=>'virtual'}));
+}
+
+
+
+sub display {
+    my ($label,@list) = @_;
+    
+    print start_blockquote(),
+    start_table({-border=>1,-width=>'80%'});
+    
+    print TR(th(),
+	     th({-colspan => 5},'Importance'));
+    
+    print 
+	TR(th(),td({-colspan=>5},table({-width=>'100%'},TR(td({-align=>'LEFT'},'Very'),
+							   td({-align=>'RIGHT'},'Not Very')))));
+    
+    print TR(th(),td(map { $_ } [1 ..5 ]));
+    
+    foreach my $name (@list) {
+	
+	print start_TR();
+	print td($name);
+	
+	my $formatted = $name;
+	$formatted =~ s/ /_/g;
+	for (my $i=1;$i<=5;$i++) {
+	    print td(qq{<input type="radio" name=$formatted" value=$i>});
+	}
+	print end_TR();
+    }
+    
+   print end_table(),
+   end_blockquote();
+}
+
+
+# Create a ranking of items in order of importance
+sub rank {
+    my ($label,@list) = @_;
+    print start_blockquote(),
+    start_table({-border=>1,-width=>'80%'}),
+    TR(th(),
+       th({-colspan => (scalar @list)},'Importance'));
+    print TR(th(),td({-colspan=>scalar @list},table({-width=>'100%'},TR(td({-align=>'LEFT'},'Most'),
+									td({-align=>'RIGHT'},'Least')))));
+    
+    foreach my $name (@list) {
+	print start_TR();
+	print td($name);
+	
+	my $formatted = $name;
+	$formatted =~ s/ /_/g;
+	
+	for (my $i=1;$i<=@list;$i++) {
+	    print td(qq{<input type="radio" name="$label$i" value=$formatted>});
+	}
+	print end_TR();
+    }
+    print end_table(),
+    end_blockquote();
+}
+
+
+
+
+
+sub display_nested {
+    my ($label,@list) = @_;
+    
+    my @entries = $list[0];
+    
+    foreach (@entries) {	
+	foreach my $subsection (@$_) { 
+
+	    my $title = $subsection->{subsection};
+	    
+	    print start_blockquote(),
+	    start_table({-border=>1,-width=>'80%'}),
+	    TR(th({-rowspan=>3,-width=>'70%'},$title),
+	       th({-colspan => 5},'Importance'));
+#	print TR(th(),td({-colspan=>5},
+#	table({-width=>'100%'},TR(td({-align=>'LEFT'},'Most'),
+#	td({-align=>'RIGHT'},'Least')))));
+	    print TR(td(map { $_ } [1 ..5 ]));
+	    
+
+	    print TR(
+		     td({-colspan=>5},table({-width=>'100%'},TR(td({-align=>'LEFT'},'Very'),
+								td({-align=>'RIGHT'},'Not Very')))));
+	    my @questions = @{$subsection->{questions}};
+	    foreach (@questions) {
+		my $formatted = $_;
+		$formatted =~ s/ /_/g;
+		
+		print start_TR(),td($_);
+		for (my $i=1;$i<=5;$i++) {
+		    print td(qq{<input type="radio" name="$formatted" value=$i>});
+		}
+		print end_TR();
+		
+#		print TR(td($_),
+#			 td(radio_group({-name=>$formatted,-rows=>1,-values=>[1..5],-default=>'--'})));
+		
+	    }
+	    print end_table(),
+	    end_blockquote();
+	}
+    }
+    
+}
+
+
+
+
+sub build_dataset_questions {
+    my @entries = $datasets[0];
+    
+    my @field_names;
+    foreach (@entries) {
+	foreach my $subsection (@$_) { 
+	    my @questions = @{$subsection->{questions}};
+	    foreach (@questions) {
+		my $formatted = $_;
+		$formatted =~ s/ /_/g;
+		push @field_names,$formatted;
+	    }
+	}
+    }
+    return @field_names;
+}
+
+
+
+### useable code ####
+
+# print ++$count . '. How important are the following types of information to you?';
+#     display_nested('Information type',@datasets);
+#     
+#     
+#     print ++$count . ". Do you use the Gene Ontology data at Wormbase?";
+#     print blockquote(radio_group({-name   => 'gene_ontology_use',
+# 				  -values => ['Yes, on a gene-by-gene basis',
+# 					      'Yes, using data mining strategies',
+# 					      'No',
+# 					      "I don't know what Gene Ontology is",
+# 					      ],
+# 				  -cols   => 1,
+# 				  -default => '--',
+# 			      }));
+
+# table(
+ # 			   TR(td(p('Your position:')),
+ # 			      td(popup_menu(-name   => 'job_description',
+ # 					    -values => ['--',
+ # 							'High school student',
+ # 							'College student',
+ # 							'Graduate student',
+ # 							'Postdoctoral fellow',
+ # 							'Research scientist',
+ # 							'Principal investigator',
+ # 							'Educator-college/university',
+ # 							'Educator-high school',
+ # 							'Other'],
+ # 					    -default => '--')
+ # 				 )),
+ # 			   
+ # 			   TR(td(p('Your institution:')),
+ # 			      td(popup_menu(-name   => 'institution_type',
+ # 					    -values => ['--',
+ # 							'High school',
+ # 							'College',
+ # 							'University',
+ # 							'Government laboratory',
+ # 							'Research institute, non-profit',
+ # 							'Research institute, for-profit',
+ # 							'Private sector laboratory',
+ # 							'Other'],
+ # 					    -default => '--'))),
+ # 			   
+ # 			   TR(td('Your primary interest:'),
+ # 			      td(
+ # 				 popup_menu(-name   => 'primary_interest',
+ # 					    -values => ['--',
+ # 							'Biological research - C. elegans',
+ # 							'Biological research - other organism',
+ # 							'Clinical/Medical research',
+ # 							'Biotechnology, industrial research',
+ # 							'Education',
+ # 							'Other'],
+ # 					    -default => '--'),
+ # 				 )),
+ # 			   )
+
+
+
+ # print blockquote(radio_group({-name   => 'access_frequency',
+ # 				  -values => \@access_frequency,
+ # 				  -default => '',
+ # 				  -cols   => 1}));
+
+ # print blockquote(radio_group({-name   => 'gene_structure_accuracy',
+ # 				  -values => ['Badly inaccurate',
+ # 					      'Mostly accurate but some incorrect',
+ # 					      'Almost all correct',
+ # 					      'All correct',
+ # 					      "Don't know / No opinion"
+ # 					      ],
+ # 						  -default => "Don't know / No opinion",
+ # 						  -linebreak => 1,
+ # 					      }));
+ 
+ # print ++$count . '. How complete do you think the gene structures are?';
+ #     print blockquote(radio_group({-name   => 'gene_structure_completeness',
+ # 				  -values => ['Many genes/transcripts missing',
+ # 					      'Most genes present, many transcripts missing',
+ # 					      'Most genes present, some transcripts missing',
+ # 					      'Almost all genes and transcripts present',
+ # 					      "Don't know / No opinion"
+ # 					      ],
+ # 						  -default => "Don't know / No opinion",
+ # 						  -cols => 1,
+ # 					      }));
+ #

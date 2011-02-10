@@ -1,0 +1,98 @@
+<!--
+Author: Payan Canaran (canaran@cshl.edu)
+Copyright 2006-2007 Cold Spring Harbor Laboratory
+$Id: geo_map_by_paper.html,v 1.1.1.1 2010-01-25 15:47:26 tharris Exp $
+-->
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml">
+
+<head>
+    <link rel="stylesheet" href="/stylesheets/wormbase.css">
+    <meta http-equiv="content-type" content="text/html; charset=utf-8"/>
+    <title>WormBase Persons</title>
+
+    <style type="text/css">
+        v\:* {
+          behavior:url(#default#VML);
+        }
+    </style>
+</head>
+
+<body>
+    [% header %]
+    <h1><center>[% citation %]</center></h1>
+    <table border="0" align="center">
+        <tr>
+            <td>
+                <div id="map" style="height: 300px; width: 500px">
+                Loading map ...
+                </div>
+            </td>
+            <td>
+                <div id="details" style="height: 300px; width: 180px; overflow: auto">
+                Click icons for details ...
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="2">
+                [% message %]
+            </td>
+        </tr>        
+    </table>            
+
+    <!-- Execute scripts here (1/2) -->
+    <script src="http://maps.google.com/maps?file=api&amp;v=2&amp;key=[% gmap_api_key %]"
+            type="text/javascript">
+    </script>
+
+    <script src="http://localhost:8080/panzea_searches/_tmp/prototype.js"
+            type="text/javascript">
+    </script>
+
+    <script type="text/javascript">
+        // Variables
+        var centerLat         = 35;
+        var centerLng         = 10;
+        var icon              = new GIcon();
+        icon.image            = "/geo_map/generic_author.png";
+        icon.iconSize         = new GSize(11, 11);
+        icon.shadowSize       = new GSize(11, 11);
+        icon.iconAnchor       = new GPoint(6, 6);
+        icon.infoWindowAnchor = new GPoint(6, 6);
+
+        // Create and initialize map
+        var map = new GMap2(document.getElementById('map'));
+
+        // Controls
+        map.addControl(new GSmallZoomControl());
+        map.addControl(new GMapTypeControl());
+        map.addControl(new GScaleControl());
+        map.setCenter(new GLatLng(centerLat, centerLng), 1);
+
+        // Function
+        function addMarker(point, detailsOnClick) {
+            var marker = new GMarker(point, icon);
+            if (detailsOnClick) {
+                GEvent.addListener(marker, "click", function() {
+                    document.getElementById("details").innerHTML = detailsOnClick;
+                })
+            };
+            map.addOverlay(marker);
+        }
+
+        // For each marker
+        [% FOREACH marker IN markers %]
+            addMarker(new GLatLng([% marker.latitude %], [% marker.longitude %]), '[% marker.details %]');
+        [% END %]
+    </script>
+    
+    <br/>
+    <br/>
+    <br/>
+    [% footer %]
+</body>
+</html>

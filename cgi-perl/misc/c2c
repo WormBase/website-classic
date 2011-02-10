@@ -1,0 +1,204 @@
+#!/usr/bin/perl
+
+use lib '../lib';
+use strict;
+use Ace::Browser::AceSubs qw(:DEFAULT AceAddCookie);
+use CGI qw/:standard escapeHTML Sub *table/;
+use File::Temp qw(tempfile);
+use ElegansSubs;
+use Bio::DB::GFF;
+use vars qw($GFFDB $ACE);
+
+$ACE   = OpenDatabase() || AceError("Couldn't open database.");
+$GFFDB = OpenGFFDB($ACE,'elegans');
+
+my $data = param('data');
+if ($data) {
+  print_results($data);
+} else {
+  PrintTop(undef,undef,undef,
+	   '-Title'  =>'Coordinate Mapper',
+	   '-Class'  =>'search');
+  print_prompt();
+  PrintBottom();
+}
+
+
+sub print_prompt {
+  my $settings = shift;
+  print h1('Coordinate Mapper');
+  print p(
+	  'Enter a list of coordinates to map using the following format:');
+  print pre(<<END);
+<b>Name     Reference Point      Start      End    Strand (optional)</b>
+assay_1  I                    123921     129887  +
+assay_2  R11A5                    32        800  +
+assay_3  M7.2                    121        329  -
+END
+;
+  print p('The resulting table will give you the position of the smallest canonical',
+	  'sequence that contains the range -- a cosmid, link or superlink, as the',
+	  'case may be');
+
+  print start_form,
+        table({-class=>'searchbody',-border=>0,-width=>'80%'},
+          TR({-class=>'searchtitle'},th({-colspan=>2},'Coordinate Mapper')),
+          TR(td({-colspan=>2},textarea(-name=>'data',-rows=>15,-cols=>80,-wrap=>'off'))),
+	  TR({-class=>'searchtitle'},
+	     td(b('Results in:'),
+		radio_group(-name    => 'format',
+			    -values  => ['text','html'],
+			    -labels  => {text => 'Text',
+					 html => 'HTML'},
+			    -default => 'html',
+			   )),
+	     th(submit('Map'))),
+	 ),
+    end_form;
+}
+
+sub print_results {
+  my $data = shift;
+  my @lines = split /[\r\n]+/,$data;
+  if (param('format') eq 'html') {
+    print_html(\@lines);
+  } else {
+    print_text(\@lines);
+  }
+}
+
+sub print_text {
+  my $lines = shift;
+
+  print header(-type=>'text/plain');
+  print "# assay	refpoint	start	end	length	genes\n\n";
+  print_data($lines,\&do_text);
+}
+
+sub print_html {
+  my $lines = shift;
+
+  PrintTop(undef,undef,undef,
+	   '-Title'  =>'Coordinate Mapper',
+	   '-Class'  =>'search');
+  print start_table({-class=>'databody',-width=>'100%'});
+  print TR({-class=>'datatitle'},
+	   th({-colspan=>7},'Coordinate Mapping Results')
+	  );
+    print TR({-class=>'datatitle'},
+	   th([
+	       'Assay',
+	       'Canonical Pos',
+	       'Start',
+	       'End',
+	       'Length',
+	       'Genes Covered',
+	      ]));
+  print_data($lines,\&do_html);
+  print end_table;
+  PrintBottom();
+}
+
+sub print_data {
+  my $lines = shift;
+  my $callback = shift;
+
+  # input format:
+  # id ref start stop
+  foreach (@$lines) {
+    chomp;
+    my ($id,@position) = split /\s+/;
+    my $strand = pop @position if $position[-1] =~ /^[+-]$/;
+    $strand ||= '+';
+    $position[0] =~ s/^CHROMOSOME_//;
+    my ($ref,$start,$stop,$genbank,$canonical_list,$genes) = resolve_coordinates(@position);
+    my %seen;
+    # Yikes! This is hard to read...
+    my $gene_list = join ',',map {grep { !$seen{$_}++ } $_->[0] } @$genes;
+    foreach my $canonical (@$canonical_list) {
+      @{$canonical}[1,2] = @{$canonical}[2,1] if $strand eq '-';
+      $callback->($id,@$canonical,$gene_list);
+    }
+  }
+}
+
+sub do_text {
+  print join("\t",@_),"\n";
+}
+
+sub do_html {
+  print TR({-class=>'databody'},
+	   td([@_])),"\n";
+}
+sub resolve_coordinates {
+  my @args      = @_;
+  my $db        = $GFFDB;
+  my $segment   = $db->segment(@args);
+  if ($segment) {
+    $segment->absolute(1);
+    my ($ref,$start,$stop) = ($segment->ref,$segment->low,$segment->high);
+    my ($gb,$canonical_list,$gene) = segment2goodstuff($segment);
+    return ($ref,$start,$stop,$gb,$canonical_list,$gene);
+  } elsif (@args == 3) { # i.e. in (ref,start=>stop) format
+    return (@args,[],[],[]);
+  }
+  return;
+}
+
+sub segment2goodstuff {
+  my $segment = shift;
+  my ($ref,$start,$stop) = ($segment->ref,$segment->low,$segment->high);
+
+  my (@genes,$gb);
+  my @features = $segment->features('coding_exon:curated','region:Genbank',
+				    'region:Genomic_canonical','region:Link');
+  my %features;
+  foreach (@features) {
+    push @{$features{$_->source}},$_;
+  }
+
+  for my $partial_gene (@{$features{curated}}) {
+    # fetch the full gene, please
+    my ($full_gene)   = grep {$_->name eq $partial_gene->name} $partial_gene->features('CDS');
+    $segment->ref($full_gene);
+    my @exons   = $full_gene->Cds;
+
+    foreach (@exons) { $_->ref($full_gene);  }
+    @exons  = sort {$a->start<=>$b->start} @exons;
+
+    my @covered;
+    for (my $e=0; $e < @exons; $e++) {
+      next if $exons[$e]->stop  < $segment->low;
+      next if $exons[$e]->start > $segment->high;
+      push @covered,$e+1;  # one-based indexing for biologists!
+    }
+    push @genes,[$partial_gene->name,join(',',@covered),scalar @exons];
+  }
+
+  # choose the one genbank entry that we are closest to the center of
+  # (ignore case of spanning a genbank entry for now....)
+  $gb = [undef,undef,undef];
+  if (my @genbank = eval { @{$features{Genbank}} } ) {
+    my $middle = ($stop+$start)/2;
+    my %distance_from_middle = map {$_ => abs(0.5-($middle-$_->low)/$_->length)} @genbank;
+    my ($middle_most) = sort {$distance_from_middle{$a}<=>$distance_from_middle{$b}} @genbank;
+    $segment->ref($middle_most);
+    $gb = [$middle_most->name,$segment->start,$segment->stop];
+  }
+
+  # find either a genomic canonical or a link that covers the region entirely
+  my @shortest_canonicals;
+  for my $c (@{$features{Genomic_canonical}},@{$features{Link}}) {
+    next unless $c->contains($segment);  # must contain segment completely
+    push @shortest_canonicals,$c;
+  }
+
+  my @c;
+  for my $shortest_canonical(@shortest_canonicals) {
+    $segment->ref($shortest_canonical);
+    push @c,[$shortest_canonical->name,$segment->start,$segment->stop,$segment->length];
+  }
+
+  return ($gb,\@c,\@genes);
+}
+

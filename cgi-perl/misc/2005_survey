@@ -1,0 +1,430 @@
+#!/usr/bin/perl
+
+use strict;
+use Ace::Browser::AceSubs qw/:DEFAULT/;
+use ElegansSubs qw/:DEFAULT/;
+use CGI qw/:standard *table *blockquote/;
+use vars qw/@datasets @analysis @outreach $DB/;
+
+use constant SURVEY_LOG => '/usr/local/wormbase/logs/2005_survey.log';
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");  
+
+# Prioritizing datasets
+@datasets = ( { RNAi => 'Systematic RNAi screens' } ,
+	      { correct_gene_structures => 'Correct gene structures' },
+	      { alternate_gene_structures => 'Alternate gene structures' },
+	      { other_gene_structures     => '<i>C. briggsae/C. remanei</i> gene structures' },
+	      { biochemical_pathways      => 'Biochemical pathways' },
+	      { expression_patterns       => 'Expression patterns'  },
+	      { gene_interactions         => 'Gene interaction data (e.g. suppression)' },
+	      { physical_interactions     => 'Protein interaction data' },
+	      { network_visualization     => 'Network visualization of gene and physical interactions' },
+	      { allele_interactions       => 'Genetic interactions curated at the level of alleles' },
+	      { genetic_map               => 'Genetic map' },
+	      { protein_families          => 'Protein families, orthologs' },
+	      { stocks_and_strains        => 'Stocks and strains' },
+	      { cell_identification       => 'Cell identification and field guide' },
+	      { population_data           => 'Population diversity data' },
+	    );
+
+@analysis = ( { blast_search => 'BLAST searches' },
+	      { database_queries => 'Complex database queries' },
+	      { full_text_searches => 'Searches of the full text of <i>C. elegans</i> papers' },
+	      { batch_download => 'Batch download of DNA sequence &amp; other types of raw data' },
+	      { 'expression_search' => 'Search for cell-specific gene expression using clickable diagrams' },
+	    );
+
+
+@outreach = ( { user_guide => 'Online user guide' },
+	      { elegans_demos => 'Demonstrations/workshops at <i>C. elegans</i> meetings' },
+	      { society_demos => 'Demonstrations/workshops at society meetings.' },
+	      { tutorials     => 'Tutorials' },
+	    );
+
+PrintTop(undef,undef,'WormBase User Survey, Fall 2005');
+
+process_form() if param();
+generate_form() unless param();
+
+PrintBottom;
+exit;
+
+
+sub process_form {
+  print h3('Thank you!');
+  print p('Thank you for your time.  Your responses will help to make WormBase more useful and user-friendly.');
+
+  my @questions = qw/research_interests
+		     research_position
+		     institution_type
+		     access_frequency
+		     country_of_access
+		     speed
+		     mirror/;
+
+  foreach (@datasets) {
+    my ($name) = keys %$_;
+    push @questions,$name;
+  }
+
+  push @questions,
+    qw/suggested_datasets
+       functional_description_accuracy
+       functional_description_completeness
+       functional_description_suggestions
+       gene_structure_accuracy
+       gene_structure_accuracy_improvement
+       gene_structure_completeness
+       gene_structure_completeness_improvement
+       ease_of_use
+       one_feature_suggestion
+       cumbersome_features
+       add_a_forum
+       resurrect_gazette
+       wormmart
+       wormmart_suggestions/;
+
+  foreach (@analysis,@outreach) {
+    my ($name) = keys %$_;
+    push @questions,$name;
+  }
+
+
+  push @questions,qw/subsequent_genomes
+		     satisfaction_with_corrections
+		     satisfaction_with_suggestions
+		     other_suggestions
+		     email
+		     /;
+
+  open LOG,">>" . SURVEY_LOG or die "$!";
+  foreach (@questions) {
+    my $answer = param($_);
+    print LOG "$_===$answer\n";
+  }
+  print LOG "=\n";
+  close LOG;
+}
+
+
+sub display_greeting {
+print p(qq{
+      Thank you for taking time to fill out the user survey!  Your
+      response will help us improve the nature and quality of the
+      service that we provide to the community.  Ten "collector's
+      edition" WormBase mugs or shot glasses will be awarded at random
+      to survey respondents.  To be eligible, you must fill in your
+      e-mail address at the bottom of the form.  Otherwise, the survey
+      is completely anonymous.  }); }
+
+sub generate_form {
+display_greeting();
+print start_form();
+
+# Biographical information
+print hr;
+print h3('General');
+print h4('1. Who are you?');
+print blockquote(
+		 table(
+		       TR(td('Your research focus'),
+			  td(
+			     popup_menu(-name   => 'research_interests',
+					-values => ['--',
+						    'Biological research - C. elegans',
+						    'Biological research - Other organism',
+						    'Bioinformatics',
+						    'Clinical/Medical Research',
+						    'Education',
+						    'Other'],
+					-default => ''),
+			    )),
+
+		       TR(td(p('Your position')),
+			  td(popup_menu(-name   => 'research_position',
+					-values => ['--',
+						    'Graduate student',
+						    'Principal investigator',
+						    'Postdoctoral fellow',
+						    'Research scientist',
+						    'Other'],
+				       -default => ''),
+			    )),
+		       TR(td(p('Your institution')),
+			  td(popup_menu(-name   => 'institution_type',
+					-values => ['--',
+						    'College',
+						    'Government laboratory',
+						    'Research Institute, Non-profit',
+						    'Research Institute, For-profit',
+						    'Private Sector Laboratory',
+						    'University',
+						    'Other'],
+					-default => ''),
+			     ))));
+
+
+print h4('2. How frequently do you visit WormBase?');
+my @access_frequency = ('Not very often','A few times per month','A few times per week','Daily');
+print blockquote(radio_group({-name   => 'access_frequency',
+			      -values => \@access_frequency,
+			      -default => '',
+			      -cols   => 1}));
+
+print h4('3. From which country do you primarily access WormBase?');
+print blockquote(textfield({-name => 'country_of_access',
+			    -size => 50}));
+
+
+print h4('4. Is the speed of WormBase acceptable?');
+print blockquote(radio_group({-name   => 'speed',
+			      -values => ['Never',
+					  'Sometimes',
+					  'Usually',
+					  'Always',
+					  'No opinion'],
+			      -default => 'No opinion',
+			      -cols   => 1}));
+
+print h4('5. Are you aware that WormBase offers mirror sites to share the load with the
+primary website?');
+print blockquote(radio_group({-name   => 'mirror',
+			      -values => [qw/Yes
+					     No
+					     /],
+			      -default => '--',
+			     }));
+
+
+print hr;
+print h3('Datasets');
+print h4('6. How important are the following types of information to you?');
+display('Information type',@datasets);
+
+print h4('7. Are you aware of important data sets not currently in WormBase that should be?');
+print blockquote(textarea({-name=>'suggested_datasets',-rows=>5,cols=>64,-wrap=>'virtual'}));
+
+
+
+print hr;
+print h3('Functional descriptions');
+print h4('The following questions pertain to functional descriptions displayed on the 
+Gene Summary page. (eg from one of the genes listed by <a href="http://www.wormbase.org/db/gene/gene?name=unc*">http://www.wormbase.org/db/gene/gene?name=unc*</a>)');
+
+print h4('8. How accurate do you think the curated functional descriptions are?');
+print blockquote(radio_group({-name   => 'functional_description_accuracy',
+			      -values => [
+					  'Badly inaccurate',
+					  'Mostly accurate but some incorrect',
+					  'Almost all correct',
+					  'All correct',
+					  "Don't know"],
+			      -cols    => 1,
+			      -default => "Don't know"}));
+
+
+print h4('9. How complete do you think the curated functional descriptions are?');
+print blockquote(radio_group({-name    => 'functional_description_completeness',
+			      -values  => [
+					   'Very incomplete',
+					   'Mostly complete but missing some critical details',
+					   'Very complete',
+					   "Don't know"],
+			      -cols    => 1,
+			      -default => "Don't know"}));
+
+print h4('10. How can we make these functional descriptions more useful?');
+print blockquote(textarea({-name=>'functional_description_suggestions',-rows=>5,cols=>64,-wrap=>'virtual'}));
+
+
+print hr;
+print h3('Gene structures');
+print h4('The following questions pertain to gene structures at WormBase.');
+
+print h4('11. How accurate do you think the gene structures are at WormBase?');
+print blockquote(radio_group({-name   => 'gene_structure_accuracy',
+			      -values => ['Badly inaccurate',
+					  'Mostly accurate but some incorrect',
+					  'Almost all correct',
+					  'All correct',
+					  "Don't know"
+					 ],
+			     -default => "Don't know",
+			      -cols   => 1,
+			     }));
+
+print h4('12. Has gene model accuracy improved in the last three years?');
+print blockquote(radio_group({-name   => 'gene_structure_accuracy_improvement',
+			      -values => ['No it has gotten worse',
+					  'No change',
+					  'Yes, progressive improvement',
+					  'Yes, major improvement',
+					  "Don't know"
+					 ],
+			      -default => "Don't know",
+			      -cols => 1,
+			     }));
+
+print h4('13. How complete do you think the gene structures are?');
+print blockquote(radio_group({-name   => 'gene_structure_completeness',
+			      -values => ['Many genes/transcripts missing',
+					  'Most genes present, many transcripts missing',
+					  'Most genes present, some transcripts missing',
+					  'Almost all genes and transcripts present',
+					  "Don't know"
+					 ],
+			      -default => "Don't know",
+			      -cols => 1,
+			     }));
+
+
+
+print h4('14. Has gene structure completeness improved in the last three years?');
+print blockquote(radio_group({-name   => 'gene_structure_completeness_improvement',
+			      -values => ['No it has gotten worse',
+					  'No change',
+					  'Yes, progressive improvement',
+					  'Yes, major improvement',
+					  "Don't know"
+					 ],
+			      -default => "Don't know",
+			      -cols => 1,
+			     }));
+print hr();
+print h3('Website features');
+print h4('15. How easy is it to find information in WormBase?');
+print blockquote(radio_group({-name   => 'ease_of_use',
+			      -values => ['Very easy',
+					  'Relatively easy',
+					  'Sometimes confusing',
+					  'Difficult to navigate',
+					  'No opinion'],
+
+			      -cols   => 1,
+			      -default => 'No opinion'}));
+
+
+print h4('16. If you could add or improve one feature at WormBase right now, what would it be?');
+print blockquote(textarea({-name=>'one_feature_suggestion',-rows=>5,cols=>64,-wrap=>'virtual'}));
+
+print h4('17. What features do you find to be the most cumbersome to use?');
+print blockquote(textarea({-name=>'cumbersome_features',-rows=>5,cols=>64,-wrap=>'virtual'}));
+
+
+print h4('18. If WormBase were to offer a forum or Wiki for discussion in the <i>C. elegans</i> community, would you use it?');
+print blockquote(radio_group({-name   => 'add_a_forum',
+			      -values => ['Yes',
+					  'No',
+					  'No opinion',
+					 ],
+			      -default => 'No opinion',
+			      -cols   => 1,
+			     }));
+
+print h4("19. Should WormBase resurrect the Worm Breeder's Gazette through a forum or Wiki?");
+print blockquote(radio_group({-name   => 'resurrect_gazette',
+			      -values => ['Yes',
+					  'No',
+					  'No opinion',
+					 ],
+			      -default => 'No opinion',
+			      -cols   => 1,
+			     }));
+
+print h4('20. Have you used the new data mining tool, WormMart (<a href="http://www.wormbase.org/Multi/martview">http://www.wormbase.org/Multi/martview</a>)?');
+print blockquote(radio_group({-name   => 'wormmart',
+			      -values => ['Yes',
+					  'No',
+					  "I'm not aware of WormMart",
+					 ],
+			      -default => "I'm not aware of WormMart",
+			      -cols   => 1,
+			     }));
+
+print h4('21. If so, what other types of data would you like to see available through WormMart?');
+print blockquote(textarea({-name=>'wormmart_suggestions',-rows=>5,cols=>64,-wrap=>'virtual'}));
+
+print hr;
+print h3('Query and analysis tools');
+print h4('22. How important are the following analysis/query tools to you?');
+
+display('Analysis/Query tool',@analysis);
+
+print h4('23. WormBase has had the genomic sequence of C. briggsae for almost three 
+years and is in the process of adding three additional genomes.  What 
+analyses and tools will enable you to make the most use of these genomes 
+in your research?');
+print blockquote(textarea({-name=>'subsequent_genomes',-rows=>5,cols=>64,-wrap=>'virtual'}));
+
+print hr;
+print h3('Outreach and education');
+print h4('24. How important are the following WormBase outreach &amp; education activities?');
+
+display('Activity',@outreach);
+
+print h4('25. How satisfied are you with our...');
+my @response = ('Very satisfied','Somewhat satisfied','Somewhat unsatisfied','Very unsatisfied');
+my @corrections = @response;
+push @corrections,'Have not submitted any corrections';
+print p('Response to corrections?');
+print blockquote(radio_group({-name   => 'satisfaction_with_corrections',
+			      -values => \@corrections,
+			      -cols   => 1,
+			      -default => 'Have not submitted any corrections'}));
+
+print p('Response to suggestions?');
+push @response,'Have not submitted any suggestions';
+print blockquote(radio_group({-name   => 'satisfaction_with_sugggestions',
+			      -values => \@response,
+			      -cols   => 1,
+			      -default => 'Have not submitted any suggestions'}));
+
+
+print hr;
+print h4('26. Any other suggestions or comments?');
+
+print blockquote(textarea({-name=>'other_suggestions',-rows=>5,cols=>64,-wrap=>'virtual'}));
+print hr;
+
+
+#<img src="/images/round_logo.gif" align="left">
+print h3('Enter the WormBase Mug / Shotglass Contest!');
+
+print p('Ten respondents will be drawn at random to receive a WormBase mug or shotglass.  To
+be eligible we must know your e-mail address to contact you.'),br;
+print b('e-mail:'),textfield({-name=>'email',-size=>'50',-value=>''}),br({-clear=>'all'});
+
+print hr;
+print blockquote(submit({-name=>'submit',-value=>'Submit Questionnaire Now'}));
+
+print end_form,hr;
+
+print p('Thank you for your help!');
+
+print blockquote('The WormBase Consortium');
+}
+
+
+
+sub display {
+  my ($label,@list) = @_;
+  print start_blockquote(),
+    start_table({-border=>1}),
+      TR(th('Priority',
+	    table({border=>'0',width=>"100%"},
+		  TR(td({-align=>'LEFT'},i('Low')),
+		     td({-align=>'RIGHT'},i('High'))))
+	   ),
+	 th($label));
+
+  foreach (@list) {
+    my ($name) = keys %$_;
+    my ($label) = values %$_;
+    print TR(td(radio_group({-name=>$name,-rows=>1,-values=>[1..5],-default=>'--'})),
+	     td($label));
+  }
+
+  print end_table(),
+    end_blockquote();
+}

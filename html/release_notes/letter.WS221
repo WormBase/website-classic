@@ -1,0 +1,509 @@
+New release of WormBase WS221, Wormpep221 and Wormrna221 Tue Nov 23 12:32:16 GMT 2010
+
+
+WS221 was built by klh
+-===================================================================================-
+The WS221 build directory includes:
+genomes DIR              -  contains a sub dir for each WormBase species with sequence, gff, and agp data
+        genomes/b_malayi:        - genome_feature_tables/	sequences/
+        genomes/c_brenneri:      - genome_feature_tables/	sequences/
+        genomes/c_briggsae:      - genome_feature_tables/	sequences/
+        genomes/c_elegans:       - annotation/  genome_feature_tables/  sequences/
+        genomes/c_japonica:      - genome_feature_tables/	sequences/
+        genomes/c_remanei:       - genome_feature_tables/	sequences/
+        genomes/h_bacteriophora: - genome_feature_tables/	sequences/
+        genomes/h_contortus:     - genome_feature_tables/	sequences/
+        genomes/m_hapla:         - genome_feature_tables/	sequences/
+        genomes/m_incognita:     - sequences/
+        genomes/p_pacificus:     - genome_feature_tables/	sequences/
+          *annotation/                    - contains additional annotations
+      i) confirmed_genes.WS221.gz  - DNA sequences of all genes confirmed by EST &/or cDNA
+     ii) cDNA2orf.WS221.gz         - Latest set of ORF connections to each cDNA (EST, OST, mRNA)
+    iii) geneIDs.WS221.gz          - list of all current gene identifiers with CGC & molecular names (when known)
+     iv) PCR_product2gene.WS221.gz - Mappings between PCR products and overlapping Genes
+      v) oligo_mapping.gz           - V 
+          *genome_feature_tables/         - contains the main .gff files and supplementary .gff data
+          *sequences/                     - contains dna/      protein/  rna/  sub dirs
+            sequences/protein           - WormBase protein set for species + history etc.
+     vi) wormpep221.tar.gz         - full Wormpep distribution corresponding to WS221
+    vii) wormrna221.tar.gz         - latest WormRNA release containing non-coding RNA's in the genome
+   viii) best_blastp_hits_species.WS221.gz  - for each C. elegans WormPep protein, lists Best blastp match to
+                        human, fly, yeast, C. briggsae, and SwissProt & TrEMBL proteins.
+            sequences/dna               - WormBase dna data genomic sequence (raw, soft_masked masked), agp
+     ix) intergenic_sequences.dna.gz
+            sequences/rna               - WormBase rna gene data.
+acedb DIR                -  Everything needed to generate a local copy of the The Primary database
+      x) database.WS221.*.tar.gz   - compressed acedb database for new release
+     xi) models.wrm.WS221          - the latest database schema (also in above database files)
+    xii) WS221-WS220.dbcomp   - log file reporting difference from last release
+          *Non_C_elegans_BLASTX/          - This directory contains the blastx data for non-elegans species
+                                                    (reduces the size of the main database)
+COMPARATIVE_ANALYSIS DIR - compara.tar.bz2 wormpep217_clw.sql.bz2
+ONTOLOGY DIR             - gene_associations, obo files for (phenotype GO anatomy) and associated association files
+
+
+Release notes on the web:
+-------------------------
+http://www.wormbase.org/wiki/index.php/Release_Schedule
+
+
+
+
+C. elegans Synchronisation with GenBank / EMBL:
+------------------------------------
+
+No synchronisation issues
+
+
+C. elegans Chromosomal Changes:
+--------------------
+There are no changes to the chromosome sequences in this release.
+
+
+C. elegans Gene data set (Live C.elegans genes 47378)
+------------------------------------------
+Molecular_info              45617 (96.3%)
+Concise_description         5719 (12.1%)
+Reference                   14129 (29.8%)
+WormBase_approved_Gene_name 26090 (55.1%)
+RNAi_result                 24606 (51.9%)
+Microarray_results          22095 (46.6%)
+SAGE_transcript             19163 (40.4%)
+
+
+C. elegans 
+
+Wormpep data set:
+----------------------------
+
+This release of Wormpep derived from 24890 CDSs (from 20416
+protein-coding genes).
+
+The 24890 sequences contain 10,941,455 base pairs in total.
+
+Modified entries      48
+Deleted entries       24
+New entries           72
+Reappeared entries    0
+
+Net change  +48
+
+C. elegans Genome sequence composition:
+----------------------------
+
+       	WS221       	WS220      	change
+----------------------------------------------
+a    	32367418	32367418	  +0
+c    	17780787	17780787	  +0
+g    	17756985	17756985	  +0
+t    	32367086	32367086	  +0
+n    	0       	0       	  +0
+-    	0       	0       	  +0
+
+Total	100272276	100272276	  +0
+
+
+Pristionchus pacificus Genome sequence composition:
+----------------------------
+ 172773083 total
+ a 43813958
+ c 32811034
+ g 32828589
+ t 43810996
+ - 0
+ n 19508506
+
+
+Caenorhabditis remanei Genome sequence composition:
+----------------------------
+ 145500347 total
+ a 42927857
+ c 26293828
+ g 26276020
+ t 42923178
+ - 0
+ n 7079464
+
+
+Caenorhabditis japonica Genome sequence composition:
+----------------------------
+ 163282347 total
+ a 39053092
+ c 25603225
+ g 25576971
+ t 39126103
+ - 0
+ n 33922956
+
+
+Caenorhabditis briggsae Genome sequence composition:
+----------------------------
+ 108478630 total
+ a 33004189
+ c 19675861
+ g 19707411
+ t 33049803
+ - 0
+ n 3041366
+
+
+Caenorhabditis brenneri Genome sequence composition:
+----------------------------
+ 190426650 total
+ a 52223359
+ c 32838518
+ g 32883836
+ t 52164943
+ - 0
+ n 20315994
+
+
+
+
+Tier II Gene counts
+---------------------------------------------
+pristionchus Gene count 24216 (CDS 24217)
+remanei Gene count 32431 (CDS 31476)
+heterorhabditis Gene count 0 (CDS 0)
+japonica Gene count 27177 (CDS 25870)
+briggsae Gene count 23038 (CDS 21991)
+brenneri Gene count 32265 (CDS 30707)
+---------------------------------------------
+
+
+
+
+-------------------------------------------------
+Pristionchus pacificus Protein Stats:
+-------------------------------------------------
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed               229 (0.9%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed    4982 (20.6%)	Some, but not all exon bases are covered by transcript evidence
+Predicted             19006 (78.5%)	No transcriptional evidence at all
+
+
+
+Gene <-> CDS,Transcript,Pseudogene connections
+----------------------------------------------
+Pristionchus pacificus entries with WormBase-approved Gene name   3264
+
+
+
+
+-------------------------------------------------
+Caenorhabditis remanei Protein Stats:
+-------------------------------------------------
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed               956 (3.0%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed    5662 (18.0%)	Some, but not all exon bases are covered by transcript evidence
+Predicted             24858 (79.0%)	No transcriptional evidence at all
+
+
+
+Gene <-> CDS,Transcript,Pseudogene connections
+----------------------------------------------
+Caenorhabditis remanei entries with WormBase-approved Gene name   5472
+
+
+
+
+-------------------------------------------------
+Caenorhabditis japonica Protein Stats:
+-------------------------------------------------
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              1182 (4.6%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed    4974 (19.2%)	Some, but not all exon bases are covered by transcript evidence
+Predicted             19714 (76.2%)	No transcriptional evidence at all
+
+
+
+Gene <-> CDS,Transcript,Pseudogene connections
+----------------------------------------------
+Caenorhabditis japonica entries with WormBase-approved Gene name   4804
+
+
+
+
+-------------------------------------------------
+Caenorhabditis briggsae Protein Stats:
+-------------------------------------------------
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed                52 (0.2%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed     856 (3.9%)	Some, but not all exon bases are covered by transcript evidence
+Predicted             21083 (95.9%)	No transcriptional evidence at all
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+UniProtKB accessions  21703 (98.7%)
+
+Gene <-> CDS,Transcript,Pseudogene connections
+----------------------------------------------
+Caenorhabditis briggsae entries with WormBase-approved Gene name   5512
+
+
+
+
+-------------------------------------------------
+Caenorhabditis brenneri Protein Stats:
+-------------------------------------------------
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              1517 (4.9%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed    5638 (18.4%)	Some, but not all exon bases are covered by transcript evidence
+Predicted             23550 (76.7%)	No transcriptional evidence at all
+
+
+
+Gene <-> CDS,Transcript,Pseudogene connections
+----------------------------------------------
+Caenorhabditis brenneri entries with WormBase-approved Gene name   3100
+
+
+
+
+-------------------------------------------------
+Caenorhabditis elegans Protein Stats:
+-------------------------------------------------
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed             11703 (47.0%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed   11012 (44.2%)	Some, but not all exon bases are covered by transcript evidence
+Predicted              2175 (8.7%)	No transcriptional evidence at all
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+UniProtKB accessions  24696 (99.2%)
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            24696 (99.2%)
+
+Gene <-> CDS,Transcript,Pseudogene connections
+----------------------------------------------
+Caenorhabditis elegans entries with WormBase-approved Gene name  24452
+
+
+C. elegans Operons Stats
+---------------------------------------------
+Description: These exist as closely spaced gene clusters similar to bacterial operons
+---------------------------------------------
+| Live Operons        1288                |
+| Genes in Operons    3342                |
+---------------------------------------------
+
+
+GO Annotation Stats WS221
+--------------------------------------
+
+GO_codes - used for assigning evidence
+--------------------------------------
+IC  Inferred by Curator
+IDA Inferred from Direct Assay
+IEA Inferred from Electronic Annotation
+IEP Inferred from Expression Pattern
+IGI Inferred from Genetic Interaction
+IMP Inferred from Mutant Phenotype
+IPI Inferred from Physical Interaction
+ISS Inferred from Sequence (or Structural) Similarity
+NAS Non-traceable Author Statement
+ND  No Biological Data available
+RCA Inferred from Reviewed Computational Analysis
+TAS Traceable Author Statement
+------------------------------------------------
+
+Total number of Gene::GO connections:  262947
+
+Genes Stats:
+----------------
+Genes with GO_term connections         87115  
+           IEA GO_code present         81115  
+       non-IEA GO_code present         5996  
+
+Source of the mapping data             
+Source: *RNAi (GFF mapping overlaps)   25788  
+        *citace                        2201  
+        *Inherited (motif & phenotype) 14545  
+
+GO_terms Stats:
+---------------
+Total No. GO_terms                     30474  
+GO_terms connected to Genes            3258  
+GO annotations connected with IEA      1826  
+GO annotations connected with non-IEA  1427  
+   Breakdown  IC - 2   IDA - 353   ISS - 130 
+             IEP - 9   IGI - 116   IMP - 726 
+             IPI - 68  NAS - 1     ND  - 1  
+             RCA - 0   TAS - 20   
+
+
+-===================================================================================-
+
+Useful Stats:
+---------
+
+Genes with Sequence and CGC name
+WS221 46604 (24452 elegans / 5512 briggsae / 5472 remanei / 4804 japonica / 3100 brenneri / 3264 pristionchus)
+
+
+-===================================================================================-
+
+
+
+New Data:
+---------
+
+Caenorhabditis elegans:
+
+The Gerstein Lab (as part of the modENCODE project) has determined the
+probable source (parent) gene for over 1,000 pseudogenes. These have
+been added to this Build as Paralog links between the parent coding
+gene and the pseudogenes. 
+
+
+Pristionchus pacificus:
+
+This build includes a new genome assembly and set of gene predictions
+for P. pacificus. These were provided by the Sommer group at the MPI
+for Developmental Biology in Tuebingen, Germany (see Borchert et al,
+PMID:20237107).
+
+Gene identifiers were preserved where appropriate by identfying
+corresponding predictions in the old and new gene sets. In addition,
+WormBase-curated gene structures were projected across to the new
+assembly.  
+
+
+Genome sequence updates:
+-----------------------
+
+Pristionchus pacificus:
+
+See New Data, above.
+
+
+New Fixes:
+----------
+
+
+Known Problems:
+---------------
+
+
+Other Changes:
+--------------
+
+
+Proposed Changes / Forthcoming Data:
+-------------------------------------
+
+WS221 includes ~21000 unmapped 3' UTR features from the modENCODE
+project. Mappings to the genome will be included in WS222.
+
+
+WS221 Model Changes:
+--------------------
+
+New Class
+
+
+ //////////////////////////////////////////////////////////////////////////////////////////
+ //
+ // Transcription_factor  class This describes a type of transcription factor (and Pol II)
+ // Gary W. 14/10/2010
+ //
+ //////////////////////////////////////////////////////////////////////////////////////////
+
+ ?Transcription_factor  Name UNIQUE Text
+                        Position_matrix  ?Position_Matrix XREF Transcription_factor #Evidence
+                        Product_of ?Gene XREF Transcription_factor
+                        Remark Text #Evidence
+                        Binding_site ?Feature XREF Transcription_factor
+
+
+
+Gene Class Modifications
+
+                       Transcription_factor ?Transcription_factor XREF Product_of
+
+Feature Class Modifications
+
+         Score Float           // this would be a log score as indicated by the analysis used in gff dump
+         Transcription_factor UNIQUE ?Transcription_factor XREF Binding_site
+
+Position_Matrix Class Modifications
+
+                  Transcription_factor  UNIQUE ?Transcription_factor XREF Position_matrix #Evidence //gw3
+
+
+Strain Class Modifications
+
+<       Made_by Text
+---
+>       Made_by ?Person //updated from Text
+
+>       Other_name ?Text #Evidence
+        Contact ?Person
+          Wild_isolate // to identify wild isolates - since genotype is free text
+          Isolation GPS UNIQUE Float UNIQUE Float // Latitude +/-DD.DDDDD Longitude +/-DD.DDDDD
+                  Place UNIQUE ?Text
+                  Landscape UNIQUE Urban_garden
+                                    Wild_forest
+                                    Wild_grassland
+                                    Agricultural_land
+                                    Oasis
+                                    Rural_garden
+                  Substrate UNIQUE ?Text // e.g. snail, soil, apple, rotting fruit
+                  Associated_organisms ?Species
+                  Life_stage ?Life_stage
+                  Log_size_of_population UNIQUE Float
+                  Sampled_by Text // the person who found the worms
+                  Isolated_by ?Person // the person who isolated the worms from the sample
+
+
+
+Proposed Model Changes for WS221:
+---------------------------------
+
+
+?Variation tag removal
+
+Due to a change in how we process CGH alleles there is no longer any need to calculate the 5' and 3' gap
+(the gap between the CGH_deleted_probes and Flanking_sequences).
+
+We therefore propose to remove FivePrimeGap & ThreePrimeGap from the ?Variation model.
+
+< FivePrimeGap
+< ThreePrimeGap
+
+
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

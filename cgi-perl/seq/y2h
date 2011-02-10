@@ -1,0 +1,85 @@
+#!/usr/bin/perl -w
+# A simple display of Y2H interaction
+
+use strict;
+use lib '../lib';
+use vars qw/$DB $DBGFF $y2h/;
+use Ace;
+use Ace::Browser::AceSubs qw(:DEFAULT AceRedirect AceMultipleChoices);
+use ElegansSubs qw(:DEFAULT PrintRefs Bestname);
+use CGI qw/:standard :html3 *table/;
+
+END {
+  undef $y2h;
+}
+
+use constant NONE => i('not available');
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$DB->class('Ace::Object::Wormbase');
+
+$y2h = get_object();
+
+# open experimental Bio::DB::GFF database
+$DBGFF = OpenGFFDB($DB,'c_elegans') || AceError("Couldn't open GFF database.") if $y2h;
+
+PrintTop($y2h,'Y2H interaction',($y2h) ? "YH interaction report for: $y2h" : 'Y2H interaction report');
+print_prompt();
+PrintWarning(param('name')) if (param('name') && !$y2h);
+general_info() if ($y2h);
+PrintBottom();
+
+
+###########################
+sub get_object {
+  my $request = param('name');
+  $request or return;
+
+  # The most common request: by antibody ID
+  my @ab = $DB->fetch('YH' => $request);
+  $ab[0];
+}
+
+sub general_info {
+  print start_table({-border=>1});
+
+  StartSection('General Information');
+  SubSection('Library screened', $y2h->Library_screened);
+  SubSection('Interaction quality type', $y2h->Interactome_type);
+  SubSection('From Laboratory', $y2h->From_laboratory->Representative->Full_name);
+  SubSection('Reference', $y2h->Reference->Brief_citation, $y2h->Reference) if $y2h->Reference;
+  EndSection;
+
+  StartSection('Bait Details');
+  SubSection('PCR bait',$y2h->PCR_bait);
+  SubSection('Bait overlapping gene',
+	     a({-href=>Object2URL($y2h->Bait_overlapping_gene)},
+	       Bestname($y2h->Bait_overlapping_gene)));
+  SubSection('Bait overlapping CDS',$y2h->Bait_overlapping_CDS);
+
+  EndSection;
+
+  StartSection('Target Details');
+  SubSection('PCR target',$y2h->PCR_target);
+  SubSection('Sequence target',$y2h->Sequence_target);
+
+  SubSection('Target overlapping gene',
+	     a({-href=>Object2URL($y2h->Target_overlapping_gene)},
+	       Bestname($y2h->Target_overlapping_gene)));
+  SubSection('Target overlapping CDS',$y2h->Target_overlapping_CDS);
+  EndSection;
+
+  print end_table();
+}
+
+sub print_prompt {
+  my $url = url(-absolute=>1) . '?name=';
+  print
+    start_form,
+      p({-class=>'caption'},
+	'Type in a Y2H interaction name, such as ',
+	a({-href=>"${url}Y2H000001"},'Y2H000001')),
+	  p("Symbol: ",
+	    textfield(-name=>'name')),
+	      end_form;
+  return;
+}

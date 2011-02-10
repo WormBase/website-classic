@@ -1,0 +1,196 @@
+New release of WormBase WS158, Wormpep158 and Wormrna158 Thu May  4 13:10:59 BST 2006
+
+
+WS158 was built by Paul Davis [pad@sanger.ac.uk]
+======================================================================
+
+This directory includes:
+i)   database.WS158.*.tar.gz    -   compressed data for new release
+ii)  models.wrm.WS158           -   the latest database schema (also in above database files)
+iii) CHROMOSOMES/subdir         -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)  WS158-WS157.dbcomp         -   log file reporting difference from last release
+v)   wormpep158.tar.gz          -   full Wormpep distribution corresponding to WS158
+vi)   wormrna158.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)  confirmed_genes.WS158.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+viii) cDNA2orf.WS158.gz           -   Latest set of ORF connections to each cDNA (EST, OST, mRNA)
+ix)   gene_interpolated_map_positions.WS158.gz    - Interpolated map positions for each coding/RNA gene
+x)    clone_interpolated_map_positions.WS158.gz   - Interpolated map positions for each clone
+xi)   best_blastp_hits.WS158.gz  - for each C. elegans WormPep protein, lists Best blastp match to
+                            human, fly, yeast, C. briggsae, and SwissProt & TrEMBL proteins.
+xii)  best_blastp_hits_brigprot.WS158.gz   - for each C. briggsae protein, lists Best blastp match to
+                                     human, fly, yeast, C. elegans, and SwissProt & TrEMBL proteins.
+xiii) geneIDs.WS158.gz   - list of all current gene identifiers with CGC & molecular names (when known)
+xiv)  PCR_product2gene.WS158.gz   - Mappings between PCR products and overlapping Genes
+
+
+Release notes on the web:
+-------------------------
+http://wwwdev.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS158
+------------------------------------
+brigdb : 20-- - updated
+camace : 1970-01-01 - updated
+citace : 2006-04-14 - updated
+cshace : 2006-03-27 - updated
+genace : 1970-01-01 - updated
+stlace : 2006-04-14 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS158       	WS157      	change
+----------------------------------------------
+a    	32365775	32365775	  +0
+c    	17779813	17779813	  +0
+g    	17755968	17755968	  +0
+t    	32365578	32365578	  +0
+n    	0       	0       	  +0
+
+Total	100267134	100267134	  +0
+
+
+Chromosomal Changes:
+--------------------
+There are no changes to the chromosome sequences in this release.
+
+
+Gene data set (Live C.elegans genes 23752)
+------------------------------------------
+Molecular_info              22006 (92.6%)
+Concise_description          4179 (17.6%)
+Reference                    5058 (21.3%)
+CGC_approved Gene name       8771 (36.9%)
+RNAi_result                 19795 (83.3%)
+Microarray_results          19127 (80.5%)
+SAGE_transcript             18185 (76.6%)
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 20096 CDS in autoace, 23162 when counting 3066 alternate splice forms.
+
+The 23162 sequences contain 10,165,980 base pairs in total.
+
+Modified entries              29
+Deleted entries                9
+New entries                    8
+Reappeared entries             1
+
+Net change  +0
+
+
+
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              6686 (28.9%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed   11442 (49.4%)	Some, but not all exon bases are covered by transcript evidence
+Predicted              5034 (21.7%)	No transcriptional evidence at all
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+UniProtKB/Swiss-Prot accessions      0 (0.0%)
+UniProtKB/TrEMBL accessions         0 (0.0%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id                0 (0.0%)
+
+
+
+Gene <-> CDS,Transcript,Pseudogene connections (cgc-approved)
+---------------------------------------------
+Entries with CGC-approved Gene name   7078
+
+
+GeneModel correction progress WS157 -> WS158
+-----------------------------------------
+Confirmed introns not in a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|   3293  |    43  |
+St Louis 	|     15  |    -2  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Repeats | Change |
+		+---------+--------+
+Cambridge	|    578  |    -1  |
+St Louis 	|    750  |     1  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+No synchronisation issues
+
+
+There are no gaps remaining in the genome sequence
+---------------
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+
+New Data:
+---------
+
+
+New Fixes:
+----------
+
+
+Known Problems:
+--------------
+
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+
+
+Model Changes:
+------------------------------------
+* Added tags to RNAi and Gene_regulation for  when an RNAi experiment describes gene regulation
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

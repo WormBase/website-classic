@@ -1,0 +1,91 @@
+New release of acedb WS51 and wormpep61 21/08/2001
+==================================================
+
+This directory includes:
+   WS51 database.*.tar.gz 
+     files to be installed using INSTALL
+   WS50-WS51.dbcomp
+     Test log reporting differences in Class objects
+     between WS50 and WS51 
+   chromosomes.WS51.tar.gz
+     CHROMOSOMES subdirectory with DNA sequence and GFF files for 
+     the 6 chromsomes
+   wormpep61.tar.gz
+     full wormpep distribution corresponding to WS51 database
+     this contains a log file showing a number of errors in naming 
+     and gene structures that should be fixed
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+Sequence composition:
+---------------------
+
+6 sequences >= 0, 100178843 total
+  - 247096      0 %
+  a 32260261    32 %
+  c 17719951    18 %
+  g 17698757    18 %
+  n 96  0 %
+  t 32252682    32 %
+
+This is a gross gain of 627 bp but a net gain of 727 bp. 
+
+Wormpep data set:
+-----------------
+
+there are 19,326 CDS in autoace, 20,040 when counting (714) alternate splice_forms
+20,040 sequences totalling 8,812,659 letters
+
+ Modified entries       6
+ Deleted entries        5
+ New entries            4
+ Reappeared entries     0
+ ------------------------
+ Net Change          -  1
+
+There are 110 provisional gene models in WS51.
+
+GeneModel correction progress:
+------------------------------
+
+# Confirmed_intron not in CDS GeneModels
+
+           +----------+---------+
+           | Introns  | Change  |
+           +----------+---------+
+Cambrige   |      133 | -     1 |
+St Louis   |      116 | -     6 |
+           +----------+---------+
+
+Synchronisation with GenBank/EMBL:
+----------------------------------
+
+No current problems.  
+
+New data:
+---------
+
+Although not strictly new data ...
+
+The data inherited from the Sanger Centre sequence database (camace) is
+now dumped with timestamps (user = camace). This allows users to identify
+when objects/tags were last touched and from which database they originated.
+We will extend this to geneace for the next release and other primary
+databases over the coming weeks.
+
+Known problems:
+---------------
+
+There is a problem in merging the expression data from Caltech and Sanger.
+The updates from Caltech are presently on hold.
+
+Peptide sequences for some wormpep entries appear to be absent. This should
+be fixed for the next release.
+
+Known fixes:
+------------
+
+Removed some erroneous RNAi objects made during the mappings to predicted
+gene. This is fixed at the script level and should not return.

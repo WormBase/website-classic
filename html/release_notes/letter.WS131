@@ -1,0 +1,182 @@
+New release of WormBase WS131, Wormpep131 and Wormrna131 Tue Sep  7 15:06:49 BST 2004
+
+
+WS131 was built by Paul Davis
+======================================================================
+
+This directory includes:
+i)	database.WS131.*.tar.gz    -   compressed data for new release
+ii)	models.wrm.WS131           -   the latest database schema (also in above database files)
+iii)	CHROMOSOMES/subdir         -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)	WS131-WS130.dbcomp         -   log file reporting difference from last release
+v)	wormpep131.tar.gz          -   full Wormpep distribution corresponding to WS131
+vi)	wormrna131.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)	confirmed_genes.WS131.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+viii)	yk2orf.WS131.gz            -   Latest set of ORF connections to each Yuji Kohara EST clone
+ix)	gene_interpolated_map_positions.WS131.gz    - Interpolated map positions for each coding/RNA gene
+x)	clone_interpolated_map_positions.WS131.gz   - Interpolated map positions for each clone
+xi)	best_blastp_hits.WS131.gz  - for each C. elegans WormPep protein, lists Best blastp match to
+                            human, fly, yeast, C. briggsae, and SwissProt & TrEMBL proteins.
+xii)	best_blastp_hits_brigprot.WS131.gz   - for each C. briggsae protein, lists Best blastp match to
+                                     human, fly, yeast, C. elegans, and SwissProt & TrEMBL proteins.
+xiii)	geneIDs.WS131.gz   - list of all current gene identifiers with CGC & molecular names (when known)
+xiv)	PCR_product2gene.WS131.gz   - Mappings between PCR products and overlapping Genes
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS131
+------------------------------------
+brigdb : 2004-03-12
+camace : 2004-08-24 - updated
+citace : 2004-08-16 - updated
+cshace : 2004-05-10
+genace : 2004-09-01 - updated
+stlace : 2004-08-16 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS131       	WS130      	change
+----------------------------------------------
+a    	32368573	32368573	  +0
+c    	17781252	17781252	  +0
+g    	17758265	17758265	  +0
+t    	32369957	32369957	  +0
+n    	0       	0       	  +0
+-    	0       	0       	  +0
+
+Total	100278047	100278047	  +0
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 19766 CDS in autoace, 22297 when counting 2531 alternate splice forms.
+
+The 22297 sequences contain 9,842,631 base pairs in total.
+
+Modified entries              73
+Deleted entries               50
+New entries                   96
+Reappeared entries             1
+
+Net change  +47The differnce between the total CDS's of this (22297) and the last build (22249) does not equal the net change 47
+Please investigate! ! 
+
+
+
+
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              5615 (25.2%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed   10919 (49.0%)	Some, but not all exon bases are covered by transcript evidence
+Predicted              5763 (25.8%)	No transcriptional evidence at all
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2711 (12.2%)
+TrEMBL accessions     19262 (86.4%)
+TrEMBLnew accessions      0 (0.0%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            22178 (99.5%)
+
+
+
+Gene <-> CDS,Transcript,Pseudogene connections (cgc-approved)
+---------------------------------------------
+Entries with CGC-approved Gene name   5214
+
+
+GeneModel correction progress WS130 -> WS131
+-----------------------------------------
+Confirmed introns not in a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|    519  |  -274  |
+St Louis 	|    209  |  -343  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Repeats | Change |
+		+---------+--------+
+Cambridge	|    604  |    -4  |
+St Louis 	|    830  |    -1  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+CHROMOSOME_II	sequence U39471
+
+There are no gaps remaining in the genome sequence
+---------------
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+
+New Data:
+---------
+Updated IPI human protein set included in this build.
+
+
+
+New Fixes:
+----------
+Known problems documented in the WS130 release letter have been resolved.
+
+Known Problems:
+--------------
+
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+SRZ family update.
+Update to the ortholog assignments for elegans CDS <-> briggsae CDS.
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

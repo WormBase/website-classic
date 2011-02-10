@@ -1,0 +1,178 @@
+New release of WormBase WS114, Wormpep114 and Wormrna114 Fri Nov 14 10:30:51 GMT 2003
+
+
+WS114 was built by Anthony
+======================================================================
+
+This directory includes:
+i)	database.WS114.*.tar.gz    -   compressed data for new release
+ii)	models.wrm.WS114           -   the latest database schema (also in above database files)
+iii)	CHROMOSOMES/subdir        -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)	WS114-WS113.dbcomp          -   log file reporting difference from last release
+v)	wormpep114.tar.gz          -   full Wormpep distribution corresponding to WS114
+vi)	wormrna114.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)	confirmed_genes.WS114.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+viii)	yk2orf.WS114.gz            -    Latest set of ORF connections to each Yuji Kohara EST clone
+ix)	gene_interpolated_map_positions.WS114.gz    - Interpolated map positions for each coding/RNA gene
+x)	clone_interpolated_map_positions.WS114.gz    - Interpolated map positions for each clone
+xi)	best_blastp_hits.WS114.gz    - for each C. elegans WormPep protein, lists Best blastp match to
+ 
+                                        human, fly, yeast, C. briggsae, and SwissProt & Trembl proteins.
+xii)	best_blastp_hits_brigprot.WS114.gz   - for each C. briggsae protein, lists Best blastp match to
+ 
+                                        human, fly, yeast, C. elegans, and SwissProt & Trembl proteins.
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS114
+------------------------------------
+brigdb : 2003-11-03 - updated
+camace : 2003-11-04 - updated
+citace : 2003-11-02 - updated
+cshace : 2003-10-21 - updated
+genace : 2003-11-07 - updated
+stlace : 2003-11-03 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS114       	WS113      	change
+----------------------------------------------
+a    	32368607	32368607	  +0
+c    	17780992	17780992	  +0
+g    	17758424	17758424	  +0
+t    	32369797	32369797	  +0
+n    	95      	95      	  +0
+-    	0       	0       	  +0
+
+Total	100277915	100277915	  +0
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 19931 CDS in autoace, 22221 when counting 2290 alternate splice forms.
+
+The 22221 sequences contain 9,696,145 base pairs in total.
+
+Modified entries             109
+Deleted entries               35
+New entries                   31
+Reappeared entries             5
+
+Net change  +1
+
+
+
+Status of entries: Confidence level of prediction (based solely on coverage by transcriptional data)
+----------------------------------------------------------------------------------------------------
+Confirmed              4644 (20.9%)     Every base has transcription evidence (mRNA, EST etc ).
+Partially_confirmed   12121 (54.5%)	Some but not all bases are covered by transcript evidence.
+Predicted              5456 (24.6%)	No transcriptional evidence at.
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2455 (11.0%)
+TrEMBL accessions     18798 (84.6%)
+TrEMBLnew accessions    926 (4.2%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            22177 (99.8%)
+
+
+
+Locus <-> Sequence connections (cgc-approved)
+---------------------------------------------
+Entries with locus connection   4507
+
+
+GeneModel correction progress WS113 -> WS114
+-----------------------------------------
+Confirmed introns not is a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|    652  |   -36  |
+St Louis 	|    300  |  -115  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		|   Exons | Change |
+		+---------+--------+
+Cambridge	|      0  |     0  |
+St Louis 	|     34  |     1  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+No synchronisation issues
+
+
+There are no gaps remaining in the genome sequence
+---------------
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+
+New Data:
+---------
+TrEMBL database updated to version 25 for blast analyses
+
+
+New Fixes:
+----------
+
+
+Known Problems:
+--------------
+
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+C. elegans PolyA sites and signals described in EMBL / Genbank / DBJJ mRNA entries will be incorporated in to WormBase from WS115
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+
+use strict;
+use Bio::DB::GFF;
+
+my $db = Bio::DB::GFF->new(-dsn => 'dbi:mysql:elegans_gmap',-user=>'nobody');
+
+my $segment = $db->segment(-name  => 'III',
+		           -start => '-7750',
+			   -stop  => '-6657',
+			   -absolute => 1
+			   );
+foreach (sort {$a->start <=> $b->start } $segment->features) {
+    print join(' ',$_,$_->start,$_->stop),"\n";
+}
+

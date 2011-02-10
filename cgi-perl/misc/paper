@@ -1,0 +1,428 @@
+#!/usr/bin/perl
+##############################################################
+# REIMPLEMENTATION:                                          #
+#    THIS SCRIPT IS NOW FROZEN! (v1.39)                      #
+#       Please do not make edits to it.                      #
+#       Frozen by: tharris on 03.04.2008                     #   
+##############################################################
+# -*- Mode: perl -*-
+# file: paper
+# C. elegans paper report
+
+use lib '../lib';
+
+use strict;
+use vars qw/$DB $WORMBASE $name $paper/;
+use Ace 1.51;
+use Ace::Browser::AceSubs qw/:DEFAULT AceRedirect/;
+
+use ElegansSubs qw(:DEFAULT Bestname build_citation get_PMID);
+use WormBase;
+use Data::Dumper;
+use CGI qw/:standard :html3 escape/;
+use DBI;
+
+END {
+  undef $WORMBASE;
+  undef $name;
+  undef $paper;
+}
+
+use constant LINK_TYPE => 'image';
+#use constant LINK_TYPE => 'generic';
+#use constant LINK_TYPE => 'id';
+
+# print HTTP header & open the database
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$WORMBASE = WormBase->new($DB);
+
+$name  = param('name');
+$paper = get_paper() if $name;
+
+if (param('citeulike')) {
+    citeulike($paper);
+    exit;
+}
+
+my $title;
+if ($paper) {
+    my @title_words = split(/\W/,$paper->Title);
+    $title = join(" ",@title_words[0..10]);
+    $title .= '...' if @title_words > 10;
+}
+
+PrintTop($paper,'Paper',($title ? "Citation: $title" : 'Citation'));
+PrintWarning($name)  if $name && !$paper;
+print_prompt();
+print_report($paper) if $paper;
+PrintBottom();
+
+# exit 0;
+
+sub print_prompt {
+  $WORMBASE->print_prompt(-message  => 'Type in a citation ID such as',
+			  -class    => 'Paper',
+			  -examples => ['11988761','WBPaper00006396','cgc184']);
+
+}
+
+sub print_report {
+  my $paper = shift;
+
+  # Check if authors are mapped
+  # Connect to database
+  if (0) {
+      my $db   = Configuration->Geo_map_db;
+      my $user = Configuration->Geo_map_user;
+      my $pass = Configuration->Geo_map_pass;
+      my $host = Configuration->Mysql_host;
+      my $dbh= DBI->connect("dbi:mysql:$db;host=$host", $user, $pass,
+			    {PrintError => 1, RaiseError => 1}
+	  );
+      
+      # Check if this paper id points any valid addresses
+      my $sth = $dbh->prepare(qq[SELECT count(*) FROM wb_by_paper WHERE paper_id = ? 
+                             AND lo	ngitude IS NOT NULL AND latitude IS NOT NULL]);
+      $sth->bind_param(1, $paper);	
+      $sth->execute;	  
+      my ($valid_count) =	$sth->fetchrow_array;
+      my $geo_map_url = "/db/misc/geo_map_by_paper?paper=$paper" if $valid_count; 
+  }   
+  
+# # Some of these values may be contained in the Paper hash
+#  # These will be overridden below
+#  my @authors   = $paper->Author;
+#  my $title     = $paper->Title;
+#  my $journal   = $paper->Journal;
+#  my $yr        = $paper->Year;
+#  my $volume    = $paper->Volume;
+#  my @pages     = $paper->Page ? $paper->Page->row : ();
+  my $abs       = $paper->Abstract;
+  
+  my $ref = build_citation(-paper  => $paper,
+			   -include_images => 1,
+			   -include_externals => 1,
+			   -format => 'long'
+			   );
+  print $ref;
+  
+  if ($abs && (my $abstext = $DB->fetch(LongText=>$abs))) {
+      my $text = $abstext->right;
+      $text = rewrap(\$text);
+      
+      # turn references into URLs.
+      # Bug here: objects with the same/similar names are not handled correctly.
+      
+      # HACK!
+      # Need to ignore certain papers that have tons of Refers_to entries
+      my @references = $paper->Refers_to(2);
+      if (@references < 100) {
+	  my %done;  
+	  foreach my	$ref (@references) {
+	      $ref = Bestname($ref) if $ref->class eq 'Gene';
+	      my $s = "$ref";		 
+	      $ref = $ref->Public_name_for if $ref->class eq 'Gene_name';
+	      next if $done{$s}++;		
+	      # The boundary assertion includes	things like periods,
+	      # meaning that clone names (D2089)	
+	      # will overwrite already substitued gene names (D2089.5)
+	      # $text =~ s/\b($s)\b/a({-href=>Object2URL($_)},"$1")/gie;
+	      #$text =~ s/\b\Q$s\E([\s|,])/a({-href=>Object2URL($_)},"$s") . $1 /gie;
+	      $text =~ s/\b\Q$s\E([\s|,])/a({-href=>Object2URL($ref)},"$s") . $1 /gie;
+	  }
+	  print p($text);
+      }
+  } else {
+      print p(font({color=>'red'},'No abstract available'));
+  }
+  
+  if (1) {
+      my @xref = $paper->Refers_to;
+      my @keywords = $paper->Keyword;
+      my @items;
+      if (@xref || @keywords) {
+	  print h2("Cross references");
+	  for my $ref (@xref) {
+	      my @col = $ref->col;
+	      if (@col < 100) {
+		  my $thingies = join(', ',map { a({-href=>Object2URL($_)},$_->class eq 'Gene' ? Bestname($_) : $_)} @col);
+		  push (@items,li(b("${ref}s:"),i($thingies)));
+	      } else {
+		  push @items,li(b("${ref}s:",scalar @col . " items"));
+	      }
+	  }	  
+	  push (@items,li(b("Keywords: "),
+			  join(", ",map { a({-href=>Object2URL($_)},$_)} @keywords)))
+	      if @keywords;
+	  print ul(@items);
+      }
+  }
+
+  bookmarks($paper);
+
+  add_external_links_table();
+
+#   if ($geo_map_url) {
+#     print h2("Author Locations");
+#     print qq[<iframe src ="$geo_map_url" height="370px" width="700px"
+#              frameborder="0" scrolling="no"></iframe>];
+#   }  
+  
+}
+
+sub rewrap {
+  my $text = shift;
+  $$text=~s/^\n+//gs;
+  $$text=~s/\n+$//gs;
+  my @para = ();
+  my $para = '';
+  foreach (split "\n",$$text) {
+    $para .= "$_ ";
+    if (length($_) < 50 && /[.!?\"]$/) {
+      push(@para,$para);
+      undef $para;
+    }
+  }
+  push(@para,p($para)) if $para;
+  return p(\@para);
+}
+
+
+
+
+
+sub get_paper {
+  # First try fetching WBPaper IDs
+  my @papers = $DB->fetch(-class =>'Paper',
+			  -name  => $name,
+#			  -fill  => 1
+			 );
+
+  unless(@papers) {
+  # try searching through Name tag for name
+    @papers = $DB->fetch(-query=>"find Paper Name=$name");
+  }
+
+  unless(@papers) {
+  # try searching through PMIDs in the database
+    @papers = $DB->fetch(-query=>"find Paper Database=MEDLINE & NEXT=PMID & NEXT=$name");
+  }
+
+  # Uniquify, displaying multiple choice if necessary
+  my %seen;
+  my @uniques = grep {!$seen{$_}} @papers;
+  if (@uniques > 1) {
+    MultipleChoices('paper',\@uniques);
+    exit 0;
+  }
+
+
+  if (@papers && $papers[0]->Merged_into) {
+      # A merged paper
+      AceRedirect('paper' => $papers[0]->Merged_into);
+      exit 0;
+  }
+
+  return $papers[0] if @papers;
+}
+
+
+
+
+sub add_external_links_table {
+  print h2("Paper Identifiers");
+
+  my $pmid = get_PMID($paper);
+  print table(
+	      TR(td('WormBase'),
+		 td($paper)),
+	      TR(td('PubMed (PMID)'),
+		 td($pmid ? a({-href=>Configuration->Pubmed_retrieve . $pmid},$pmid) : "not available" )),
+	      TR( td(($paper->Name) ? 'Other names' : ''),td(join (', ', $paper->Name)))
+	     );
+}
+
+
+# Provide reference formatting for citeulike
+sub citeulike {
+    my $paper = shift;
+    
+    print "begin_tsv\n";
+    
+    # Linkouts
+    # Always back to WormBase
+    print join("\t","linkout","WBASE","",$paper,"",""),"\n";
+
+    # PubMed
+    my $pmid = get_PMID($paper);
+    if ($pmid) {
+       print join("\t","linkout","PMID",$pmid,"","",""),"\n";
+    # WormBook
+    } elsif ($paper->WORMBOOK) {
+       print join("\t","linkout","DOI","",$paper->Name,"",""),"\n";
+    } else {}
+
+    print "title\t" . $paper->Title . "\n";
+
+    # Try and take into account authors
+    my @authors = $paper->Author;
+    
+    my ($inits,$last);
+    my $name;
+    foreach (@authors) {
+	
+	# Not even going to use Person.  It's still only
+	# semi structured
+#	if (my $person = $_->Possible_person) {    
+#	    $name = $person->Standard_name || $_;
+#	    my $first  = $person->First_name;
+#	    my $last   = $person->Last_name;
+#	    my $middle = $person->Middle_name;
+#	    
+#	    my $minit = substr($middle,0,1);
+#
+#	    $inits = "$first" if length $first == 1;
+#	    if ($minit) {
+#		$inits .= " $minit";
+##		$init .= ".";
+##		print "author\t$first $init $last\n" if $init;
+##		print "author\t$last, $first $init\n" if $init;
+#	    } else {
+#		$inits = get_inits($first,'is a name');
+##		print "author\t$first $last\n";
+##		print "author\t$last, $first\n";
+#	    }
+#	    
+#	} else {
+#	    my $raw_inits;
+#	    my ($last,$raw_inits) = split(" ",$_);
+#	    $inits = get_inits($raw_inits);
+	    $name = $_;
+#	}
+#	print "author\t$last $inits\n";
+#	print "author\t$inits $last\n";
+
+	# Maybe just the raw author is okay?
+	print "author\t$name\n";
+    }
+    
+    # the worm meetings don't have a journal
+    #$journal ||= 'Meeting abstract' if $paper->Meeting_abstract;
+    my $journal = $paper->Journal;
+    print "journal\t" . $journal . "\n" if $journal;
+    
+    # Volume
+    my ($volume)  = $paper->Volume;
+    print "volume\t$volume\n" if $volume;
+
+    # Issue
+    #print "issue\t\n";
+
+    my ($d,$m,$y) = citeulike_parse_year($paper->Publication_date);
+    print "year\t$y\n";
+    # Not currently supplying the month and day (because we don't have them!)
+    #print "day\t$d\n" if $d;
+    #print "month\t$m\n" if $m;
+
+    # Pages
+    my ($start,$end)  = $paper->Page->row if $paper->Page;
+    if ($start && $end) {
+	print "start_page\t$start\n";
+	print "end_page\t$end\n";
+    }    
+    
+    # What type of reference is this?
+    if ($paper->Meeting_abstract) {
+	print "type\tINCONF\n";
+    } elsif ($paper->Book) {
+	print "type\tCHAP\n";
+    } else {
+	print "type\tJOUR\n";
+    }
+    
+    # Parse the Paper hash if this is a book citation
+    my %parsed;
+    if ($paper->Book) {
+	my $data = ParseHash(-nodes=>$paper->Book);
+        # There should be only a single node...
+        # Piggybacking on some pre-existing code
+	
+	foreach my $node (@{$data}) {
+	    my $hash = $node->{hash};
+	    foreach (qw/Title Editor Publisher Publication_date/) {	   
+		$parsed{$_} = ($hash->{$_} =~ /ARRAY/) ? join(', ',@{$hash->{$_}}) : $hash->{$_};
+	    }
+	    last;
+	}
+	
+	print "title_secondary\t$parsed{Title}\n" if ($parsed{Title});
+	print "publisher\t$parsed{Publisher}\n" if ($parsed{Publisher});	
+    }
+    
+    my $abs       = $paper->Abstract;
+    if ($abs && (my $abstext = $DB->fetch(LongText=>$abs))) {
+	my $text = $abstext->right;
+	chomp $text;
+	$text =~ s/\n//g;
+	print "abstract\t$text\n" if $abs;	
+    }
+
+    print "end_tsv\n";
+}
+
+
+sub get_inits {
+    my ($init_string,$is_name) = @_;
+    chop $init_string if ($init_string =~ /\.$/);
+    
+    my $first = substr($init_string,0,1);
+
+    # Fetch a middle init 
+    if (length($init_string) > 1 && !$is_name) {
+	
+	my $middle = substr($init_string,1,1);
+#	return "$first. $middle." if $middle;
+	return $first;
+#		$middle .= "." if $middle;
+#		$first  .= "." if $first;
+#		print "author\t$first $middle $last\n";
+#		print "author\t$last, $first $middle\n";
+#		print "author\t$last $first $middle\n";
+    } else {
+#		my $first .= "$inits." if $inits;
+	#my $first .= "$inits" if $inits;
+#		print "author\t$first $last\n";
+#		print "author\t$last, $first\n";
+#	print "author\t$last $first\n";
+	return $first;
+    }
+}
+
+sub citeulike_parse_year {
+    my $date = shift;
+    $date =~ /(\d\d) (\w\w\w) (\d\d\d\d).*/;
+    my ($day,$month,$year) = ($1,$2,$3);
+    my @months = qw/JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC/;
+    
+    $day =~ s/^0// if $day;
+
+    $year ||= $date;  # Might already be in year format
+
+    my $c =1 ;
+    my %months2no = map { $_ => $c++ } @months;
+    return ($day,$months2no{$month},$year) if ($day && $month && $year);
+    return (undef,undef,$year);
+}
+
+sub bookmarks {
+    my $paper = shift;
+    # Citeulike and delicious
+    print h2('Bookmark this reference');
+    my $citeulike_root = "http://www.citeulike.org/posturl?url=http://www.wormbase.org/db/misc/paper?name=$paper";
+    print a({-href=>$citeulike_root},
+	    img({-src=>'/images/icons/citeulike.gif'}),
+	    'Post to CiteULike'),br;
+    print a({-href=>'http://del.iciou.us/post'},
+	    img({-src=>'/images/icons/delicious.gif'}),	    
+	    'Post to del.icio.us');
+}

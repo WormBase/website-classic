@@ -1,0 +1,195 @@
+New release of WormBase WS113, Wormpep113 and Wormrna113 031103
+===============================================================
+
+This directory includes:
+i)	database.WS113.*.tar.gz                    - compressed data for new release
+ii)	models.wrm.WS113                           - the latest database schema (also in above database files)
+iii)	CHROMOSOMES/subdir                         - contains 3 files (DNA, GFF & AGP per chromosome)
+iv)	WS113-WS112.dbcomp                         - log file reporting difference from last release
+v)	wormpep113.tar.gz                          - full Wormpep distribution corresponding to WS113
+vi)	wormrna113.tar.gz                          - WormRNA release containing non-coding RNA's in the genome
+vii)	confirmed_genes.WS113.gz                   - DNA sequences of all genes confirmed by EST &/or cDNA
+viii)	yk2orf.WS113.gz                            - Latest set of ORF connections to each Yuji Kohara EST clone
+ix)	gene_interpolated_map_positions.WS113.gz   - Interpolated map positions for each coding/RNA gene
+x)	clone_interpolated_map_positions.WS113.gz  - Interpolated map positions for each clone
+xi)	best_blastp_hits.WS113.gz                  - for each C. elegans WormPep protein, lists Best blastp match
+						     to human, fly, yeast, briggsae, and SwissProt & Trembl proteins.
+xii)	best_blastp_hits_brigprot.WS113.gz         - for each C. briggsae protein, lists Best blastp match to human, 
+						     fly, yeast, C. elegans, and SwissProt & Trembl proteins.
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+Primary databases used in build WS113
+------------------------------------
+brigdb : 2003-10-20 - updated
+camace : 2003-10-22 - updated
+citace : 2003-10-17 - updated
+cshace : 2003-10-17 - updated
+genace : 2003-10-21 - updated
+stlace : 2003-10-20 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS113       	WS112      	change
+----------------------------------------------
+a    	32368607	32367165	+1442
+c    	17780992	17780236	+ 756
+g    	17758424	17757587	+ 837
+t    	32369797	32368413	+1384
+n    	95      	95      	    0
+-    	0       	0       	    0
+---------------------------------------------
+Total	100277915	100273496	+4419
+
+Incorporation of a new segment VB0395L to chromosome X. This unfolds a repeat
+and adds a net gain of 4419 bp to the consensus sequence.
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 19935 CDS in autoace, 22220 when counting 2285 alternate splice forms.
+
+The 22220 sequences contain 9,696,674 base pairs in total.
+
+Modified entries              21
+Deleted entries                3
+New entries                    8
+Reappeared entries             0
+
+Net change  +5
+
+
+
+Status of entries: Confidence level of prediction
+-------------------------------------------------
+Confirmed              4369 (19.7%)
+Partially_confirmed   10953 (49.3%)
+Predicted              6898 (31.0%)
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2420 (10.9%)
+TrEMBL accessions     18899 (85.1%)
+TrEMBLnew accessions    883 (4.0%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            22202 (99.9%)
+
+
+
+Locus <-> Sequence connections (cgc-approved)
+---------------------------------------------
+Entries with locus connection   4493
+
+
+GeneModel correction progress WS112 -> WS113
+-----------------------------------------
+Confirmed introns not is a CDS gene model;
+
+		+----------+--------+
+		|  Introns | Change |
+		+----------+--------+
+Cambridge	|     688  |     7  |
+St Louis 	|     415  |   -17  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+----------+--------+
+		| Families | Change |
+		+----------+--------+
+Cambridge	|       0  |     0  |
+St Louis 	|      33  |     1  |
+		+----------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+No synchronisation issues with regard to DNA. A small number of CDS prediction
+problems {C04A2|C04F5|C56E6|F53F4|T13C2}
+
+
+There are no gaps remaining in the genome sequence
+--------------------------------------------------
+For more info mail worm@sanger.ac.uk
+
+-===================================================================================-
+
+
+
+New Data:
+---------
+
+Re-analysis of TSL/Oligo cap Feature_data, (removal of false positives and incorporation of new data).
+
+Transcripts are masked (a la repeatmasker) to remove TSL sequences, etc. This will be extended
+to include polyA+ tails from mRNAs for the next release.
+
+mos insertion alleles from Laurent Segalat
+
+New Fixes:
+----------
+
+Corrected script which connects ?Microarray_results to genes/transcripts/loci.
+
+
+Known Problems:
+--------------
+
+No BlastX/P data for the new segment VB0395L, (lag period for ensembl analysis).
+
+
+Other Changes:
+--------------
+
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+
+BlastX/P data for the new segment VB0395L.
+
+Re-analysis of small protein-coding genes (krb)
+
+Removal of polyA+ tails from mRNA sequences prior to BLAT analysis.
+
+Mechanism for removing transcripts from the BLAT analysis (e.g. all those ESTs which
+map to the rRNA cluster).
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

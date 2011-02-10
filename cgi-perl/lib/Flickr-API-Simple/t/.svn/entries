@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="8"
+   name=""
+   committed-date="2008-09-06T14:00:30.280143Z"
+   url="svn+ssh://tharris@toddharris.net/home/tharris/svn/public/Flickr-API-Simple/t"
+   last-author="tharris"
+   kind="dir"
+   uuid="2fd37b26-5054-0410-acc1-87f233285a77"
+   revision="10"/>
+<entry
+   committed-rev="8"
+   name="TestConfig.pm"
+   text-time="2008-09-06T15:55:41.000000Z"
+   committed-date="2008-09-06T14:00:30.280143Z"
+   checksum="221d99ce340fe6b336844defb427db03"
+   last-author="tharris"
+   kind="file"
+   prop-time="2008-09-06T15:55:41.000000Z"/>
+<entry
+   committed-rev="8"
+   name="boilerplate.t"
+   text-time="2008-09-06T15:55:41.000000Z"
+   committed-date="2008-09-06T14:00:30.280143Z"
+   checksum="bf9d9f1ead3facfc52e6d66da3f3521c"
+   last-author="tharris"
+   kind="file"
+   prop-time="2008-09-06T15:55:41.000000Z"/>
+<entry
+   committed-rev="8"
+   name="pod.t"
+   text-time="2008-09-06T15:55:41.000000Z"
+   committed-date="2008-09-06T14:00:30.280143Z"
+   checksum="9c48a34a6d04cc87219a5cfa48b59f8d"
+   last-author="tharris"
+   kind="file"
+   prop-time="2008-09-06T15:55:41.000000Z"/>
+<entry
+   committed-rev="8"
+   name="02-photo.t"
+   text-time="2008-09-06T15:55:41.000000Z"
+   committed-date="2008-09-06T14:00:30.280143Z"
+   checksum="5bfc185a1224a67cc5035617cf111cec"
+   last-author="tharris"
+   kind="file"
+   prop-time="2008-09-06T15:55:41.000000Z"/>
+<entry
+   committed-rev="8"
+   name="pod-coverage.t"
+   text-time="2008-09-06T15:55:41.000000Z"
+   committed-date="2008-09-06T14:00:30.280143Z"
+   checksum="9e9deea0b723c929afdfd854c094f987"
+   last-author="tharris"
+   kind="file"
+   prop-time="2008-09-06T15:55:41.000000Z"/>
+<entry
+   committed-rev="8"
+   name="00-load.t"
+   text-time="2008-09-06T15:55:41.000000Z"
+   committed-date="2008-09-06T14:00:30.280143Z"
+   checksum="fd5a892f8105bb1b29749e54f8191400"
+   last-author="tharris"
+   kind="file"
+   prop-time="2008-09-06T15:55:41.000000Z"/>
+<entry
+   committed-rev="8"
+   name="01-user.t"
+   text-time="2008-09-06T15:55:41.000000Z"
+   committed-date="2008-09-06T14:00:30.280143Z"
+   checksum="5a34370f9a8ee69cfa41235ce1552b82"
+   last-author="tharris"
+   kind="file"
+   prop-time="2008-09-06T15:55:41.000000Z"/>
+</wc-entries>

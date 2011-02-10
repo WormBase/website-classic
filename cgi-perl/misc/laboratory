@@ -1,0 +1,241 @@
+#!/usr/local/bin/perl
+##############################################################
+# REIMPLEMENTATION:                                          #
+#    THIS SCRIPT IS NOW FROZEN! (v1.20)                      #
+#       Please do not make edits to it.                      #
+#       Frozen by: tharris on 02.09.2008                     #   
+##############################################################
+
+# -*- Mode: perl -*-
+# file: laboratory
+# C. elegans laboratory report
+
+use lib '../lib';
+
+use strict;
+use vars qw/$DB $WORMBASE $lab @labs/;
+use Ace 1.51;
+use Ace::Browser::AceSubs qw/:DEFAULT AceMultipleChoices/;
+use ElegansSubs qw/:DEFAULT StartCache/;
+use WormBase;
+use CGI 2.42 qw/:standard :html3 escape *table *TR *td *center *ul/;
+
+END {
+  undef $WORMBASE;
+  undef $lab;
+  undef @labs;
+}
+
+# print HTTP header & open the database
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+StartCache();
+$WORMBASE = WormBase->new($DB);
+
+my $lab_name  = param('name');
+@labs         = $DB->fetch(-class =>'Laboratory',
+			   -name  => $lab_name,
+			   -fill  => 1,
+			  ) if $lab_name;
+
+if ($lab_name eq '*') {
+  PrintTop(undef,undef,'Laboratory Summary: All C. elegans laboratories');
+  print_prompt();
+  display_lab_table();
+  PrintBottom;
+  exit 0;
+} elsif (@labs > 1) {
+  PrintTop(undef,undef,'Laboratory Summary: Multiple Results');
+  print_prompt();
+  AceMultipleChoices(scalar @labs, 'Laboratory' => \@labs);
+  PrintBottom;
+  exit 0;
+} elsif (@labs == 1) {
+  $lab = @labs[0] if @labs;
+  PrintTop($lab);
+  PrintWarning($lab_name)    if $lab_name && !$lab;
+  print_prompt();
+  print_report($lab) if $lab;
+  PrintBottom();
+  exit 0;
+} else {
+   PrintTop(undef,undef,'Laboratory Report');
+   print_prompt();
+   PrintBottom;
+   exit;
+}
+
+sub print_prompt {
+  $WORMBASE->print_prompt(-message  => a({-href=>Object2URL('*','laboratory')},'Browse all')
+			  . i(' C. elegans') . ' laboratories or enter a laboratory symbol, such as',
+			  -class    => 'Laboratory',
+			  -examples => [ {'no_message' => 'MT'},
+					 {'no_message' => 'CB'},
+					 {'no_message' => 'EG'},
+			       ]);
+}
+
+sub print_report {
+  my $lab = shift;
+
+  my ($name,@address)    = $lab->Address(2);
+  if ($name) {
+    print h2($name);
+    print "Fax  : " . $lab->Fax   . br if $lab->Fax;
+    print "Phone: " . $lab->Phone . br if $lab->Phone;
+    print "Email: " . $lab->Email . br if $lab->Email;
+  }
+
+  foreach my $rep ($lab->Representative) {
+    my ($name)       = $rep->Standard_name;
+    my ($laboratory) = $rep->Laboratory;
+    my (@a)          = $rep->Address(2);
+    foreach (@a) {
+      $_ = $_->right if $_->right;  # AtDB damnation
+    }
+
+    print p,b("Representative: ",a({-href=>Object2URL($rep)},$name || $rep)),br;
+    if (@a) {
+	print address(join(br(),@a));
+	if (my $email = $rep->get('E_mail'=>1)) {
+	    $email = $email->right if $email->right; #AtDB damnation                      
+	    print p(a({-href=>"mailto:$email"},
+		      "Send E-Mail to ",$name || $rep));
+	}
+    }
+    print br;
+  }
+  print 'Lab URL (external site): ' . a({-href=>$lab->URL},$lab->URL) if $lab->URL;
+
+  if (my @genes = $lab->get('Gene_classes')) {
+    print
+      h4("Responsible for gene",@genes > 1 ? "classes:" : "class:"),
+      ul(li[map { join(' ',ObjectLink($_) . " (" . ($_->Phenotype || $_->Description) . ")") } @genes]);
+  }
+    
+  if (my @alleles = $lab->get('Allele_designation')) {
+    print 
+      h4("Responsible for allele",@alleles > 1 ? "prefixes:" : "prefix:",
+	 cite(\@alleles)),
+  }
+
+  my %seen;   # Purge based on standard name
+#  foreach my $tag (qw/Registered_lab_members Past_lab_members Unregistered_lab_members/) {
+  foreach my $tag (qw/Registered_lab_members Past_lab_members/) {
+    if (my @group = $lab->$tag) {
+      my $label = $tag;
+      $label =~ s/_/ /g;
+      print h4($label);
+      if ($tag ne 'Unregistered_lab_members') {
+	print ul(li[map { $seen{$_->Standard_name}++;
+			  a({-href=>Object2URL($_)},$_->Full_name) }
+		    sort { $a->Last_name cmp $b->Last_name }
+		    @group]);
+      } else {
+	#	my @purged;
+	#	IND: foreach my $ind (@group) {
+	###	    my $not_seen;
+	#	    foreach ($ind->Full_name) {
+	#	      next IND if $seen{$_};
+	###	      if ($seen{$_}) {
+	###		next IND;
+	###	      } else {
+	###      	$not_seen++;
+	###	      }
+	#	    }
+	#	    push @purged,$ind;
+	#	  }
+	#	print ul(li[map { ObjectLink($_) }
+	#		    sort {$a cmp $b } @purged]);
+      }
+    }
+  }
+
+  if (my @remarks = $lab->Remark) {
+    print  h4("Remarks");
+    print start_ul();
+    foreach (@remarks) {
+      if (/http/) {
+	my ($url) = $_ =~ /.*(http:\/\/.*)/;
+	print li(a({-href=>$url},$url));
+      } else {
+	print li($_);
+      }
+    }
+    print end_ul();
+  }
+}
+
+
+
+
+
+
+sub display_lab_table {
+  my @labs = $DB->fetch(-query=>qq/find Laboratory/,-fill=>1);
+  my @rows;
+  foreach my $lab (sort { $a cmp $b } @labs) {
+      my $wb     = $lab->Representative;
+      my $last   = $wb->Last_name if $wb;
+      my $first  = $wb->First_name if $wb;
+      my $mail   = $lab->Mail;
+      my $allele = join('; ',$lab->Allele_designation);
+      my $name = ($last) ? "$last, $first;$wb" : $wb;
+      my $url  = $lab->URL;
+      
+      push (@rows,[$name,$lab,$allele,$mail,$url]);
+  }
+  
+  my %cols = (
+      0 => 'Representative',
+      1 => 'Laboratory',
+      2 => 'Allele',
+      3 => 'Address',
+      4 => 'Website',
+      );
+  
+  my %widths = (0=>'25%',1=>'15%',2=>'15%',3=>'45%');
+  
+  my $sort_by    = url_param('sort');
+  $sort_by = ($sort_by eq '') ? 4 : $sort_by; # Have to do it this way because of 0
+  my $sort_order = (param('order') eq 'ascending') ? 'descending' : 'ascending';
+  my @sorted;
+  if ($sort_by =~ /[01234]/) {
+      if ($sort_order eq 'ascending') {
+	  @sorted = sort { lc ($a->[$sort_by]) cmp lc ($b->[$sort_by]) } @rows;
+      } else {
+	  @sorted = sort { lc ($b->[$sort_by]) cmp lc ($a->[$sort_by]) } @rows;
+      }
+  } else {
+      if ($sort_order eq 'ascending') {
+	  @sorted = sort { $a->[$sort_by] <=> $b->[$sort_by] } @rows;
+      } else {
+	  @sorted = sort { $b->[$sort_by] <=> $a->[$sort_by] } @rows;
+      }
+  }
+  
+  # Create column headers linked with the sort options
+  print hr;
+  print start_center();
+  print start_table({-width=>'80%'});
+  my $url = url(-absolute=>1,-query=>1);
+  $url .= "?name=" . param('name') . ';sort=';
+  print TR(map {th({-class=>'dataheader',-width=>$widths{$_}},
+		   a({-href=>$url . $_ . ";order=$sort_order"},
+		     $cols{$_}
+		     . img({-width=>17,-src=>'/images/sort.gif'})
+		   ))}
+	   sort {$a <=> $b} keys %cols);
+  
+  foreach (@sorted) {
+      my ($contact,$lab,$allele,$address,$url) = @$_;
+      my ($rep,$wb) = split(';',$contact);
+      print TR(td({-class=>'datacell'},a({-href=>Object2URL($wb,'person')},$rep)),
+	       td({-class=>'datacell'},ObjectLink($lab)),
+	       td({-class=>'datacell'},ObjectLink($allele)),
+	       td({-class=>'datacell'},$address),
+	       td({-class=>'datacell'},$url ? a({-target=>'_blank',-href=>$url},'[website]') : '')
+	  );
+  }
+  print end_table;
+  print end_center();
+}

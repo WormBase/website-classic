@@ -1,0 +1,159 @@
+#!/usr/bin/perl
+##############################################################
+# REIMPLEMENTATION:                                          #
+#    THIS SCRIPT IS NOW FROZEN! (v1.20)                      #
+#       Please do not make edits to it.                      #
+#       Frozen by: tharris on 02.09.2008                     #   
+##############################################################
+
+
+# A simple display of antibody reagents
+
+use strict;
+use lib '../lib';
+use vars qw/$DB $antibody/;
+use Ace;
+use Ace::Browser::AceSubs;
+use ElegansSubs qw(:DEFAULT PrintRefs Bestname format_references);
+use CGI qw/:standard :html3 *table/;
+
+END {
+  undef $antibody;
+}
+
+use constant NONE => i('not available');
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$DB->class('Ace::Object::Wormbase');
+
+$antibody = get_object();
+
+PrintTop($antibody,'Antibody',($antibody) ? "Antibody report for: $antibody" : 'Antibody Report');
+print_prompt();
+PrintWarning(param('name')) if (param('name') && !$antibody);
+
+if ($antibody) {
+  general_info();
+  expr_patterns();
+  print_bibliography();
+}
+
+print end_table();
+PrintBottom();
+
+exit 0;
+
+
+###########################
+sub get_object {
+  my $request = param('name');
+  $request or return;
+
+  # The most common request: by antibody ID
+  my @ab = $DB->fetch('Antibody' => $request);
+  return ($ab[0]) if @ab;
+
+  # Allow users to search by
+  #  -- three-letter gene names
+  #  -- CDSes
+  #  -- lab IDs
+  #  -- Antibody Other_names
+  # Sometimes CDSes are not attached to the antibody - fetch from the locus
+  my @queries = ("find Gene where Public_name=*$request*; follow Antibody",
+		 "find Antibody where Other_name=*$request*",
+		 "find Antibody where Gene=*$request*,",  # This will not work
+		 "find Antibody where CDS=*$request*",
+		 "find Antibody where Location=$request");
+  foreach (@queries) {
+    my @ab = $DB->fetch(-query=>$_) unless (@ab);
+    next unless @ab;
+    if (scalar @ab > 1) {
+      MultipleChoices(\@ab);
+      exit 0;
+    } else {
+      return $ab[0];
+    }
+  }
+}
+
+
+sub general_info {
+  print start_table({-border=>1});
+  StartSection('General Information');
+  SubSection('Summary',$antibody->Summary);
+  SubSection('Other name',$antibody->Other_name);
+
+  my @linked;
+  foreach my $location (sort {$a cmp $b } $antibody->Location) {
+    my $rep      = eval { $location->Representative->Standard_name} if $location;
+    my $add      = $location->Mail;
+    my $tag = ObjectLink($rep) . ($add ? ", $add" : '');
+    push (@linked,ObjectLink($location) . ($tag ? " ($tag)" : ''));
+  }
+  SubSection('Source/Location',join(br,@linked)) if (@linked);
+    
+  my $gene  = $antibody->Gene;
+  # Was the CDS provided? If not, let's fetch it from the locus
+  if ($gene) {
+    SubSection('Generated against locus',ObjectLink($gene,Bestname($gene)));
+  }
+
+  # CDS / Gene information
+  my $gene = $antibody->Gene;
+  if ($gene) {
+      my $bestname = Bestname($gene);
+      SubSection('Corresponding gene',ObjectLink($gene,$bestname));
+  }
+
+  # Antibody information
+  SubSection('Clonality',$antibody->Clonality) if ($antibody->Clonality);
+
+  # Antigen information
+  my ($type,$comment) = eval { $antibody->Antigen->row };
+  $type =~ s/_/ /g;
+  SubSection('Antigen',$type . (($comment) ? " ($comment)" : '')) if ($type);
+  
+  my $animal = $antibody->Animal;
+  SubSection('Animal',$animal || NONE);
+  SubSection('Notes',$antibody->Remark);
+  EndSection;
+}
+
+sub expr_patterns {
+  if (my @expr_patterns = $antibody->Expr_pattern) {
+    StartSection('Expression Pattern(s)');
+    my %seen;
+    SubSection('',map {
+      my $date = $_->Date || '';
+      ($date) = $date =~ /(\d+) \d+:\d+:\d+$/;
+      my $author = $_->Author || '';
+      my $ref    = $author ? "$author $date" : $_;
+      my $pattern = $_->Pattern || $_->Subcellular_localization || $_->Remark;
+      $pattern    =~ s/^(.{255}).+/$1.../ if length $pattern > 255;
+      $pattern . ObjectLink($_," [For more details see: $ref]")}
+	       grep {!$seen{$_}++} @expr_patterns);
+    EndSection;
+  }
+}
+
+sub print_bibliography {
+  StartSection('References');
+  my @references = $antibody->Reference;
+  format_references(-references=>\@references,-format=>'long',-pubmed_link=>'image',-curator=>url_param('curator'));
+  EndSection;
+}
+
+sub print_prompt {
+  my $url = url(-absolute=>1) . '?name=';
+  print
+    start_form,
+      p({-class=>'caption'},
+	join(' ',
+	     'Type in a three-letter gene name (' . a({-href=>$url . 'glp-1'},'glp-1') . '),',
+	     'a CDS (' . a({-href=>$url . 'K04G7.3'},'K04G7.3') . '),',
+	     'an antibody ID (' . a({href=>$url . "%5Bcgc2018%5D%3Amec-7"},'[cgc2018]:mec-7') .'),',
+	     'or a laboratory location (' . a({href=>$url . "MT"},'MT') . ').')),
+	       p("Symbol: ",
+		 textfield(-name=>'name')),
+		   end_form;
+  return;
+}

@@ -1,0 +1,230 @@
+#!/usr/bin/perl
+
+# Why is there all the AQL processing code in here (and vice versa for aql_query?)
+
+use lib '../lib';
+
+use strict;
+use vars qw($DB);
+
+use Ace;
+use CGI qw/:standard :html3 escape *table *center/;
+use CGI::Carp qw/fatalsToBrowser/;
+use Ace::Browser::AceSubs qw(:DEFAULT DoRedirect Style);
+use Ace::Browser::SearchSubs;
+use ElegansSubs;
+
+use Time::Format;
+use Date::Manip;
+
+# Now using squid to direct queries to aceserver
+#use constant DIRECT_TO => Configuration->Wql2wormbase || $ENV{HTTP_HOST};
+
+my $query          = param('query');
+my $search_class   = param('class');
+my $search_pattern = param('pattern');
+my $offset         = AceSearchOffset();
+
+# For notifying myself about queries
+my $recipient = qq[Todd Harris <toddcron\@gmail.com>];
+
+# fetch database handle
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+my ($objs,$count,$msg);
+if ($query) {
+  ($objs,$count) = do_search($query,$offset);
+} elsif ($search_class) {
+  $search_pattern ||= '*';
+  ($objs,$count,$msg) = do_browse($search_class,$search_pattern || '*',$offset) if $search_class;
+}
+DoRedirect(@$objs) if $count==1;
+
+if (param('format') ne 'Text output') {
+    PrintTop(undef,undef,undef,
+	 '-Title' =>'WormBase Query Language Search',
+	 '-Style' => Style(),
+#	 '-Target' =>'_top',
+	 '-Class' =>'search');
+    display_search_form($query,$search_class);
+}
+
+print $msg if defined $msg;
+display_search($objs,$count,$offset,$query)     if $search_class || $query;
+
+if (param('format') ne 'Text output') {
+    PrintBottom();
+}
+
+sub display_search_form {
+  my ($query,$search_class) = @_;
+  my $none = !$query && !$search_class;
+
+# hack for working offline
+  my @classlist = $DB->classes;
+#  my @classlist = qw(a b c d e);
+# end hack for working offline
+
+  if ($none or $query) {
+    DisplayInstructions('Wormbase Query Language Search',
+			'This search uses the old-style Ace Query Language.',
+			'Type in a search term using the Ace query language. 
+                      Separate multiple statements with semicolons.',
+			"Examples: ".ul(
+					li(
+					   ['find Author COUNT Paper > 100',
+					    'find Author IS "Garvin*" ; >Laboratory; >Staff'
+					   ])),
+			
+                        a({-href=>"http://www.acedb.org/Cornell/acequery_examples.html"}, 
+			  'Examples for querying GrainGenes and MaizeDB databases [external link]'),
+			a({-href=>"http://www.acedb.org/Cornell/#query"}, 
+			  'Documentation and more examples [external link]')
+		       );
+
+    # Mirrors may not have these configuration directives set...
+    # my $target = Configuration->Wormbase2wql || $ENV{HTTP_HOST};
+    # Now using squid to redirect to aceserver
+#    print
+#      start_form(-action=>$target . '/db/searches/wb_query'),
+#	a({-name=>'search'},''),
+#	start_center(),
+#	table(TR({-class=>'searchbody'},td({-align=>'center'},
+#					   textfield(-name=>'query',-size=>50),
+#					   submit(-label=>'Query ACeDB'),
+#					   radio_group(-name=>'format',-value=>['HTML output','Text output'])))),
+
+    print
+      start_form(-action=>'/db/searches/wb_query'),
+	a({-name=>'search'},''),
+	start_center(),
+	table(TR({-class=>'searchbody'},td({-align=>'center'},
+					   textfield(-name=>'query',-size=>50),
+					   submit(-label=>'Query ACeDB'),
+					   radio_group(-name=>'format',-value=>['HTML output','Text output'])))),
+	end_center(),
+	end_form;
+  }
+}
+
+sub do_search {
+    my ($query,$offset) = @_;
+    my $count;
+    my (@objs) = $DB->find(-query=> $query,
+#			   -count  => MAXOBJECTS,
+			   -offset => $offset,
+			   -total => \$count);
+    return unless @objs;
+    return (\@objs,$count);
+}
+
+sub display_search {
+  my ($objs,$count,$offset,$query) = @_;
+  unless ($count) {
+    print p(strong({-class=>'error'},"No objects found. Please try again."));
+    return;
+  }
+  my $title = p(strong($count),"objects satisfying the query",strong($query));
+
+  # AceResultsTable(\@$objs,$count,$offset,$title) if @$objs;
+  if (param('format') eq 'Text output') {
+    text_dump($objs);
+  } elsif (param('format') eq 'HTML output') {
+    html_dump($objs);
+  }
+
+  #  my @objects = map { a({-href=>DIRECT_TO . Object2URL($_)},"$_") } @$objs;
+  #  AceResultsTable(\@objects,$count,$offset,$title) if @objects;
+#  email_query($query);
+  log_query($query);
+  exit 0;
+}
+
+
+
+
+sub do_browse {
+  my ($class,$pattern,$offset) = @_;
+  my ($count,$msg);
+  my (@objs) = $DB->fetch(-class=>$class,-pattern=>$pattern,
+			  -count=>MAXOBJECTS,-offset=>$offset,
+			  -total=>\$count);
+  if (!@objs && $pattern !~ /\*/) {
+    $msg = p({-class=>'error'},qq(No matching objects found with "$pattern".  Autocompleting to "*$pattern*"));
+    @objs = $DB->fetch(-class=>$class,-pattern=>"*$pattern*",
+		       -count=>MAXOBJECTS,-offset=>$offset,
+		       -total=>\$count);
+  }
+  return unless @objs;
+  return (\@objs,$count,$msg);
+}
+
+sub text_dump {
+  my $objects = shift;
+  print header('text/plain');
+  print join("\n",@$objects);
+}
+
+sub html_dump {
+  my $objects = shift;
+
+  # Now using squid to handle redirects
+  ##  my @linked = map { a({-href=>DIRECT_TO . Object2URL($_)},"$_") } @$objects;
+  my @linked = map { a({-href=>Object2URL($_)},"$_") } @$objects;
+  print start_table({-border=>1,-width=>'50%'});
+  print caption(scalar @linked . " objects returned");
+
+  print map { TR(td($_)) } @linked,end_table();
+}
+
+# Create a temporary log of the types of AQL queries that people are running
+sub email_query {
+  my $query = shift;
+  my $timestamp = timestamp();
+  my $hostname = get_hostname();
+  my $ua       = $ENV{HTTP_USER_AGENT};
+  my $remote_addr = $ENV{REMOTE_ADDR};
+  my $remote_host = $ENV{REMOTE_HOST};
+
+  open (MAIL,"| /usr/lib/sendmail -t") or die ("Cannot open sendmail for email alert!");
+  print MAIL <<END;
+From: $recipient
+To: $recipient
+Subject: WB query submitted on $hostname
+
+Automated Message: A WB query has been submitted!
+
+Time Stamp: $timestamp
+Hostname: $hostname
+
+Remote host : $remote_host ($remote_addr)
+User agent  : $ua
+
+  $query
+
+END
+    close MAIL or die "Cannot close sendmail: $!";
+    }
+
+
+sub log_query {
+  my $query = shift;
+  open OUT,">>/usr/local/wormbase/logs/queries/wb.log" or return;
+  my $timestamp = timestamp();
+  my $remote_addr = $ENV{REMOTE_ADDR};
+  print OUT "[$timestamp]\t$remote_addr\t$query\n";
+  close OUT;
+}
+
+
+sub timestamp {
+  my $time = time();
+  return time_format('dd/Mon/yyyy:hh:mm:ss tz', $time);
+}
+
+
+sub get_hostname {
+  my $hostname = `hostname` or die "Cannot determine hostname!\n";
+  chomp $hostname;
+  return $hostname;
+}

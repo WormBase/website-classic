@@ -1,0 +1,584 @@
+#!/usr/local/bin/perl -w
+
+#NOT READY FOR PRIME TIME!!!
+
+use strict;
+use Ace;
+use CGI qw(:standard *table *TR *td *th);
+use vars qw($DB $USERNAME $PASSWORD $STATUS_REDO $GENE_MODEL %MULTIWORD);
+
+# HARD CODED == BAD
+use constant ACEDB_MACHINE => 'localhost';
+use constant ACEDB_PORT    => 2008;  
+#use constant ACEDB_PORT    => 200005;
+
+# OK
+use constant GENE_CLASS    => 'Gene';
+use constant GENE_NAME_PAT => 'g%06d';
+use constant CREATE        => 'Create New Gene';
+use constant EDIT          => 'Edit Gene';
+use constant UPDATE        => 'UPDATE';
+use constant ADD_OTHER_NAME => 'Add';
+use constant EVIDENCE_TYPE => 'other_name_evidence';
+use constant EVIDENCE_REF  => 'other_name_evidence_ref';
+use constant OTHER_NAME    => 'other_name';
+use constant KILL          => 'KILL GENE';
+use constant SPLIT         => 'SPLIT';
+use constant MERGE         => 'MERGE';
+use constant RESURRECT     => 'RESURRECT GENE';
+use constant MERGE_TARGET  => 'MERGE_TARGET';
+use constant NAME          => 'name';
+use constant UPDATE_ATTRIBUTES => 'UPDATE ATTRIBUTES';
+
+($USERNAME,$PASSWORD)= get_auth_info();
+
+$DB = Ace->connect(-host=>ACEDB_MACHINE,
+		   -port=>ACEDB_PORT,
+		   -user=>$USERNAME,
+		   -pass=>$PASSWORD)
+  unless $DB && $DB->ping;
+$DB || die "Can't open database: ",Ace->error;
+($GENE_MODEL) = $DB->fetch(-class=>'Model',
+			   -name => '?Gene',
+			   -fill => 1);
+%MULTIWORD = (Phenotype=>1, Description=>1);
+$STATUS_REDO = 0;
+
+print_start();
+
+my $obj;
+if (param(NAME) && !param(CREATE)) {
+  my @obj = lookup_object(param('name'));
+  if (@obj > 1) {
+    pick_object(@obj);
+  } elsif (@obj < 1) {
+    error("No gene named",param('name'),"found.");
+  } else {
+    $obj = $obj[0];
+    $obj    = process_updates($obj);
+  }
+}
+
+$obj = new_gene() if param(CREATE);
+
+print_search();
+
+if ($obj) {
+  print start_form;
+  print hidden(-name=>NAME,-value=>$obj->name,-override=>1);
+  print_names($obj);
+  print_attributes($obj) if $obj->Live(0);
+  print_history($obj);
+  print end_form;
+}
+
+print_end();
+
+sub lookup_object {
+  my $name = shift;
+  my @gene = $DB->fetch(-class => 'Gene',
+			-name => $name,
+			-fill => 1);
+  # if that didn't work, try getting a Gene_name
+  if (!@gene) {
+    my @gene_names = $DB->fetch(Gene_name=>$name);
+    for my $name (@gene_names) {
+      push @gene,$name->follow(-tag=>'Gene',-filled=>1);
+    }
+  }
+  @gene;
+}
+
+sub print_search {
+  print start_form;
+
+  print start_table({-border=>0,-bgcolor=>'wheat',-width=>'100%'});
+  print TR(th({-colspan=>2}),'Search/Create');
+  print_row('&nbsp;',submit(CREATE));
+  print_row('Gene Name/ID',textfield(-name=>'name').
+	    submit(EDIT));
+  print end_table,p;
+
+  print end_form;
+}
+
+sub pick_object {
+  my @genes = @_;
+  print h2('This name corresponds to several genes.  Select one.');
+  my $self = url(-relative=>1);
+  my @list;
+  for my $g (@genes) {
+    my $id = $g->name;
+    my %seen;
+    my @aliases = grep {!$seen{$_}++} $g->Name(2);
+    my $status = $g->Live(0) ? b('active') : b('dead');
+    my $url = "$self?name=".escape($g->name);
+    push @list,a({-href=>$url},join ', ',@aliases,"($id) [$status]");
+  }
+  print ol(li(\@list));
+}
+
+sub process_updates {
+  my $gene = shift;
+  return unless $gene;
+
+  my $updated = 0;
+
+ BLOCK:
+  {
+
+    if (param(UPDATE) || param(ADD_OTHER_NAME) || param(UPDATE_ATTRIBUTES)) {
+
+      if (param('Cgc_name') ne param('original_Cgc_name')) {
+	$updated +=
+	  do_name_change($gene,'CGC_name',
+			 param("original_Cgc_name")||'',param('Cgc_name'));
+      }
+
+      if (param('Sequence_name') ne param('original_Sequence_name')) {
+	$updated +=
+	  do_name_change($gene,'Sequence_name',
+			 param("original_Sequence_name")||'',param('Sequence_name'));
+	# ensure that the gene is automatically associated with a Sequence
+	$gene->add(Transcript => scalar param('Sequence_name'));
+      }
+
+      # now do attribute updates
+      $updated += update_attributes($gene);
+    }
+
+    my @to_delete = map {/^Delete (.+)$/ ? $1 : ()} param();
+    foreach (@to_delete) {
+      $updated += do_name_change($gene,'Other_name',$_,'');
+    }
+
+    if (param(OTHER_NAME)) {
+      my $other_name = param(OTHER_NAME);
+      unless ($other_name) {
+	error(qq(Please complete the "New name" field.));
+	$STATUS_REDO++;
+	last BLOCK;
+      }
+      my $evidence_type = param(EVIDENCE_TYPE);
+      my $evidence_ref  = param(EVIDENCE_REF);
+      unless ($evidence_ref) {
+	error(qq(Please provide the Person, Paper or Sequence that 
+		 provides the evidence for this new name.));
+	$STATUS_REDO++;
+	last BLOCK;
+      }
+
+      unless (check_reference($evidence_type=>$evidence_ref)) {
+	error(qq(No $evidence_type with the ID $evidence_ref exists in the database.));
+	$STATUS_REDO++;
+	last BLOCK;
+      }
+      $updated += do_name_change($gene,'Other_name','',
+				 $other_name,$evidence_type,$evidence_ref);
+      param(OTHER_NAME => '');
+    }
+
+    if (param(MERGE)) { # doing a merge
+      my $merge_to = param(MERGE_TARGET);
+
+      unless ($merge_to) {
+	error(qq(Please provide the name or ID of an 
+		 existing gene to receive the merge information.));
+	$STATUS_REDO++;
+	last BLOCK;
+      }
+      my @genes = lookup_object($merge_to);
+
+      if (@genes > 1) {
+	my $original = param(MERGE_TARGET);
+	error(qq(The merge target $merge_to corresponds to more than one gene.  
+		 Please pick the one you want:));
+	my @list;
+	for my $g (@genes) {
+	  my $id = $g->name;
+	  my %seen;
+	  my @aliases = grep {!$seen{$_}++} $g->Name(2);
+	  param(MERGE_TARGET() => $g->name);
+	  my $url = self_url();
+	  push @list,a({-href=>$url},join ', ',@aliases,"($id)");
+	}
+	print ol(li(\@list));
+
+	$STATUS_REDO++;
+	param(MERGE_TARGET() => $original);
+	last BLOCK;
+
+      } elsif (@genes == 0) {
+	error(qq(The marge target name $merge_to is unknown.  Please choose an existing gene.
+		 Use the split button to create a new gene that is a clone of the current one.));
+	$STATUS_REDO++;
+	last BLOCK
+      }
+
+      # if we get here, we can do a merge
+      my $new_gene = $genes[0];
+      if ($new_gene eq $gene) {
+	error(qq(You cannot merge a gene into itself.));
+	$STATUS_REDO++;
+	last BLOCK
+      }
+
+      split_merge($gene,$new_gene,'merge');
+      update_gene($gene)      or error("Couldn't update $gene:",Ace->error);
+      update_gene($new_gene)  or error("Couldn't update $new_gene:",Ace->error);
+      param(NAME()         => $new_gene);
+      param(MERGE_TARGET() => '');
+      return $new_gene;
+    }
+  }
+
+  if (param(KILL)) {
+    $updated += kill_resurrect($gene,!$gene->Live(0));
+  }
+
+  if (param(SPLIT)) {
+    my $new_gene = new_gene();
+    split_merge($gene,$new_gene,'split');
+    update_gene($gene)      or error("Couldn't update $gene:",Ace->error);
+    update_gene($new_gene)  or error("Couldn't update $new_gene:",Ace->error);
+    param(name=>$new_gene);
+    return $new_gene;
+  }
+
+  update_gene($gene) or error("Couldn't update $gene:",Ace->error) if $updated;
+  $gene;
+}
+
+# may error out
+sub update_gene {
+  my $gene = shift;
+  my $public_name = $gene->Cgc_name || $gene->Sequence_name;
+  $gene->add(Public_name => $public_name) unless $public_name eq $gene->Public_name;
+  #  $gene->debug(1);
+  my $result = $gene->commit;
+  $DB->raw_query('save');
+  $result;
+}
+
+sub new_gene {
+  my $gene = $DB->new(GENE_CLASS,GENE_NAME_PAT);
+  error("Can't create gene",$DB->error) unless $gene;
+  param('name' => $gene);
+  return unless $gene;
+  $gene->add('Version' => 1);
+  $gene->add('Live');
+  $gene->add(Species => 'C. elegans');
+  my $date = Ace->datetime;
+  $gene->add('Version_change' => [1,$date,$USERNAME,'Created']);
+  if ($gene->commit) {
+    return $gene;
+  } else {
+    print error("Gene created, but can't commit to database",Ace->error);
+    return;
+  }
+}
+
+# split a gene into a new gene
+sub split_merge {
+  my ($source,$target,$operation) = @_;
+
+  my $attributes = $source->Attributes(0);
+  my $name       = $source->Name(0);
+  $target->add_tree(Name=>$name) if $name;              # copy names
+  $target->add_tree(Attributes=>$attributes) if $attributes;  # copy attributes
+
+  # update histories
+  my $sversion = $source->Version+1;
+  my $tversion = $target->Version+1;
+  if ($operation eq 'merge') {
+    $source->add(Merged_into => $target);
+    $source->add(Version_change => [$sversion,Ace->datetime,$USERNAME,
+				    'Event','Merged_into',$target]);
+    $target->add(Version_change => [$tversion,Ace->datetime,$USERNAME,
+				    'Event','Acquires_merge',$source]);
+    $source->delete('Live');   # source becomes dead -- it is superseded
+  } else {  # split
+    $source->add(Split_child => $target);
+    $source->add(Version_change => [$sversion,Ace->datetime,$USERNAME,
+				    'Event','Split_into',$target]);
+    $target->add(Version_change => [$tversion,Ace->datetime,$USERNAME,
+				    'Event','Split_from',$source]);
+  }
+  1;
+}
+
+sub print_names {
+  my $gene = shift;
+
+  if ($gene) {
+    print start_table({-bgcolor=>'burlywood',-border=>1,-cellspacing=>0,-width=>'100%'});
+    print TR(th({-colspan=>2},font({-size=>'+1'},'Edit names for gene',$gene->Public_name || $gene)));
+
+    my $public_name = $gene->Public_name
+      || $gene->Cgc_name 
+	|| $gene->Sequence_name;
+    print hidden(-name=>'Public_name',
+		 -value=>[$public_name],
+		 -override=>1);
+    print_row('Internal DB ID',$gene);
+    print_row('Public name',$public_name||'none assigned');
+    print_row('Version',$gene->Version);
+    print_row('Status',$gene->Live(0) ? b('live') : b('dead (inactive)'));
+    print_row('CGC name',textfield(-name=>'Cgc_name',
+				   -value=>scalar($gene->Cgc_name),
+				   -override=>1
+				  ));
+    print_row('Sequence name',textfield(-name=>'Sequence_name',
+					-value=>scalar($gene->Sequence_name),
+					-override=>1
+				       ));
+    my @other_names = map {
+      td([b($_).i(' ',( $_->row(1)),''), submit(-name=>"Delete $_",-value=>'Delete')])
+    } $gene->Other_name;
+
+    push @other_names,
+      (
+       td({-rowspan=>2},
+	  b('New name: '),
+	  textfield(-name=>OTHER_NAME,-value=>'',-override=>!$STATUS_REDO,-size=>33),br,
+	  b('Evidence'),
+	  popup_menu(-name   => EVIDENCE_TYPE,
+		     -values =>[qw(Person Paper Similarity)],
+		    ),
+	  textfield(-name=>EVIDENCE_REF,-override=>!$STATUS_REDO)
+	 ).
+       td({-rowspan=>2},submit(ADD_OTHER_NAME)),
+      );
+
+    print_row('Other names',table({-cellpadding=>0,-cellspacing=>0,-border=>1},TR[@other_names]));
+    my $kill_resurrect = $gene->Live(0) ? KILL : RESURRECT;
+    print TR(
+	     th({-align=>'LEFT'},submit(-name=>KILL,-label=>$kill_resurrect)),
+	     th(submit(UPDATE)),
+	    );
+
+    print TR(
+	     th({-colspan=>2,-align=>'LEFT'},
+		submit(-name=>SPLIT,
+		       -value=>"SPLIT INTO TWO GENES"),
+		submit(-name=>MERGE,-value=>'MERGE INTO EXISTING GENE'),
+		textfield(MERGE_TARGET)
+	       )
+	    );
+
+    print end_table;
+
+  }
+  print_hidden($gene,qw(Cgc_name Sequence_name Other_name));
+}
+
+sub print_row {
+  my $h = shift;
+  print TR(th({-align=>'RIGHT'},$h),td(\@_));
+}
+
+sub print_hidden {
+  my $gene = shift;
+  my @attributes = @_;
+  return unless $gene;
+  for my $tag (@attributes) {
+    my @value = $gene->get($tag);
+    print hidden(-name=>"original_$tag",-value=>\@value,-override=>1);
+  }
+}
+
+sub print_start {
+  print header,
+    start_html(-title=>'WormBase Gene Editor',
+	      -bgcolor=>'white'),
+    h1('WormBase Gene Editor'),
+      h2('Authorized Personnel Only');
+}
+
+sub print_end {
+  print end_html;
+}
+
+sub do_name_change {
+  my ($gene,$name_tag,$old_value,$new_value,@more) = @_;
+
+  my $version = $gene->Version+1;
+  $gene->add('Version' => $version);
+  if ($new_value eq '') {
+    $gene->delete($name_tag => $old_value) if $old_value;
+    $gene->delete($name_tag) unless $old_value;
+  } else {
+    $gene->delete($name_tag=>$old_value) if $old_value;
+    $gene->add($name_tag => $new_value,@more);
+  }
+  $new_value ||= "deleted $old_value";
+  $gene->add("Version_change" => [$version,Ace->datetime,$USERNAME,
+				  'Name_change',$name_tag,$new_value]);
+
+  1;
+}
+
+sub do_attribute_change {
+  my ($gene,$name_tag,@new_values) = @_;
+
+  my $version = $gene->Version+1;
+  $gene->add('Version' => $version);
+  $gene->delete($name_tag);
+  foreach (@new_values) {
+    $gene->add($name_tag => $_);
+    $gene->add("Version_change" => [$version,Ace->datetime,$USERNAME,
+				    'Attribute_change',$name_tag,$_]);
+  }
+  $gene->add("Version_change" => [$version,Ace->datetime,$USERNAME,
+				  'Attribute_change',$name_tag,'deleted']) unless @new_values;
+  1;
+}
+
+sub kill_resurrect {
+  my ($gene,$live) = @_;
+  my $version = $gene->Version+1;
+  if ($live) {
+    $gene->add('Live');
+    $gene->add(Version => $version);
+    $gene->add("Version_change" => [$version,Ace->datetime,$USERNAME,'Resurrected']);
+  } else {
+    $gene->delete('Live');
+    $gene->add(Version => $version);
+    $gene->add("Version_change" => [$version,Ace->datetime,$USERNAME,'Killed']);
+  }
+}
+
+sub check_reference {
+  my ($class,$name) = @_;
+  $class = 'Sequence' if lc($class) eq 'similarity';
+  return $DB->fetch($class=>$name);
+}
+
+sub get_auth_info {
+  eval { require Apache } or return;
+  my $r = Apache->request or return;
+  my $username = $r->connection->user;
+  my (undef,$passwd) = $r->get_basic_auth_pw;
+  return ($username,$passwd);
+}
+
+sub error {
+  print h3(font({-color=>'red'},'ERROR:',@_));
+}
+
+# This function will return an array of current values
+# For Description and Phenotype, it splits by paragraphs.
+# For all others, it splits by white space.
+sub get_form_values {
+  my $attribute = shift;
+
+  my $value = param($attribute);
+  $value =~ s/\\\"/&quot;/g;  # escape backslashed quotes
+  $value =~ s/\\\"/&quot;/g;  # escape backslashed quotes
+  # escape quoted whitespace
+  $value =~ s{\"([^\"]+?)\"}
+    {
+      my $a = $1;
+      $a =~ s/ /&sp;/g;
+      $a =~ s/\t/&tab;/g;
+      $a =~ s/\n/&nl;/g;
+      $a
+    }exg;
+
+  warn "value = ",quotemeta($value);
+
+  my @values = $MULTIWORD{$attribute} ? split /\r?\n\r?\n/,$value
+                                      : split /\s+/,$value;   # split out values
+
+  warn "There are ",scalar(@values)," values";
+
+  foreach (@values) {
+    s/&quot;/\"/g;
+    s/&sp;/ /g;
+    s/&tab;/\t/g;
+    s/&nl;/\n/g;
+  }
+
+  return grep /\S/,@values;
+}
+
+sub print_history {
+  my $gene = shift;
+  return unless $gene;
+
+  my @events = $gene->Version_change;
+  my @list;
+  for my $event (@events) {
+    my ($version,$when,$who,$type) = $event->row;
+    my @what = $type->col;
+    my @sublist;
+    for my $what (@what) {
+      my @values = $what->col;
+      if (@values) {
+	push @sublist,li(b($what),$_) foreach @values;
+      }  else {
+	push @sublist,li(b($what));
+      }
+    }
+    push @list,li("v$version",$when,$who,ul(@sublist));
+  }
+  print h3('Change history'),ul(@list);
+}
+
+sub uniquefy {
+  my @list = @_;
+  my %seen;
+  return sort grep {!$seen{$_}++} @list;
+}
+
+sub update_attributes {
+  my $gene = shift;
+  my $updated;
+  my @attributes = $GENE_MODEL->at('Attributes');
+  for my $att (@attributes) {
+    my @current_values = sort ($gene->get($att));
+    my @form_values    = get_form_values($att);
+    @form_values = sort @form_values;
+
+    next if "@current_values" eq "@form_values";
+
+    do_attribute_change($gene,$att,@form_values);
+    $updated++;
+  }
+  $updated;
+}
+
+sub print_attributes {
+  my $gene = shift;
+
+  print start_table({-bgcolor=>'lightsteelblue',-border=>1,-cellspacing=>0,-width=>'100%'});
+  print TR(th({-colspan=>2},
+	      font({-size=>'+1'},'Edit attributes of gene',$gene->Public_name || $gene),
+	      submit('UPDATE ATTRIBUTES')
+	     ));
+  my @tags = sort $GENE_MODEL->at('Attributes');
+  for my $tag (@tags) {
+    my @value = $gene->get($tag);
+    print_attribute_row($tag => @value);
+  }
+
+  print TR(th({-colspan=>2},font({-size=>'+1'},
+				 submit('UPDATE ATTRIBUTES')
+				)));
+  print end_table;
+
+# not necessary, and error-prone
+#  print_hidden($gene,@tags);
+}
+
+sub print_attribute_row {
+  my ($tag,@values) = @_;
+  foreach (@values) { s /\"/\\\"/g }
+  @values = map { /\s/ ? qq("$_") : $_ } @values unless $MULTIWORD{$tag};
+  print TR(th({-align=>'RIGHT'},"$tag"),
+	   td(
+	      $MULTIWORD{$tag} ? textarea(-name=>$tag,-value=>join("\n\n",@values),
+					  -rows=>6,-wrap=>'physical',-cols=>80)
+	                       : textfield(-name=>$tag,-value=>join(" ",@values),-size=>80)
+	     ));
+}

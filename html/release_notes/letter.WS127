@@ -1,0 +1,206 @@
+New release of WormBase WS127, Wormpep127 and Wormrna127 Tue Jul  6 13:12:51 BST 2004
+
+
+WS127 was built by Paul Davis
+======================================================================
+
+This directory includes:
+i)	database.WS127.*.tar.gz    -   compressed data for new release
+ii)	models.wrm.WS127           -   the latest database schema (also in above database files)
+iii)	CHROMOSOMES/subdir         -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)	WS127-WS126.dbcomp         -   log file reporting difference from last release
+v)	wormpep127.tar.gz          -   full Wormpep distribution corresponding to WS127
+vi)	wormrna127.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)	confirmed_genes.WS127.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+viii)	yk2orf.WS127.gz            -    Latest set of ORF connections to each Yuji Kohara EST clone
+ix)	gene_interpolated_map_positions.WS127.gz    - Interpolated map positions for each coding/RNA gene
+x)	clone_interpolated_map_positions.WS127.gz    - Interpolated map positions for each clone
+xi)	best_blastp_hits.WS127.gz  - for each C. elegans WormPep protein, lists Best blastp match to
+ 
+                                       human, fly, yeast, C. briggsae, and SwissProt & TrEMBL proteins.
+xii)	best_blastp_hits_brigprot.WS127.gz   - for each C. briggsae protein, lists Best blastp match to
+ 
+                                        human, fly, yeast, C. elegans, and SwissProt & TrEMBL proteins.
+xiii)	geneIDs.WS127.gz   - list of all current gene identifiers with CGC & molecular names (when known)
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS127
+------------------------------------
+brigdb : 2004-03-12
+camace : 2004-06-23 - updated
+citace : 2004-06-17 - updated
+cshace : 2004-05-10
+genace : 2004-06-24 - updated
+stlace : 2004-06-21 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS127       	WS126      	change
+----------------------------------------------
+a    	32368573	32368574	  -1
+c    	17781252	17781251	  +1
+g    	17758265	17758269	  -4
+t    	32369957	32369958	  -1
+n    	0       	1       	  -1
+-    	0       	0       	  +0
+
+Total	100278047	100278053	  -6
+Total number of bases has decreased - please investigate ! 
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 19775 CDS in autoace, 22151 when counting 2376 alternate splice forms.
+
+The 22151 sequences contain 9,776,629 base pairs in total.
+
+Modified entries             124
+Deleted entries               89
+New entries                   12
+Reappeared entries             0
+
+Net change  -77
+
+
+
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              5484 (24.8%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed   11140 (50.3%)	Some, but not all exon bases are covered by transcript evidence
+Predicted              5527 (25.0%)	No transcriptional evidence at all
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2599 (11.7%)
+TrEMBL accessions     18349 (82.8%)
+TrEMBLnew accessions    996 (4.5%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            21951 (99.1%)
+
+
+
+Gene <-> CDS,Transcript,Pseudogene connections (cgc-approved)
+---------------------------------------------
+Entries with CGC-approved Gene name   5149
+
+
+GeneModel correction progress WS126 -> WS127
+-----------------------------------------
+Confirmed introns not in a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|    624  |  -122  |
+St Louis 	|    492  |  -114  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Repeats | Change |
+		+---------+--------+
+Cambridge	|    621  |   -58  |
+St Louis 	|    872  |  -117  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+CHROMOSOME_II	sequence U39471
+CHROMOSOME_II	sequence Z46676
+
+There are no gaps remaining in the genome sequence
+--------------------------------------------------
+
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+
+New Data:
+---------
+i)   Wormpep now contains WBGene ID's in the header lines of all peptide sequences.
+
+ii)  Indroduction of Coding Transcripts for all Live genes. Coding Transcripts will 
+     also exist to represent UTR isoforms, these will have a new nomenclature 
+     eg. CDS:Y106G6D.8 has 2 coding transcripts 
+		       Coding_transcript:Y106G6D.8.1 - SL1 Trans-spliced.
+		       Coding_transcript:Y106G6D.8.2 - 5'extension as not SL1 Trans-spliced.
+
+iii) Introduction of "Gene Spans" available in the .gff files, these span the known 
+     extent of genes. This encompases (CDS/Pseudogene/Transcript), UTR, and feature 
+     data associated with each gene.
+
+iv)  Repeat masked chromosomes are available on the ftp site. 
+	    CHROMOSOME_I_masked.dna.gz
+	    CHROMOSOME_II_masked.dna.gz
+	    CHROMOSOME_III_masked.dna.gz
+	    CHROMOSOME_IV_masked.dna.gz
+	    CHROMOSOME_V_masked.dna.gz
+	    CHROMOSOME_X_masked.dna.gz
+	    
+
+New Fixes:
+----------
+
+
+Known Problems:
+--------------
+We are attempting to refine the process of blatting Transcript (EST, OST and mRNA)
+sequences back to the genome.  We have noticed that in some cases if there is a 
+sequencing error in the Transcript close to an intron/exon boundary, BLAT will attempt 
+to find a better hit for a small section of the Transcript away from the real match.  
+This results in the production of falsely confirmed introns that are not incorporated 
+into gene predictions.  Some of the new Coding_transcript do however contain these 
+false introns.  We are working on a method of screening out these false small matches.
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+i)  Gene spans will be available in the full database with the release of WS128.
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

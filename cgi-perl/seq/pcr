@@ -1,0 +1,239 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# PCR and Oligo Set Summary
+
+use lib '../lib';
+
+use strict;
+use Ace 1.51;
+use Ace::Browser::AceSubs;
+use Bio::Graphics::Browser;
+use ElegansSubs;
+use CGI 2.42 qw(:standard :html3 escape *table *TR *td);
+use WormBase;
+use vars qw($DB $BROWSER $WORMBASE $name $object);
+
+END {
+  undef $WORMBASE;
+  undef $name;
+  undef $object;
+}
+
+# print HTTP header & open the database
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$WORMBASE = WormBase->new($DB);
+
+if ($name = param('name')) {
+  $object = get_object($name);
+}
+
+# Assume that these are all derived from the elegans db
+my $DBGFF = OpenGFFDB($DB,'c_elegans') || AceError("Couldn't open GFF database.") if $object;
+
+PrintTop($object,undef,($object && $object->class eq 'Oligo_set') ? "Oligo Set Summary: $object" : "PCR Product Summary: $object");
+PrintWarning($name,'PCR / Oligo set Assay') if $name && !$object;
+print_prompt();
+print_report($object) if $object;
+PrintBottom();
+
+# Object will be class of PCR_product or Oligo_set
+sub get_object {
+  my $c = shift;
+  my $class = param('class') || 'PCR_product';
+  my @objects = $DB->fetch($class => $c);
+  @objects = $DB->fetch(Oligo_set => $c) unless @objects; 
+  return unless @objects;
+  return $objects[0] if @objects == 1;
+  my $class = $objects[0]->class;
+  AceMultipleChoices($c,$class => \@objects);
+}
+
+sub print_prompt {
+  $WORMBASE->print_prompt(-message  => 'Type in a PCR or Oligo set assay name, such as',
+			  -class    => 'PCR_product',
+			  -examples => [ {'PCR_product' => 'sjj_F25B5.5'},
+					 {'PCR_product' => 'mv_R151.3'},
+					 {'Oligo_set'   => 'cea2.d.36470'},
+				       ]);
+}
+
+sub print_report {
+  my $object = shift;
+  my $class = param('class') || 'PCR_product';
+  $class .= ':reagent' if ($class eq 'Oligo_set');
+  my $segment = $DBGFF->segment($class => $object);
+
+  print p(),start_table({-border=>0});
+  PrintMultiple('Contained in',ObjectLink($object->Canonical_parent)) if $object->Canonical_parent;
+  if (my @oligos = $object->Oligo) {
+      my $left = $oligos[0];
+      my $right = $oligos[1];
+      ($left,$right) = ($right,$left) if ($left =~ /.*_b$/);
+
+    PrintMultiple('Left Oligo',"$left: " . $left->Sequence);
+    PrintMultiple('Right Oligo',"$right: " . $right->Sequence);
+  }
+
+  PrintMultiple('Amplicon size',$segment->length . ' bp') if $segment;
+
+  # Overlapping genes, CDS, Transcripts
+  unless ($object->Overlaps_CDS || $object->class eq 'Oligo_set') {
+    PrintMultiple('Genes Overlapping the Amplicon',map {$_->info}
+		  overlapping_genes($segment)) if $segment;
+  }
+  PrintMultiple('Overlaps CDS',$object->Overlaps_CDS);
+  PrintMultiple('Overlaps transcript',$object->Overlaps_Transcript);
+  PrintMultiple('Overlaps pseudogene',$object->Overlaps_Pseudogene);
+  PrintMultiple('Overlaps variation',eval { $object->Variation });
+
+  # Amplification status
+  PrintMultiple('Amplifies cDNA?<super>*</super>',$object->Amplified ? 'Yes' : 'No') if eval {$object->get('Amplified')};
+  if ($object =~ /mv_(.+)/) {
+      my $worfdb = Configuration->Orfeome . $1;
+      PrintMultiple('ORFeome Project Page',a({-href=>$worfdb,-target=>'_blank'},"WORFDB: $1"));
+      my $target = $object;
+      $target =~ s/mv_//;
+      PrintMultiple('How to obtain ORF', a({-href=>Configuration->Geneservice_orf},'MRC Geneservice')
+		    . ' | ' . a({-href=>sprintf(Configuration->Openbio,$target)},'Open Biosystems'));
+      
+  }
+
+  # Remarks and source
+  PrintMultiple('Remark',$object->Remark)       if $object->Remark;
+  PrintMultiple('From laboratory',$object->From_laboratory) if eval {$object->From_laboratory};
+
+  # Alleles and deletions
+  PrintMultiple('Flanks deletion',$object->Flanks_deletion) if (eval {$object->Flanks_deletion});
+  if (my @polymorphisms = eval { $object->SNP_locus }) {
+    print start_TR(),th({-class=>'datatitle'},'Remark'),
+      start_td({-class=>'databody'}),
+	'PCR product spans ' . scalar @polymorphisms .
+	  ' single nucleotide polymorphisms: ',br;
+    print join(' ',map { ObjectLink($_) } @polymorphisms);
+    print end_td,end_TR;
+  }
+  
+  # Microarray - this should probably be fleshed out.
+  PrintMultiple('Microarray results',$object->Microarray_results);
+
+  print end_table;
+  if ($object =~ /mv_(.+)/) {
+    print table({-class=>'databody'},
+		TR(td(
+		      font({-size=>-1},
+			   ('*NOTE: This PCR assay was developed by the ORFeome project',
+			    'to confirm the validity of the predicted gene and to develop a reagent for further studies.',
+			    ($object->Amplified
+			     ? ('Successful amplification of cDNA by this assay confirms that the left and right',
+				'primers are on a transcribed mRNA, but does not necessarily confirm the precise',
+				'ends of the transcript and splicing pattern described in WormBase.')
+			     : ()
+			    ),
+			    'Please visit',a({href=>Configuration->Orfeome . $1},"[WORFDB]"),
+			    'for detailed information on the outcome of amplification and availability of primers.')
+			  )
+		     )));
+  }
+
+  print_gff($segment) if $segment;
+
+  # Fetch the segment corresponding to the amplicon (including the oligos)
+  print_amplicon($segment) if ($segment);
+
+  if ($object->class eq 'PCR_product') {
+    print h3('Assay Conditions');
+    if (my $conditions = eval { $object->Assay_conditions }) {  # Only relevant for PCR_products
+      my $protocol = $conditions->right;
+      print blockquote(pre($protocol));
+    } else {
+      print "No reaction conditions for this PCR product are available.",
+	br;
+    }
+  }
+}
+
+sub overlapping_genes {
+  my @segments = @_;
+  return map { $_->features('CDS:curated') } @segments;
+}
+
+sub print_gff {
+  my $segment = shift;
+
+
+  $segment->absolute(1);
+  my $ref   = $segment->ref;
+  my $start = $segment->start;
+  my $stop  = $segment->stop;
+
+  # add another 10% to left and right
+  $segment = $DBGFF->segment($ref,int($start - 0.05*($stop-$start)),
+			     int($stop  + 0.05*($stop-$start))) or return;
+=pod
+  my ($img,$map) = $BROWSER->render_panels({segment=>$segment,
+					    tracks =>['CG',
+						      'OLIGO',
+						      'PCR',
+						      'OSTP',
+						      'CLO',
+						      ],
+					    do_map  => 1,
+					    drag_n_drop => 0,
+					});
+=cut
+  my $type= "t=CG;t=OLIGO;t=PCR;t=OSTP;t=CLO";
+  print p({-align=>'CENTER'},
+	  a({-href=>HunterUrl($ref,$start,$stop)},
+	    b("$ref:$start..$stop: Click Here to Browse")),
+	  br,
+	 InlineImage($type,'c_elegans',$segment->ref,$segment->start,$segment->stop) 
+	 );
+}
+
+
+
+sub print_amplicon {
+  my $segment = shift;
+  my @oligos   = map {$_->Sequence } eval { $object->Oligo };
+  my $amplicon = (to_fasta($segment->dna,\@oligos));
+  print h3('Product sequence (oligos in UPPERCASE)');
+  print pre(">$object ("
+	    . $object->class
+	    . '; '
+	    . $segment->refseq
+	    . ':'
+	    . $segment->abs_start
+	    . '..'
+	    . $segment->abs_stop
+	    . '; '
+	    . $segment->length
+	    . ' bp)',br .
+	    $amplicon);
+}
+
+
+sub to_fasta {
+  my ($sequence,$oligos) = @_;
+
+  # Return if we are already in fasta format.
+  return if ($sequence=~/^>(.+)$/m);
+  lc $sequence;
+
+  # Markup the oligos
+  # This is an exceptionally naive way of doing this.
+  # Such is the way that it goes on minimal sleep
+  foreach my $oligo (@$oligos) {
+    my $result = $sequence =~ s/$oligo/$oligo/i;
+    unless ($result) {
+      # Revcomp the oligo
+      $oligo =~ tr/[ACGT]/[TGCA]/;
+      $oligo = reverse $oligo;
+      my $result  = $sequence =~ s/$oligo/$oligo/i;
+    }
+  }
+  
+  # This is the business part of the subroutine.
+  # Place a carriage return after every 80 characters
+  $sequence =~ s/(.{80})/$1\n/g;
+  return $sequence;
+}

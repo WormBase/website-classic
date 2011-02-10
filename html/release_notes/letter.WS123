@@ -1,0 +1,219 @@
+New release of WormBase WS123, Wormpep123 and Wormrna123 April 23rd 2004
+
+
+WS123 was built by me
+======================================================================
+
+This directory includes:
+i)	database.WS123.*.tar.gz                   - compressed data for new release
+ii)	models.wrm.WS123                          - the latest database schema (also in above database files)
+iii)	CHROMOSOMES/subdir                        - contains 3 files (DNA, GFF & AGP per chromosome)
+iv)	WS123-WS122.dbcomp                        - log file reporting difference from last release
+v)	wormpep123.tar.gz                         - full Wormpep distribution corresponding to WS123
+vi)	wormrna123.tar.gz                         - latest WormRNA release containing non-coding RNA's in the genome
+vii)	confirmed_genes.WS123.gz                  - DNA sequences of all genes confirmed by EST &/or cDNA
+viii)	yk2orf.WS123.gz                           - Latest set of ORF connections to each Yuji Kohara EST clone
+ix)	gene_interpolated_map_positions.WS123.gz  - Interpolated map positions for each coding/RNA gene
+x)	clone_interpolated_map_positions.WS123.gz - Interpolated map positions for each clone
+xi)	best_blastp_hits.WS123.gz                 - for each C. elegans WormPep protein, lists Best blastp match to
+                                                    human, fly, yeast, C. briggsae, and SwissProt & TrEMBL proteins.
+xii)	best_blastp_hits_brigprot.WS123.gz        - for each C. briggsae protein, lists Best blastp match to
+                                                    human, fly, yeast, C. elegans, and SwissProt & TrEMBL proteins.
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS123
+------------------------------------
+brigdb : 2004-03-12
+camace : 2004-04-05 - updated
+citace : 2004-04-04 - updated
+cshace : 2004-03-03
+genace : 2004-04-13 - updated
+stlace : 2004-04-04 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS123       	WS122      	change
+----------------------------------------------
+a    	32368570	32368547	 +23
+c    	17781251	17781234	 +17
+g    	17758269	17758249	 +20
+t    	32369957	32369937	 +20
+n    	6       	8       	  -2
+-    	0       	0       	  +0
+
+Total	100278053	100277975	 +78
+
+Numerous sequence corrections from WashU. Note also the number of
+N's in the sequence is down to 6.
+
+
+Wormpep data set:
+----------------------------
+
+There are 19893 CDS in autoace, 22259 when counting 2366 alternate splice forms.
+
+The 22259 sequences contain 9,766,544 base pairs in total.
+
+Modified entries              52
+Deleted entries               10
+New entries                    3
+Reappeared entries             2
+
+Net change  -5
+
+
+
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              4878 (21.9%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed   11857 (53.3%)	Some, but not all exon bases are covered by transcript evidence
+Predicted              5524 (24.8%)	No transcriptional evidence at all
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2427 (10.9%)
+TrEMBL accessions     18425 (82.8%)
+TrEMBLnew accessions   1229 (5.5%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            22205 (99.8%)
+
+
+
+Locus <-> Sequence connections (cgc-approved)
+---------------------------------------------
+Entries with locus connection   5107
+
+
+GeneModel correction progress WS122 -> WS123
+-----------------------------------------
+Confirmed introns not in a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|    289  |  -130  |
+St Louis 	|    107  |  -171  |
+		+---------+--------+
+
+(*) Corrected the script which generates this statistic.
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Repeats | Change |
+		+---------+--------+
+Cambridge	|    696  |    34  |
+St Louis 	|   1099  |    71  |
+		+---------+--------+
+
+(*) These numbers still contain the low-complexity overlaps
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+CHROMOSOME_I	sequence AF003146
+CHROMOSOME_I	sequence AF106574
+CHROMOSOME_II	sequence U80451
+CHROMOSOME_II	sequence U39471
+CHROMOSOME_II	sequence U29535
+CHROMOSOME_II	sequence U28738
+CHROMOSOME_II	sequence U50191
+CHROMOSOME_II	sequence U39999
+CHROMOSOME_II	sequence U40030
+CHROMOSOME_II	sequence U23448
+CHROMOSOME_II	sequence U29536
+CHROMOSOME_II	sequence Z46676
+CHROMOSOME_III	sequence U40419
+CHROMOSOME_III	sequence U23514
+CHROMOSOME_III	sequence U13876
+CHROMOSOME_III	sequence U40187
+CHROMOSOME_III	sequence L09634
+CHROMOSOME_III	sequence M77697
+CHROMOSOME_V	sequence U55373
+CHROMOSOME_V	sequence AF067949
+CHROMOSOME_V	sequence U41746
+CHROMOSOME_X	sequence U39742
+CHROMOSOME_X	sequence U39743
+CHROMOSOME_X	sequence U40945
+
+These accession represent those clones which have been corrected at WashU. The
+updates have been submitted to GenBank and will appear soon.
+
+There are no gaps remaining in the genome sequence
+
+--------------------------------------------------
+For more info mail worm@sanger.ac.uk
+
+-===================================================================================-
+
+
+
+New Data:
+---------
+
+Updated Yeast/Fly/Human proteome sets and moved to EMBL 78 and TrEMBL 26.
+
+Additional SAGE transcript data included in this build.
+
+New Fixes:
+----------
+
+Trans-splice leader sequence features are now a non-redundant set (SL1 3544 SL2 1038).
+
+
+Known Problems:
+--------------
+
+Bug in the Feature mapping script whereby some of the trans-splice acceptors are mapped 
+to the wrong strand. The incompatability of the script and data has been identified and
+will be rectified for WS124.
+
+Blat errors give +1 offset on some alignments. This is being investigated.
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+
+Gene Model #1 will be in place for WS124. This means the retirement of the Locus
+class to be replaced with a Gene class. All CGC-assigned genes will be converted
+into the new data model at this time. WS125 will finalise the new model wherein
+all CDS will also have a  gene identifier.
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

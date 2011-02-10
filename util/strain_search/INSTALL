@@ -1,0 +1,73 @@
+#!/bin/bash
+
+if [ $# != 4 ]
+    then
+    echo "usage: $0 scriptDir strainsDir htmlPath documentRoot"
+    exit 1;
+fi
+
+script_dir=$1
+strains_dir=$2
+html_path=$3
+document_root=$4
+js_dir=$strains_dir/js
+
+
+echo "strain_search.cgi will be installed in $script_dir"
+echo "$strains_dir will be initialized as strain database directory"
+
+
+if [ ! -d $script_dir ]
+    then
+    echo $script_dir "does not exist. It will be created."
+    mkdir $script_dir
+fi
+
+if [ ! -d $strains_dir ]
+    then
+    echo $strains_dir "does not exist. It will be created."
+    mkdir $strains_dir
+    mkdir $js_dir
+fi
+
+if [ ! -d $js_dir ]
+    then
+    echo $js_dir "does not exist. It will be created."
+    mkdir $js_dir   
+fi
+
+if [ ! -d $document_root/images ]
+    then
+    echo $document_root/images "does not exist. It will be created."
+    mkdir $document_root/images
+fi
+
+if [ ! -e $document_root/images/image_new_colour.jpg ]
+    then
+    cp image_new_colour.jpg $document_root/images/
+fi
+
+if [ ! -d $document_root/stylesheets ]
+    then
+    echo $document_root/stylesheets "does not exist. It will be created."
+    mkdir $document_root/stylesheets
+fi
+
+if [ ! -e $document_root/stylesheets/wormbase.css ]
+    then
+    cp wormbase.css $document_root/stylesheets/wormbase.css
+fi
+
+
+
+confFile=strain_search.conf
+
+echo "indexDir     $strains_dir" > $confFile
+echo "htmlRoot     $html_path" >> $confFile
+
+cp strain_search.cgi $script_dir
+cp strain_search.conf $script_dir
+cp IgorSubs.pm $script_dir
+cp highlightTerms.js $js_dir
+
+echo "installation complete"

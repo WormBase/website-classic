@@ -1,0 +1,190 @@
+  <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
+           "http://www.w3.org/TR/REC-html40/loose.dtd">
+<HTML>
+<Header><Title>Richard Durbin's Thesis - Appendix</Title>
+<link rel="stylesheet" href="./stylesheets/_my.css"></Header>
+   <BODY>
+   
+<H1>Contents </H1><A href="#tth_sEcA"
+>A&nbsp;Appendix</A><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<A href="#tth_sEcA.1"
+>A.1&nbsp; The statistical test for synapse number 
+correlation with adjacency</A><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<A href="#tth_sEcA.2"
+>A.2&nbsp; The sorting algorithm used to order the 
+neural circuitry</A><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<A href="#tth_sEcA.3"
+>A.3&nbsp; The method used to determine processing 
+depth</A><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<A href="#tth_sEcA.4"
+>A.4&nbsp; The clustering algorithm used to detect 
+bundles</A><br>
+ 
+<p>
+   <hr>
+   
+   <p>
+   
+   <H2><A NAME="tth_sEcA"> A</A>&nbsp;&nbsp;Appendix</H2>
+   <H3><A NAME="tth_sEcA.1"> A.1</A>&nbsp;&nbsp;The statistical test for synapse number 
+correlation with adjacency</H3>
+   <p class=boxed>
+All pairs of neurons A,B in the H series were considered for which there 
+was a synaptic connection both from A to B and from A&#146; to B&#146; 
+(A&#146;,B&#146; are the contralateral homologues of A,B), but where the 
+adjacency between A and B was different from that between A&#146; and 
+B&#146;.  Let S<SUB>1</SUB> be the number of synapses from A to B, 
+S<SUB>2</SUB> can be the number from A&#146; to B, a<SUB>1</SUB> be the 
+adjacency of A and B, and a<SUB>2</SUB> be the adjacency of A&#146; and 
+B&#146;.  Since each set of four is only counted once we can assume that 
+a<SUB>1</SUB> &gt; a<SUB>2</SUB>.  The a<SUB>i</SUB> are treated as 
+independent variables (i.e. they do not depend on the s<SUB>i</SUB>), and 
+the s<SUB>i</SUB> are treated as the outcomes of randome variables 
+S<SUB>i</SUB>, which are possibly dependant on the a<SUB>i</SUB>.  There 
+are two hypotheses that will be tested: a proportional relationship between 
+S<SUB>i</SUB> and a<SUB>i</SUB>, and independence.  More precisely, the 
+proportional model presumes that synapses are made with a certain 
+probability per unit of length of contact.  In this case S<SUB>i</SUB> will 
+be Poisson distributed with mean (and variance) proportional to 
+a<SUB>i</SUB>.  However the constant of proportionality may differ for 
+different sets of A,B,A&#146;,B&#146;.  The independent model proposes that 
+the S<SUB>i</SUB> have mean S, independent of a<SUB>i</SUB>, but again 
+possibly different for different sets of neurons.
+<br>
+   <br>
+ The test statistic that was used is the sum over all chosen sets of T = 
+(a<SUB>1</SUB>s<SUB>2</SUB> &#151; a<SUB>2</SUB>s<SUB>1</SUB>).
+<br>
+   <br>
+If S<SUP>i </SUP>is proportional to a<SUP>i</SUP>, then T should have mean 
+value zero.  Its variance can be estimated as the sum of the variances of 
+the contributing terms, which are (a<SUB>1</SUB><SUP>2</SUP>a<SUB>2</SUB>m 
++ a<SUB>2</SUB><SUP>2</SUP>a<SUB>1</SUB>m) where m is the Poisson rate, 
+best estimated by (s<SUB>1</SUB>+s<SUB>2</SUB>) / 
+(a<SUB>1</SUB>+a<SUB>2</SUB>).  This simplifies to being the sum over all 
+the sets of a<SUB>1</SUB>a<SUB>2</SUB>(s<SUB>1</SUB>+s<SUB>2</SUB>).
+<br>
+   <br>
+If S<SUB>i</SUB> is independent of a<SUB>i</SUB>, then T should have mean 
+M, where M is the sum over all the sets of S.(a<SUB>1</SUB>-a<SUB>2</SUB>), 
+where S is the mean number of synapses for each set.  The best estimator 
+for S is (s<SUB>1</SUB>+s<SUB>2</SUB>)/2.  In order to estimate the 
+variance of the differences from the mean, (M-T), we must propose a 
+variance for S<SUB>i</SUB>.  (It cannot be estimated because then we would 
+lose all our degrees of freedom).  It seems reasonable to assume in this 
+case also that the S<SUB>i</SUB> have a Poisson distribution, or in any 
+case that their variance is approximately the same as their mean, S.  Then 
+the estimated variance of (M-T) is the sum over all sets of 
+S.(a<SUB>1</SUB>+a<SUB>2</SUB>)<SUP>2</SUP>/2.
+<br>
+   <br>
+To test each hypothesis the difference between T and its expected value 
+under the hypotheses is divided by the standard error (the square root of 
+the estimated variance) to give a normalised error, U.  Since we are adding 
+together hundreds of similar terms T should be distributed normally, and so 
+theoretically U has a t-distribution, since we have estimated the variance 
+of T.  However, because there are hundreds of degrees of freedom (one for 
+each set), U can be tested as if coming from a standard normal 
+distribution.
+<br>
+   <br>
+In total there were 391 sets.  The value of T was 7103.  If we assume the 
+proportional hypothesis then the standard error is 1324.3 and U is 5.36 
+which is very significant.  We can therefore reject the proportional model.  
+If we assume the independent model then M is 7655 and the standard error is 
+1338.0 so U is 0.41, which is not significant.  So it is quite possible 
+according to this test that the number of synapses formed is independent of 
+adjacency.
+</P>
+   
+   <H3><A NAME="tth_sEcA.2"> A.2</A>&nbsp;&nbsp;The sorting algorithm used to order the 
+neural circuitry</H3>
+   
+   <p class=boxed>
+The basic method of this algorithm is to start with a random ordered list 
+and repeatedly use a simple rearrangement principle to reduce the overall 
+number of upward synapses.  The process stops when this number cannot be 
+improved by a rearrangement of the type under consideration.  In general 
+this will not give a true optimum order, because the rearrangement 
+principle is not general enough.  However, by repeated application of the 
+algorithm to different starting lists one can get an indication of the 
+distribution of final results.  If, as they were in the case under 
+consideration here, the results of these repeated optimisations are very 
+similar, then it is likely that they are near the true minimum.  The 
+algorithm was run many times until the lowest value so far had come up 
+repeatedly, at which point it was accepted as the optimum.<br>
+   <br>
+   The actual rearrangement system chosen in this case is to run through the 
+current list and, for each neuron, determine where in the list it should be 
+placed.  If this is different from the current position then it is moved 
+there and the neurons in between are shunted one place back in the list to 
+fill the gap.
+<br>
+ 
+   </p>
+ 
+   <H3><A NAME="tth_sEcA.3"> A.3</A>&nbsp;&nbsp;The method used to determine processing 
+depth</H3>
+   
+   <p class=boxed>
+This method deals with some notional material (sensory influence) which 
+flows down through the network of connections, moving through a synapse at 
+each time step.  Each sensory neuron under consideration is given a unit 
+amount of material at time zero.  Then at successive time steps the 
+material is redistributed, all the material in each neuron being divided 
+amongst the neurons that it both synapses to and is above in the ordering.  
+The amount that each postsynaptic cell receives is proportional to the 
+number of synapses made.  If there are no postsynaptic partners then the 
+material is lost.  Clearly material can reunite that has come via different 
+routes but using the same number of synapses from sensory neurons.  The 
+requirement that only downward synapses are permitted prevents problems 
+with cycling.<br>
+   <br>
+ This method makes the assumptions that the influence of a connection is 
+proportional to the number of synapses it contains, and that influence is 
+neither lost nor amplified, merely passing through neurons and being 
+redistributed at each time step.  Both these assumptions are 
+neurobiologically unrealistic, but they are probably the best that can be 
+done with the information available.  By keeping track of the distribution 
+of material at each time step one can build up a picture of the 
+distribution of time steps required for influence to reach a specific 
+neuron (muscle can be treated as the final postsynaptic neuron), and also 
+of the proportion of influence from the chosen set of sensory neurons that 
+passes through any particular interneuron, or for instance that reaches 
+head muscle as opposed to body muscle.
+   <H3><A NAME="tth_sEcA.4"> A.4</A>&nbsp;&nbsp;The clustering algorithm used to detect 
+bundles</H3>
+   
+   <p class=boxed>
+This is a hierarchical clustering algorithm (see e.g. Seber, 1984).  The 
+principle is to identify the two items that are most likely to belong to 
+the same group and to link them together.  Then a new distance, or, in our 
+case, adjacency, is defined between this pair and each of the remaining 
+items.  One then returns to the first step and looks for the most adjacent 
+pair in the reduced set of items, which will include a combined 
+pseudo-item.  This process of joining the two closest items continues 
+recursively until only one item is left.  At each stage a measure of the 
+association of the two items joined together is given by their adjacency, 
+which in general is a combined adjacency.<br>
+   <br>
+ Different versions of this process vary in the way that the combined 
+adjacency of the merged item to the remaining items is determined.  I used 
+a variant of the group average method (Seber, 1984) that was tailored to 
+this particular problem.  I kept data on the circumferential zones of the 
+nerve ring in which each process ran (e.g. lower left).  This was necessary 
+because it is only possible for two processes to be adjacent to the extent 
+that they run in the same zone.  The adjacency between two groups is then 
+defined as the ratio of the total adjacency between their constituent 
+processes to the summed circumferential zone length that they have in 
+common.  By keeping the total constituent adjacencies and the summed zonal 
+lengths at each stage these &quot;zonal ratios&quot; can be easily combined 
+when two items are merged.  I also prevented the fusion of groups with 
+comparatively small overlaps, because the data for such cases would be 
+correspondingly noisy and if they were to belong to a genuine bundle there 
+would have to be an overlapping intermediate fibre in any case.  This zonal 
+ratio system does, however, permit bundles that are longer than some, or 
+even all, of the constituent processes, and this is an important feature of 
+it.
+   </p>
+   </p>
+</HTML>

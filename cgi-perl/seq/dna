@@ -1,0 +1,103 @@
+#!/usr/bin/perl
+
+use strict;
+use vars qw/$DB $URL $NAME $CLASS %PAPERS/;
+
+use Ace 1.38;
+use CGI 2.42 qw/:standard :html3 escape/;
+use CGI::Carp qw/fatalsToBrowser/;
+use Ace::Browser::AceSubs qw(:DEFAULT :etree);
+
+END {
+  undef $URL;
+  undef $NAME;
+  undef $CLASS;
+  undef %PAPERS;
+}
+
+AceInit();
+$NAME  = param('name');
+$CLASS = 'Sequence' ;
+
+# fetch database handle
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+AceHeader();
+AceError(<<END) unless $NAME ;
+Call this script with URL parameters of
+<VAR>name</VAR> where
+"name" is the name of a sequence
+END
+
+display_object($NAME,$CLASS);
+
+# exit 0;
+
+sub display_object {
+  my ($name,$class) = @_; 
+  my $dna = $DB->fetch($class,$name)->asDNA || AceMissing($class,$name);
+  #my $dna = $DB->raw_query ("gif sequence $name ; seqdna ") || AceMissing($class,$name);
+  #if ($DB->raw_query ("query find sequence $name "))
+#	{ $dna = $DB->raw_query ("dna") ; }
+  #else {AceMissing($class,$name);}
+  my ($n,$c) = (escape($name),escape($class));
+
+  print
+    start_html(-Title=>"$class: $name",
+	       -Style=>STYLE,
+	       -Class=>'tree',
+	       -Bgcolor=>BGCOLOR_TREE),
+    h1("$class: $name"),
+    table(
+	  TR(
+	     td({-align=>CENTER},
+		a({-href=>SEARCH,-target=>'_top'},img({-src=>UNKNOWN_ICON,-alt=>'[image]',-border=>0}).
+		  br.
+		  "Search")
+		),
+	     td({-align=>CENTER},
+		a({-href=>"${\TREE}?name=${\escape($name)}&class=${\escape($class)}",-target=>"_self"},
+                  img({-src=>TEXT_ICON,-alt=>'[text]',-border=>0}).
+		  br.
+		  'Text Mode'
+		   )
+		),
+	     td({-align=>CENTER},
+		"$class" =~ /^Sequence/ ?
+		a({-href=>"${\PEPTIDE}?name=$n&class=$c"},img({-src=>IMAGE_ICON,-alt=>'[image]',-border=>0}).
+		    br.
+		    'Translation'
+		   )
+		: ' '
+		),
+	     td({-align=>CENTER},
+		"$name" !~ /^SUPERLINK/ ?  # hack for broken gifaceserver
+		  a({-href=>"${\PIC}?name=$n&class=$c"},img({-src=>IMAGE_ICON,-alt=>'[image]',-border=>0}).
+		    br.
+		    'Sequence display'
+		   )
+		: '(graphical display of superlinks disabled)'
+	       ),
+	     td({-align=>CENTER},
+		"$class" =~ /^Sequence/ ?
+		  a({-href=>"${\PIC}?name=$n&class=$c"},img({-src=>IMAGE_ICON,-alt=>'[image]',-border=>0}).
+		    br.
+		    'Genetic map'
+		   )
+		: ' '
+		)
+	     )
+	 ),
+    &show_dna($dna), 
+    FOOTER,
+    end_html;
+}
+
+sub show_dna {
+  my $obj = shift;
+  my $dna = "$obj";
+  $dna=~s/(\w{50})/$1/g;
+  return (pre($dna),0);
+}
+
+

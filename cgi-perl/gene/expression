@@ -1,0 +1,1051 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# file: expression
+# C. elegans Expression Pattern report
+
+use lib '../lib';
+
+use strict;
+use Ace 1.51;
+use Ace::Browser::AceSubs;
+use Ace::Browser::TreeSubs 'AceImageHackURL';
+use ElegansSubs qw/:DEFAULT FetchGene Bestname format_references/;
+use CGI 2.42 qw/:standard :html3 escape unescape *table *dl *blockquote *center *TR *div/;
+use CGI::Toggle;
+use CGI::Pretty 'html3';
+use WormBase;
+use GD;
+use Digest::MD5  'md5_hex';
+
+# Flickr POC
+use Flickr::API;
+use Flickr::API::Simple;
+use Data::Dumper;
+
+use vars
+  qw/$WORMBASE $BESTNAME $EP $ep_name $DB %SS %class2label $obj
+     $bcflag $GENE $img $thumb $thumb_width $flip $draw/;
+
+END {
+    undef $WORMBASE;
+    undef $BESTNAME;
+    undef $EP;
+    undef $ep_name;
+    undef $obj;
+    undef $thumb;
+    undef $draw;
+    undef $bcflag;
+    undef $flip;
+}
+
+# where the pre-cached images are stored
+use constant IMG_ASSEMBLED => $ENV{DOCUMENT_ROOT}.'/images/expression/assembled';
+
+# width of the image (if any)
+use constant THUMBWIDTH => 250;
+use constant PICWIDTH   => 200;
+
+use constant IMAGE_DISCLAIMER => <<END;
+<p>
+<font size=-1>
+<b>Note:</b>  This image is a summary. Please consult
+the detailed information below for specific expression data
+</font>
+</p>
+END
+;
+
+%class2label = (
+    Gene         => 'gene',
+    Expr_pattern => 'expression pattern',
+    Clone        => 'clone'
+);
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$DB->class('Ace::Object::Wormbase');
+$WORMBASE = WormBase->new($DB);
+
+$thumb = param('thumb') || 0;
+$thumb_width = $thumb > 1 ? $thumb : THUMBWIDTH;
+
+## Deployment ##
+# Is this an image request?
+if (param('draw')) {
+  $draw = 1;
+  $flip = param('flip');
+  my $name = param('name');
+  my $term = param('term');
+  if ($name) {
+    my $ep   = get_ep($name);
+    $ep or print_warning($name);
+    img_cache($ep);
+    exit;
+  }
+  elsif ($term) {
+    my $ao = get_ao_term($term);
+    exit unless $ao;
+    img_cache($ao);
+  }
+}
+
+$ep_name = param('name');
+
+# get expression pattern from name if not empty
+( $EP, $obj ) = get_ep($ep_name) if $ep_name;
+
+# get label
+my $label = eval { $EP->[0]->Expression_of->right } if ( eval { @{$EP} } );
+
+# change parameter name to label
+param( 'name' => $label ) if $label;
+
+# find bestname if label is a gene
+$BESTNAME = ( eval { $label->class eq 'Gene' } ) ? Bestname($label) : $label;
+
+
+PrintTop(
+	 $EP->[0],
+	 'Expression pattern',
+	 $label ? "Expression Pattern for $BESTNAME" : 'Expression Pattern'
+	 );
+
+# if user entered a name that is not found, calls subroutine print_warning
+print_warning( $ep_name, $obj ) if $ep_name && !@$EP;
+
+$WORMBASE->print_prompt(
+			-message  => 'Type in',
+			-class    => 'Expr_pattern',
+			-examples =>
+			[ { Locus => 'unc-52' }, { Gene => 'K08E5.3' } ]
+			);
+
+# if more than one expression profile, calls subroutine disambiguate
+if ( @$EP > 1 ) {
+  my $num = @$EP;
+  my $verb = $num > 1 ? 'are' : 'is';
+  my $s = 's' if $num > 1;
+  
+  print h1( "$num expression pattern results match your search" ) unless $BESTNAME;
+  print h1( "There $verb $num expression pattern$s for $BESTNAME" ) if $BESTNAME;
+  disambiguate($EP);
+}
+elsif (@$EP) {
+  my $ep = $EP->[0];
+  print_wormview_image($ep);
+  print_summary($ep);
+  print_details($ep);
+  print_movies($ep);
+  print_pictures($ep);
+
+  print_sanctioned_flickr_images($ep);
+  print_biblio($ep);
+}
+elsif (param('name')) {
+  print h1("Nothing found");
+}
+
+PrintBottom();
+
+exit 0;
+
+##################################
+############ END MAIN ############
+##################################
+
+sub toggle {
+  my ($state,$title,@contents) = @_;
+  
+  my $id = md5_hex($title);
+  toggle_section( {on=>$state},
+			"${id}_panel",
+			b($title),
+			@contents);
+}
+
+=head2 get_ep
+
+ Title   : get_ep
+ Usage   : get_ep($obj)
+ Function: Searches for expression pattern for the name in the following classes:
+           expr_pattern, gene, sequence, pseudogene, protein.
+ Returns : array ref of expression pattern object; single gene or ep object
+ Args    : scalar search term
+
+=cut
+
+# given a name, search for expression patterns
+sub get_ep {
+    # get first parameter, the expression profile name
+    my $name = shift;
+
+    # get the expression profile from the database
+    my $ep = $DB->fetch(
+        -class => 'Expr_pattern',
+        -name  => $name,
+        -fill  => 1
+    );
+
+    # if expression profile found, return it
+    return ( [$ep], $ep ) if $ep;
+
+    # if not found, try it as a gene name
+    my ( $gene, $best ) = FetchGene( $DB, $name );
+    return ( [ $gene->Expr_pattern ], $gene ) if $gene && $gene->Expr_pattern;
+
+    # Enable searches from other classes
+    foreach (qw(Sequence Pseudogene Protein)) {
+        my $l = $DB->fetch( $_ => $name );
+        next unless $l;
+        my @CDS = eval { $l->CDS_Child };
+        @CDS = eval { $l->Transcript }        unless @CDS;
+        @CDS = eval { $l->CDS }               unless @CDS;
+        @CDS = eval { $l->Corresponding_CDS } unless @CDS;
+        next unless @CDS;
+        my %seen;
+        my @total =
+          grep { !$seen{$_}++ }
+          map { $_->Expr_pattern } grep { $_->Method eq 'curated' } @CDS;
+        return ( \@total, $l );
+    }
+    return;
+}
+
+=head2 check_for_bc
+
+ Title   : check_for_bc
+ Usage   : check_for_bc($obj)
+ Function: checks if this is a BC consortium strain
+ Returns : integer
+ Args    : expression pattern object
+
+=cut
+
+# Is this a BC strain?
+sub check_for_bc {
+    my $ep = shift;
+    $bcflag = undef;
+
+    # VC abd BC are the Baiilie and Moerman labs
+    my @labs = $ep->Laboratory;
+    $bcflag = grep {$_ eq 'BC' || $_ eq 'VC'} @labs;
+}
+
+
+=head2 print_pictures
+
+ Title   : print_pictures
+ Usage   : print_pictures($obj)
+ Function: If expression pattern includes pictures, it will print them in a table.
+ Returns : nothing
+ Args    : expression pattern object
+
+=cut
+
+# print the microscopy pictures
+sub print_pictures {
+    my $ep = shift;
+    return unless my @pics = $ep->Picture;
+    my $out;
+    $out   .= start_table( { -border => 1, -width => '80%', -align => 'CENTER' } );
+    $out   .= start_TR( { -valign => 'TOP' } );
+    
+    for my $pic (@pics) {
+#	print $pic;
+#      my $url = AceImageHackURL($pic);
+	my $url;
+	if ($ep->Remark =~ /chronogram/) {
+	    $url = Configuration->Localizome_images . "/$pic";
+	} else {
+	    $url = Configuration->Expression_images . "/$pic";
+	}
+      $out .=  td(
+		  '(Click image to enlarge)' . br .
+		  a(
+		    { -href => $url },
+		    img( { -src => $url, -width => PICWIDTH, -border => 0 } )
+		    )
+		  );
+    }
+    $out .= end_TR() . start_TR();
+    for my $pic (@pics) {
+      $out .= td( toggle(0,"$pic Description", p($pic->Description)) );
+    }
+    $out .= end_TR() . end_table;
+    
+    print toggle(1,'Diagrams and Images',$out);
+}
+
+=head2 print_warning
+
+ Title   : print_warning
+ Usage   : print_warning($ep_name, $obj)
+ Function: Prints warning for name that is not found in database, and its class if that is found.
+ Returns : nothing
+ Args    : scalar name, object
+
+=cut
+
+# prints warnings
+sub print_warning {
+    my ( $name, $obj) = @_;
+    if (param('draw')) {
+      die @_;
+    }
+    elsif (ref $obj) {
+        my $class = $class2label{ eval { $name->class } };
+        print p(
+            font(
+                { -color => 'red' },
+		 "The $class named \"$name\" had no associated expression patterns in the database."
+            )
+        );
+    }
+    elsif ($obj) {
+      print p(
+	      font( { -color => 'red' }, $obj )
+	      );
+    }
+    else  {
+      print p(
+	      font(
+		   { -color => 'red' },
+		   "The item named \"$name\" was not found in the database."
+		   )
+	      );
+    }
+}
+
+=head2 ao_term_row
+
+ Title   : ao_term_row
+ Usage   : ao_term_row($obj)
+ Function: Given the anatomy ontology terms, finds their urls and definitions.
+ Returns : scalar href, scalar definition
+ Args    : anatomy ontology object
+
+=cut
+
+# finds anatomy ontology terms, url, and definitions
+sub ao_term_row {
+  my $ao = shift;
+  my @rows;
+  my $definition = $ao->Definition;
+  my $location   = $ao->Term;
+
+  my $href  =  a( { -href => Object2URL($ao) }, $ao );
+  
+  return [$href,$location,$definition];
+}
+
+sub get_ao_term {
+  my $name = shift;
+  return $name if ref $name;
+  $DB->fetch( -class => 'Anatomy_term',
+	      -name  => $name,
+	      -fill  => 1 );
+}
+
+=head2 ao_table;
+
+ Title   : ao_table
+ Usage   : ao_table(@array_of_anatomy_ontology_object)
+ Function: Given the anatomy ontology terms, finds which overlay organs to populate
+           and stores it in a hash.
+ Returns : array of table rows
+ Args    : ep object
+
+=cut
+
+sub ao_table {
+  my $ep = shift;
+  my @ao = $ep->Anatomy_term( -fill => 1 );
+  my @data;
+
+  for my $ao (@ao) {
+    push @data, ao_term_row($ao);
+  }
+
+  return @data;
+}
+
+sub img_cache {
+  my $ep         = shift or die "an expression pattern object is required";
+  my $thumbnail  = shift;
+
+  my ($system_name,$web_name) = system_name($ep,$thumb);
+  my $base_image = system_name($ep);
+  
+  # Have we been sent a thumbnail image to cache?
+  if ($thumbnail) {
+    print_image(undef,$thumbnail) if $draw;
+    cache_image($thumbnail,$system_name);
+    return $web_name;
+  }
+
+  # Give up if we have no cached image
+  return 0 unless is_cached($base_image);
+
+  # we are looking for a cached image or thumbnail if we have come this far
+  if (is_cached($system_name)) {
+    print_image($system_name) if $draw;
+    return $web_name;
+  }
+
+  # we need to render and cache a new thumbnail
+  elsif ($thumb) {
+    thumbnail_render($ep);
+  }
+
+}
+
+sub system_name {
+  my $ep    = shift;
+  my $thumb = shift;
+
+  my $image_name = $ep->name  or die "no expression pattern named $ep";
+
+  if ($thumb) {
+    $image_name .= ".tmb$thumb_width";
+    $image_name .= ".flipped" if $flip;
+  }
+
+  my $system_name = my $web_name = join('/', IMG_ASSEMBLED, $image_name) . '.png';
+  $web_name =~ s/\S+html//;
+
+  return wantarray ? ($system_name,$web_name) : $system_name;
+}
+
+sub is_cached {
+  my $name = shift;
+
+  my $exists = -e $name;
+  my $empty  = -z $name;
+
+  return 1 if $exists && !$empty;
+  return 0;
+}
+
+sub print_image {
+  my ($file,$img) = @_;
+  print header('image/png');
+  binmode STDOUT;
+
+  if ($file) {
+    open IMG, $file or die $!;
+    print while(<IMG>);
+    close IMG;
+  }
+  elsif ($img) {
+    print $img->png;
+  }
+}
+
+sub cache_image {
+  my ($img,$system_name) = @_;
+  open IMG, ">$system_name" or die "$system_name $!";
+  print IMG header('image/png');
+  binmode IMG;
+  print IMG $img->png;
+  close IMG;
+}
+
+# figures out the url for the image
+sub img_url {
+    my $ep    = shift;
+    return img_cache($ep);
+}
+
+=head2 print_wormview_image
+
+ Title   : print_wormview_image
+ Usage   : print_wormview_image($obj)
+ Function: Prints centered WormView and map
+ Returns : nothing
+ Args    : expression pattern object
+
+=cut
+
+# prints image
+sub print_wormview_image {
+  my $ep  = shift;
+  return '' if eval{$ep->Author =~ /Mohler/};
+  my $url = img_url($ep) or return 0;
+
+  my $out =  p() . table( { -width => '100%' },
+			  Tr( 
+			      td( {align=>'center'},
+				  img({
+				    -src => $url,
+				    -border => '0'}) .
+				   IMAGE_DISCLAIMER
+				  )
+			      )
+			  ) . p();
+  
+  print toggle(1,'Expression Overview',$out);
+}
+
+=head2 print_anatomy_terms
+
+ Title   : print_anatomy_terms
+ Usage   : print_anatomy_terms($obj)
+ Function: Prints a table of hyperlinked anatomy ontology terms and their definitions. 
+ Returns : nothing
+ Args    : expression pattern object
+
+=cut
+
+# prints ao terms in a table
+sub print_anatomy_terms {
+    #print hr;
+    my $ep = shift;
+    my @data = ao_table($ep);
+    return '' unless @data;
+
+    my $out;
+    $out .= start_blockquote;
+    $out .= font({-style => 'color:black'}, b('Anatomy Ontology:'));
+    $out .= start_table( { -border => 1, -class => 'databody' } );
+    $out .= TR( th([qw/Accession Term Definition/]));
+    $out .= join '', map { TR( { -valign => 'TOP' }, td( $_ ) ) } @data;
+    $out .= end_table . end_blockquote;
+    $out;
+}
+
+=head2 print_biblio
+
+ Title   : print_biblio
+ Usage   : print_biblio($obj)
+ Function: Prints table with reference(s) and PubMed link.
+ Returns : nothing
+ Args    : expression pattern object
+
+=cut
+
+# prints bibliography
+sub print_biblio {
+  my $ep = shift;
+  my %references;
+  my @references = $ep->Reference or return;
+  print hr . h3( { -class => 'heading' }, 'Bibliography' );
+  print start_table( { -class => 'databody' } );
+  print "<tr valign=top><td>";
+  format_references( -references  => \@references,
+		     -format      => 'long',
+		     -pubmed_link => 'image',
+		     -curator     => url_param('curator') );
+  print "</td></tr>";
+  print end_table;
+}
+
+=head2 add_href
+
+ Title   : add_href
+ Usage   : add_href($obj->Remark)
+ Function: Adds hyperlink to correctly formated links
+ Returns : string
+ Args    : array of strings
+
+=cut
+
+sub add_href {
+    my (@result) = @_;
+    foreach (@result) {
+        s!(http:/[a-zA-Z/0-9+?&%.-]+)!a({-href=>$1},$1)!eg;
+    }
+    return join( ' ', @result );
+}
+
+=head2 disambiguate
+
+ Title   : disambiguate
+ Usage   : disambiguate($obj)
+ Function: Prints a disambiguation page for multiple expression profiles.
+ Returns : nothing
+ Args    : arrayref of expression pattern object
+
+=cut
+
+# prints all the expression patterns for a given gene
+sub disambiguate {
+    my $EP = shift;
+    my @rows;
+
+    # Only show thumbnails if all expressions patterns in the
+    # list have one
+    my $have_img;
+    for my $ep (@$EP) {
+      my $img_name = system_name($ep);
+      $have_img++ if is_cached($img_name);
+    }
+    undef $have_img unless $have_img == @$EP;
+
+    for my $ep (@$EP) {
+      push @rows, list_item($ep,$have_img);
+    }
+
+    print table( Tr( { -valign => 'center' }, \@rows ) );
+
+    PrintBottom();
+    exit;
+}
+
+=head2 list_item
+
+ Title   : list_item
+ Usage   : list_item($obj)
+ Function: Assigns hyperlinks to expression profile names and thumbnails.
+ Returns : scalar table row
+ Args    : expression pattern object
+
+=cut
+
+sub list_item {
+    my $item     = shift;
+    my $show_img = shift;
+    my $url      = url(-absolute => 1);;
+    $thumb++;
+    my $thumbnail;
+    
+    if ($show_img) {
+      my $img_url   = img_url($item);
+      $thumbnail = img({-src => $img_url});
+    }
+
+    my @t = (title => "Click here for more information on $item...");
+    my $ref_item = a( {-href => "$url?name=$item", @t}, $item);
+    my $thumbhref    = a( {-href => "$url?name=$item", @t}, $thumbnail) if $thumbnail;
+    return td([$ref_item,$thumbhref]);
+}
+
+=head2 img_render
+
+ Title   : img_render
+ Usage   : img_render()
+ Function: Creates image with the selected overlays and thumnail if necessary.
+ Returns : nothing
+ Args    : none
+
+=cut
+
+sub thumbnail_render {
+  my $ep          = shift;
+
+  my $system_name = system_name($ep);
+  
+  # paranoid
+  return 0 unless is_cached($system_name);
+  
+  my $img = GD::Image->newFromPng($system_name,1);
+
+  # even more paranoid
+  return 0 unless ref $img;
+
+  my $ratio = 180/743; # raw image
+  my $thumb_height = int($ratio * $thumb_width + 0.5);
+  
+  # This bit of dark magic resamples the image in true color
+  # then dithers it to a 256-color palette, then fills in all
+  # of the non-worm parts, then makes the background transparent.
+  # All of the steps below are necessary.
+  my $thumbnail = GD::Image->new($thumb_width,$thumb_height,1);
+  $thumbnail->copyResampled($img,0,0,0,0,$thumb_width,$thumb_height,$img->width,$img->height);
+  $thumbnail->trueColorToPalette(1,256);
+  my $white = $thumbnail->colorResolve(255,255,255);
+  $thumbnail->fill($thumb_width-1,$thumb_height-1,$white);
+  $thumbnail->fill(0,0,$white);
+  $thumbnail->fill(int($thumb_width/2),0,$white);
+  $thumbnail->fill(0,$thumb_height-1,$white);
+  $thumbnail->transparent($white);
+
+  # This is just a silly strand gimmick for gbrowse
+  if ($flip) {
+    $thumbnail = $thumbnail->copyFlipHorizontal();
+  }
+
+  # cache the thumbnail
+  return img_cache($ep, $thumbnail);
+}
+
+sub print_summary {
+  my $ep = shift;
+  my @desc;
+  # TOTAL HACK FOR THE MOHLER MOVIES
+  # These are handled elsewhere because he wants his own custom formatting
+
+  unless ($ep->Author =~ /Mohler/) {
+    @desc = $ep->Pattern;
+
+    if ($ep->Remark) {
+      my $remark = add_href($ep->Remark);
+      push(@desc,b("Remark: ").i($remark));
+    }
+    
+    if (check_for_bc($ep)) {
+      push @desc,"GFP constructs were generated as part of the " .
+           a({-href=>"http://elegans.bcgsc.ca/home/ge_consortium.html"},
+	     'BC <i>C. elegans</i> Gene Expression Consortium');
+    }
+  }
+
+  if (my (@sl) = $ep->Subcellular_localization) {
+    push(@desc,b("Subcellular location:") . join(p,@sl));
+  }
+
+  print toggle(1,'Description', ul(li(\@desc))) if @desc;
+}
+
+sub print_details {
+  my $ep = shift;
+
+  my ($out,$expressed_by,$details);
+
+  $expressed_by .= TR({-valign=>'TOP'},
+	   th({-align=>'RIGHT'},'Sequence(s):' ),
+	   td(join ', ', map { ObjectLink($_) } $ep->Sequence)),"\n" if $ep->Sequence;
+  $expressed_by .= TR({-valign=>'TOP'},
+	   th({-align=>'RIGHT'},'Clone(s):' ),
+	   td(join ', ', map { ObjectLink($_) } $ep->Clone)),"\n" if $ep->Clone;
+  $expressed_by .= TR({-valign=>'TOP'},
+	   th({-align=>'RIGHT'},'Protein(s):' ),
+	   td(join ', ', map { ObjectLink($_) } $ep->Protein)),"\n" if $ep->Protein;
+  $expressed_by .= TR({-valign=>'TOP'},
+		      th({-align=>'RIGHT'},'Gene' ),
+		      td(map { my $sequence    = $_->Sequence_name;
+			       my $public_name = $_->Public_name;
+			       if ($public_name ne $sequence) {
+				 a({-href=>Object2URL($_)}, "$public_name ($sequence)");
+			       } 
+			       else {
+				 a({-href=>Object2URL($_)},$sequence);
+			       } 
+			     } $ep->Gene)) if eval { $ep->Gene};
+
+  if ($expressed_by) {
+    $expressed_by  = start_blockquote . font({-style=>"color:black"}, b('Expressed by:')) .
+	start_table({-border=>1,-class=>'databody'}) . $expressed_by .
+	end_table . end_blockquote;
+  }
+
+  my @cells = $ep->Cell;
+
+  # Don't show a link to pedigree or attempt to link all cells...
+  if (@cells) {
+      $expressed_by .= start_blockquote . font({-style=>"color:black"}, b('Expressed in Cells:'));
+      $expressed_by .= start_table({-border=>1,-class=>'databody'});
+      
+      if (@cells < 10) {
+	  my $pedigree_link = a({-href=>'../searches/pedigree?class=Cell;name=' . 
+				     join(';name=',@cells)},'view pedigree for these cell(s)');
+	  $expressed_by .= TR({-valign=>'TOP'},
+		   th({-align=>'RIGHT'},'Cell(s):' ),
+		   td(map { ObjectLink($_) } @cells),
+		   td($pedigree_link)),"\n";
+      } else {
+	  my $url = url(-absolute=>1,-query=>1);
+	  $expressed_by .= TR({-valign=>'TOP'},
+		   th({-align=>'RIGHT'},'Cell(s):' ),
+		   td('Expressed in ' . (scalar @cells) . ' cells' . a({-href=>$url . ';details=cells'},' [view all]')),
+		   td()),"\n";
+      }
+      $expressed_by .= end_table . end_blockquote;
+  }
+
+
+  if ($ep->Cell_group || $ep->Life_stage) {
+    $expressed_by .= start_blockquote . font({-style=>"color:black"},b('Expressed in:'));
+    $expressed_by .= start_table({-border=>1,-class=>'databody'});  
+
+
+    $expressed_by .= TR({-valign=>'TOP'},
+			th({-align=>'RIGHT'},'Cell Group(s):' ),
+			td(join ', ', map { ObjectLink($_) } $ep->Cell_group)),"\n" if $ep->Cell_group;
+    $expressed_by .= TR({-valign=>'TOP'},
+			th({-align=>'RIGHT'},'Life Stage(s):' ),
+			td(join ', ', map { ObjectLink($_) } $ep->Life_stage)),"\n" if $ep->Life_stage;
+    $expressed_by .= end_table. end_blockquote;
+  }
+
+  $expressed_by .= print_anatomy_terms($ep);
+
+  if (my $technique = $ep->Type) {
+    $details .= TR({-valign=>'TOP'},
+		   th({-align=>'RIGHT'},"$technique Assay:" ),
+		   td($technique->right));
+  }
+
+  $details .= TR({-valign=>'TOP'},
+		 th({-align=>'RIGHT'},"Antibody used for this assay:" ),
+		 td(join ', ', map { ObjectLink($_) } $ep->Antibody_info)) if $ep->Antibody_info;
+
+  $details .= TR({-valign=>'TOP'},
+		 th({-align=>'RIGHT'},"Transgene used for this assay:" ),
+		 td(join ', ', map { ObjectLink($_) } $ep->Transgene)) if $ep->Transgene;
+
+  $details .= TR({-valign=>'TOP'},
+		 th({-align=>'RIGHT'},"Strain(s)" ),
+		 td(join ', ', map { ObjectLink($_) } $ep->Strain)) if $ep->Strain;
+
+  $details .= TR({-valign=>'TOP'},
+		 th({-align=>'RIGHT'},"Author(s)" ),
+		 td(join ', ', map { ObjectLink($_) } $ep->Author)) if $ep->Author;
+
+  $details .= TR({-valign=>'TOP'},
+		 th({-align=>'RIGHT'},"Remark(s)" ),
+		 td("GFP constructs were generated as part of the " .
+		a({-href=>"http://elegans.bcgsc.ca/home/ge_consortium.html"},
+		  'BC <i>C. elegans</i> Gene Expression Consortium'))) if $bcflag;
+  
+  my ($date) = $ep->Date;
+  $details .= TR({-valign=>'TOP'},
+		 th({-align=>'RIGHT'},"Date" ),
+		 td($date, i($date->comment))) if $ep->Date;
+    
+  if ($details) {
+    $details = start_blockquote 
+	. start_table({-border=>1,-class=>'databody'}) 
+	. $details . end_table . end_blockquote;
+  }
+
+  if ($expressed_by) {
+    $out .= start_blockquote . toggle(1,'Expression',$expressed_by);
+    $out .= end_blockquote;
+  }
+  if ($details) {
+    $out .= start_blockquote . toggle(1,'Experimental Details', $details);
+    $out .= end_blockquote;
+  }
+
+  print toggle(0,'Details',$out) if $out;
+}
+
+sub print_movies {
+    my $ep = shift;
+
+    return '' unless $ep->Author =~ /Mohler/; 
+
+    my $description = $ep->Pattern;
+    my $out;
+
+    $out .= blockquote($description);
+
+ #   my @remarks = $ep->Remark;
+ #   $out .= blockquote(join(br,$remarks[0],$remarks[1])) if @remarks;
+    
+    my @blurbs = $ep->Remark;
+
+    $out .= start_blockquote();
+    my %type;
+    foreach ($ep->MovieURL) {
+	#my ($stereo,$url) = /(.*)\s+(http.*)/;
+	my ($stereo,$url) = split /http/i;
+	$stereo =~ s/\s+$//;
+	push @{$type{$stereo}},'http'.$url;
+    }
+    for my $type (sort keys %type) {
+      $out .= br;
+      my ($blurb) = grep /$type/,  @blurbs;
+      $blurb =~ s/(.+:)/<b>$1<\/b>/;
+      $out .= join('',$blurb, map{ p('&nbsp;&nbsp;'.a({-href=>$_, -target=>'_blank'},$_)) } @{$type{$type}});
+    }
+
+#
+#    $out .= <<END;
+#<p>
+#<i>
+#Viewing movies in a browser requires the free QuickTime browser
+#plugin (http://www.apple.com/quicktime/), which runs on either
+#Windows or MacOS. To control the QTVRs, click in the movie window
+#and drag the mouse left-right to move forward through time, up-down
+#to move through focus or rotation. A movie can also be animated
+#step-wise with the keyboard arrow keys. Running animation and speed
+#can be controlled by clicking on the edges of the movie window.
+#<p>
+#An alternative to browser viewing is to right-click (or ctrl-click)
+#a link above and download the movie file directly to your desktop.
+#It can then be viewed in stand-alone application QuickTime Player.
+#<p>
+#NOTE: QTVR movies are large, and may take several minutes to
+#download in full. You can monitor the download by looking at the
+#progress/status bar at the bottom left of your browser window. If
+#viewing in your browser, the downloaded file will reside
+#temporarily in the "Cache" or "Temporary" folder for you browser.
+#To permanently save a local copy of the fully downloaded movie
+#file, click on the bottom-right corner of the movie window and
+#select "Save as Quicktime Movie...".
+#</i>
+#END
+#;
+
+  $out .= end_blockquote();
+  print toggle(1,'Expression movies', $out);
+}
+
+
+
+
+sub print_sanctioned_flickr_images {
+    my ($ep) = shift;
+    
+    print hr;
+    print start_div({-style=>"border:1px solid #E7E7E7;padding:15px;margin:25px"});
+	print h2("Curated Expression Pattern Images");
+    print p(i('Curated images associated with this expression pattern'));
+
+    my @related;
+    
+    my $flickr   = Flickr::API::Simple->new({
+	config => '/usr/local/wormbase/website-classic/conf/flickr.conf'});
+    
+    # 1. Display sanctioned images from the WormBase user
+    my $user     = $flickr->find_user({username => 'wormbase'});
+    my $user_id  = $user->id;
+    my $photos;
+
+    if ($user_id) {
+	$photos   = $flickr->search_photos({user_id => $user_id,
+					    tags    => [$ep],
+					   });
+
+    }
+    
+    if ($photos) {
+	foreach (@$photos) {
+	    next unless $_->owner->id eq '26871026@N02';
+	    push @related,display_photo($_);
+	}
+    } else {
+	print i("No curated images are available for $ep") . br;
+    }
+    
+    print end_div;
+        
+    # 2. Display user submitted images (These are tagged with the current gene and
+    # have been posted to the WOrmBase group.
+    print start_div({-style=>"border:1px solid #E7E7E7;padding:15px;margin:25px;"});
+	print h2("User submitted images");
+    print p(i("The following images have been contributed by users.  They are not curated by WormBase staff. Interested in submitting your own images?  It's easy!  For details, see "
+	      . a({-href=>"http://flickr.com/groups/869508\@N22/"},'The WormBase Group')
+	    . ' on '
+		. a({-href=>'http://www.flickr.com'},'Flickr.')));
+    
+    my $photos   = $flickr->search_photos({group_id => '869508@N22',
+					   tags    => [$ep],
+				       });
+    
+    if (@$photos == 0) {
+	foreach (@$photos) {
+	    push @related,display_photo($_);
+	}
+    } else {
+	print i("No user-submitted photos are available for $ep").br;
+    }
+    
+    print end_div;    
+
+
+    if (0) {
+	# 3. Display related tags.
+	print start_div({-style=>"border:1px solid #E7E7E7;padding:15px;margin:25px"});
+	    print h2("Related tags");
+	print p(i('The following tags are similar to those used to annotate expression pattern $ep.  They were idntified through clustered usage analysis'));
+	
+	my %seen;
+	my @unique_tags = grep { !$seen{$_} } @related;
+	my %unique_related;
+	foreach my $tag (@unique_tags) {
+	    my $tags = $tag->get_related();
+	    foreach (@$tags) {
+		$unique_related{$_->raw} = $_;
+	    }
+	}
+	
+	print join("; ",map { $unique_related{$_}->name } keys %unique_related);
+	print end_div;        
+    }
+}
+
+
+
+
+sub display_photo {
+    my $photo = shift;
+    my $sizes = $photo->sizes;
+
+    my $realname = $photo->owner->realname;
+    my $username = $photo->owner->username; 
+    my $name = a({-href=>"http://flickr.com/photos/$username"},$username)
+	. (($realname) ? " ($realname)" : '');
+
+
+    my $title = $photo->title;
+#    my $views = $photo->views;
+    my $url   = $photo->photopage_url;
+    my $id    = $photo->id;
+    
+    print start_div({-style=>"padding:25px"});
+    
+    print start_table();
+    print start_TR({-class=>'flickr-field'}),
+    td({-class=>"flickr-field-image"},
+       a({-href=>$url},img({-src=>$sizes->{Small}->{source}}))),
+    td(start_table());
+    
+    print TR(
+	     td({-class=>'flickr-field-title'},
+		'Title'),
+	     td({-class=>'flickr-field-contents'},
+		$title));
+    
+    print TR({-class=>'flickr-field'},
+	     td({-class=>'flickr-field-title'},
+		'Flickr Photo ID'),
+	     td({-class=>'flickr-field-contents'},
+		a({-href=>$url},$id)));
+    
+    print TR({-class=>'flickr-field'},
+	     td({-class=>'flickr-field-title'},
+		'Posted by'),
+	     td({-class=>'flickr-field-contents'},
+		$name));
+    
+# Tags
+       my ($tags) = $photo->tags;
+       my $tag_string = join(br,map { 
+	a({-href=>"http://flickr.com/photos/$username/tags/" . $_->name . '/'},
+	  $_->raw)
+	    . ' ['
+	    . a({-href=>"http://flickr.com/photos/tags/" . $_->name . '/'}
+		,'all users photos') . ']'	  
+		} sort { $a->name cmp $b->name } @$tags) ;
+       print TR({-class=>'flickr-field'},
+	     td({-class=>'flickr-field-title'},
+		 'Flickr tags'),
+	     td({-class=>'flickr-field-contents'},
+		 $tag_string));
+       
+# Comments 
+       my $comments = $photo->comments;
+       my $comment_string;
+       foreach my $comment (@$comments) {
+	
+	   $comment_string .=
+	       p($comment->content
+		 . br
+		 . '&nbsp;&nbsp;<i>added by: '
+		 . a({-href=>'http://flickr.com/photos/' . $comment->author->username},
+		     ($comment->author->realname || $comment->author->username))
+		 . " on "
+		 . a({-href=>$comment->permalink},$comment->created)
+		 . '.</i>');
+       }
+    print TR({-class=>'flickr-field'},
+	     td({-class=>'flickr-field-title'},
+		 'Comments'),
+	     td({-class=>'flickr-field-contents'},
+		 $comment_string));
+       
+       print end_table(),end_TR(),end_table();
+       print end_div();
+    return $tags;
+}

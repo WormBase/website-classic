@@ -1,0 +1,669 @@
+#!/usr/bin/perl
+
+use strict;
+use Ace::Browser::AceSubs qw/:DEFAULT/;
+use ElegansSubs qw/:DEFAULT/;
+use CGI qw/:standard *table *blockquote *div *TR *td/;
+use vars qw/@datasets @concise_descriptions @website_features @analysis @outreach $DB/;
+
+use constant SURVEY_LOG => '/usr/local/wormbase/logs/2007_wormbase.log';
+use constant SURVEY_STATS_JOBS => '/usr/local/wormbase/logs/2007_survey_running_stats_jobs.txt';
+use constant SURVEY_STATS_COUNTRIES => '/usr/local/wormbase/logs/2007_survey_running_stats_countries.txt';
+
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+# Prioritizing datasets
+@datasets = ( [ { subsection  => 'Gene structures and sequences',
+		  questions   => [ 'Correct C. elegans gene structures',
+				   'Alternate C. elegans gene structures (isoforms)',
+				   'Curation of other Caenorhabditis species gene structures',
+				   'Gene structures of medically/agriculturally significant nematodes',
+				   ]
+				   },
+		{ subsection => 'Orthology, paralogy, evolutionary biology',
+		  questions  => [ 'High quality ortholog assignments',
+				  'Protein families',
+				  'Population diversity data',
+				  ]
+				  },
+		{ subsection => 'Genetics',
+		  questions  => [
+				 'Sequence of alleles',
+				 'Genetic data from other Caenorhabditis species',
+				 'Genetic map',
+				 'Stocks and strains',
+				 ]
+			     },
+		{ subsection => 'Gene expression, interaction, and regulation',
+		  questions  => [
+				 'Gene interactions in simple statements (e.g. A suppresses B)',
+				 'Genetic interactions curated at the level of alleles and phenotypes',
+				 'Gene trans-regulation (e.g. A regulates B)',
+				 'Cis-regulatory sequences',
+				 'Chromatin immunoprecipitation data',
+				 'Drug interactions',
+				 'Protein interaction data',
+				 'Expression patterns (from the literature)',
+				 'Expression microarray data',
+				 'Mass spectrometry data'
+				 ]
+			     },
+		{ subsection => 'Anatomy',
+		  questions  => [
+				 'Cell identification and field guide',
+				 'Neural circuit data (e.g., calcium imaging)',
+				 ]
+			     },
+		{ subsection => 'Curation and annotations',
+		  questions  => [ 'Biochemical pathways',
+				  'Systematic RNAi screens',
+				  'Ontologies (Gene, Phenotype, Anatomy)',
+				  'Gene-paper connections',
+				  ]
+				  }
+		]);
+
+@concise_descriptions = (
+			 'Accuracy/Up-to-Date with most recent literature',
+			 'Breadth of coverage (greater number of genes covered)',
+			 'Depth of coverage (genes covered in more detail)',
+			 'Consistency of annotation (similar information in each)',
+			 'More explicit attribution of reference/source material',
+			 'Easy mechanism for user feedback',
+			 'Ability to edit a community maintained concise description');
+
+@website_features = (
+		     'User-configurable displays',
+		     'Notifications when data of interest changes',
+		     'Ability to save and store sequences and queries',
+		     'Links to other databases');
+
+@analysis = (
+	     'BLAST searches',
+	     'Complex database queries',
+	     'Full text searches of C. elegans papers',
+	     'Batch download of sequences & other types of raw data',
+	     'Search for cell-specific gene expression using clickable diagrams',
+	     'Search for co-expressed genes',
+	     'Search for phenotypes',
+	     'Search for highly conserved regions',
+	     'Search for phylogenetically conserved/divergent genes',
+	     'Search for genes with particular configurations of protein coding domains',
+	     'Search for genes that functionally interact with a query gene',
+	     'Perform analyses based on reaction/interaction networks',
+	     'Perform clustering of microarray data');
+
+@outreach = ( 'Online user guide',
+	      'Online Tutorials',
+	      'Demonstrations/workshops at C. elegans meetings',
+	      'Demonstrations/workshops at society meetings',
+	      'WormBase Help desk (help@wormbase.org)',
+	      'WormBase Newsletter');
+
+PrintTop(undef,undef,'WormBase User Survey, Summer 2007');
+
+process_form() if param();
+print start_div({-class=>'container'});
+generate_form() unless param();
+print end_div();
+PrintBottom;
+exit;
+
+
+sub process_form {
+    print h3('Thank you!');
+    print p('Thank you for your time.  Your responses will help drive future curation and development at WormBase.');
+    
+    print p('Continue to ' . a({-href=>'http://www.wormbase.org/'},'WormBase') . '...');
+    
+    # Track some statistics to generate a dynamic banner
+
+    # Fetch the correct IP passed along by squid
+    my $ip = $ENV{HTTP_X_FORWARDED_FOR} || $ENV{REMOTE_ADDR};
+    
+    my %questions = ( general => [qw/
+				  job_description
+				  institution_type
+				  primary_interest
+				  access_frequency
+				  country_of_access
+				  email
+				  /],
+		      gene_structures => [qw/
+					  gene_structure_accuracy
+					  gene_structure_completeness
+					  /],
+#					gene_structure_accurary_improvement
+		      datasets => [ build_dataset_questions(),
+				    'gene_ontology_use',
+				    'suggested_datasets',
+				    ],
+		      
+		      concise_descriptions => [ 'concise_description_accuracy',
+						'concise_description_completeness',
+						reformat_questions(@concise_descriptions),
+						'concise_description_suggestions',
+						],
+		      website_features     => [ 'speed_of_site',
+						'ease_of_use',
+						'one_feature_suggestion',
+						'cumbersome_features',
+						reformat_questions(@website_features),
+						],
+#						'mirror_awareness',
+		      query_and_analysis_tools => [ reformat_questions(@analysis),
+						    'wormmart_access_frequency',
+						    'wormmart_suggestions',
+						    'tools_for_new_genomes',
+						    'microarray_and_sage_tools',
+						    'chip_chip_tools'],
+		      outreach                 => [  reformat_questions(@outreach),
+						     'satisfaction_with_corrections',
+						     'satisfaction_with_suggestions',
+						     'other_suggestions'
+						     ]
+		      );
+    
+    
+    
+    my @sections = qw/general gene_structures datasets concise_descriptions website_features query_and_analysis_tools outreach/;
+    
+    open LOG,">>" . SURVEY_LOG or die "$!";
+    print LOG "IP=$ip\n";
+    
+    foreach my $section (@sections) {
+	my @questions = @{$questions{$section}};
+	foreach my $question (@questions) {
+	    
+	    my ($answer) = join(';',param($question));
+	    print LOG "$question===$answer\n";
+	}
+    }
+    print LOG "=\n";
+    close LOG;
+
+}
+
+
+sub reformat_questions {
+    my @list = @_;
+    my @formatted_list;
+    foreach (@list) {
+	s/ /_/g;
+	push @formatted_list,$_;
+    }
+    return @formatted_list;
+}
+
+sub display_greeting {
+    print p({-class=>'container'},qq{
+	Thank you for taking time to fill out this user survey.  We develop WormBase to support the research community, and we prioritize our development according to feedback from our users.  Your responses here will help guide the future curation and development efforts at WormBase.  The survey is completely anonymous.});
+}
+
+sub generate_form {
+    display_greeting();
+    print start_form();
+   
+    my $count = 1;
+    
+    # Biographical information
+    print hr;
+    print h3('General');
+    print "$count. Who are you?";
+    print blockquote(
+		     table(
+			   TR(td(p('Your position:')),
+			      td(popup_menu(-name   => 'job_description',
+					    -values => ['--',
+							'High school student',
+							'College student',
+							'Graduate student',
+							'Postdoctoral fellow',
+							'Research scientist',
+							'Principal investigator',
+							'Educator-college/university',
+							'Educator-high school',
+							'Other'],
+					    -default => '--')
+				 )),
+			   
+			   TR(td(p('Your institution:')),
+			      td(popup_menu(-name   => 'institution_type',
+					    -values => ['--',
+							'High school',
+							'College',
+							'University',
+							'Government laboratory',
+							'Research institute, non-profit',
+							'Research institute, for-profit',
+							'Private sector laboratory',
+							'Other'],
+					    -default => '--'))),
+			   
+			   TR(td('Your primary interest:'),
+			      td(
+				 popup_menu(-name   => 'primary_interest',
+					    -values => ['--',
+							'Biological research - C. elegans',
+							'Biological research - other organism',
+							'Clinical/Medical research',
+							'Biotechnology, industrial research',
+							'Education',
+							'Other'],
+					    -default => '--'),
+				 )),
+			   ));
+    print ++$count . '. How frequently do you visit WormBase?';
+    my @access_frequency = ('Not very often',
+			    'A few times per year',
+			    'A few times per month',
+			    'A few times per week',
+			    'Daily');
+    
+    print blockquote(radio_group({-name   => 'access_frequency',
+				  -values => \@access_frequency,
+				  -default => '',
+				  -cols   => 1}));
+    
+#  <!-- start of drop down country selection list -->
+    print ++$count . '. From which country do you primarily access WormBase?',
+    blockquote(qq{
+	<select name="country_of_access" size="1">
+	    <option selected="selected">--</option>
+	    <option>United States Of America</option>
+	    <option>Canada</option>
+	    <option>France</option>
+	    <option>Germany</option>
+	    <option>Japan</option>
+	    <option>The Netherlands</option>
+	    <option>Switzerland</option>
+	    <option>United Kingdom</option>
+	    <option>Afghanistan</option><option>&Aring;land Islands</option><option>Albania</option><option>Algeria</option><option>American Samoa</option><option>Andorra</option><option>Angola</option><option>Anguilla</option><option>Antarctica</option><option>Antigua and Barbuda</option><option>Argentina</option><option>Armenia</option><option>Aruba</option><option >Australia</option><option>Austria</option><option>Azerbaijan</option><option>Bahamas</option><option>Bahrain</option><option>Bangladesh</option><option>Barbados</option><option>Belarus</option><option>Belgium</option><option>Belize</option><option>Benin</option><option>Bermuda</option><option>Bhutan</option><option>Bolivia</option><option>Bosnia and Herzegovina</option><option>Botswana</option><option>Bouvet Island</option><option>Brazil</option><option>British Indian Ocean territory</option><option>Brunei Darussalam</option><option>Bulgaria</option><option>Burkina Faso</option><option>Burundi</option><option>Cambodia</option><option>Cameroon</option>
+	    <option>Cape Verde</option><option>Cayman Islands</option><option>Central African Republic</option><option>Chad</option><option>Chile</option><option>China</option><option>Christmas Island</option><option>Cocos (Keeling) Islands</option><option>Colombia</option><option>Comoros</option><option>Congo</option><option>Congo, Democratic Republic</option><option>Cook Islands</option><option>Costa Rica</option><option>C&ocirc;te d'Ivoire (Ivory Coast)</option><option>Croatia (Hrvatska)</option><option>Cuba</option><option>Cyprus</option><option>Czech Republic</option><option>Denmark</option><option>Djibouti</option><option>Dominica</option><option>Dominican Republic</option><option>East Timor</option><option>Ecuador</option><option>Egypt</option><option>El Salvador</option><option>Equatorial Guinea</option><option>Eritrea</option><option>Estonia</option><option>Ethiopia</option><option>Falkland Islands</option><option>Faroe Islands</option><option>Fiji</option><option>Finland</option>
+<option>French Guiana</option><option>French Polynesia</option><option>French Southern Territories</option><option>Gabon</option><option>Gambia</option><option>Georgia</option>
+<option>Ghana</option><option>Gibraltar</option><option>Greece</option><option>Greenland</option><option>Grenada</option><option>Guadeloupe</option><option>Guam</option><option>Guatemala</option><option>Guinea</option><option>Guinea-Bissau</option><option>Guyana</option><option>Haiti</option><option>Heard and McDonald Islands</option><option>Honduras</option><option>Hong Kong</option><option>Hungary</option><option>Iceland</option><option>India</option><option>Indonesia</option><!-- copyright Felgall Pty Ltd --><option>Iran</option><option>Iraq</option><option>Ireland</option><option>Israel</option><option>Italy</option><option>Jamaica</option>
+<option>Jordan</option><option>Kazakhstan</option><option>Kenya</option><option>Kiribati</option><option>Korea (north)</option><option>Korea (south)</option><option>Kuwait</option><option>Kyrgyzstan</option><option>Lao People's Democratic Republic</option><option>Latvia</option><option>Lebanon</option><option>Lesotho</option><option>Liberia</option><option>Libyan Arab Jamahiriya</option><option>Liechtenstein</option><option>Lithuania</option><option>Luxembourg</option><option>Macao</option><option>Macedonia</option><option>Madagascar</option><option>Malawi</option><option>Malaysia</option><option>Maldives</option><option>Mali</option><option>Malta</option><option>Marshall Islands</option><option>Martinique</option><option>Mauritania</option><option>Mauritius</option><option>Mayotte</option><option>Mexico</option><option>Micronesia</option><option>Moldova</option><option>Monaco</option><option>Mongolia</option><option>Montserrat</option><option>Morocco</option><option>Mozambique</option><option>Myanmar</option><option>Namibia</option><option>Nauru</option><option>Nepal</option>
+<option>Netherlands Antilles</option><option>New Caledonia</option><option >New Zealand</option><option>Nicaragua</option><option>Niger</option><option>Nigeria</option><option>Niue</option><option>Norfolk Island</option><option>Northern Mariana Islands</option><option>Norway</option><option>Oman</option><option>Pakistan</option><option>Palau</option><option>Palestinian Territories</option><option>Panama</option><option>Papua New Guinea</option><option>Paraguay</option><option>Peru</option><option>Philippines</option><option>Pitcairn</option><option>Poland</option><option>Portugal</option><option>Puerto Rico</option><option>Qatar</option><option>R&eacute;union</option><option>Romania</option><option>Russian Federation</option><option>Rwanda</option><option>Saint Helena</option><option>Saint Kitts and Nevis</option><option>Saint Lucia</option><option>Saint Pierre and Miquelon</option><option>Saint Vincent and the Grenadines</option><option>Samoa</option><option>San Marino</option><option>Sao Tome and Principe</option><!-- copyright Felgall Pty Ltd --><option>Saudi Arabia</option><option>Senegal</option><option>Serbia and Montenegro</option><option>Seychelles</option><option>Sierra Leone</option><option>Singapore</option><option>Slovakia</option><option>Slovenia</option><option>Solomon Islands</option><option>Somalia</option><option>South Africa</option><option>South Georgia and the South Sandwich Islands</option><option>Spain</option><option>Sri Lanka</option><option>Sudan</option><option>Suriname</option><option>Svalbard and Jan Mayen Islands</option><option>Swaziland</option><option>Sweden</option><option>Syria</option><option>Taiwan</option><option>Tajikistan</option><option>Tanzania</option><option>Thailand</option><option>Togo</option><option>Tokelau</option><option>Tonga</option><option>Trinidad and Tobago</option><option>Tunisia</option><option>Turkey</option><option>Turkmenistan</option><option>Turks and Caicos Islands</option><option>Tuvalu</option><option>Uganda</option><option>Ukraine</option><option>United Arab Emirates</option>
+<option>Uruguay</option><option>Uzbekistan</option><option>Vanuatu</option><option>Vatican City</option><option>Venezuela</option><option>Vietnam</option><option>Virgin Islands (British)</option><option>Virgin Islands (US)</option><option>Wallis and Futuna Islands</option><option>Western Sahara</option><option>Yemen</option><option>Zaire</option><option>Zambia</option><option>Zimbabwe</option></select>});
+#<!-- end of drop down country selection list -->
+#
+#  add_text_field(
+#		 'country_of_access');
+    
+    
+    print hr;
+    print h3('Gene structures');
+    print i('The following questions pertain to gene structures at WormBase.') . br .br;
+    
+    print ++$count . '. How accurate do you think the gene structures are at WormBase?';
+    print blockquote(radio_group({-name   => 'gene_structure_accuracy',
+				  -values => ['Badly inaccurate',
+					      'Mostly accurate but some incorrect',
+					      'Almost all correct',
+					      'All correct',
+					      "Don't know / No opinion"
+					      ],
+						  -default => "Don't know / No opinion",
+						  -linebreak => 1,
+					      }));
+    
+    print ++$count . '. How complete do you think the gene structures are?';
+    print blockquote(radio_group({-name   => 'gene_structure_completeness',
+				  -values => ['Many genes/transcripts missing',
+					      'Most genes present, many transcripts missing',
+					      'Most genes present, some transcripts missing',
+					      'Almost all genes and transcripts present',
+					      "Don't know / No opinion"
+					      ],
+						  -default => "Don't know / No opinion",
+						  -cols => 1,
+					      }));
+    
+#  print h4(++$count . '. Has gene structure accuracy/completeness improved in the last three years?');
+#  print blockquote(radio_group({-name   => 'gene_structure_accuracy_improvement',
+#				-values => ['No it has gotten worse',
+#					  'No change',
+#					  'Yes, progressive improvement',
+#					  'Yes, major improvement',
+#					  "Don't know"
+#					  ],
+#					      -default => "Don't know",
+#					      -cols => 1,
+#					  }));
+    
+    print hr;
+    print h3('Datasets');
+    print ++$count . '. How important are the following types of information to you?';
+    display_nested('Information type',@datasets);
+    
+    
+    print ++$count . ". Do you use the Gene Ontology data at Wormbase?";
+    print blockquote(radio_group({-name   => 'gene_ontology_use',
+				  -values => ['Yes, on a gene-by-gene basis',
+					      'Yes, using data mining strategies',
+					      'No',
+					      "I don't know what Gene Ontology is",
+					      ],
+				  -cols   => 1,
+				  -default => '--',
+			      }));
+    
+    add_text_area(++$count . '. Are you aware of important data sets not currently in WormBase that should be?',
+		  'suggested_datasets');
+    
+    
+    print hr;
+    print h3('Concise descriptions');
+    print i('The following questions pertain to concise descriptions displayed on the 
+Gene Summary page. (e.g. from the "Concise Description" section on the <a href="http://www.wormbase.org/db/gene/gene?name=unc-22">unc-22 Gene Summary Page</a>.') . br . br;
+    
+    print ++$count . '. How accurate do you think the existing concise descriptions are?';
+    print blockquote(radio_group({-name   => 'concise_description_accuracy',
+				  -values => [
+					      'Very inaccurate',
+					      'Somewhat inaccurate',
+					      'Mostly accurate but with some errors',
+					      'All accurate',
+					      "Don't know / No opinion"],
+				      -cols    => 1,
+				      -default => "Don't know / No opinion"}));
+    
+    print ++$count . '. How complete do you think the existing concise descriptions are?';
+    print blockquote(radio_group({-name    => 'concise_description_completeness',
+				  -values  => [
+					       'Very incomplete',
+					       'Somewhat incomplete',
+					       'Mostly complete but missing some critical details',
+					       'Complete',
+					       "Don't know / No opinion"],
+				      -cols    => 1,
+				      -default => "Don't know / No opinion"}));
+    
+    
+    print ++$count . '. How important are the following aspects of the concise descriptions?';
+    display('Aspect',@concise_descriptions);
+    #rank('concise_description_aspects',@concise_descriptions);
+    
+    
+    add_text_area(++$count . '. How can we make these concise descriptions more useful?',
+		  'concise_description_suggestions');
+    
+    print hr;
+    print h3('Website Features');
+    
+    print ++$count . '. Is the speed of WormBase acceptable?';
+    print blockquote(radio_group({-name   => 'speed_of_site',
+				  -values => ['Never',
+					      'Sometimes',
+					      'Usually',
+					      'Always',
+					      'No opinion'],
+				  -default => 'No opinion',
+				  -cols   => 1}));
+    
+    
+#    print ++$count . '. Are you aware that WormBase offers mirror sites to share the load with the
+#primary website?';
+#    print blockquote(radio_group({-name   => 'mirror_awareness',
+#				  -values => ['Yes',
+#					      'No',
+#					      'Yes, but I prefer the primary web site'
+#					      ],
+#						  -default => '--',
+#					      }));
+    
+    
+    
+    
+    print ++$count . '. How easy is it to find information in WormBase?';
+    print blockquote(radio_group({-name   => 'ease_of_use',
+				  -values => ['Very easy',
+					      'Relatively easy',
+					      'Sometimes confusing',
+					      'Difficult to navigate',
+					      'No opinion'],
+				  -cols   => 1,
+				  -default => 'No opinion'}));
+    
+    add_text_area(++$count . '. If you could add or improve one feature at WormBase right now, what would it be?',
+		  'one_feature_suggestion');
+    
+    add_text_area(++$count . '. What features do you find to be the most cumbersome to use?',
+		  'cumbersome_features');
+    
+    print ++$count . '. How important to you are the following web site features?';
+    display('Feature',@website_features);
+    
+    
+    print hr;
+    print h3('Query and analysis tools');
+    print ++$count . '. How important are the following analysis/query tools to you?';
+    display('Analysis/Query tool',@analysis);
+    
+    print ++$count . '. How often do you use the <a href="http://www.wormbase.org/biomart/martview">WormMart</a> data mining tool?';
+    
+    my @access_frequency2 = ('Never',
+			    'Not very often',
+			    'A few times per year',
+			    'A few times per month',
+			    'A few times per week',
+			    'Daily');
+    
+    print blockquote(radio_group({-name   => 'wormmart_access_frequency',
+				  -values => \@access_frequency2,
+				  -default => '',
+				  -cols   => 1}));
+    
+    add_text_area(++$count . '. If you use WormMart, what types of new data should we make available through it?',
+		  'wormmart_suggestions');
+    
+    add_text_area(++$count . '. WormBase is adding the sequence of several new genomes this year. What analyses and tools will enable you to make the most use of these genomes in your research?',
+		  'tools_for_new_genomes');
+    
+    add_text_area(++$count . '. What kind of tools and analyses would you like to see for large-scale expression data such as microarray and SAGE?',
+		  'microarray_and_sage_tools');
+    
+    add_text_area(++$count . '. Would data derived from ChIP-Chip and comparative genomic hybridization experiments be a useful addition to WormBase and if yes, how would you like to see it presented?',
+		  'chip_chip_tools');
+    
+    
+    print hr;
+    print h3('Outreach and education');
+    print ++$count . '. How important are the following WormBase outreach &amp; education activities?';
+    
+    display('Activity',@outreach);
+    
+    print ++$count . '. How satisfied are you with our...';
+    my @response = ('Very satisfied','Somewhat satisfied','Somewhat unsatisfied','Very unsatisfied');
+    my @corrections = @response;
+    push @corrections,'Have not submitted any corrections';
+    
+    print p('Response to corrections?');
+    print blockquote(radio_group({-name   => 'satisfaction_with_corrections',
+				  -values => \@corrections,
+				  -cols   => 1,
+				  -default => '--'}));
+    
+    print p('Response to suggestions?');
+    push @response,'Have not submitted any suggestions';
+    print blockquote(radio_group({-name   => 'satisfaction_with_suggestions',
+				  -values => \@response,
+				  -cols   => 1,
+				  -default => '--'}));
+    
+    
+    print hr;
+    add_text_area(++$count . '. Any other suggestions or comments?','other_suggestions');
+    
+    print hr;
+    
+    
+#<img src="/images/round_logo.gif" align="left">
+    print h3('Enter the WormBase Mug / Shotglass Contest!');
+    
+    print p('Ten respondents will be drawn at random to receive a WormBase mug or shotglass.  To
+be eligible we must know your e-mail address to contact you.'),br;
+    print b('e-mail:'),textfield({-name=>'email',-size=>'50',-value=>''}),br({-clear=>'all'});
+    
+    print hr;
+    print blockquote(submit({-name=>'submit',-value=>'Submit Questionnaire Now'}));
+    
+    print end_form,hr;
+    
+    print p('Thank you for your help!');
+    
+    print blockquote('The WormBase Consortium');
+}
+
+
+
+sub add_text_field {
+    my ($text,$name,$is_other) = @_;
+    if ($is_other) {
+	return blockquote(i($text)
+			  . textfield({-name => $name,
+				       -size => 50}));
+    } else {
+	print $text;
+	print blockquote(textfield({-name => $name,
+				    -size => 50}));
+    }
+}
+
+
+sub add_text_area {
+    my ($text,$name) = @_;
+    print $text;
+    print blockquote(textarea({-name=>$name,-rows=>5,cols=>64,-wrap=>'virtual'}));
+}
+
+
+
+sub display {
+    my ($label,@list) = @_;
+    
+    print start_blockquote(),
+    start_table({-border=>1,-width=>'80%'});
+    
+    print TR(th(),
+	     th({-colspan => 5},'Importance'));
+    
+    print 
+	TR(th(),td({-colspan=>5},table({-width=>'100%'},TR(td({-align=>'LEFT'},'Very'),
+							   td({-align=>'RIGHT'},'Not Very')))));
+    
+    print TR(th(),td(map { $_ } [1 ..5 ]));
+    
+    foreach my $name (@list) {
+	
+	print start_TR();
+	print td($name);
+	
+	my $formatted = $name;
+	$formatted =~ s/ /_/g;
+	for (my $i=1;$i<=5;$i++) {
+	    print td(qq{<input type="radio" name=$formatted" value=$i>});
+	}
+	print end_TR();
+    }
+    
+   print end_table(),
+   end_blockquote();
+}
+
+
+# Create a ranking of items in order of importance
+sub rank {
+    my ($label,@list) = @_;
+    print start_blockquote(),
+    start_table({-border=>1,-width=>'80%'}),
+    TR(th(),
+       th({-colspan => (scalar @list)},'Importance'));
+    print TR(th(),td({-colspan=>scalar @list},table({-width=>'100%'},TR(td({-align=>'LEFT'},'Most'),
+									td({-align=>'RIGHT'},'Least')))));
+    
+    foreach my $name (@list) {
+	print start_TR();
+	print td($name);
+	
+	my $formatted = $name;
+	$formatted =~ s/ /_/g;
+	
+	for (my $i=1;$i<=@list;$i++) {
+	    print td(qq{<input type="radio" name="$label$i" value=$formatted>});
+	}
+	print end_TR();
+    }
+    print end_table(),
+    end_blockquote();
+}
+
+
+
+
+
+sub display_nested {
+    my ($label,@list) = @_;
+    
+    my @entries = $list[0];
+    
+    foreach (@entries) {	
+	foreach my $subsection (@$_) { 
+
+	    my $title = $subsection->{subsection};
+	    
+	    print start_blockquote(),
+	    start_table({-border=>1,-width=>'80%'}),
+	    TR(th({-rowspan=>3,-width=>'70%'},$title),
+	       th({-colspan => 5},'Importance'));
+#	print TR(th(),td({-colspan=>5},
+#	table({-width=>'100%'},TR(td({-align=>'LEFT'},'Most'),
+#	td({-align=>'RIGHT'},'Least')))));
+	    print TR(td(map { $_ } [1 ..5 ]));
+	    
+
+	    print TR(
+		     td({-colspan=>5},table({-width=>'100%'},TR(td({-align=>'LEFT'},'Very'),
+								td({-align=>'RIGHT'},'Not Very')))));
+	    my @questions = @{$subsection->{questions}};
+	    foreach (@questions) {
+		my $formatted = $_;
+		$formatted =~ s/ /_/g;
+		
+		print start_TR(),td($_);
+		for (my $i=1;$i<=5;$i++) {
+		    print td(qq{<input type="radio" name="$formatted" value=$i>});
+		}
+		print end_TR();
+		
+#		print TR(td($_),
+#			 td(radio_group({-name=>$formatted,-rows=>1,-values=>[1..5],-default=>'--'})));
+		
+	    }
+	    print end_table(),
+	    end_blockquote();
+	}
+    }
+    
+}
+
+
+
+
+sub build_dataset_questions {
+    my @entries = $datasets[0];
+    
+    my @field_names;
+    foreach (@entries) {
+	foreach my $subsection (@$_) { 
+	    my @questions = @{$subsection->{questions}};
+	    foreach (@questions) {
+		my $formatted = $_;
+		$formatted =~ s/ /_/g;
+		push @field_names,$formatted;
+	    }
+	}
+    }
+    return @field_names;
+}

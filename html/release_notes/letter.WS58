@@ -1,0 +1,106 @@
+New release of acedb WS58 and wormpep68 24/10/2001
+==================================================
+
+This directory includes:
+   WS58 database.*.tar.gz 
+     files to be installed using INSTALL
+   WS57-WS58.dbcomp
+     Test log reporting differences in Class objects
+     between WS57 and WS58 
+   chromosomes.WS58.tar.gz
+     CHROMOSOMES subdirectory with DNA sequence and GFF files for 
+     the 6 chromsomes
+   wormpep68.tar.gz
+     full wormpep distribution corresponding to WS57 database
+     this contains a log file showing a number of errors in naming 
+     and gene structures that should be fixed
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+Sequence composition:
+---------------------
+
+6 sequences >= 0, 100237364 total
+
+  a 32277968    32 %
+  c 17731164    18 %
+  g 17709083    18 %
+  t 32271957    32 %
+  - 247096      0 %
+  n 96  	0 %
+
+There was no sequence length change but a number of sequence updates (mainly
+substitutions) have been made. This is the start of the Thierry-Mieg WTP
+based sequence corrections.
+
+Wormpep data set:
+-----------------
+
+There are 19,414 CDS in autoace, 20,263 when counting (849) alternate 
+splice_forms.
+20,263 sequences totalling 8,901,699 letters
+
+ Modified entries      97
+ Deleted entries       29
+ New entries           57
+ Reappeared entries     1
+ ------------------------
+ Net Change          + 29
+
+There are 110 provisional gene models in WS58.
+
+GeneModel correction progress:
+------------------------------
+
+# Confirmed_intron not in CDS GeneModels
+
+           +----------+---------+
+           | Introns  | Change  |
+           +----------+---------+
+Cambrige   |      525 |  -    5 |
+St Louis   |     1249 |  +  585 |
+           +----------+---------+
+
+
+Synchronisation with GenBank/EMBL:
+----------------------------------
+
+No current problems with regard to sequence.  
+
+New data:
+---------
+The Marc Vidal Orfeome data has been updated by Phillipe and Lincoln
+in CSH. This has involved a large number of object renaming and cleaning
+of the oligo data set. Orfeome PCR_products have a new assay conditions
+LongText object.
+
+mRNAs are now mapped via BLAT in a similar manner to the ESTs. The new 
+methods are BLAT_mRNA_BEST and BLAT_mRNA_OTHER. 
+
+Known fixes / Other changes:
+----------------------------
+
+We released a development version of WS58 on the wormbase-FTP site which
+includes wublastx data (against model organisms, namely fly/yeast/human 
+and the rest of a nr protein database). There are currently problems with
+the filtering of this large volume of data and some nomenclature issues.
+We are working on these and will look to integrate this data into the
+main WS release as soon as praticable.
+
+Following on from the work on the methods in WS57, and as a result of the
+addition of the wublastx data, we have revamped the colour and F-map
+columns in xace. A review of these changes will be mailed to the 
+wormbase-dev mail list soon.
+
+The Sanger has started to process the list of sequence corrections supplied
+by Jean and Danielle Thierry-Mieg. This list is based on their analysis of
+EST sequences using the traces produced in the Kohara lab. The proccessing 
+of this list is a medium term effort and corrections will be incorporated 
+into WormBase as soon as possible. The progress on sequence corrections will
+be made available to the wormbase developers soon.
+
+New problems
+------------
+

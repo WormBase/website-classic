@@ -1,0 +1,192 @@
+New release of WormBase WS122, Wormpep122 and Wormrna122  March 26th 2004
+
+
+WS122 was built by Paul
+======================================================================
+
+This directory includes:
+i)    database.WS122.*.tar.gz                   - compressed data for new release
+ii)   models.wrm.WS122                          - the latest database schema (also in above database files)
+iii)  CHROMOSOMES/subdir                        - contains 3 files (DNA, GFF & AGP per chromosome)
+iv)   WS122-WS121.dbcomp                        - log file reporting difference from last release
+v)    wormpep122.tar.gz                         - full Wormpep distribution corresponding to WS122
+vi)   wormrna122.tar.gz                         - latest WormRNA release containing non-coding RNA's in the genome
+vii)  confirmed_genes.WS122.gz                  - DNA sequences of all genes confirmed by EST &/or cDNA
+viii) yk2orf.WS122.gz                           - Latest set of ORF connections to each Yuji Kohara EST clone
+ix)   gene_interpolated_map_positions.WS122.gz  - Interpolated map positions for each coding/RNA gene
+x)    clone_interpolated_map_positions.WS122.gz - Interpolated map positions for each clone
+xi)   best_blastp_hits.WS122.gz                 - for each C. elegans WormPep protein, lists Best blastp match to
+                                                  human, fly, yeast, C. briggsae, and SwissProt & TrEMBL proteins.
+xii)  best_blastp_hits_brigprot.WS122.gz        - for each C. briggsae protein, lists Best blastp match to
+                                                  human, fly, yeast, C. elegans, and SwissProt & TrEMBL proteins.
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS122
+------------------------------------
+brigdb : 2004-03-12 - updated
+camace : 2004-03-15 - updated
+citace : 2004-03-14 - updated
+cshace : 2004-03-03 - updated
+genace : 2004-03-19 - updated
+stlace : 2004-03-12 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS122       	WS121      	change
+----------------------------------------------
+a    	32368547	32368547	  +0
+c    	17781234	17781234	  +0
+g    	17758249	17758249	  +0
+t    	32369937	32369937	  +0
+n    	8       	8       	  +0
+-    	0       	0       	  +0
+
+Total	100277975	100277975	  +0
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 19895 CDS in autoace, 22264 when counting 2369 alternate splice forms.
+
+The 22264 sequences contain 9,767,313 base pairs in total.
+
+Modified entries              45
+Deleted entries                9
+New entries                   12
+Reappeared entries             7
+
+Net change  +10
+
+
+
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              4870 (21.9%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed   12049 (54.1%)	Some, but not all exon bases are covered by transcript evidence
+Predicted              5345 (24.0%)	No transcriptional evidence at all
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2425 (10.9%)
+TrEMBL accessions     18443 (82.8%)
+TrEMBLnew accessions   1236 ( 5.6%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            22212 (99.8%)
+
+
+
+Locus <-> Sequence connections (cgc-approved)
+---------------------------------------------
+Entries with locus connection   4973
+
+
+GeneModel correction progress WS121 -> WS122
+-----------------------------------------
+Confirmed introns not in a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|    419  |   -10  |
+St Louis 	|    278  |    19  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Repeats | Change |
+		+---------+--------+
+Cambridge	|    662  |   662  |
+St Louis 	|   1028  |  1028  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+CHROMOSOME_II	sequence Z46676
+
+There are no gaps remaining in the genome sequence
+
+For more info mail worm@sanger.ac.uk
+
+-===================================================================================-
+
+
+
+New Data:
+---------
+
+The SAGE analysis from Jones et al has been incorporated into this release. There
+are approximately 35,000 SAGE tags in the dataset. 
+
+Marker loci on the genetic map have been partioned into those which have been
+experimentally defined (displayed in yellow) and those which are computationally
+inferred (displayed in orange).
+
+
+
+New Fixes:
+----------
+
+
+Known Problems:
+--------------
+
+
+Other Changes:
+--------------
+
+The script that check overlaps between coding exons and repeat sequences now uses
+the RepeatMasker data. Hence, the numbers have increased significantly. There are
+two caveats to these numbers; Firstly, at the moment these include the low-complexity
+mark up of RepeatMasker which we will in future ignore, this will reduce the numbers 
+by approximately a third. Secondly, the latest RepeatMasker library still contains
+some motifs from multiple-gene families and hence overestimates the number of genes
+which need attention. The curators will work through this list to remove these motifs
+from the repeat library.
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

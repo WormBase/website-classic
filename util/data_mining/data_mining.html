@@ -1,0 +1,254 @@
+<HTML>
+<HEAD>
+<TITLE>WormBase as a Data Mining Platform</TITLE>
+<LINK REV="made" HREF="mailto:lstein@cshl.org">
+</HEAD>
+
+<BODY>
+
+<A NAME="__index__"></A>
+<!-- INDEX BEGIN -->
+
+<UL>
+
+	<LI><A HREF="#wormbase as a data mining platform">WormBase as a Data Mining Platform</A></LI>
+	<UL>
+
+		<LI><A HREF="#website browsing">Website Browsing</A></LI>
+		<LI><A HREF="#batch retrieving">Batch Retrieving</A></LI>
+		<LI><A HREF="#query language searching">Query language searching</A></LI>
+		<LI><A HREF="#ftp downloading">FTP downloading</A></LI>
+		<LI><A HREF="#programmatic accessing">Programmatic accessing</A></LI>
+	</UL>
+
+	<LI><A HREF="#mining wormbase with aceperl">Mining WormBase with AcePerl</A></LI>
+	<UL>
+
+		<LI><A HREF="#public access aceperl server">Public Access AcePerl Server</A></LI>
+		<UL>
+
+			<LI><A HREF="#example: mining wormbase using aceperl">Example: Mining WormBase Using AcePerl</A></LI>
+			<LI><A HREF="#example result">Example Result</A></LI>
+			<LI><A HREF="#code explanation">Code Explanation</A></LI>
+		</UL>
+
+	</UL>
+
+	<LI><A HREF="#mining wormbase with bio::db::gff">Mining WormBase with Bio::DB::GFF</A></LI>
+	<UL>
+
+		<LI><A HREF="#public access bio::db::gff servers">Public Access Bio::DB::GFF Servers</A></LI>
+	</UL>
+
+	<LI><A HREF="#data mining scripts">Data Mining Scripts</A></LI>
+	<LI><A HREF="#author">Author</A></LI>
+</UL>
+<!-- INDEX END -->
+
+<HR>
+<P>
+<HR>
+<H1><A NAME="wormbase as a data mining platform">WormBase as a Data Mining Platform</A></H1>
+<P>WormBase (http://www.wormbase.org) is a central data repository of the biology
+and genomics information for <EM>C. elegans</EM> and related nematodes including 
+<EM>C. briggsae</EM>, <EM>C. remanei</EM>, and <EM>C. japonica</EM>. WormBase is not just a data
+resource, it also serves as a data mining platform, providing multiple methods 
+of searching and downloading data. Currently, there are five major methods of
+accessing WormBase. Different methods address different purposes and come with 
+their advantages and limitations and can compensate each other. Users can choose 
+these methods according to their experience and projects.</P>
+<P>
+<H2><A NAME="website browsing">Website Browsing</A></H2>
+<P>This is a one-item-at-a-time approach. WormBase users typically enter WormBase 
+from the front page, searching the gene (or other items) of interests in the 
+search box. Alternatively, users can open the WormBase site map by clicking on 
+the link at the top navigational banner and enter a specific web page for 
+searching.  Once the users find their item of interest, they can browse related 
+web pages by following the links. The advantage of working with WormBase this 
+way is that the users can get detailed views and information about the item of 
+interests. The limitation is that the users can only view one item at a time.</P>
+<P>
+<H2><A NAME="batch retrieving">Batch Retrieving</A></H2>
+<P>Increasingly more WormBase users are not satisfied with the above one-item-at-a-time 
+approach, they are more interested in working with multiple items as a batch. To 
+address this need, WormBase provides two web search pages: 'Batch Genes' and 
+'Batch Sequences'.  The 'Batch Genes' page allows users to retrieve basically all 
+aspects of information about genes, ranging from external database IDs, WormBase IDs, 
+protein motifs, GO terms, genomic positions, phenotypes, to DNA and protein sequences.  
+The users have options to download the results into plain text format, for 
+HTML format. The 'Batch Sequences' page is ideal for retrieving sequences other 
+than genes and coding sequences, such as UTRs, introns, promoter elements, etc. 
+Both pages can be readily accessed from the top navigational banner. The benefit of 
+this method of searching is that it returns the users results for a large number of 
+items (genes). The drawback is that it does not provide users with graphical 
+representations of the features.</P>
+<P>
+<H2><A NAME="query language searching">Query language searching</A></H2>
+<P>For users who are comfortable with ACeDB database query languages and familiar 
+with WormBase database models, query languages searching represents a quick and 
+versatile method of searching WormBase.  Two query language search pages have 
+been designed at WormBase, for Wormbase Query Language, an old style Ace Query 
+Language, and AQL, an ACeDB Query Language, respectively.  These pages can be 
+accessed from the WormBase 'Site Map' page. For users who are not yet familiar 
+with these but would like to give them a try, these search pages provides 
+instructions and example queries. The major benefit is that users can formulate 
+their own queries. Another advantage is that users can query the databases for 
+the new datasets that their corresponding searching pages have not yet been 
+designed. The drawback is that users need to invest some time and effort to 
+learn to work with the query language(s). The search results are not shown with 
+graphics and links.</P>
+<P>
+<H2><A NAME="ftp downloading">FTP downloading</A></H2>
+<P>Alternatively, the users can download whole gene sets or even the whole database 
+itself. The advantage of this method is that users don't have to rely on the 
+Internet for data retrieving, so that their data processing is not limited by 
+Internet access and is therefore faster. Problems associated with this method 
+are that users need to be very familiar with the nature of the data sets and 
+the database models.</P>
+<P>
+<H2><A NAME="programmatic accessing">Programmatic accessing</A></H2>
+<P>For more advanced WormBase users who knows script programming, WormBase Consortium 
+has designated a new server (http://aceserver.cshl.org) for a public WormBase 
+database, so that WormBase users can access the backend databases directly and 
+remotely via the Internet. The instructions below , together with a scripts 
+repository directory for reusable Perl scripts (http://www.perl.org) will be a good
+starting point for users who are interesting mining WormBase this way. Users can run 
+these scripts on their local machines. Users can also write their own scripts 
+using these scripts as examples and starting templates. The biggest advantage 
+for this method is that users can query, format and process the search results 
+to the extend they desire. An obvious drawback is that users need to learn some 
+programming. Since the establishment of the open database server, more and more 
+WormBase users turn to this method.</P>
+<P>In the following sections, we will describe how to mine WormBase using programs.</P>
+<P>
+<HR>
+<H1><A NAME="mining wormbase with aceperl">Mining WormBase with AcePerl</A></H1>
+<P>WormBase can be queried from the command line using AcePerl. This allows you to 
+write sophisticated Perl scripts to mine WormBase. For details, see the AcePerl 
+document (http://stein.cshl.org/AcePerl/) for information on downloading, installing 
+and using this software.</P>
+<P>
+<H2><A NAME="public access aceperl server">Public Access AcePerl Server</A></H2>
+<UL>
+<LI>
+Location: Cold Spring Harbor Laboratory, NY
+<P></P>
+<LI>
+Host: aceserver.cshl.org
+<P></P>
+<LI>
+Port: 2005
+<P></P></UL>
+<P>Be aware that you will be sharing this server with other people. If it seems 
+slow, it may be because others are using it. Wait a while and try again.</P>
+<P>
+<H3><A NAME="example: mining wormbase using aceperl">Example: Mining WormBase Using AcePerl</A></H3>
+<PRE>
+        1       #!/usr/bin/perl -w
+        2       use strict; 
+        3       use Ace;
+        4
+        5       my $db = Ace-&gt;connect(  -port =&gt; '2005', 
+        6                               -host =&gt; 'aceserver.cshl.org');
+        7
+        8       print &quot;\tCDS\tProtein\n&quot;;
+        9       my @CDSs = $db-&gt;fetch(CDS=&gt;'AH*');
+        10      map {print &quot;\t&quot;, 
+        11                 $_, &quot;\t&quot;, 
+        12                 $_-&gt;Corresponding_protein, &quot;\n&quot;
+        13         if $_-&gt;Corresponding_protein;}@CDSs;</PRE>
+<P>
+<H3><A NAME="example result">Example Result</A></H3>
+<PRE>
+        CDS     Protein
+        AH6.1   WP:CE01450
+        AH6.2   WP:CE01456
+        AH6.3   WP:CE01457
+        AH6.4   WP:CE01458
+        AH6.5   WP:CE26846
+        AH6.5:wp12      WP:CE01459
+        AH6.5:wp43      WP:CE15550
+        AH6.6   WP:CE01460
+        AH6.7   WP:CE01461
+        AH6.8   WP:CE01462
+        AH6.9:wp95      WP:CE01463
+        AH6.10  WP:CE01451
+        AH6.11  WP:CE01452
+        AH6.12  WP:CE01453
+        AH6.13:wp11     WP:CE01454
+        AH6.13:wp95     WP:CE07654
+        AH6.14  WP:CE01455
+        AH9.1   WP:CE03857
+        AH9.2   WP:CE03858
+        AH9.3   WP:CE03859
+        AH9.4   WP:CE30841
+        AH10.1  WP:CE07655
+        AH10.2  WP:CE07656
+        AH10.3  WP:CE07657
+        AH10.4  WP:CE07658
+        AH10.5a:wp13    WP:CE07659
+        AH10.5a:wp17    WP:CE17313
+        AH10.5b:wp17    WP:CE07660
+        AH10.5c:wp13    WP:CE07661</PRE>
+<P>
+<H3><A NAME="code explanation">Code Explanation</A></H3>
+<P>
+<HR>
+<H1><A NAME="mining wormbase with bio::db::gff">Mining WormBase with Bio::DB::GFF</A></H1>
+<P>The BioPerl library (http://www.bioperl.org) provides a simple relational schema 
+and database access layer for querying genomic features. This is the access method 
+of choice to use for mining WormBase for:</P>
+<UL>
+<LI>
+Spliced and unspliced genes.
+<P></P>
+<LI>
+UTRs, upstream regions or introns.
+<P></P>
+<LI>
+Searching for annotations that overlap one another, for example, finding all genes that are in an intron of another gene.
+<P></P>
+<LI>
+Comparing syntenic regions of the <EM>C. elegans</EM> and <EM>C. briggsae</EM> genomes.
+<P></P></UL>
+<P>
+<H2><A NAME="public access bio::db::gff servers">Public Access Bio::DB::GFF Servers</A></H2>
+<UL>
+<LI>
+Location: Cold Spring Harbor Laboratory, NY
+<P></P>
+<LI>
+dsn: 'dbi:mysql:elegans:aceservcer.cshl.org' (for database 'elegans')
+<P>dsn: 'dbi:mysql:briggsae:aceservcer.cshl.org' (for database 'briggsae')</P>
+<P></P>
+<LI>
+user: 'anonymous'
+<P></P>
+<LI>
+pass: ''
+<P></P></UL>
+<P>
+<HR>
+<H1><A NAME="data mining scripts">Data Mining Scripts</A></H1>
+<P>WormBase maintains a growing number of Perl scripts, which users can download to
+their local computers and run. By default, these scripts connect to the public 
+WormBase database server (http://aceserver.cshl.org). Users are encourage to run, 
+modify and distribute these scripts. One friendly reminder is that users should 
+exercise courtesy when run these scripts so that all WormBase users can have fair
+shares of the server. If you find yourself running scripts too often and the aceserver
+is slowing down, it is a good time to consider installing a local WormBase server!</P>
+<P>
+<HR>
+<H1><A NAME="author">Author</A></H1>
+<PRE>
+ Author: Jack Chen (chenn@cshl.org)
+ $Id: data_mining.html,v 1.1.1.1 2010-01-25 15:40:07 tharris Exp $
+ $Date: 2010-01-25 15:40:07 $
+</PRE>
+<PRE>
+
+ Copyright @ 2004 Cold Spring Harbor Laboratory</PRE>
+
+</BODY>
+
+</HTML>

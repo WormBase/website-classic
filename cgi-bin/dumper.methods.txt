@@ -1,0 +1,116 @@
+Finished	assembly_tag
+Polymorphism	assembly_tag
+Clone	assembly_tag
+oligo	assembly_tag
+repeat	assembly_tag
+annotation	assembly_tag
+Stolen	assembly_tag
+comment	assembly_tag
+ambiguous	assembly_tag
+Conflict	assembly_tag
+stop	assembly_tag
+cosmid	assembly_tag
+CpG	assembly_tag
+Warning	assembly_tag
+compression	assembly_tag
+Alu	assembly_tag
+Sequence	Genomic_canonical
+Sequence	Link
+Sequence	
+experimental	RNAi
+experimental	cDNA_for_RNAi
+Sequence	curated
+structural	GenePair_STS
+Sequence	tRNAscan-SE-1.11
+Sequence	NDB_CDS
+Sequence	Pseudogene
+Sequence	hand_built
+repeat	Transposon
+Sequence	provisional
+intron	curated
+intron	
+intron	Pseudogene
+intron	NDB_CDS
+intron	hand_built
+intron	tRNAscan-SE-1.11
+intron	provisional
+exon	curated
+exon	tRNAscan-SE-1.11
+exon	NDB_CDS
+exon	Pseudogene
+exon	hand_built
+exon	provisional
+misc_feature	
+repeat_region	
+repeat_unit	
+polyA_site	
+misc_signal	
+repeat	inverted
+repeat	tandem
+trans-splice_acceptor	SL1
+trans-splice_acceptor	SL2
+miscellaneous	possible_error
+CDS	curated
+CDS	NDB_CDS
+CDS	hand_built
+CDS	Pseudogene
+CDS	provisional
+similarity	TBLASTX_EST_elegans
+similarity	TBLASTX_EST
+similarity	scan
+similarity	BLASTN_EST_elegans
+similarity	BLASTX
+similarity	EST_GENOME
+similarity	hmmfs.3
+similarity	BLAT_EST_GENOME
+transcription	BLASTN_EST_briggsae
+similarity	BLASTN_briggsae_cosmid
+similarity	mRNA_GENOME
+similarity	BLASTN_eleg_brig
+similarity	EMBL_mRNA
+similarity	TBLASTX_briggsae
+similarity	hmmfs
+translation	Queryprosite
+transcription	BLASTN_TC1
+similarity	TBLASTX_C.briggsae
+similarity	BLASTN
+insertion	
+variation	
+Clone_left_end	
+Clone_right_end	
+ignore	assembly_tag
+Comment	assembly_tag
+sequencing	assembly_tag
+Finisher	assembly_tag
+Inverted	assembly_tag
+Direct	assembly_tag
+TeamLeader	assembly_tag
+Sequence	RNA
+exon	RNA
+misc_structure	
+similarity	BLASTN_elegans_cosmid
+final	assembly_tag
+Sequence	stl
+intron	stl
+exon	stl
+transcription	possible_exon
+misc_feature	TSL_site
+misc_feature	TSL
+CDS	stl
+similarity	PSsearch
+Masked	assembly_tag
+resolved	assembly_tag
+Sequence	merged
+intron	merged
+exon	merged
+exon	
+similarity	TBLASTX
+Sequence	assembly_tag
+polymorphism	assembly_tag
+transcription	mRNA
+transcription	operon
+miscellaneous	misc_feature
+Possible_frameshift	assembly_tag
+unknown	assembly_tag
+intron	RNA
+polyA_signal	

@@ -1,0 +1,92 @@
+#!/usr/bin/perl
+
+use strict;
+use CGI qw(param header url);
+use lib './lib';
+use WormBase::Autocomplete;
+use Ace::Browser::AceSubs qw(:DEFAULT AceRedirect);
+use ElegansSubs qw/:DEFAULT/;
+use vars qw/$DB/;
+use Data::Dumper;
+
+use constant DEBUG => 0;
+
+warn "autocomplete: query-string = ".url(-query_string => 1)."\n" if DEBUG;
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+my $auto    = WormBase::Autocomplete->new("autocomplete");
+
+my $name   = param('query');
+my $outer_class  = param('class') || 'AnyGene';
+my $max    = param('max')   || 15;
+my $format = param('format');
+
+$outer_class = 'Gene'   if $outer_class eq 'AnyGene';
+$outer_class = 'Person' if $outer_class =~ /Person/;
+$outer_class = 'Anatomy_term' if $outer_class =~ /Cell/;
+undef $outer_class      if $outer_class eq 'Anything' || $outer_class eq 'Any';
+
+print header(-type => 'text/plain', -expires => 'now');
+
+my $result = $auto->lookup($outer_class,$name,2*$max) || [];
+my $more   = @$result > $max if $result;
+
+if (DEBUG) {
+  warn "autocomplete class=$outer_class query=$name\n" if DEBUG;
+
+  for (@{$result}[0..1]) {
+    $_ or last;
+    warn join("\t",'result',@$_)."\n";
+  }
+}
+
+exit unless $result->[0];
+
+my (%found,$something_printed);
+
+while (@$result && $max > 1) {
+  my $r = shift @$result;
+  $r or last;
+  my ($display,$canonical,$note) = @$r;
+  next if $found{$canonical}++;
+  --$max;
+
+  warn Dumper $r if DEBUG;
+
+  my $inner_class = $outer_class || $r->[-2];
+
+  warn "class is $inner_class\n" if !$outer_class && DEBUG; 
+  if ($inner_class eq 'Gene') {
+    next if $found{$display}++;
+    $note = '';
+  }
+  
+  if ($inner_class eq 'Person' && $note =~ /$display/i ) {
+    $display = $note;
+    $note = '';
+  }
+
+  if ($note eq $display) {
+    $note = '';
+  }
+  
+  # Search key becomes the new query.  In many classes, we will want
+  # to search just with the object ID and not it's display name (gene, variation, etc)
+  #my $searchkey  = $display ne $canonical ?  "$display ($canonical)" : $display;
+  #$display = "class=$inner_class;name=$canonical" unless $outer_class;
+  
+  #warn "SEARCH KEY $display\n" if DEBUG;
+  warn "Display $display Note $note Class $inner_class\n" if DEBUG;
+
+  my $retval = join("\t",$display,$note,$inner_class,$canonical). "\n";
+  warn $retval if DEBUG;
+  print $retval;
+
+  $something_printed++;
+}
+
+print join("\t",'more...',undef,$outer_class,"${name}*"), "\n" if $more && $something_printed;
+#print "${name}*\tmore...\t\n" if $more && $something_printed;
+
+exit 0;

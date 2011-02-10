@@ -1,0 +1,91 @@
+#!/usr/bin/perl -w
+#print "Content-type: text/html\n\n";
+
+use CGI qw( :standard);
+use CGI::Carp qw(warningsToBrowser fatalsToBrowser);
+use strict;
+use warnings;
+
+use lib "..//lib";
+use Bio::PrimerDesigner;
+use Bio::SeqIO;
+use Getopt::Long;
+use Pod::Usage;
+use IO::File;
+
+# Access a remote script that will run primer3
+use constant METHOD => 'local';
+use constant URL    => 'http://mckay.cshl.edu/cgi-bin/primer_designer.cgi';
+
+# Create Bio::PrimerDesigner object.
+my $pd   =  Bio::PrimerDesigner->new(
+    program     => 'primer3',
+    method      => METHOD,
+#    url         => URL,
+); # or die Bio::PrimerDesigner->error;
+
+print header;
+print start_html("test_form");
+         
+print <<END;
+
+<h2>Long Range PCR Primer Design Program</h2> <br/><br/>
+The goal of this program is to design long-range PCR primers to tile across large regions of the genome.<br/>  The user must 
+specify the region of the genome the want to design primers for, the ideal PCR product <br/> size and the maximum product size they want to 
+allow before the program returns and error message. <br/><br/>
+This program uses the human, March 2006 assembled sequences obtained from ftp://ftp.ncbi.nih.gov/genomes/H_sapiens/Assembled_chromosomes/ <br/>
+Primers are designed using Primer3, and the best matches are printed out the screen.
+
+END
+
+print <<END;
+
+<form action="tf_local" method="GET">
+<br/> Enter the number or letter of the chromosome you wish to design primers for:
+    <input type="text" name="chromosome" size=30> <br/><br/>
+Enter the start position of the region you are interested in amplifying:
+    <input type="text" name="start_position" size=30> <br/><br/>
+Enter the end position of the region you are interested in amplifying:
+    <input type="text" name="end_position" size=30> <br/><br/>
+Enter the ideal LR-PCR product size here:
+    <input type="text" name="ideal_size" size=30> <br/><br/>
+Enter the maximum LR-PCR product size here:
+    <input type="text" name="max_size" size=30><p><br/>
+<input type="submit"><p>
+</form>
+
+END
+
+
+my @input = split(/&/,$ENV{'QUERY_STRING'} );
+
+$input[0] =~ /=(\w+)/;
+my $chromosome = $1;
+print "The chromosome I am interested in designing primers for is $chromosome\n\n";
+
+$input[1] =~ /=(\d+)/;
+my $start_position = $1;
+print "The start position is $start_position\n\n";
+
+$input[2] =~ /=(\d+)/;
+my $end_position = $1;
+print "The end position is $end_position\n\n";
+
+$input[3] =~ /=(\d+)/;
+my $ideal_size = $1;
+print "The ideal product size is $ideal_size\n\n";
+
+$input[4] =~ /=(\d+)/;
+my $max_size = $1;
+print "The maximum product size is $max_size\n\n";
+
+my $seqio_obj = Bio::SeqIO->new(-file => "$chromosome", -format => "fasta" );
+my $seq_obj = $seqio_obj->next_seq;
+my $part = $seq_obj->subseq(100000,100022);
+
+print
+               h1('Extracted fragment'),         # level 1 header
+               p("$part"),                 # print the fragment
+                end_html;                  # end the HTML
+    
+

@@ -1,0 +1,146 @@
+#!/usr/bin/perl
+
+use lib '../lib';
+
+use strict;
+use vars qw/$DB $name $paper/;
+use Ace 1.51;
+use Ace::Browser::AceSubs qw/:DEFAULT AceRedirect/;
+use CGI qw/:standard/;
+use ElegansSubs qw(:DEFAULT Bestname build_citation);
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+END {
+  undef $name;
+  undef $paper;
+}
+
+$name  = param('name');
+$paper = get_paper($name);
+
+
+print "begin_tsv\n";
+
+# Linkouts.
+# Linkouts
+# Always back to WormBase
+print join("\t","linkout","WBASE","",$paper,"",""),"\n";
+
+# PubMed
+if ($paper->PMID) {
+    print join("\t","linkout","PMID",$paper->PMID,"","",""),"\n";
+# WormBook
+} elsif ($paper->Type eq 'WORMBOOK') {
+    print join("\t","linkout","DOI","",$paper->Other_name,"",""),"\n";
+} else {}
+
+print "title\t" . $paper->Title . "\n";
+
+my @authors = $paper->Person;
+foreach (@authors) {
+    my $first = $_->First_name;
+    my $last  = $_->Last_name;
+    my $middle = $_->Middle_name;
+    
+    my $init = substr($middle,0,1);
+    $init .= "$init." if $middle;
+
+#    next if $last =~ /horvitz/i;
+#    next if $last =~ /hart/i;
+    $first = "$first." if length $first == 1;
+    print "author\t$first $init $last\n";
+}
+
+
+# the worm meetings don't have a journal
+#$journal ||= 'Meeting abstract' if $paper->Meeting_abstract;
+my $journal = $paper->Journal;
+print "journal\t" . $journal . "\n" if $journal;
+
+# Volume
+my ($volume)  = $paper->Volume;
+print "volume\t$volume\n" if $volume;
+
+# Issue
+#print "issue\t\n";
+
+my ($d,$m,$y) = parse_year($paper->Year);
+print "year\t$y\n";
+# Not currently supplying the month and day (because we don't have them!)
+#print "day\t$d\n" if $d;
+#print "month\t$m\n" if $m;
+
+# Pages
+my ($start,$end)  = $paper->Page->row if $paper->Page;
+if ($start && $end) {
+    print "start_page\t$start\n";
+    print "end_page\t$end\n";
+}    
+
+# What type of reference is this?
+if ($paper->Meeting_abstract) {
+    print "type\tINCONF\n";
+} elsif ($paper->In_book) {
+    print "type\tCHAP\n";
+} else {
+    print "type\tJOUR\n";
+}
+    
+
+# Parse the Paper hash if this is a book citation
+my %parsed;
+if ($paper->In_book) {
+    my $data = ParseHash(-nodes=>$paper->In_book);
+# There should be only a single node...
+# Piggybacking on some pre-existing code
+
+    foreach my $node (@{$data}) {
+	my $hash = $node->{hash};
+	foreach (qw/Title Editor Publisher Year/) {	   
+	    $parsed{$_} = ($hash->{$_} =~ /ARRAY/) ? join(', ',@{$hash->{$_}}) : $hash->{$_};
+	}
+	last;
+    }
+
+    print "title_secondary\t$parsed{Title}\n" if ($parsed{Title});
+    print "publisher\t$parsed{Publisher}\n" if ($parsed{Publisher});
+
+}
+
+my $abs       = $paper->Abstract;
+if ($abs && (my $abstext = $DB->fetch(LongText=>$abs))) {
+    my $text = $abstext->right;
+    chomp $text;
+    $text =~ s/\n//g;
+    print "abstract\t$text\n" if $abs;
+    
+}
+
+
+print "end_tsv\n";
+
+
+sub get_paper {    
+    my @papers = $DB->fetch(-class =>'Paper',
+			    -name  => $name,
+			    );
+    
+    return $papers[0];
+}
+
+sub parse_year {
+    my $date = shift;
+    $date =~ /(\d\d) (\w\w\w) (\d\d\d\d).*/;
+    my ($day,$month,$year) = ($1,$2,$3);
+    my @months = qw/JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC/;
+    
+    $day =~ s/^0// if $day;
+
+    $year ||= $date;  # Might already be in year format
+
+    my $c =1 ;
+    my %months2no = map { $_ => $c++ } @months;
+    return ($day,$months2no{$month},$year) if ($day && $month && $year);
+    return (undef,undef,$year);
+}

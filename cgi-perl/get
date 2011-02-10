@@ -1,0 +1,85 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# file: get
+# given any object, redirect to the appropriate display for it
+
+use strict;
+use lib './lib';
+use CGI 2.42 qw(:standard start_form table TR th td textfield submit end_form redirect);
+use Ace::Browser::AceSubs;
+use ElegansSubs qw/FetchGene/;
+
+my $class = param('class');
+
+# Let these queries be handled directly by their respective pages.
+if ($class eq 'Sequence' || $class eq 'Cell') {
+    my $target = Object2URL(param('name'),$class);
+    print redirect($target);
+
+} elsif ($class eq 'Variation') {
+  my $db = OpenDatabase;
+  my $name = param('name');
+  my $variation;
+  if ($name =~ /^WBVar/) {
+      $variation = $db->fetch(Variation => "$name");  
+  } else {
+      my $var_name = $db->fetch(Variation_name => $name);
+      if ($var_name) {
+	  $variation = $var_name->Public_name_for || $var_name->Other_name_for;
+      }
+  }
+  if ($variation) {
+      my $url = Object2URL($variation);
+      print redirect($url);
+  } else {
+      print redirect("/db/gene/variation?name=$name;class=$class");
+  }
+  
+  return $variation;
+  
+} elsif (my $object = GetAceObject) {
+    my $url = Object2URL($object);
+    print redirect($url);
+    # Hack for locus linked in from external sites.
+    # This is probably not the BEST place for this
+    # solution, but it does prevent redirecting ALL loci
+    # to the gene page...
+} elsif ($class =~ /Protein/) {
+  # Someone may have linked in via a standarized protein ID suchs as UNC-26
+  # Have to fetch the gene first, then traverse to the protein via the CDS.
+  # Truly disgusting
+
+  my $gene = get_loci();
+  if ($gene) {
+    my $protein = eval { $gene->Corresponding_CDS->Corresponding_protein };
+    my $url = Object2URL($protein);
+    print redirect($url) if $protein;
+  }
+} elsif (my $object = get_loci()) {
+  my $url = Object2URL($object);
+  print redirect($url);
+} else {
+  PrintTop();
+  print
+    start_form(-name=>'question'),
+      table(
+	    TR (th('Name'),td(textfield(-name=>'name',-onChange=>'document.question.submit()')),
+		th('Class'),td(textfield(-name=>'class',-size=>15,-onChange=>'document.question.submit()')),
+		td(submit({-style=>'background: white',-name=>'Change'}))),
+	   ),
+     end_form;
+  PrintBottom();
+  exit 0;
+}
+
+
+
+sub get_loci {
+  my $db = OpenDatabase;
+  my ($gene,$bestname) = FetchGene($db,param('name'));
+  return $gene;
+}
+
+
+
+

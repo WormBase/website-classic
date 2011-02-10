@@ -1,0 +1,176 @@
+#!/lab/bin/perl
+# filename: download_index
+# Author: T. Harris
+
+# This script provides quick access to precompiled sets of data for download
+# as well as a jumpstation to a variety of datadumpers.
+
+use lib '../';
+use CGI qw/:standard *table *TR *td *center :Pretty *ul/;
+
+
+use Ace;
+#use CGI::Carp qw/fatalsToBrowser/;
+use Ace::Browser::AceSubs qw(:DEFAULT Configuration ResolveUrl Toggle);
+use Ace::Browser::SearchSubs;
+use ElegansSubs;
+use Bio::Graphics::Panel;
+use Bio::Graphics::Feature;
+use strict;
+
+
+use vars qw($DB $script);
+$script    = url({-absolute=>1});
+
+if (param('draw')) {
+  print_image();
+}
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+print_header();
+gather_data();
+PrintBottom();
+
+
+
+sub print_image {
+
+}
+
+
+
+sub gather_data {
+  # Genetically defined genes
+  my $loci = $DB->fetch(-query=>"find Locus where Allele");
+
+  # CLoned mutants
+  my $cloned = 
+    $DB->fetch(-query=>"find Locus where Allele AND Molecular_information");
+  
+  # Total Predicted Genes (not including alt splices
+ # I need a new filter for this
+  my $genes = $DB->fetch(-query=>"find Locus where Allele");
+
+  # Uncloned mutants
+  my $uncloned = 
+    $DB->fetch(-query=>"find Locus where Allele AND Molecular_information");
+  return;
+
+  # uncloned genes that exhibit some characterization information
+
+}
+
+
+sub print_header {
+  PrintTop(undef,undef,undef,
+	   '-Title' =>'Wormbase: Fast Facts Of The C. elegans Genome',
+	   '-Style' =>Style(),
+	   '-Target'=>'_top',
+	   '-Class' =>'search'); 
+  print h2('Fast Facts Of The C. elegans Genome');
+  return;
+}
+
+print p('This page provides download access to precompiled data sets and links to custom batch data scripts.');
+
+print start_center;
+print start_table({-width=>'80%',-cellpadding=>5,-cellspacing=>3});
+
+print
+  TR(td({-colspan=>2,-class=>'searchtitle',-valign=>'center'},
+	h3('Custom Searches Supporting Batch Data Downloads'))),
+  TR(td(a({-href=>'info_dump_sideways',-valign=>'top'},'Batch Information Retrieval')),
+     td('Retrieve general information and essential sequences for genes or loci in HTML or plain text en masse.')),
+  
+  TR(td(a({-href=>'advanced/dumper'},'Sequence Dump')),
+     td('Retrieve a variety of sequences and sequence features in HTML or plain text.'));
+
+
+print TR(td({-colspan=>2},'&nbsp;'));
+print 
+  TR(td({-colspan=>2,-class=>'searchtitle'},h3('Direct Downloads Of Precompiled Data Sets'))),
+  TR(td('DNA Sequence (concatenated)'),
+     td(a({-href=>
+	   "ftp://ftp.wormbase.org/pub/wormbase/elegans-current_release/DNA_DUMPS/CHROMOSOME_I.dna.gz"},
+	  "I"),'&nbsp;&nbsp;',
+	a({-href=>
+	   "ftp://ftp.wormbase.org/pub/wormbase/elegans-current_release/DNA_DUMPS/CHROMOSOME_II.dna.gz"},
+	  "II"),'&nbsp;&nbsp;',
+	a({-href=>
+	   "ftp://ftp.wormbase.org/pub/wormbase/elegans-current_release/DNA_DUMPS/CHROMOSOME_III.dna.gz"},
+	  "III"),'&nbsp;&nbsp;',
+	a({-href=>
+	   "ftp://ftp.wormbase.org/pub/wormbase/elegans-current_release/DNA_DUMPS/CHROMOSOME_IV.dna.gz"},
+	  "IV"),'&nbsp;&nbsp;',
+	a({-href=>
+	   "ftp://ftp.wormbase.org/pub/wormbase/elegans-current_release/DNA_DUMPS/CHROMOSOME_V.dna.gz"},
+	  "V"),'&nbsp;&nbsp;',
+	a({-href=>
+	   "ftp://ftp.wormbase.org/pub/wormbase/elegans-current_release/DNA_DUMPS/CHROMOSOME_X.dna.gz"},
+	  "X"),'&nbsp;&nbsp;')),
+ 
+  TR(td('Feature Tables (in gff format)'),
+     td(a({-href=>
+	   "ftp://ftp.wormbase.org/pub/wormbase/elegans-current_release/GENE_DUMPS/CHROMOSOME_I.gff.gz"},
+	  "I"),'&nbsp;&nbsp;',
+	a({-href=>
+	   "ftp://ftp.wormbase.org/pub/wormbase/elegans-current_release/GENE_DUMPS/CHROMOSOME_II.gff.gz"},
+	  "II"),'&nbsp;&nbsp;',
+	a({-href=>
+	   "ftp://ftp.wormbase.org/pub/wormbase/elegans-current_release/GENE_DUMPS/CHROMOSOME_III.gff.gz"},
+	  "III"),'&nbsp;&nbsp;',
+	a({-href=>
+	   "ftp://ftp.wormbase.org/pub/wormbase/elegans-current_release/GENE_DUMPS/CHROMOSOME_IV.gff.gz"},
+	  "IV"),'&nbsp;&nbsp;',
+	a({-href=>
+	   "ftp://ftp.wormbase.org/pub/wormbase/elegans-current_release/GENE_DUMPS/CHROMOSOME_V.gff.gz"},
+	  "V"),'&nbsp;&nbsp;',
+	a({-href=>
+	   "ftp://ftp.wormbase.org/pub/wormbase/elegans-current_release/GENE_DUMPS/CHROMOSOME_X.gff.gz"},
+	  "X"),'&nbsp;&nbsp;')),
+  TR(td('All Predicted Proteins'),
+     td(a({-href=>"ftp://ftp.wormbase.org/pub/wormbase/elegans-current_release/wormpep-current.gz"},
+	  'Wormpep (fasta format)')));
+	  
+print TR(td({-colspan=>2},'&nbsp;'));
+print
+  TR(td({-colspan=>2,-class=>'searchtitle'},h3('FTP Sites'))),
+  #  TR(td('Site'),td('Contents')),
+  TR(
+     td(a({-href=>"ftp://ftp.wormbase.org/pub/wormbase/"},
+	  "ftp.wormbase.org/pub/wormbase/")),
+     td('Bulk download of genomic DNA, protein, and feature tables.')),
+
+
+  TR(
+     td(a({-href=>'ftp://ftp.sanger.ac.uk/pub/C.elegans_sequences/'},
+	  'ftp.sanger.ac.uk/pub/C.elegans_sequences/')),
+     td('Other C. elegans sequence data, including EST sequences.')),
+
+  
+  TR(
+     td(a({-href=>"ftp://ftp.sanger.ac.uk/pub/wormbase/current_release/"},
+	  'ftp.sanger.ac.uk/pub/wormbase/current_release/')),
+     td('Bulk download of database in .ace format.')),
+
+  
+  TR(
+     td(a({-href=>"http://www.ciwemb.edu"},
+	  'www.ciwemb.edu/')),
+     td('Database of vectors produced by the Fire Lab for use in C. elegans.')),
+
+  
+  TR(
+     td(a({-href=>"ftp://ftp.wormbase.org/pub/wormbase/software/"},
+	  'ftp.wormbase.org/pub/wormbase/software/')),
+     td('The software that drives WormBase. Includes instructions for setting up a standalone local version of Wormbase.'));
+
+
+print 
+  end_table;
+
+
+PrintBottom;
+exit;
+
+

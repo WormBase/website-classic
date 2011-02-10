@@ -1,0 +1,401 @@
+# ------------------------------------------------------------
+#            WORMBASE HTTPD CONFIGURATION FILE
+# ------------------------------------------------------------
+# $Id: httpd.conf,v 1.1.1.1 2010-01-25 15:46:10 tharris Exp $
+#
+
+ServerName beta.wormbase.org
+ServerAdmin webmaster@wormbase.org
+
+PerlPostConfigRequire /usr/local/wormbase/website-classic/conf/perl.startup
+
+DocumentRoot /usr/local/wormbase/website-classic/html
+
+LogFormat "%h %l %u %t \"%r\" %s %b" common
+LogFormat "%h %l %u %t %{Referer}i \"%{User-Agent}i\" \"%r\" %s %b" combined_format
+LogFormat "witheld %l %u %t \"%r\" %s %b" anonymous
+
+#ErrorLog     /usr/local/wormbase/logs/classic-error_log
+#CustomLog    /usr/local/wormbase/logs/classic-access_log common
+#CustomLog    /usr/local/wormbase/logs/classic-access_log combined_format
+
+
+# Migrating to mp2: automatic reload on modification
+#PerlModule Apache2::Reload
+#PerlInitHandler Apache2::Reload
+#PerlSetVar ReloadAll Off
+#PerlSetVar ReloadModules "ModPerl::* Apache2::*"
+#PerlSetVar ReloadConstantRedefineWarnings Off
+
+Redirect /perl/ace/elegans/ http://dev.wormbase.org/db/
+Redirect /wiki             http://www.wormbase.org/wiki
+
+
+Redirect /db/seq/gbrowse_syn  http://mckay.cshl.edu/cgi-bin/gbrowse_syn/compara
+Redirect /db/gb2 /gb2 
+
+
+# ACTION is an invalid command under mod_perl/apache2
+#<Location /das>
+#     SetHandler None
+#     ForceType  application/x-das
+#     Action application/x-das /cgi-bin/das2.cgi
+#</Location>
+#
+#<Location /genome>
+#     SetHandler None
+#     ForceType application/x-genome-dumper
+#     Action application/x-genome-dumper /db/misc/standard_urls
+#</Location> 
+
+#<Location /proteome>
+#     SetHandler None
+#     ForceType  application/x-proteome-dumper
+#     Action application/x-proteome-dumper /db/searches/standard_urls
+#</Location>
+
+#<Location /transcriptome>
+#     SetHandler None
+#     ForceType  application/x-transcriptome-dumper
+#     Action application/x-transcriptome-dumper /db/searches/standard_urls
+#</Location>
+
+#<Location /laboratories>
+#     SetHandler None
+#     ForceType application/x-laboratories-dumper
+#     Action application/x-laboratories-dumper /db/searches/dump_laboratories
+#</Location>
+
+#<Location /version>
+#     SetHandler None
+#     ForceType application/x-version-dumper
+#     Action application/x-version-dumper /db/gmod/version
+#</Location>
+
+#<Location /defaults>
+#     SetHandler None
+#     ForceType application/x-version-dumper
+#     Action application/x-version-dumper /db/gmod/defaults
+#</Location>
+
+#<Location /SR_expression>
+#     SetHandler None
+#     ForceType application/x-sr-expression
+#     #Action application/x-sr-expression /db/SR_expression/SRsubmit.pl
+#     Action application/x-sr-expression /wormbase/SR.html
+#     AuthName "SR Expression Project"
+#     AuthType Basic
+#     AuthUserFile /usr/local/wormbase/website-classic/conf/htpasswd
+#     require user receptor
+#</Location>
+
+#<Location /db/das/protected>
+#	AuthName "Protected DAS DSN"
+#	AuthType Basic
+#	AuthUserFile /usr/local/wormbase/website-classic/conf/htpasswd
+#	require user testuser
+#</Location>
+#<Location /db/das/elegans>
+#	AuthName "Elegans DAS DSN"
+#	AuthType Basic
+#	AuthUserFile /usr/local/wormbase/conf/htpasswd
+#	require	user wormbase
+#</Location>
+
+
+
+<Directory /usr/local/wormbase/html/stats>
+   AuthType       Basic
+   AuthName       "WormBase Release Statistics"
+   AuthUserFile   /usr/local/wormbase/website-classic/conf/htpasswd
+   Require        valid-user
+</Directory>
+
+<Directory /usr/local/wormbase/website-classic/html>
+   PerlSetVar     AceBrowserConf /usr/local/wormbase/website-classic/conf/elegans.pm
+   PerlSetVar     AceBrowserRoot /db
+   SetHandler	  perl-script
+#    AddHandler  perl-script .pm
+   PerlHandler    Apache::AddWormbaseBanner
+   AllowOverride  FileInfo Indexes Limit Options
+</Directory>
+
+
+<Location /soap/>
+  SetHandler perl-script
+  PerlHandler Apache::SOAP
+  PerlSetVar dispatch_to "NameDB"
+</Location>
+
+ScriptAlias /cgi-bin/                       /usr/local/wormbase/website-classic/cgi-bin/
+ScriptAlias  /squid/                        /usr/local/wormbase/website-classic/squid-cgi/
+
+# Static strain files
+Alias /strains/                             /usr/local/wormbase/databases/strains
+
+Alias /bugs                                 /usr/local/wormbase/website-classic/bugzilla
+Alias /db/                                  /usr/local/wormbase/website-classic/cgi-perl/
+Alias /cb/                                  /usr/local/wormbase/website-classic/cgi-perl/private/
+Alias /wormbase/                     	    /usr/local/wormbase/website-classic/html/
+Alias /ace_images/elegans/external/movies/  /usr/local/ftp/pub/wormbase/datasets/fraser_2000/movies/
+Alias /ace_images/elegans/external/         /usr/local/wormbase/website-classic/html/images/expression/patterns/
+Alias /dynamic_images                       /var/tmp/dynamic_images
+Alias /image_uploads                        /usr/local/ftp/pub/wormbase/misc/images/
+
+ErrorDocument 404 /db/misc/not_found
+ErrorDocument 500 /db/misc/internal_server_error
+#ErrorDocument 404 /errors/404
+#ErrorDocument 500 /errors/505
+#
+#<Location /errors>
+#    PerlHandler Apache::LogErrors
+#</Location>
+
+<Location /atlas>
+  Options +ExecCGI
+  DirectoryIndex atlas.html index.html
+</Location>
+
+<Location ~ "/atlas/.+\.cgi$">
+	SetHandler cgi-script
+</Location>
+
+
+# This needs to be Module::Regsitry
+PerlModule ModPerl::Registry
+<Location /db>
+   SetHandler  	  perl-script
+#   PerlHandler    Apache::Registry
+
+   PerlResponseHandler ModPerl::Registry
+   PerlSetVar     AceBrowserConf /usr/local/wormbase/website-classic/conf/elegans.pm
+   PerlSetVar     AceBrowserRoot /db
+   PerlSetVar     GBrowseConf  /usr/local/wormbase/gbrowse2/support-files/conf_beta
+#   PerlSetVar     GBrowseConf  /usr/local/wormbase/website-classic/conf/gb2
+#   PerlSetVar     GBrowseConf  /usr/local/wormbase/website-classic/conf/gbrowse.conf
+#   PerlSetVar     DasConfigFile  /usr/local/wormbase/conf/das.conf
+   PerlSendHeader Off
+   Options	  +ExecCGI
+   Order allow,deny
+   allow from all
+   Deny from 131.243.56.46
+   # Add expires headers to dynamically generated pages
+   #ExpiresActive On
+   #ExpiresDefault "access plus 3 weeks"
+</Location>
+
+#<Location /db/gb1>
+#   PerlSetVar     GBrowseConf  /usr/local/wormbase/website-classic/conf/gbrowse.conf
+#</Location>
+
+<Location /db/cisortho/new>
+    PerlSendHeader On
+</Location>
+
+# NEEDS TO BE HANDLED
+#PerlModule Apache::RPC::Server
+#PerlChildInitHandler Apache::RPC::Server->init_handler
+#<Location /cisortho/rpc>
+#	SetHandler perl-script
+#	PerlHandler Apache::RPC::Server
+#	PerlSetVar RPCOptPrefix cisortho
+#	PerlSetVar cisorthoRpcMethodDir /usr/local/wormbase/website-classic/html/cisortho/rpc
+#	PerlSetVar cisorthoRpcDefMethods yes
+#	PerlSetVar cisorthoRpcAutoUpdates yes
+#</Location>
+
+
+# ExpiresActive invalid in mod_perl/apache2
+# ExpiresDefault invalid in mod_perl/apache2
+# wb_people CGI script and dynamic images expire immediately
+<LocationMatch "/db/misc/wb_people">
+   #ExpiresActive On
+   #ExpiresDefault "access plus 0 seconds"
+</LocationMatch>
+<LocationMatch "/geo_map/_tmp/">
+#   ExpiresActive On
+   #ExpiresDefault "access plus 0 seconds"
+</LocationMatch>
+
+<Location /server-info>
+   SetHandler server-info
+</Location>
+
+<Location /db/entry>
+  AuthName "WormBase"
+  AuthType Basic
+  AuthUserFile /usr/local/wormbase/website-classic/conf/wormbase.passwd
+  order deny,allow
+  allow from all
+  require user wormbase
+</Location>
+
+
+
+# GB1
+Alias        "/gbrowse/i/" "/usr/local/wormbase/tmp/gbrowse/images/"
+Alias        "/gbrowse"    "/usr/local/wormbase/website-classic/html/gbrowse"
+
+<Directory "/usr/local/wormbase/website-classic/html/gbrowse">
+  Options -Indexes -MultiViews +FollowSymLinks
+</Directory>
+
+
+
+
+
+# GB2
+# Alias        "/gb2/i/" "/var/tmp/gbrowse2/images/"
+# Alias        "/gb2"    "/usr/local/wormbase/website-classic/html/gb2"
+# ScriptAlias  "/gb2"    "/usr/local/wormbase/website-classic/cgi-perl/gb2"
+# 
+# <Directory "/usr/local/wormbase/website-classic/html/gb2">
+#   Options -Indexes -MultiViews +FollowSymLinks
+# </Directory>
+# 
+# <Directory "/usr/local/wormbase/website-classic/cgi-perl/gb2">
+#   SetEnv PERL5LIB "/usr/local/wormbase/website-classic/extlib/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website-classic/extlib/lib/perl5:/usr/local/wormbase/website-2.0/extlib/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website-2.0/extlib/lib/perl5"
+#   SetEnv GBROWSE_CONF   "/usr/local/wormbase/website-classic/conf/gb2"
+# </Directory>
+# 
+# <IfModule mod_fcgid.c>
+#   Alias /fgb2 "/usr/local/wormbase/website-classic/cgi-perl/gb2"
+#   <Location /fgb2>
+#     SetHandler   fcgid-script
+#     Options      ExecCGI
+#   </Location>
+#   DefaultInitEnv GBROWSE_CONF /usr/local/wormbase/website-classic/conf/gb2
+#   DefaultInitEnv PERL5LIB /usr/local/wormbase/website-classic/extlib/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website-classic/extlib/lib/perl5:/usr/local/wormbase/website-2.0/extlib/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website-2.0/extlib/lib/perl5
+# </IfModule>
+# 
+# <IfModule mod_fastcgi.c>
+#   Alias /fgb2 "/usr/local/wormbase/website-classic/cgi-perl/gb2"
+#   <Location /fgb2>
+#     SetHandler   fastcgi-script
+#   </Location>
+#   FastCgiConfig -initial-env PERL5LIB=/usr/local/wormbase/website-classic/extlib/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website-classic/extlib/lib/perl5:/usr/local/wormbase/website-2.0/extlib/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website-2.0/extlib/lib/perl5 -initial-env GBROWSE_CONF=/usr/local/wormbase/website-classic/conf/gb2
+# </IfModule>
+# 
+# <IfModule mod_perl.c>
+#    Alias /mgb2 "/usr/local/wormbase/website-classic/cgi-perl/gb2"
+#    PerlSwitches -I/usr/local/wormbase/website-classic/extlib/lib/perl5/x86_64-linux-gnu-thread-multi -I/usr/local/wormbase/website-classic/extlib/lib/perl5 -I/usr/local/wormbase/website-2.0/extlib/lib/perl5/x86_64-linux-gnu-thread-multi -I/usr/local/wormbase/website-2.0/extlib/lib/perl5
+#    <Location /mgb2>
+#      SetHandler perl-script
+#      PerlResponseHandler ModPerl::Registry
+#      PerlOptions +ParseHeaders
+#    </Location>
+# </IfModule>
+
+
+# 
+# 
+# Alias        "/gbrowse2/i/" "/usr/local/wormbase/tmp/images/"
+# Alias        "/gbrowse2"    "/usr/local/wormbase/website-classic/html/gbrowse2"
+# ScriptAlias  "/gb2"      "/usr/local/wormbase/website-classic/cgi-perl/gb2"
+# 
+# <Directory "/usr/local/wormbase/website-classic/html/gbrowse2">
+#   Options -Indexes -MultiViews +FollowSymLinks
+# </Directory>
+# 
+# <Directory "/usr/local/wormbase/website-classic/cgi-perl/gb2">
+#  SetEnv PERL5LIB "/usr/local/wormbase/website-classic/extlib/gb2/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website-classic/extlib/gb2/lib/perl5"
+#   SetEnv GBROWSE_CONF   "/usr/local/wormbase/website-classic/conf/gb2"
+# </Directory>
+# 
+# <IfModule mod_fcgid.c>
+#   Alias /fgb2 "/usr/local/wormbase/website-classic/cgi-perl/gb2"
+#   <Location /fgb2>
+#     SetHandler   fcgid-script
+#     Options      ExecCGI
+#   </Location>
+#   DefaultInitEnv GBROWSE_CONF /usr/local/wormbase/website-classic/conf/gb2
+#   DefaultInitEnv PERL5LIB /usr/local/wormbase/website-classic/extlib/gb2/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website-classic/extlib/gb2/lib/perl5
+# </IfModule>
+# 
+# <IfModule mod_fastcgi.c>
+#   Alias /fgb2 "/usr/local/wormbase/website-classic/cgi-perl/gb2"
+#   <Location /fgb2>
+#     SetHandler   fastcgi-script
+#   </Location>
+#   FastCgiConfig -initial-env PERL5LIB=/usr/local/wormbase/website-classic/extlib/gb2/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website-classic/extlib/gb2/lib/perl5 -initial-env GBROWSE_CONF=/usr/local/wormbase/website-classic/conf/gb2
+# </IfModule>
+# 
+# <IfModule mod_perl.c>
+#    Alias /mgb2 "/usr/local/wormbase/website-classic/cgi-perl/gb2"
+#    PerlSwitches -I/usr/local/wormbase/website-classic/extlib/gb2/lib/perl5/x86_64-linux-gnu-thread-multi -I/usr/local/wormbase/website-classic/extlib/gb2/lib/perl5 
+#    <Location /mgb2>
+#      SetHandler perl-script
+#      PerlResponseHandler ModPerl::Registry
+#      PerlOptions +ParseHeaders
+#    </Location>
+# </IfModule>
+# 
+# 
+#     <Location /server-status>
+#          SetHandler server-status
+#          Order deny,allow
+#          Deny from all
+#          # Paradise Valley, MT
+#         Allow from 65.219.130.158
+# #        Allow from all
+# 	Allow from 189.147.59.243
+#     </Location>
+
+#LoadModule fastcgi_module modules/mod_fastcgi.so
+
+
+Alias        "/gbrowse2/i/" "/usr/local/wormbase/gbrowse2/tmp/images/"
+Alias        "/gbrowse2"    "/usr/local/wormbase/gbrowse2/current/html"
+Alias        "/js"    "/usr/local/wormbase/beta.wormbase.org/root/js"
+Alias        "/css"    "/usr/local/wormbase/beta.wormbase.org/root/css"
+ScriptAlias  "/gb2"      "/usr/local/wormbase/gbrowse2/current/cgi/gb2"
+ScriptAlias  "/fgb2"      "/usr/local/wormbase/gbrowse2/current/cgi/gb2"
+Alias       "/gb2-support/"    "/usr/local/wormbase/gbrowse2/support-files/"
+
+<Directory "/usr/local/wormbase/gbrowse2/current/html">
+  Options -Indexes -MultiViews +FollowSymLinks
+</Directory>
+
+<Directory "/usr/local/wormbase/gbrowse2/current/cgi/gb2">
+SetEnv PERL5LIB "/usr/local/wormbase/gbrowse2/current/lib/perl5:/usr/local/wormbase/gbrowse2/current/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website-classic/extlib/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website-classic/extlib/lib/perl5:/usr/local/wormbase/extlib/classic/lib/perl5/x86_64-linux-gnu-thread-multig:/usr/local/wormbase/extlib/classic/lib/perl5"
+#  SetEnv PERL5LIB "/usr/local/wormbase/website-classic/extlib/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website-classic/extlib/lib/perl5:/usr/local/wormbase/extlib/classic/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/extlib/classic/lib/perl5:/usr/local/wormbase/gbrowse-current/lib/perl5"
+
+#SetEnv PERL5LIB "/usr/local/wormbase/gbrowse-current/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/gbrowse-current/lib/perl5:/usr/local/wormbase/website-classic/extlib/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website-classic/extlib/lib/perl5:/usr/local/wormbase/dev/acabunoc/extlib/gbrowse2/lib/perl5:/usr/local/wormbase/website-2.0/extlib/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website-2.0/extlib/lib/perl5:/usr/local/wormbase/gbrowse-current/lib/perl5"
+  SetEnv GBROWSE_CONF   "/usr/local/wormbase/gbrowse2/support-files/conf_beta"
+</Directory>
+
+<IfModule mod_fcgid.c>
+  Alias /fgb2 "/usr/local/wormbase/gbrowse2/current/cgi/gb2"
+  <Location /fgb2>
+    SetHandler   fcgid-script
+    Options      ExecCGI
+  </Location>
+  DefaultInitEnv GBROWSE_CONF /usr/local/wormbase/gbrowse2/support-files/conf_beta
+  #DefaultInitEnv PERL5LIB /usr/local/wormbase/gbrowse-current/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/gbrowse-current/lib/perl5:/usr/local/wormbase/website-classic/extlib/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website-classic/extlib/lib/perl5:/usr/local/wormbase/dev/acabunoc/extlib/gbrowse2/lib/perl5:/usr/local/wormbase/website-2.0/extlib/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website-2.0/extlib/lib/perl5:/usr/local/wormbase/gbrowse-current/lib/perl5
+  SetEnv PERL5LIB "/usr/local/wormbase/gbrowse2/current/lib/perl5:/usr/local/wormbase/gbrowse2/current/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website-classic/extlib/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website-classic/extlib/lib/perl5:/usr/local/wormbase/extlib/classic/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/extlib/classic/lib/perl5"
+</IfModule>
+
+#<IfModule mod_fastcgi.c>
+#  Alias /fgb2 "/usr/local/wormbase/gbrowse-current/cgi/gb2"
+#  <Location /fgb2>
+#    SetHandler   fastcgi-script
+#    Options      ExecCGI
+#  </Location>
+# FastCgiConfig -initial-env PERL5LIB =/usr/local/wormbase/website-classic/extlib/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website-classic/extlib/lib/perl5:/usr/local/wormbase/extlib/classic/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/extlib/classic/lib/perl5:/usr/local/wormbase/gbrowse-current/lib/perl5
+#</IfModule>
+
+<IfModule mod_perl.c>
+   Alias /mgb2 "/usr/local/wormbase/gbrowse2/current/cgi/gb2"
+   PerlSwitches -I /usr/local/wormbase/gbrowse2/current/lib/perl5 -I /usr/local/wormbase/gbrowse2/current/lib/perl5/x86_64-linux-gnu-thread-multi -I/usr/local/wormbase/website-classic/extlib/lib/perl5/x86_64-linux-gnu-thread-multi -I/usr/local/wormbase/website-classic/extlib/lib/perl5 -I/usr/local/wormbase/dev/acabunoc/extlib/gbrowse2/lib/perl5 -I/usr/local/wormbase/website-2.0/extlib/lib/perl5/x86_64-linux-gnu-thread-multi -I/usr/local/wormbase/website-2.0/extlib/lib/perl5
+   <Location /mgb2>
+     SetHandler perl-script
+     PerlResponseHandler ModPerl::Registry
+     PerlOptions +ParseHeaders
+   </Location>
+</IfModule>
+
+
+
+
+
+

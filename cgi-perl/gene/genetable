@@ -1,0 +1,143 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# file: gene
+# C. elegans gene phenotype report
+
+use lib '../lib';
+use strict;
+use Ace;
+use Ace::Browser::AceSubs;
+use ElegansSubs qw(:DEFAULT GetInterpolatedPosition FetchGene);
+use CGI 2.42 qw/:standard :html3 escape/;
+use vars qw($DB $name $obj $window $class $bestname);
+
+END {
+  undef $name;
+  undef $obj;
+  undef $class;
+  undef $bestname;
+}
+
+# print HTTP header & open the database
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$name   = param('name') || param('seq') || param('gene');
+$class  = param('seq') ? "Sequence" : "Gene" ;
+$window = param('window') || 1;
+
+if ($name) {
+  ($obj,$bestname) = FetchGene($DB,$name);
+
+  # If we didn't fetch a gene, then we must be looking for a sequence/clone
+  $obj ||= $DB->fetch(Clone => $name);
+  $obj ||= $DB->fetch(CDS => $name);
+  $obj ||= $DB->fetch(Variation => $name);
+}
+
+my %open = map {$_ => 1} split(' ',param('open')) if (param('open'));
+my $label = $bestname || $obj;
+PrintTop($obj,$class,$obj ? "$label: Nearby Genetic Loci" : "Nearby Genetic Loci");
+PrintWarning($name) if $name && !$obj;
+print_prompt();
+print_report($obj,\%open,$window) if $obj;
+PrintBottom();
+
+exit 0;
+
+
+sub print_prompt {
+  param(-name=>'name',-default=>$bestname || param('gene') || param('seq') || '');
+  print
+    start_form(-action=>url(-relative=>1,-path_info=>1)."#pos",-name=>'form1'),
+        p({-class=>'caption'},"Type in a sequence or locus symbol, such as ",
+	  cite('pal-1'),', ',cite('B0222.2'),', or',cite('F41C6'),':'),
+        p("Symbol: ",
+	  textfield(-name=>'name'),
+	  "Search in a window ",popup_menu(-name=>'window',-value=>[1,2,3,4,5,7,10],
+					   -onChange=>'document.form1.submit()'),'cM wide'),
+      end_form;
+}
+
+sub print_report {
+  my $obj    = shift;
+  my $open   = shift;
+  my $window = shift;
+  print_description ($obj,$open,$window);
+}
+
+# sub-sections
+sub print_description {
+  my ($obj,$open,$window) = @_;
+  my ($chromosome,$position);
+  if ($obj->class eq 'Sequence' || $obj->class eq 'CDS') {
+    ($chromosome,$position) = GetInterpolatedPosition($DB,$obj);
+  } elsif (eval { $obj->SNP }) {  # SNP loci are dealt with a little differently
+    $chromosome = $obj->Allele->Sequence->Interpolated_gMap;
+    $position   = $obj->Allele->Sequence->Interpolated_gMap(2);
+  } else {
+    ($chromosome) = $obj->get('Map') ;
+    ($position) = $obj->get('Map'=>3);
+    ($chromosome,$position) = GetInterpolatedPosition($DB,$obj) unless ($chromosome);
+  }
+  unless ($chromosome) {
+    print p(font({-color=>'red'},
+		 'No genetic mapping information is yet available for this locus or sequence.'));
+    return;
+  }
+  
+  my ($x1, $x2) ;
+  $x1 = $position - $window ; $x2 = $position + $window ;
+  
+  my @genes = $DB->fetch(-query=>"FIND Map $chromosome ; FOLLOW Gene ; Map = $chromosome # (Position > $x1 AND HERE < $x2)",
+			 -fill=>1);
+  
+  unless (@genes) {
+    print b(font({-color=>'red'},
+		 "There are no mapped loci within $window cM of $obj (position $chromosome:$position)",
+		 "Try a larger window."));
+    return;
+  }
+  
+  (my $pos = $chromosome) =~ s/\./\\./g;
+  $pos = "$pos.Position";
+
+  my %positions = map { $_ => $_->get('Map')->at($pos) } @genes;
+
+  # If this is a sequence or sequence-only gene, save it
+  if ($obj->class eq 'Sequence' || eval { !$obj->CGC_name }) {
+      $positions{$obj} = $position;
+      push @genes,$obj;
+  }
+  
+
+  foreach my $gene (sort {$positions{$a}+0 <=> $positions{$b}+0} @genes) {
+      print "\n"; # for readability
+
+      # we are at the center position but 1
+      if ($gene eq $obj) {
+	  print  a({-name=>"pos"}),hr;
+      }
+
+      # This is either an gene with sequence only or a sequence object
+      if ($gene eq $obj && eval  { !$obj->CGC_name} ) {
+	  print h3($obj->class . ($bestname ? " $bestname" : " $obj")
+		   . " interpolates at position $position on map $chromosome") ;
+      } else {
+	  my $z =  $positions{$gene};
+	  # Regular 'ol locus
+	  my @clones = map { a({-href=>Url('pic',"class=Clone&name=".escape("$_")) },$_) } 
+	  $gene->get('Positive_clone') ;
+	  print 
+	      p,
+	      span({'-style'=>'font-size: 14pt'},
+		   a({-href => Url('pic',"class=Locus&name=$gene") },b("$chromosome:"),$z),
+		   i("locus"),span({-class=>'gene'},ObjectLink($gene->Public_name)),
+		   @clones ? " mapped on clone @clones " : "");
+	  
+	  if (my @phs = eval { $gene->Phenotype } ) {
+	      print blockquote({-class=>'description'}, $phs[$#phs]);
+	  }
+      }
+      print hr if ($gene eq $obj);
+  }
+}
+

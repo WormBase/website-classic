@@ -1,0 +1,154 @@
+#!/usr/bin/perl
+
+use strict;
+use CGI qw/:standard *table/;
+use lib '/usr/local/wormbase/cgi-perl/lib';
+use WormBase::Autocomplete;
+use JSON;
+
+use vars qw/@CLASSES $DB $QUERY $CLASS $DATABASE $FORMAT/;
+
+use constant DEBUG  => 0;
+use constant AUTOCOMPLETE_DB => 'autocomplete';
+use constant SEARCH => '/db/searches/multi';
+use constant GET    => '/db/get';
+
+# Should the detailed results be returned in JSON or as html?
+use constant DETAILED_RESULTS_IN_JSON => 1;
+
+
+#$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+$QUERY     = param('query');
+$CLASS     = param('class');
+$DATABASE  = param('database');
+$FORMAT    = param('format');
+
+# Classes not (yet) supported by the autocomplete database
+# Others may need to be extended
+my @AUTOCOMPLETE_NOT_SUPPORTED = qw/
+    Life_stage
+    Mass_spec_experiment
+    Mass_spec_peptide
+    Oligo
+    /;
+
+do_search();
+
+sub do_search { 
+    my $auto   = WormBase::Autocomplete->new(AUTOCOMPLETE_DB) or die "$!";
+    
+    # May want max values for paging / offset
+    my ($hits) = $auto->lookup_deep($CLASS,$QUERY) || [];
+#  my ($hits,$related) = $auto->lookup_deep($CLASS,$QUERY);
+    
+    if (DEBUG) {
+	warn "autocomplete class=$CLASS query=$QUERY\n";
+	
+#    for (@{$related}[0..1]) {
+#      $_ or last;
+#      warn join("\t",'result',@$_)."\n";
+#    }
+    }
+        
+    # Filter out meta hits that map to the same entity
+    my %seen;
+#  my @return = grep { ! $seen{$_->[1]}++ } @{$hits},@{$related};
+#  warn @$hits;
+    my @return = grep { ! $seen{$_->[1]}++ } @{$hits};
+#  push @return, grep { ! $seen{$_->[1]}++ } @{$related};
+    
+    # Should split this into hits and related
+    my $results = package_results($CLASS,@return);
+    print $results;
+}
+
+sub package_results {
+    my ($class,@objects) = @_;
+    
+    # Multiple results? Link back to the search page for display
+    my $target = SEARCH;
+    my $count = scalar @objects;
+    $count ||= 0;
+    
+    my $object;
+    
+    # Config option:  Only return objects that have hits?
+    ##    unless ($url eq "0" && !param('style')) {
+    # but return all for the table display
+    #####  return if $count == 0 && !param('style');
+    
+    # Object meta data (this is all that is returned with count reports)
+    $object = { class => $CLASS,
+		count => $count};
+    
+    # don't bother returning all objects if we just want a simple count
+    unless ($FORMAT eq 'count') {
+	if (DETAILED_RESULTS_IN_JSON) {
+	    foreach (sort { ($a->[4] || $a->[1]) cmp ($b->[4] || $b->[1]) } (@objects)) {
+		# Here, $meta_hit can be thought of as akin to 
+		# the matching text. It may come from an alias or a meta hit
+		my ($meta_hit,$canonical,$description,$entity_class,$display_name) = @$_;
+		
+		# Use the default display name for the canonical entity.  In this way, we can
+		# consistently name items and hide nasty WBIDs from users at the same time.
+		my $text;
+		if ($meta_hit && $description) {
+		    #$text= join("; ",$meta_hit,$description);
+		    $text = $description;
+		} else {
+		    $text = $description;
+		    $text ||= $meta_hit;
+		}
+		
+		push @{$object->{entries}},{ matching_text => $meta_hit,
+					     canonical     => $canonical,	
+					     href_target   => ($display_name) ? $display_name : $canonical,
+					     description   => $text };
+	    }
+	}
+#####	} else {
+#####	    
+#####	    # For now, let's just return the results in HTML. This should be paged.
+#####	    my $html;
+#####	    foreach (sort { ($a->[4] || $a->[1]) cmp ($b->[4] || $b->[1]) } (@objects)) {
+#####		if (ref $_ eq 'ARRAY') {
+#####		    # Here, $meta_hit can be thought of as akin to 
+#####		    # the matching text. It may come from an alias or a meta hit
+#####		    my ($meta_hit,$entity,$description,$entity_class,$display_name) = @$_;
+#####		    
+#####		    # Use the default display name for the canonical entity.  In this way, we can
+#####		    # consistently name items and hide nasty WBIDs from users at the same time.
+#####		    my $target = ($display_name) ? $display_name : $entity;
+#####		    #	$display_name;
+#####		    my $text;
+#####		    if ($meta_hit && $description) {
+######		      $text= join("; ",$meta_hit,$description);
+#####			$text = $description;
+#####		    } else {
+#####			$text = $description;
+#####			$text ||= $meta_hit;
+#####		    }
+#####		    $html .= div({-class => 'hit'},
+#####				 span({-class=>'identification'},
+#####				      a({-href=>GET . '?class='
+#####					     . $CLASS
+#####					     . '&name='
+#####					     . $entity},$target)),
+#####				 span({-class=>'description'},$text));
+######		    $html .= TR(td({-valign=>'top'},a({-href=>GET . '?class='
+######							   . $CLASS
+######							   . '&name='
+######							   . $entity},$target)),
+######				#				td($meta_hit),
+######				td($text));
+#####		}
+#####	    }
+#####	    #    }
+######	    $html .= end_table();
+#####	return $html;
+    }
+    
+    my $json     = objToJson($object);
+    return $json;
+}

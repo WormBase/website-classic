@@ -1,0 +1,562 @@
+#!/usr/bin/perl
+# $Id: basic,v 1.1.1.1 2010-01-25 15:36:05 tharris Exp $
+use strict;
+use lib '../lib';
+
+use vars qw($DB $URL %EQUIV $maxobj $search_pattern $search_class);
+
+use Ace 1.80;
+use CGI qw(:standard :html3 escape -no_xhtml *table *TR *td);
+use CGI qw(:standard );
+use CGI::Carp qw(fatalsToBrowser);
+use Ace::Browser::AceSubs qw(:DEFAULT Configuration ResolveUrl AceRedirect DoRedirect);
+use Ace::Browser::SearchSubs;
+use ElegansSubs qw/:DEFAULT FetchPeople DisplayInstructions !TypeSelector FetchGene FetchCell/;
+
+END {
+    undef $URL;
+    undef %EQUIV;
+    undef $maxobj;
+    undef $search_pattern;
+    undef $search_class;
+}
+
+$maxobj = param('asXML') ? '999999' : undef;
+my $classlist = Configuration->Simple;
+my @classlist = @{$classlist}[map {2*$_} (0..@$classlist/2-1)];  # keep keys, preserving the order
+
+my $JSCRIPT=<<END;
+function focussearch()  {
+    document.forms[0].query.focus();
+    return (false);
+}
+END
+    
+    
+   $search_class   = param('class');
+my $exact          = param('exact');
+my $offset         = AceSearchOffset();
+
+$search_pattern = param('query') || param('name');
+#warn "original : $search_class $search_pattern";
+#if ($search_pattern =~ /(WB\w+:?\d+)/) {  # autocomplete hint
+
+if ($search_pattern =~ /class=([^;]+);name=(.+)/) {
+    $search_class   = $1;
+    $search_pattern = $2;
+    $search_pattern =~ s/ /\\ /gs if $exact;
+    warn "current : $search_class $search_pattern";
+}
+# fetch database handle
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+    
+# short-circuit acedb queries
+if ($search_pattern =~ /^(query)?\s*find\s+\w+/i) {
+  my $pat = CGI::escape($search_pattern);
+  print redirect("query?query_jack=$pat");
+  exit 0;
+}
+    
+# allow gene searches to be handled differently
+if (($search_class eq 'AnyGene' || $search_class eq 'Locus'
+     || $search_class eq 'Predicted_gene' || $search_class eq 'Gene')
+    && $search_pattern) {
+  my $pat = CGI::escape($search_pattern);
+  
+  # The FetchGene subroutine is a huge burden.
+  # On top of that, people search with all variations of gene names
+  # which reduces the effectiveness of both the squid and backend on-disk
+  # caches.
+  
+  # Let's try running FetchGene *here* instead. This means that we can capture
+  # queries from the home page or top-of-page search box and then redirect
+  # using a WBGeneID in the URL.
+  # We ONLY return from FetchGene if we have a single object, which is a little wacky.
+  
+  # The stupid thing about this approach is that I end up having to fetch the object *twice* (if the page hasn't already been cached).
+  my ($gene,$bestname) = FetchGene($DB,$search_pattern);
+  print redirect("/db/gene/gene?name=$search_pattern;class=Gene;not_found=1") if !$gene;  # Should generically handle not founds
+  print redirect("/db/gene/gene?name=$gene;class=Gene");
+  exit 0;
+}
+
+if ($search_class eq 'Motif') {
+  
+}
+
+# Search anatomy term, anatomy_name and cell classes.
+if ($search_class =~ /cell/i) {
+    my $pat = CGI::escape($search_pattern);
+
+    # 09/2007: currently dual nature of cell <-> AO term.
+    # AO terms displayed preferentially on the AO page
+    # Cell terms displayed on the silly cell.cgi page
+
+    # Redundancy here - we will have to fetch again after the redirect
+    my ($results) = FetchCell($DB,$pat);
+    if ($results && $results->[0]->class eq 'Cell') {
+	print redirect("/db/cell/cell.cgi?name=$pat;class=Cell");
+    } else {
+	# Assume we've found an AO term instead
+	print redirect("/db/ontology/anatomy?name=$pat");
+    }
+}    
+
+if ($search_class eq 'Phenotype') {
+  my $pat = CGI::escape($search_pattern);
+  print redirect("/db/misc/phenotype?name=$pat");
+  exit 0;
+}
+
+if ($search_class eq 'RNAi') {
+  my $pat = CGI::escape($search_pattern);
+  print redirect("/db/seq/rnai?name=$pat");
+  exit 0;
+}
+
+if ($search_class eq 'Variation') {
+  my $pat = CGI::escape($search_pattern);
+  print redirect("/db/gene/variation?name=$pat");
+  exit 0;
+}
+
+if ($search_class eq 'Paper' && $search_pattern) {
+  my $pat = CGI::escape($search_pattern);
+  # Is the "Exact Match" checkbox checked?
+  if ($exact) {
+      print redirect("http://www.textpresso.org/cgi-bin/wb/tfw.cgi?searchstring=$pat&search=1&exactmatch=on");
+  } else {
+    # Search full text and abstracts by default
+      print redirect("http://www.textpresso.org/cgi-bin/wb/tfw.cgi?searchstring=$pat&search=1&exactmatch=off");
+  }
+  exit 0;
+}
+
+# allow GO terms to be handled differently
+if ($search_class eq 'GO_term' && $search_pattern) {
+  my $pat = CGI::escape($search_pattern);
+  #  print redirect("/db/ontology/goterm?query=$pat");
+  print redirect("/db/ontology/gene?query=$pat");
+  exit 0;
+}
+
+# allow anatomy terms to be handled differently
+
+if ($search_class eq 'Anatomy_term' && $search_pattern) {
+  my $pat = CGI::escape($search_pattern);
+  print redirect("/db/ontology/anatomy?name=$pat");
+  exit 0;
+}
+
+# allow C. elegans protein to be handled differently
+if ($search_class =~ /Protein/ || $search_class =~ /Wormpep/ 
+    # && $search_class =~ /elegans/
+    && $search_pattern){
+  my $pat = CGI::escape($search_pattern);
+  print redirect("/db/seq/protein?name=$pat;class=Protein");
+} elsif ($search_class =~ /Strain/i) {
+  $search_pattern ||= '*';
+  my $pat = CGI::escape($search_pattern);
+  print redirect("/db/gene/strain?query=$pat;class=Strain");
+}
+
+
+my ($objs,$count);
+$count=0;
+if (defined $search_class) {
+  if (lc $search_class eq 'any' && $search_pattern) {
+    my $long  = param('Long');
+    ($objs,$count) = do_grep ($search_pattern,$offset,$long,$exact);
+  } elsif ($search_pattern) {
+    ($objs,$count) = do_search($search_class,$search_pattern,$offset);
+    if (!$count && !$exact && $search_pattern !~ /[*?]/) {
+      param(query=>qq(*$search_pattern*));
+      ($objs,$count) = do_search($search_class,qq(*$search_pattern*),$offset)
+	}
+    
+  } elsif (lc $search_class ne 'any') {
+    ($objs,$count) = do_search($search_class,"*",$offset);
+  }
+}
+
+# Unintended behavior when search retrieves single TrEMBL
+# entries. Becuase of URL_MAPPER and Object2URL in DoRedirect,
+# users automatically get sent to SRS with no warning.
+if ($count==1 && !param('again')) {
+  #  warn "redirecting...",@$objs;
+  #  warn $objs->[0]->class;
+  #  warn Object2URL($objs->[0]);
+  DoRedirect(@$objs);
+  # AceRedirect(@$objs);
+}
+
+if(param('asXML')){
+  print header('text/xml');
+  print '<?xml version="1.0" standalone="yes" ?>',"\n";
+  print "<ACEDB>\n";
+  foreach my $obj (@$objs){
+    print $obj->asXML;
+  }
+  print "</ACEDB>\n";
+} else {
+  PrintTop(undef,undef,undef,
+	   '-Title' =>'Search WormBase',
+	   '-script' => $JSCRIPT,
+	   '-Class' =>'search',
+	   '-onLoad' => 'focussearch()',
+	   );
+  
+  display_search_form(\@classlist,$classlist);
+  my @obj_r = print_object($objs,$count,$offset,$search_class,$search_pattern) if defined $search_class;
+  #print_obj(\@obj_r, $count);
+  
+  DisplayInstructions('Search WormBase',
+		      'Select the type of object you are looking for and optionally, 
+	                      type in a name or a wildcard pattern, (? for any one character.
+	                      * for zero or more characters). ' .
+		      'If no name is entered, the search displays all objects of the selected type.',
+		      
+		      b('Anything').' performs a full text search of the entire database. ' ,
+		      'The '.b('Literature Search').' option performs a ' .
+		      a({-href=>'http://www.textpresso.org'},'Textpresso').'-powered literature search.');
+  # 'The '.b('Detailed Search').' option performs a more extensive search.');
+  
+  PrintBottom;
+}
+
+
+#------- subs below ------#
+    
+sub display_search_form {
+  my($classlist,$classes) = @_;
+  CGI::autoEscape(0);
+  
+  AceSearchTable({-name=>'searchform'},
+		 'Search WormBase',
+		 table(TR(
+			  td('Search for:',
+			     popup_menu(-name=>'class',
+					-values=>$classlist,
+					-labels=>{@$classes},
+					-default=>'Any',
+					-onchange=>"if (this.value=='Paper') { document.forms[0].searchtype.checked=true} else { document.forms[0].searchtype.checked=false };"),
+			     textfield(-name=>'query',-size=>40)),
+			  td(submit(-name=>'Search')),
+			  td(
+			     table(
+				   TR(td(checkbox(-name=>'exact',-label=>'Exact match'))),
+				   TR(td(checkbox(-name=>'asXML',-label=>'Results as XML',
+						  -onclick=>'document.forms[0].query=todd'))),
+				   TR(td(font({-color=>'#3366ff'},
+					      checkbox(-name=>'searchtype',-value=>'literature',
+						       -label=>a({-href=>Configuration->Textpresso,-class=>'nakedlinks'},'Literature Search'),
+						       -onclick=>"if (this.checked==true) {document.searchform[0].selectedIndex=12} else{document.searchform[0].selectedIndex=1};")))))
+			     )
+			  )
+		       )
+		 );
+  CGI::autoEscape(1);
+}
+
+sub print_object {
+    my ($objs,$count,$offset,$class,$search_pattern) = @_;
+    my $label = $class eq 'Any' ? '' :$class;
+    $label = ($label eq 'Author_Person') ? 'Author/Person' : $label;
+    my $title = $count > 0 ? p("$count $label object(s) match \"$search_pattern\".")
+	: p("No matching objects found for \"$search_pattern\".");
+    
+    my @objects;
+    if ($count > 0) {
+	if ($class eq 'Any') {  
+	    @objects = map { a({-href=>Object2URL($_)},
+			       $_->class . ":&nbsp;".
+			       $_) }
+	    sort { $a->class cmp $b->class } @$objs;
+	} elsif ($class eq 'Motif') {
+	    @objects = map { a({-href=>Object2URL($_)},
+			       $_->Title . ":&nbsp;".
+			       "($_)") }
+	    sort { $a->class cmp $b->class } @$objs;
+	} elsif ($class eq 'Author_Person') {
+	    foreach (sort {$a->class cmp $b->class} @$objs) {
+		if ($_->class eq 'Author') {
+		    push @objects, a({-href=>Object2URL($_)},$_->class. ":&nbsp;" . $_);
+		} else {
+		    my $name = $_->Standard_name || $_->Full_name || $_;
+		    my %hash = map { $_ => $_->right } $_->Address;
+#		    my $identity =  (defined $hash{Country} && defined $hash{Institution})
+#			? " ($hash{Institution}, $hash{Country}) "
+#			: " ($hash{Country}) ";
+		    my $identity =  (defined $hash{Institution})
+			? " ($hash{Institution}) "
+			: "";
+		    push @objects, a({-href=>Object2URL($_)},$_->class. ":&nbsp;" . $name . $identity);
+		}
+	    }
+	} else {
+	    @objects = map { a({-href=>Object2URL($_)},"$_") } @$objs;
+	}
+    } else {
+	param('query' => param('query') . '*') unless param('query') =~ /\*$/;
+    }
+    
+# # Debug code needs to be in place, do not remove - PC 4/27/06
+# use Data::Dumper;
+# my @malformed_objects;
+# foreach (@objects) { push @malformed_objects, $_ if $_ =~ /CGI/; }
+# if (@malformed_objects) {
+#     print STDERR '*'x40 . "\n";
+#     print STDERR '*'x40 . "\n";
+#     print STDERR '*'x40 . "\n";
+#     print STDERR Dumper($objs);
+#     print STDERR '*'x40 . "\n";
+#     print STDERR Dumper(\@malformed_objects);
+#     print STDERR '*'x40 . "\n";
+#     print STDERR Dumper(\%INC);
+#     print STDERR '*'x40 . "\n";
+#     print STDERR '*'x40 . "\n";
+#     }
+#     
+    # Prioritize the display of the matches
+    # 1. Exact matches first
+    # 2. Matches containing the query
+    # 3. Matches of the same class
+
+	#if (param('query') !~ /[*?]/){ #if the query does not contain wild cards
+  my %obj_hash = ();
+  my @obj_array = ();
+
+  my $key_string = param('query');
+  $key_string =~ tr/\*\?//d;    #remove wild cards
+  my $key_class;
+  
+  foreach (@objects){
+    $_ =~ /.*name=(.*);class=(.*)\".*/;
+    # First add in the exact match
+    if ($1 eq param('query') || ($1 eq $key_string)){ 
+      push @obj_array, $_;
+      $key_class = $2;
+    }
+    
+    elsif ($1 =~/param('query')/){
+      # then the matches containing the query
+      push @obj_array, $_;
+      $key_class = $2;
+    }
+    
+    elsif ($2 eq $key_class){
+      # then the matches of the same class
+      push @obj_array, $_;
+    }
+    
+    else {
+      push @{$obj_hash{$2}}, $_;
+    }
+  }
+  
+  # Wow!  insane redundancy just so I can display people before authors
+  if ($class eq 'Author_Person') {
+    foreach (reverse sort keys %obj_hash) {
+      push @obj_array, @{$obj_hash{$_}};
+    }
+  } else {
+    foreach (sort keys %obj_hash){
+      my @obj_local = @{$obj_hash{$_}};
+      push @obj_array, @obj_local;
+    }
+  }
+  
+  AceResultsTable(\@obj_array, $count, $offset, $title);
+  
+  
+  #}else {
+  #  AceResultsTable(\@objects,$count,$offset,$title);
+  #}
+}
+
+sub do_grep {
+  my ($text,$offset,$long,$exact) = @_;
+  my $count;
+  my (@objs) = $DB->grep(-pattern=> $text,
+			 -count  => $maxobj || MAXOBJECTS,
+			 -offset => $offset,
+			 -total => \$count,
+			 -long  => $long,
+			 );
+  return unless @objs;
+  if ($exact) {
+    @objs = grep { lc($text) eq lc($_) } @objs ;
+    return(\@objs,scalar @objs);
+  }
+  return (\@objs,$count);
+}
+
+sub do_search {
+  my ($class,$pattern,$offset,$maxobjects) = @_;
+
+  return do_motif_search($pattern,$offset)    if $class =~ /^motif$/i;
+  return do_protein_search($pattern,$offset)  if $class =~ /^Wormpep$/i;
+  return do_sequence_search($pattern,$offset) if ($class =~ /^Predicted_Gene$/ || $class =~ /Genome_sequence/i || $class =~ /Sequence/i);
+  return do_person_search($pattern,$offset)   if $class =~ /Person$/i;
+  $class = 'Locus' if $class eq 'AnyGene';
+ 
+
+  $pattern = "?$pattern" if lc($class) eq 'model' && $pattern !~ /^\?/;
+
+  my ($count,@objs);
+  @objs = $DB->fetch(	-class=>$class,
+			-pattern=>$pattern,
+			-count=>$maxobj || MAXOBJECTS,
+			-offset=>$offset,
+			-total=>\$count);
+  return (\@objs,$count) if @objs;
+
+  # last try. treat as accession number
+  return do_accession_search($class,$pattern,$offset);
+}
+
+sub do_accession_search {
+  my ($class,$pattern,$offset) = @_;
+  my @acc = $DB->fetch(-class=>'Accession_number',-pattern=>$pattern);
+  my $search_class = $class;
+  $search_class = 'Sequence' if $class =~ /^(Predicted_gene|Genome_sequence)$/;
+  my @objs;
+  push @objs,grep {$_->class eq $search_class} $_->Entry(2) foreach @acc;
+  my $count = @objs;
+  unless (@acc) {
+    @objs = $DB->fetch(-class=>'Transcript',-pattern=>$pattern);
+  }
+  return (\@objs,$count);
+}
+
+
+# Some acrobatics to handle the split personality of the
+# author/person_name classes.
+# Preferentially fetch a person_name if it exists,
+# if not, let's try to search for authors
+sub do_person_search {
+  my ($pattern,$offset) = @_;
+  my ($count,@objs);
+  my @people = FetchPeople($DB,$pattern);
+
+  my $full_count = @people;
+  # Slice off the appropriate number of people according to the current offset
+  if ($offset > 0 && @people > $offset) {
+    my $total = scalar @people - 1;
+    my @new_people = @people[$offset..$total];
+    @people = @new_people;
+  }
+
+  return (\@people,$full_count) if @people;
+}
+
+
+
+sub do_sequence_search {
+  my ($pattern,$offset) = @_;
+  my ($count,@objs);
+
+  # first look for a PredictedGene
+  # (TH: This was looking in class Predicted_gene (now dead)
+  #      These aren't really predicted genes now, but CDS,
+  #      the label on the form says "Gene Name, Cosmid")
+  @objs = $DB->fetch(-class=>'CDS',-pattern=>$pattern,
+		     -count=>$maxobj || MAXOBJECTS,-offset=>$offset,
+		     -total=>\$count);
+  return (\@objs,$count) if @objs;
+
+  # now look for a protein
+  @objs = $DB->fetch(-query=>qq(find Protein IS "$pattern"; follow Corresponding_DNA),
+		     -count=>$maxobj || MAXOBJECTS,-offset=>$offset,
+		     -total=>\$count);
+  return (\@objs,$count) if @objs;
+
+  @objs = $DB->fetch(-query=>qq(find Sequence IS "$pattern"),
+		     -count=>$maxobj || MAXOBJECTS,-offset=>$offset,
+		     -total=>\$count);
+  return (\@objs,$count) if @objs;
+
+  # now look for a locus
+  @objs = $DB->fetch(-query=>qq(find Locus IS "$pattern"; follow Genomic_sequence),
+		     -count=>$maxobj || MAXOBJECTS,-offset=>$offset,
+		     -total=>\$count);
+  return (\@objs,$count) if @objs;
+
+
+  do_accession_search('Sequence',$pattern,$offset);
+}
+
+sub do_protein_search {
+  my ($pattern,$offset) = @_;
+  my ($count,@objs);
+  # first look for a Protein
+  @objs = $DB->fetch(-class=>'Wormpep',-pattern=>$pattern,
+		     -count=>$maxobj || MAXOBJECTS,-offset=>$offset,
+		     -total=>\$count);
+  return (\@objs,$count) if @objs;
+
+  # now look for a sequence
+  #  @objs = $DB->fetch(-query=>qq(find Predicted_gene IS "$pattern"; follow Corresponding_protein),
+  @objs = $DB->fetch(-query=>qq(find CDS IS "$pattern"; follow Corresponding_protein),
+		     -count=>$maxobj || MAXOBJECTS,-offset=>$offset,
+		     -total=>\$count);
+  return (\@objs,$count) if @objs;
+
+  # now look for a locus
+  @objs = $DB->fetch(-query=>qq(find Locus IS "$pattern"; follow Genomic_sequence; follow Corresponding_protein),
+		     -count=>$maxobj || MAXOBJECTS,-offset=>$offset,
+		     -total=>\$count);
+  return (\@objs,$count) if @objs;
+  do_accession_search('Protein',$pattern,$offset);
+}
+
+sub do_motif_search {
+  my ($pattern,$offset) = @_;
+  param('again'=>1);  # don't allow automatic jumping
+  # first look for the motif by ID, and then by title
+  my $accession = $pattern;
+  unless ($accession =~ /^\w+:/) { #already qualified
+    $accession = "*:$accession";
+  }
+  my $count;
+  my @motifs = $DB->fetch(-query=>qq(find Motif == "$pattern" AND Pep_homol),
+			  -count=>$maxobj || MAXOBJECTS,-offset=>$offset,
+			  -total=>\$count
+			 );
+  unless (@motifs) {
+    # try to search by title
+    @motifs = $DB->fetch(-query=>qq(find Motif Title == "*$pattern*" AND Pep_homol),
+			 -count=>$maxobj || MAXOBJECTS,-offset=>$offset,
+			 -total=>\$count);
+  }
+  # Finally just grep the class in case someone hasn't entered, say INTERPRO:...
+  # Non-intuitive object names
+  unless (@motifs) {
+      @motifs = grep { $_->class eq 'Motif' } 
+      $DB->grep(-pattern=>"*$pattern*",
+		-count=>$maxobj || MAXOBJECTS,
+		-offset=>$offset,
+		-total => \$count);
+      $count = @motifs;
+  }
+  return unless @motifs;
+  return (\@motifs,$count);
+}
+
+
+
+
+#sub log_query {
+#  my $query = shift;
+#  open OUT,">>/usr/local/wormbase/logs/queries/wb.log" or return;
+#  my $timestamp = timestamp();
+#  my $remote_addr = $ENV{REMOTE_ADDR};
+#  print OUT "[$timestamp]\t$remote_addr\t$query\n";
+#  close OUT;
+#}
+
+
+#sub timestamp {
+#  my $time = time();
+#  return time_format('dd/Mon/yyyy:hh:mm:ss tz', $time);
+#}

@@ -1,0 +1,78 @@
+New release of acedb WS44 and wormpep54 20/06/2001
+==================================================
+
+This directory includes:
+   WS44 database.*.tar.gz 
+     files to be installed using INSTALL
+   WS43-WS44.dbcomp
+     Test log reporting differences in Class objects
+     between WS43 and WS44 
+   chromosomes.WS44.tar.gz
+     CHROMOSOMES subdirectory with DNA sequence and GFF files for 
+     the 6 chromsomes
+   wormpep54.tar.gz
+     full wormpep distribution corresponding to WS44 database
+     this contains a log file showing a number of errors in naming 
+     and gene structures that should be fixed
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+Sequence composition:
+---------------------
+
+6 sequences >= 0, 100089678 total
+  - 248660      0 %
+  a 32231599    32 %
+  c 17704173    18 %
+  g 17682079    18 %
+  n 96  0 %
+  t 32223071    32 %
+
+This is a gross decrease of 204 bp but a net decrease of 29868 bp. This corresponds to the 
+closure of 1 'false' gap H10E24-C43H8 (thaks to Jean/Danielle for pointing this out), and
+the removal of AC8 from the SUPERLINK object. AC8 is mapped to the left telomere of
+chromosome X despite there being no overlaps at present. Hence, AC8 will be re-instated 
+in the next release.
+ 
+Wormpep data set:
+-----------------
+
+there are 19319 CDS in autoace, 19957 when counting (636) alternate splice_forms
+19,957 sequences totalling 8,765,425 letters
+
+ Modified entries      52
+ Deleted entries       27
+ New entries	       39 
+ Reappeared entries     8
+ ------------------------
+ Net Change          + 20
+
+There are 119 provisional gene models in WS44.
+
+GeneModel correction progress:
+------------------------------
+
+	     Confirmed_intron not in CDS GeneModels
+St Louis		 782 (-  52)
+Cambrige		 165 (-  71)
+
+New data:
+---------
+
+Updates of the transgene, expression patterns and RNAi data sets from
+Caltech. The Hyman RNAi data is also added from Cold Spring Harbour.
+
+
+Known problems:
+---------------
+
+S_child features which overlap genome_sequences.
+
+AC8 is removed from the chromosome consensus sequence.
+
+Known fixes:
+------------
+
+

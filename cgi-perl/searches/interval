@@ -1,0 +1,241 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# file: interval
+
+use strict;
+use vars qw($DB);
+
+use lib '../lib';
+
+use Ace;
+use CGI::Carp qw/fatalsToBrowser/;
+use CGI qw/:standard :html3 escape *table *TR *td *pre/;
+use Ace::Browser::AceSubs qw(:DEFAULT Configuration ResolveUrl Style);
+use Ace::Browser::SearchSubs;
+use ElegansSubs qw(:DEFAULT GetInterpolatedPosition Bestname);
+
+# fetch database handle
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+PrintTop(undef,undef,undef,
+	 '-Title' =>'Genetic Interval Search',
+	 '-Style' =>Style(),
+#	 '-Target'=>'_top',
+	 '-Class' =>'search');
+
+display_interval_search_form();
+display_interval_search();
+display_explanation();
+
+PrintBottom();
+
+sub display_interval_search_form { 
+  my $max              = Configuration->Interval_max_search;
+  my $default_interval = Configuration->Interval_default_size;
+  DisplayInstructions('Genetic Interval Search',
+		      'This page will list genes inside a genetically-defined interval.',
+		      'Specify a genetic interval using the names of two genes (for example evl-7 to sup-23).',
+		      'Alternatively, define the endpoints using the notation <i>chromosome:position</i>, as in II:-4.3 to II:-4.0.',
+		      "Entering a single value into the start position will center the search on a window $default_interval cM wide",
+		      "Interval size is currently limited to $max cM.  Longer intervals may take some time to collate.");
+
+  print
+    start_form,
+    b('From position/landmark: '),textfield(-name=>'start'),
+    b('To: '),                    textfield(-name=>'stop'),'&nbsp;',
+    submit('Search'),
+    end_form;
+  print hr;
+}
+
+sub display_interval_search {
+  ## Code added by TH 7.31.01
+  ## allows for interval retrieval by a single position.
+  my $default_interval = Configuration->Interval_default_size;
+  return unless param('start');
+
+  # Is the stop parameter empty? If so, let's display genes around the
+  # given locus using an arbitrary value
+  my ($start,$stop);
+  if (!param('stop')) {
+    # get the position of the provided start position
+    ($start) = get_interval(param('start'));
+    
+    # recenter around the position of $start
+    my $start_holder = $start->[1];
+    my $chromosome   = $start->[0];
+    $start->[1]  = $start_holder + $default_interval/2;
+    $stop ->[1]  = $start_holder - $default_interval/2;
+    $stop ->[0]  = $chromosome;
+  } else {
+    ($start,$stop) = get_interval(param('start'),param('stop'));
+  }
+
+  return unless $start and $stop;
+  ($start,$stop) = ($stop,$start) if $start->[1] > $stop->[1];  # flippity floppity
+
+  print h3("Displaying genetic interval",join(':',@$start),"to",join(':',@$stop));
+
+  if ($start->[0] ne $stop->[0]) {  # compare chromosomes
+    error(param('start'),"is on chromosome $start->[0], but",param('stop'),"is on chromosome $stop->[0].");
+    return;
+  }
+
+  my $max = Configuration->Interval_max_search;
+  if (abs($stop->[1]-$start->[1]) > $max) {  # compare chromosomes
+    error("The distance between",param('start'),"and",param('stop'),"is too large to dump ($max cM max).  Choose a smaller interval.");
+    return;
+  }
+  
+  dump_interval($start,$stop);
+}
+
+sub dump_interval {
+  my ($start,$stop) = @_;
+  my @genes     = get_genes($start,$stop);
+
+  # columns are name,map,position,type,description
+  my @total = sort { $a->[2]<=>$b->[2] } @genes;
+  my @rows  = map { td($_) } @total;
+  print start_table({-border=>1});
+  print TR(th({-class=>'datatitle'},['Name','Map','Pos','Type','Description']));
+  for my $row (@rows) {
+    my @args = $row =~ /mutant/i ? (-class=>'databody') : ();
+    print TR({@args},$row),"\n";
+  }
+  print end_table;
+}
+
+
+sub get_genes {
+  my ($start,$stop) = @_;
+  my ($start_chrom,$start_pos) = @$start;
+  my ($stop_chrom,$stop_pos)   = @$stop;
+
+  # First, fetch all genes between start and stop
+  my %seen;
+  my @genes = grep {!$seen{$_}++} $DB->fetch(-query=>
+			 qq(find Gene Interpolated_map_position = "$start_chrom" AND NEXT >= $start_pos AND HERE <= $stop_pos),
+			 -fill=>1);
+
+  push(@genes,grep {!$seen{$_}++} $DB->fetch(-query=>
+			 qq[find Gene Map = "$start_chrom" \# (Position >= $start_pos AND HERE <= $stop_pos)],
+			 -fill=>1));
+
+  # 2. Classify genes as predicted (no CGC_name or Other_name), named genes (CGC_name), or mapped mutant (no CDS)
+  my @result;
+  foreach (@genes) {
+    # Conditionally set some flags based on the status of the gene
+    # Is this gene associated with a genetic locus yet?
+    my $locus = $_->CGC_name || $_->Other_name;
+    my ($id,$label);
+    if ($locus && $_->Corresponding_CDS) {
+      $id    = a({-href=>Object2URL($_)},$_->Sequence_name) . ' / ' . ObjectLink($_,$locus);
+      $label = 'named gene';
+    } elsif ($_->Corresponding_CDS) {
+      $id    = ObjectLink($_,Bestname($_));
+      $label = 'predicted gene'
+    } else {  # No CDS associated?  Then it should just be a genetic locus
+      $id = ObjectLink($_,Bestname($_));
+      $label = 'mapped mutant';
+    }
+
+    # Description
+    my $description = $_->Provisional_description;
+    $description  ||= eval {$_->Corresponding_protein->Motif_homol->Title };
+    if (!$_->Corresponding_CDS) {
+      $description = 'Molecular identity unknown.';
+    } else {
+      $description ||= 'No molecular description available.';
+    }
+
+    # Add some phenotypic or rnai info if it exists
+#    my $phene = (sort { length $b <=> length $a } $_->Phenotype)[0];
+#    $description .= br . $phene if $phene;
+    my $rnai = get_rnai($_);
+    $description .= br . 'RNAi: ' . div({-class=>'box'},join(';<br> ',@$rnai)) if @$rnai;
+
+    my $chrom = $_->get(Interpolated_map_position=>1);
+    my $pos   = $_->get(Interpolated_map_position=>2);
+
+    # For non-interpolated genes...
+    $chrom ||= $_->get(Map_info=>2);
+    $pos   ||= $_->get(Map=>3);
+    push @result,[$id,
+		  $chrom,
+		  round_pos($pos),
+		  $label,
+		  $description,
+		 ];
+  }
+  return @result;
+}
+
+sub get_rnai {
+  my $gene = shift;
+  # Associated RNAi experiments?
+  my @rnai = $gene->RNAi_result(-fill=>'Phenotype');
+  my @rnai_linked;
+  foreach (@rnai) {
+    my @phenes = map { ObjectLink($_,best_phenotype_name($_)) } eval { $_->Phenotype };
+    # Format phenotypes [experiment ID]
+    push (@rnai_linked,join(', ',@phenes) . ' [' . ObjectLink($_) . ']');
+  }
+  return \@rnai_linked;
+}
+
+# People seriously hate the five significant digits used for
+# the calculated genetic map positions. I'm here to fix that.
+sub round_pos { return (sprintf "%3.4f",shift) }
+
+sub get_interval {
+  my @markers = @_;
+  my @result;
+  
+  for my $marker (@markers) {
+    # easiest case: interval is defined in format chromosome:position
+    if ($marker =~ /([IXV]+):([\d.-]+)/) {
+      push @result,[$1,$2];
+      next;
+    }
+    my $obj;
+    my $tmp = $DB->fetch(Gene_name  => $marker);
+    if ($tmp) {
+      $obj = ($tmp->CGC_name_for || $tmp->Public_name_for);
+    }
+    $obj    = $DB->fetch(CDS      => $marker) unless $obj;
+    $obj    = $DB->fetch(Sequence => $marker) unless $obj;   # Deprecated
+    if ($obj) {
+      my ($chromosome,$position) = GetInterpolatedPosition($DB,$obj);
+      if ($chromosome) {
+	push @result,[$chromosome,$position]
+      } else {
+	error("The gene/locus named",ObjectLink($obj),"does not have a genetic position.");
+	return;
+      }
+    } else {
+      error("$marker is not a genetic position, gene name, or sequence name known to the database.");
+    }
+  }
+  return @result;
+}
+
+sub display_explanation {
+  print h3('How This Works');
+print p(<<END);
+The WormBase Consortium has created a mapping between the genetic and
+physical maps using the positions of genes that have been placed on both
+maps. That is, for CDSes that are only mapped physically, their genetic
+map positions are interpolated in cM untis. For non-genetically mapped loci that
+are currently not linked to a CDS, and therefore, no physical map
+position, no interpolated map is calculated.
+<br><br>
+<b>Note:</b> WormBase also creates an average interpolated map position at the clone level.
+END
+
+}
+
+sub error {
+  my @msg = @_;
+  print h3({-class=>'error'},p(@msg));
+}

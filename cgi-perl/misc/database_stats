@@ -1,0 +1,304 @@
+#!/usr/bin/perl
+
+use lib '../lib';
+
+use strict;
+use vars qw($DB $GFF $CBGFF $STATS $to_display);
+use Ace;
+use CGI qw/:standard :html3 *table/;
+use Ace::Browser::AceSubs;
+use ElegansSubs qw/:DEFAULT/;
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+# open c. elegans and c. briggsae sequence databases
+$GFF   = OpenGFFDB($DB,'elegans')   || AceError("Couldn't open GFF database.");
+$CBGFF = OpenGFFDB($DB,'briggsae') || AceError("Couldn't open BRIGGFF database.");
+
+
+$to_display = { database => { title=>1,version  =>1 },
+		code     => { version=>1,build =>1},
+		resources=> { memory=>1,classes=>1} };
+
+# global status of where scripts point
+$STATS = {'2_point_data'        => ['misc/etree',''],
+	  Accession_number    => ['misc/etree',''],
+	  Allele              => ['gene/allele','live; rebuilding'],
+	  Anatomy_name	      => ['misc/etree','direct to either cell or ao'],
+	  Anatomy_term	      => ['ontology/anatomy','under development'],
+	  Antibody	      => ['gene/antibody','live; recently added'],
+	  Author	      => ['misc/author','live'],
+	  briggsae_CDS        => ['gene/gene','live'],
+	  Briggsae_genomic    => ['seq/sequence','live'],
+	  Briggsae_loci	      => ['gene/gene','live'],
+	  briggsae_pseudogenes=> ['empty class','(should be handled by gene/gene)'],
+	  briggsae_RNA_genes  => ['gene/gene','live     -- TRANSCRIPT DISPLAY'],
+	  Brigpep	      => ['seq/protein','live'],
+	  cDNA_Sequence       => ['seq/sequence','live'],
+	  cMap                => ['misc/epic',''],
+	  CDS                 => ['gene/gene','live'],
+	  Cell                => ['cell/cell.cgi','live'],	
+	  Cell_group          => ['cell/pedigree','live (should prob be in class browser)'],
+	  Class 	      => ['misc/etree',''],
+	  Clone               => ['seq/clone','live (needs work, genes on pmap)'],
+	  Cluster	      => ['misc/etree','directed to microarray/results?'],
+	  Coding_transcripts  => ['gene/gene','live'],
+	  Comment             => ['misc/etree',''],
+	  Condition           => ['misc/etree','directed to microarray/results?'],
+	  Contig              => ['misc/etree',''],
+	  Database            => ['misc/etree','new display needed'],
+	  Database_field      => ['misc/etree',''],
+	  Deletion_allele     => ['gene/allele','live; rebuilding'],
+	  Display             => ['misc/etree',''],
+	  DNA                 => ['misc/etree',''],
+	  elegans_CDS         => ['gene/gene','live'],
+	  elegans_pseudogenes => ['gene/gene','live'],
+	  elegans_RNA_genes   => ['gene/gene','live'],
+	  Expr_pattern        => ['gene/expression','live'],	
+	  Expr_profile        => ['gene/expr_profile','live (needs work)'],
+	  Feature             => ['misc/etree',''],				
+	  Feature_data        => ['misc/etree',''],		
+	  Genetic_code        => ['misc/etree',''],
+	  Genetic_map         => ['misc/epic','acedb dump. new image in order.'],
+	  Gene_class          => ['misc/etree',''],				
+	  Gene_name           => ['misc/etree','no display necessary?'],
+	  Gene_regulation     => ['misc/etree',''],
+	  Genome_Sequence     => ['seq/sequence','live'],
+	  gMap                => ['misc/epic','live'],
+	  GO_code	      => ['misc/etree',''],			
+	  GO_term	      => ['ontology/go_term','live'],			
+	  Grid                => ['misc/etree',''],		
+	  Homology_group      => ['empty class',''],
+	  Homol_data          => ['gbrowse','live'],
+	  Insertion_allele    => ['gene/allele','live; rebuilding'],
+	  Jade   	      => ['misc/etree',''],
+	  Journal             => ['misc/etree','display needed'],
+	  KeySet	      => ['misc/etree',''],
+	  Keyword	      => ['misc/biblio','live; not in Aceperl list'],
+	  KO_allele	      => ['gene/allele','live; rebuilding'],
+	  Laboratory          => ['misc/laboratory','live'],
+	  Lineage             => ['misc/etree','display needed'],
+	  Life_stage          => ['misc/etree','missing from class browser list'],
+	  Locus               => ['gene/locus','live; needs work'],
+	  LongText            => ['misc/etree',''],
+	  Map                 => ['misc/epic','live; needs replacement'],
+	  Method              => ['misc/etree',''],
+	  Microarray          => ['misc/etree',''],
+	  Microarray_experiment  => ['misc/etree','directed to microarray/results'],
+	  Microarray_results     => ['microarray/results','live'],
+	  Model 		 => ['misc/etree',''],
+	  Movie		  => ['misc/etree',''],
+	  Motif		  => ['gene/motif','live; needs work'],
+	  Multi_pt_data	  => ['misc/etree',''],
+	  NDB_Sequence	  => ['seq/sequence','live - error handling these objects'],
+	  nematode_ESTs	  => ['seq/sequence','live'],
+	  Oligo		  => ['misc/etree',''],
+	  Oligo_set	  => ['misc/etree','--deprecated'],
+	  Operon	  => ['gene/operon','live'],
+	  Other_Locus	  => ['misc/etree / gene/locus','live'],
+	  Paper		  => ['misc/paper','live'],
+	  PCR_product	  => ['seq/pcr','live; needs work'],
+	  Peptide	  => ['seq/protein','live'],
+	  Person_name     => ['misc/person_name','live'],
+	  Person	  => ['misc/person_name','live'],
+	  Phenotype	  => ['misc/etree','live'],
+	  Picture         => ['misc/etree',''],
+	  pMap		  => ['misc/epic','live'],
+	  Pos_neg_data	  => ['misc/etree',''],
+	  Protein         => ['seq/protein','live'],
+	  Pseudogene      => ['gene/gene','live; limited handling'],
+	  Reconstruction  => ['misc/etree',''],
+	  Rearrangement   => ['gene/rearrange','live'],
+	  Restrict_enzyme => ['gene/motif','live; needs work'],
+	  RNAi            => ['seq/rnai','live'],
+	  Session         => ['misc/etree',''],
+	  Sequence        => ['seq/sequence','live'],
+	  Sequence_map    => ['misc/epic','live; needs work'],
+	  SK_map          => ['misc/etree',''],				
+	  Species         => ['misc/etree','not listed in class browser'],
+	  Strain          => ['gene/strain','live'],
+	  Substitution_allele => ['gene/allele','live; rebuilding'],
+	  Table               => ['misc/etree',''],
+	  Tag             => ['misc/etree',''],
+	  Transcript      => ['gene/gene','live; TRANSCRIPT DISPLAY'],
+	  Transgene       => ['gene/transgene','live'],
+	  Transposon      => ['misc/etree',''],				
+	  Tree            => ['misc/etree',''],
+	  TreeNode        => ['misc/etree',''],
+	  UTR             => ['misc/etree','direct to gbrowse?'],
+	  UserSession     => ['misc/etree',''],
+	  View            => ['misc/etree',''],
+	  Wormpep         => ['seq/protein','live'],
+	  WWW_server      => ['misc/etree',''],
+	 };
+
+PrintTop(undef,'WormBase Database Statistics','WormBase Database Statistics');
+print p('This page displays statistics on the underlying AceDB and MySQL databases that power WormBase.');
+
+print div({-align=>'center'},
+	  table(
+		TR(
+		   th(
+		      [map {a({-href=>"#$_"},"[\L$_]")}
+		       'WormBase Uptime','Acedb Statistics','Acedb Classes And Subclasses',
+		       'Acedb Methods','MySQL GFF Features',
+		      ]))));
+
+print start_table({-border=>1,-width=>'100%'});
+status();
+classes();
+methods();
+mysql_stats();
+PrintBottom();
+
+
+sub status {
+  my %status  = $DB->status;
+  StartSection('WormBase Uptime');
+  my ($string,$uptime,$users,$one,$five,$fifteen) = get_uptime();
+  SubSection('',($uptime) ? $uptime : $string);
+  EndSection;
+
+  StartSection('Acedb Statistics');
+  foreach my $main (sort {$a cmp $b} keys %status) {
+    my @rows;
+    foreach (keys %{$status{$main}}) {
+      next if !defined $to_display->{$main}->{$_};
+      push (@rows,TR(td($_),td($status{$main}->{$_})));
+    }
+    SubSection(ucfirst $main,table(@rows));
+  }
+  EndSection;
+}
+
+sub classes {
+  my %visible = $DB->classes;
+  my %classes = $DB->class_count;
+
+  StartSection('Acedb Classes And Subclasses');
+  my @classes;
+  push (@classes,TR(th('class'),th('total objects'),th('hidden/visible'),th('directed to'),th('status')));
+  foreach my $class (sort { lc $a cmp lc $b } keys %classes) {
+    my $status = (defined $visible{$class}) ? 'visible' : 'hidden';
+    my ($directed,$notes) = eval { @{$STATS->{$class}} };
+
+    # Try to determine where objects are directed
+    my ($link,$example) = discover_target($class);
+    
+    push (@classes,TR(td(a({-href=>"/db/misc/model?class=$class"},$class)),
+		      td(a({-href=>"/db/searches/basic?class=$class;query=*"},$classes{$class})),
+		      td($status),
+		      td({-class=>($link =~ /etree/) ? 'cellwarning' : 'none'},
+			 "$link [$example]"),
+		      td($notes),
+		     ));
+  }
+
+  SubSection('Classes',table({-width=>'100%',-border=>1},@classes));
+
+  # Now do subclasses.
+  # These will be present in visible, but absent in %classes
+  my @subclasses;
+  push (@subclasses,TR(th('subclass'),th('total objects'),th('hidden/visible'),th('directed to'),th('status')));
+  foreach my $subclass (sort { lc $a cmp lc $b } keys %visible) {
+    next if ($classes{$subclass} ne '');
+    my $count = $DB->count($subclass => '*');
+    my ($link,$example) = discover_target($subclass);
+    my ($directed,$notes) = eval { @{$STATS->{$subclass}} };
+    push (@subclasses,TR(td($subclass),
+			 td(a({-href=>"/db/searches/basic?class=$subclass;query=*"},$count)),
+			 td('visible'),
+			 td({-class=>($link =~ /etree/) ? 'cellwarning' : 'none'},
+			    "$link [$example]"),
+			 td($notes),
+			));
+  }
+
+  SubSection('Subclasses',table({-width=>'100%',-border=>1},@subclasses));
+  EndSection
+}
+
+
+sub discover_target {
+  my $class = shift;
+  my $i = $DB->fetch_many($class => '*');
+  my ($c,$link,$example);
+  while (my $obj = $i->next) {
+    $link = Object2URL($obj);
+    $example = a({-href=>$link},'example');
+    # Save only the primary part of the url
+    $link = ($link =~ m|\/db\/(.*)\?.*|) ? $1 : $link;
+    $c++;
+    last if $c == 1;
+  }
+  return ($link,$example);
+}
+
+
+sub get_target {
+  my $class = shift;
+  my $url = ObjectLink($class);
+  $url =~ /\/db\/(.*)\?/;
+  my $target = $1;
+  return $target;
+}
+
+sub methods {
+  my @methods = sort {lc $a cmp lc $b} $DB->fetch(Method=>'*');
+  my @rows;
+  foreach (@methods) {
+    my $remark = $_->Remark;
+    if (length ($remark) > 100) {
+      $remark =~ /(.*){100}/;
+      $remark = $1 . '...';
+    }
+    push (@rows,TR(td(ObjectLink$_),td($remark)));
+  }
+  StartSection('Acedb Methods');
+  SubSection('',table({-width=>'100%'},@rows));
+  EndSection;
+}
+
+sub mysql_stats {
+  my $cerows = get_stuff($GFF,'types',1);
+  my $cbrows = get_stuff($CBGFF,'types',1);
+
+  StartSection('MySQL GFF Features');
+  SubSection('Source: C. elegans',table({-width=>'100%'},@$cerows));
+  SubSection('Source: C. briggsae',table({-width=>'100%'},@$cbrows));
+  EndSection;
+}
+
+sub get_stuff {
+  my ($db,$stuff,$enumerate) = @_;
+  my @rows;
+  if ($enumerate) {  # usually, enumeration is too intensive...
+    my %stuff = $db->$stuff(-enumerate=>$enumerate);
+    foreach (sort {lc $a cmp lc $b } keys %stuff) {
+      push (@rows,TR(td($_),td($stuff{$_})));
+    }
+  } else {
+    @rows = map { TR(td($_)) } sort { lc $a cmp lc $b } $db->$stuff;
+  }
+  return \@rows;
+}
+
+sub get_uptime {
+  my $uptime = `uptime`;
+  chomp $uptime;
+  # 13:30 up 19:56, 6 users, load averages: 0.18 0.24 0.21
+  if ($uptime =~ /^\s?\S+\s+
+      up\s+(.+?,?.+?),
+      \s+(\d+)\s+users?,
+      \s+load\s+averages?:\s+
+      (.+?),?\s+(.+?),?\s+(.+?)\s*
+      $/x) {
+    return($uptime,$1,$2,$3,$4,$5);
+  } else {
+    return $uptime;
+  }
+}
+
+
+
+

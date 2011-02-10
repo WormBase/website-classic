@@ -1,0 +1,1129 @@
+#!/usr/bin/perl
+# file: strains
+# Author: T. Harris
+
+# This script provides a browser of SNPs and visible markers flanking
+# a provided genetic locus,sequence, or chromosomal position.
+# Includes a rudimentary genetic map viewer
+
+# TODO: 
+# link to CGC
+# add in representation of phys map
+
+# Add image map
+# Recentering on Chromosomal position searches is wierd
+# Should pass a cookie to store the users search preferences...
+# Add images for scrolling in the genetic map
+
+use lib '../lib';
+use Ace;
+use CGI qw/:standard :html3 escape *table *TR *td *pre *center center/;
+use Ace::Browser::AceSubs qw(:DEFAULT Configuration ResolveUrl Toggle AcePicRoot);
+use Ace::Browser::SearchSubs;
+use ElegansSubs qw(:DEFAULT GetInterpolatedPosition FetchGene Bestname);
+use Bio::Graphics::Panel;
+use Bio::Graphics::Feature;
+use Digest::MD5 'md5_hex';
+use File::Path 'mkpath';
+use Statistics::OLS;
+
+use strict;
+use vars qw($DB $SCRIPT $IMAGES $GFFDB %data);
+
+END {
+  undef %data;
+}
+
+$SCRIPT = url(-absolute=>1);
+$DB     = OpenDatabase() || AceError("Couldn't open database.");
+$IMAGES = 'genetic_maps';
+
+print_header();
+establish_interval()     if (param);
+display_instructions()   if (!param);
+display_search_form()    if (!param);
+PrintBottom();
+
+#################
+#  BEGIN SUBS  ##
+#################
+# Global hash of data to place in the image
+sub establish_interval {
+  my $query = url_param('recenter') || param('start');
+
+  return error('Please provide a starting locus or chromosomal position.') unless $query;
+
+  # get the position of the provided locus, gene, or chromosomal position
+  # For chromosome positions or genes, a flag is returned so that I can display
+  # a row in the middle of the dataset corresponding to the query position
+  my ($start,$flag) = get_coordinates($query);
+  return unless $start;
+  # recenter the interval
+  # Center pos is used only for single term searches
+  my ($chromosome,$center_pos) = @$start;
+  my $stop;
+  
+  # Was a stop position provided?
+  my $default_interval = Configuration->Interval_default_size;
+  if (param('stop')) {
+    ($stop) = get_coordinates(param('stop'));
+    if ($start->[0] ne $stop->[0]) {  # compare chromosomes
+      error(param('start'),"is on chromosome $start->[0], but" .
+	    param('stop'),"is on chromosome $stop->[0].");
+      return;
+    }
+  } else {
+    # Let's set up our own interval, centered on the provided position
+    $start->[1]  = $center_pos + $default_interval/2;
+    $stop ->[1]  = $center_pos - $default_interval/2;
+    $stop ->[0]  = $chromosome;
+  }
+  
+  # don't dump unless we have start and stop
+  return unless $start and $stop;
+  ($start,$stop) = ($stop,$start) if $start->[1] > $stop->[1]; # flippity flop
+  $data{start} = $start;
+  $data{stop}  = $stop;
+  $data{stop_locus}  = param('stop');
+  $data{start_locus} = param('start');
+
+  my $max = Configuration->Interval_max_search;
+  my $range = ($stop->[1] - $start->[1]);
+  return error("The specified interval exceeds the $max cM limit. Please reduce the size of your interval.") if ($range > $max);;
+
+  dump_interval($center_pos,$flag);
+}
+
+
+sub get_coordinates {
+  my $marker = shift;
+
+  # easiest case: interval is defined in format chromosome:position
+  if ($marker =~ /([IXV]+):([\d.-]+)/) {
+    $data{center_locus} = $marker;
+    $data{center_pos}   = $2;
+    return ([$1,$2],$2);
+  }
+
+  # Is this a locus?
+  # With the new gene model, this should rarely be used.
+  if (my $locus = $DB->fetch(Locus => $marker)) {
+    my ($chromosome,$position) = GetInterpolatedPosition($DB,$locus);
+    $data{center_locus} = $locus;
+    $data{center_pos}   = $position;
+    unless ($chromosome) {
+      # SNPs lack the Genomic_sequence tag - get their genetic position
+      # from the Canonical_parent
+      my $sequence = $locus->Contains;
+
+       unless ($sequence) {
+        error ("The locus named does not have a genetic position");
+        return;
+      }
+      my @genes = $sequence->Subsequence(-filled=>1) if $sequence;
+      my $db      = OpenGFFDB($DB,$locus->Species);
+
+      # If provided with an allele, calculate a regression position
+      my $segment = $db->segment(Variation=>"$locus");
+      if ($segment) {
+	$segment->absolute(1);
+	($chromosome,$position) = get_regression_position(\@genes,$segment->ref,$segment->start);
+
+      }
+    }
+
+    if ($chromosome) {
+      return ([$chromosome,$position]);
+    } else {
+      error("The locus named",ObjectLink($locus) . "does not have a genetic position.");
+      return;
+    }
+  }
+
+  # Perhaps a user has searched with an allele (or polymorphism)
+  if (my $allele = $DB->fetch(-class=>'Variation',-name=>$marker)) {
+    # SNPs now have a calculated map position
+    #my ($chromosome,$position) = GetInterpolatedPosition($DB,$allele);
+    my ($chromosome,$position) = eval { $allele->Interpolated_map_position(1)->row };
+    $data{center_locus} = $allele;
+    $data{center_pos}   = $position;
+
+    # This should NEVER be necessary
+    unless ($chromosome) {
+      # SNPs lack the Genomic_sequence tag - get their genetic position
+      # from the Canonical_parent
+      my $sequence = $allele->Predicted_CDS->Gene;
+
+      unless ($sequence) {
+        error ("The locus named does not have a genetic position");
+        return;
+      }
+      my @genes = $sequence->Subsequence(-filled=>1) if $sequence;
+      my $db      = OpenGFFDB($DB,$allele->Species);
+
+      # If provided with an allele, calculate a regression position
+      my $segment = $db->segment(Variation=>"$allele");
+      if ($segment) {
+	$segment->absolute(1);
+	($chromosome,$position) = get_regression_position(\@genes,$segment->ref,$segment->start);
+      }
+    }
+    if ($chromosome) {
+      return ([$chromosome,$position]);
+    } else {
+      error("The locus named",ObjectLink($allele) . "does not have a genetic position.");
+      return;
+    }
+  }
+
+  # Is this a gene?
+  # Probably the most common case now
+  my ($obj,$bestname) = FetchGene($DB,$marker);
+  if ($obj) {
+ #     my $map = $obj->Map;
+      #my ($chromosome,undef,$position,undef,$error) = eval{$map->row};
+      my ($chromosome,$error,$position);
+      my $gene = $DB->fetch(Gene => $obj,-fill=>1);
+      ($chromosome,undef,$position,undef,$error) = eval{$gene->Map(1)->row};
+      unless ($chromosome && $position) {
+	  if (my $m = $obj->get('Interpolated_map_position')) {	     
+	      ($chromosome,$position,$error) = $obj->Interpolated_map_position(1)->row unless $position;
+	      ($chromosome,$position) = $m->right->row unless $position;
+	  }
+      }
+
+      if ($position) {
+	  $data{center_locus} = $obj;
+	  $data{center_pos}   = $position;
+	  return ([$chromosome,$position],$position);
+      } else {
+	  error("The sequence named " . ObjectLink($obj)
+		. " does not have an interpolated genetic position.");
+	  return;
+    }
+  }
+  error("$marker is not a genetic position, gene name, or sequence name known to the database.");
+  return;
+}
+
+
+
+
+sub dump_interval {
+  my ($center_pos,$flag) = @_;
+  my @genes = get_genes();
+  push (@genes,get_snps());
+
+  my $center_locus = param('start') || url_param('recenter');
+  print hr;
+  if (param('stop')) {
+    print h3("Displaying interval:",param('start'),
+	     ,"(",join(':',@{$data{start}}),") to",
+	     param('stop'),
+	     "(",
+	     join(':',@{$data{stop}}),
+	     ")");
+  } else {
+    print h3("Displaying interval",join(':',@{$data{start}}),
+	     "to",join(':',@{$data{stop}}),", centered on $center_locus ($center_pos)");
+  }
+  
+#  # columns are checkbox,name,map position,phenotype,description,strains
+  my @total = sort { $a->[2] <=> $b->[2] } @genes;
+  my @rows = map { td($_) } @total;
+#  my @rows  = map { @$_ >= 8 ? td($_):(td([@{$_}[0..3]]).td({-colspan=>4},$_->[4]))} @total;
+  if (@rows == 0) {
+    print h3('There were no markers within this interval that matched your criteria.');
+    PrintBottom;
+    exit;
+  }
+
+  my $total = (param('start') && param('stop')) ? @rows - 2 : @rows - 1;
+  print h3("$total markers within this interval match your criteria.");
+  
+  # Pass a flag to draw the image: include map range and start and stop coords.
+  print start_center;
+  print image_and_map();
+  print p('To retrieve additional information for any locus or loci, select the checkbox to the left of the locus of interest.');
+#				   'Ease Of Scoring /<br>Mating Efficiency',
+  print startform({-action=>'batch_genes'}),
+    start_table({-border=>1}),
+      TR(th({-class=>'datatitle'},['&nbsp;','Name','Position',
+				   'Type',
+				   'Alleles',
+				   'Strains',
+				   'Assay'
+				   ]));
+  
+  # Change the hiliting for different loci types (including searched-for loci)
+  # Hilite the searched-for loci or add a row for position
+  my @args;
+  for my $row (@rows) {
+    @args = $row =~ /cloned\smutant/i ? (-class=>'databody')  : ();
+    @args = $row =~ /verified/i       ? (-class=>'databody')  : @args;
+    @args = $row =~ /search\sterm/i   ? (-class=>'highlight') : @args;
+    print TR({@args},$row);
+  }
+  
+  print end_table;
+  print submit({-name=>'Retrieve additional information on selected loci'}),
+    endform;
+  print hr;
+  print end_center;
+  print h3('Key'),
+    ul(
+       li('Loci that have an absolute position (includes cloned genes, SNPs, and transposons) are shaded in blue.'),
+       li('Reference alleles, where known, are presented in ',
+	  b('boldface'),'.'),
+       li("'Snip-SNPs' are SNPs detectable by restriction digest."));
+}
+
+
+sub add_navigation {
+  my $target = shift;
+  # Parse out the identifier
+  my $link = $target =~ /.*>(.*)<\/a>/gi ? $1 : $target;
+  
+  print
+    TR(td{-colspan=>8,-align=>'center',-class=>'databody'},
+       'Recenter this view on ',
+       a({-href=>$SCRIPT . '?recenter=' . $link},$link));
+}
+
+
+# Fetch SNPs
+sub get_snps {
+  my ($start_chrom,$start_pos,$stop_chrom,$stop_pos) = start_and_stop();
+
+  # fudge factors needed for acedb to return correct interval!
+  $start_pos -= 0.01;
+  $stop_pos  += 0.01;
+
+  # First, fetch all genes between start and stop
+  my @snps = $DB->fetch(-query=>
+#			qq[find Variation Interpolated_map_position = "$start_chrom" \# (Position >= $start_pos AND HERE <= $stop_pos)],
+#			-fill=>1);
+
+			qq{find Variation Species="Caenorhabditis elegans" AND Interpolated_map_position = "$start_chrom" AND NEXT >= $start_pos AND HERE <= $stop_pos});		  
+#			qq[find Variation Interpolated_map_position = "$start_chrom" \# (Position >= $start_pos AND HERE <= $stop_pos) AND (SNP)],     
+  my @rows;
+  # Establish an ace query based on desired parameters.
+  my $qsnp    = param('snps');
+  my $qstatus = param('status');
+
+  foreach my $snp (@snps) {
+#    my ($chrom,undef,$position,undef,$error) = eval{$snp->Interpolated_map_position(1)->row} or next;
+    my ($chrom,,$position,$error) = eval{$snp->Interpolated_map_position(1)->row} or next;
+    $position = sprintf("%2.3f",$position);
+
+    my ($label,$detection,$status);
+    if ($snp) {
+      $status = ($snp->Confirmed_SNP(0)) ? 'verified' : 'predicted';
+      if ($qstatus eq 'Verified') {
+	next unless $status eq 'verified';
+      } elsif ($qstatus eq 'Predicted') {
+	next unless $status eq 'predicted';
+      }
+      if ($qsnp eq 'Snip-SNPs') {
+	next unless $snp->RFLP;
+      } elsif ($qsnp eq 'SNPs') {
+	next if $snp->RFLP;
+      }
+      
+      if ($snp->RFLP) {
+	$label = "$status Snip-SNP";
+	$detection = 'Detection: restriction digest';
+      } else {
+	$label = "$status SNP";
+        $detection = 'Detection: sequencing';
+      }
+    }
+    # $detection ||= 'unknown';
+    $label     ||= 'unclassified SNP';
+    $status    ||= 'unclassified';
+
+    my $name         = ObjectLink($snp);
+    my $center_locus = param('start') || url_param('recenter');
+    # If this snp is the search term, add a tag so I can hilite this row
+    $name = (b('search term:<br>') . $name) if ($snp eq $center_locus
+						|| $snp eq param('stop'));
+
+    # Add in the link to be used to retrieve additional information
+    # from the generic info_dump
+    my $checkbox =  checkbox({-name=>'retrieve',
+			      -value=>$snp,
+			      -label=>''});
+
+    push (@rows,[a({-name=>$snp},$checkbox),
+		 $name,
+		 $position,
+		 $label,
+		 'n/a',
+		 'n/a',
+		 $detection]);
+    
+    # The hash contains a list of coordinates for each feature
+    my $combo = $snp . "|" . $position;
+    push (@{$data{$status}},$combo);
+  }
+  return (@rows);
+}
+
+
+
+# get_snps works by find all CDSs within the specified range,
+# calculating the slope of that range to establish the interval.
+sub get_snps_old {
+  my ($start_chrom,$start_pos,$stop_chrom,$stop_pos) = start_and_stop();
+
+  # fudge factors needed for acedb to return correct interval!
+  $start_pos -= 0.01;
+  $stop_pos  += 0.01;
+
+  # indirectly mapped genes
+  my $query = qq(find CDS Interpolated_map_position = "$start_chrom" AND NEXT >= $start_pos AND HERE <= $stop_pos);
+  my %seen;
+  my @genes = grep {!$seen{$_}++} $DB->fetch(-query=>$query,-fill=>1);
+  my ($intercept,$slope) = regress(\@genes);
+  my $seq_start = int(0.5+$intercept + $slope * $start_pos);
+  my $seq_end   = int(0.5+$intercept + $slope * $stop_pos);
+#  print "$seq_start $seq_end $intercept $slope";
+#  die;
+  # pull out all the SNPs in this region using Bio::DB::GFF
+  my $db = OpenGFFDB($DB,'elegans') or return;
+  my ($segment) = $db->segment(-name=>"$start_chrom",-start=>$seq_start,-end=>$seq_end,-class=>'Sequence');
+  return unless $segment;
+  my @rows;
+
+  # Establish an ace query based on desired parameters.
+  my $qsnp    = param('snps');
+  my $qstatus = param('status');
+
+  foreach ($segment->features('SNP:Allele')) {
+    my $midpoint = $_->low+$_->length/2;
+    my $pos      = sprintf("%2.3f",($midpoint-$intercept)/$slope);
+    print "$_ $midpoint $pos",br;
+    my $locus = $DB->fetch(-class=>'Locus',-name=>$_->info);
+    my ($label,$detection,$status);
+    if ($locus) {
+      $status = lc $locus->Status;
+      if ($qstatus eq 'Verified') {
+	next unless $status eq 'verified';
+      } elsif ($qstatus eq 'Predicted') {
+	next unless $status eq 'predicted';
+      }
+      if ($qsnp eq 'Snip-SNPs') {
+	next unless $locus->RFLP(0);
+      } elsif ($qsnp eq 'SNPs') {
+	next if $locus->RFLP(0);
+      }
+
+      if ($status eq 'predicted') { # Get the detection method from Remark 
+	if ($locus->RFLP) {
+	  $detection = 'Detection: predicted SNIP-snp';
+	  $label = "$status Snip-SNP";
+	} else {
+	  $detection = 'Detection: sequencing';
+	  $label = "$status SNP";
+	}
+      } else {
+	$detection = 'Detection: ' . $locus->SNP_assay(2);
+	if ($locus->RFLP) {
+	  $label = "verified Snip-SNP";
+	} else {
+	  $label = "verified SNP";
+	}
+      }
+    }
+    $detection ||= 'unknown';
+    $label     ||= 'unclassified SNP';
+    $status    ||= 'unclassified';
+
+    my $name = ObjectLink($locus);
+    my $center_locus = param('start') || url_param('recenter');
+    # If this snp is the search term, add a tag so I can hilite this row
+    $name = (b('search term:<br>') . $name) if ($locus eq $center_locus
+						|| $locus eq param('stop'));
+      
+    # Add in the link to be used to retrieve additional information
+    # from the generic info_dump
+    my $checkbox =  checkbox({-name=>'retrieve',
+			      -value=>$locus,
+			      -label=>''});
+#    push (@rows,[a({-name=>$locus},$checkbox),
+#		 $name,
+#		 $pos,
+#		 $label,
+#		 'n/a',
+#		 'n/a',
+#		 'n/a',
+#		 $detection]);
+
+    push (@rows,[a({-name=>$locus},$checkbox),
+		 $name,
+		 $pos,
+		 $label,
+		 'n/a',
+		 'n/a',
+		 'n/a',
+		 $detection]);
+      
+    # The hash contains a list of coordinates for each feature
+    my $combo = $locus . "|" . $pos;
+    push (@{$data{$status}},$combo);
+  }
+  return (@rows);
+}
+
+sub get_regression_position {
+  my ($genes,$chromosome,$position_to_interpolate) = @_;
+  my ($intercept,$slope) = regress($genes);
+  return unless $slope;
+  my $pos   = sprintf("%2.3f",($position_to_interpolate-$intercept)/$slope);
+  return ($chromosome,$pos);
+}
+
+sub regress {
+  my $genes = shift;
+  my @genes = @$genes;
+  foreach (@genes) {
+    my ($chrom,$pos) = GetInterpolatedPosition($DB,$_);
+    $data{positions}{$_} = $pos;
+    push @{$data{x_sequenced_genes}},"$_|$pos";
+  }
+
+  my $db = OpenGFFDB($DB,'elegans') or return;
+  $db->absolute(1);
+  my @regression;
+  foreach my $locus (sort { $data{positions}{$a} <=> $data{positions}{$b} } CORE::keys %{$data{positions}}) {
+    my $class   = $locus =~ /^\w{3,4}-[\d.]+$/ ? 'Locus' : 'CDS';
+    my ($segment)  = $db->segment($class=>$locus);
+    next unless $segment;
+    my $midpoint = $segment->low + $segment->length/2;
+    push @regression,($data{positions}{$locus},$midpoint);
+  }
+
+  # slope will be in units bp/cM
+  my ($intercept,$slope) = linear_regression(@regression);
+  return ($intercept,$slope);
+}
+
+sub start_and_stop {
+  my ($start_chrom,$start_pos) = @{$data{start}};
+  my ($stop_chrom,$stop_pos)   = @{$data{stop}};
+  return ($start_chrom,$start_pos,$stop_chrom,$stop_pos);
+}
+
+
+sub get_genes {
+  my $flag = shift;
+  my ($start_chrom,$start_pos,$stop_chrom,$stop_pos) = start_and_stop();
+
+  my @rows;
+  # recenter if necessary
+  my $center_locus = param('start') || url_param('recenter');
+  
+  # If the flag is defined, user searched for a chromosomal position
+  # or a sequence.  Stuff a hilited row into the table.
+  # (Flag contains the position of the query)
+  # Loci are handled a bit differently since those rows carry more info...
+  if ($flag) {
+    my $recenter = a({-href=>"$SCRIPT?recenter=$center_locus"},"Recenter this view on $center_locus");
+    push (@rows,['&nbsp;',$center_locus,$flag,'search term',$recenter]);
+  }
+
+  # First, fetch all genes between start and stop
+  my @genes = $DB->fetch(-query=>
+			 qq(find Gene Interpolated_map_position = "$start_chrom" AND NEXT >= $start_pos AND HERE <= $stop_pos),
+			 -fill=>1
+			);
+
+  push(@genes,$DB->fetch(-query=>
+			 qq[find Gene Map = "$start_chrom" \# (Position >= $start_pos AND HERE <= $stop_pos)],
+			 -fill=>1));
+
+  # 2. Classify genes as predicted (no CGC_name or Other_name), named genes (CGC_name), or mapped mutant (no CDS)
+  # These should be sorted according to their physical position
+  my %seen;
+  foreach (@genes) {
+    next if $seen{$_}++;
+    my $bestname = Bestname($_);
+
+    # Conditionally set some flags based on the status of the gene
+    # Is this gene associated with a genetic locus yet?
+    my $locus = $_->CGC_name || $_->Other_name;
+    my ($id,$label);
+    if ($locus && $_->Corresponding_CDS) {
+      $id    = a({-href=>Object2URL($_)},$_->Sequence_name) . ' / ' . ObjectLink($_,$locus);
+      $label = 'named gene';
+
+      # Perhaps it's just a Predicted gene (only CDS)
+    } elsif ($_->Corresponding_CDS) {
+      $id    = ObjectLink($_,Bestname($_));
+      $label = 'predicted gene';
+
+      # Or maybe just a plain old locus (no associated CDSes)
+    } else {
+
+      $id = ObjectLink($_,Bestname($_));
+      $label = 'mapped mutant';
+    }
+
+    # Skip these gene if we aren't searching for it (This could maybe
+    # be done at the step of table generation, too)
+    # (Save the query loci so I can add a row for it too)
+    # Skip genes that do not match the search criteria
+    unless ($bestname eq $center_locus || $bestname eq param('stop')) {
+      next if (param('cloned') eq 'Cloned Only') && ($label eq 'mapped mutant');
+    }
+
+    # Deprecating ease of scoring, me, and lethal options
+#    my ($phenotype,$es,$me) = fetch_phenotype($_,$bestname);
+#    # Skip genes that do not match the search criteria
+#    unless ($bestname eq $center_locus || $bestname eq param('stop')) {
+#      next if (param('let') eq 'Yes' && $_->Gene_class eq 'let');
+#      next if (param('no_es') eq 'Yes' && (!$es));
+#      next if (param('no_me') eq 'Yes' && (!$me));
+#    }
+
+    my $description = fetch_description($_);
+    my $alleles     = fetch_alleles($_);
+    my $strains     = fetch_strains($_);
+
+    my $checkbox =  checkbox({-name=>'retrieve',
+			      -value=>$locus,
+			      -label=>''});
+
+    # If this loci is the search term, add a tag so I can hilite this row
+    $label .= " (search term)" if $bestname eq $center_locus || $bestname eq param('stop');
+
+    my ($chrom,$pos) = GetInterpolatedPosition($DB,$_);
+    unless (param('cloned') eq 'None' && ($bestname ne $center_locus && $bestname ne param('stop'))) {
+      push @rows,[a({-name=>$label},$checkbox),
+		  $id,
+		  $pos,
+		  $label,
+		  $alleles,
+		  $strains,
+		  'n/a',
+		  ];
+#      push @rows,[a({-name=>$label},$checkbox),
+#		  $id,
+#		  $pos,
+#		  $label,
+#		  'ES: ' . ($es ? $es : 'n/a') 
+#		  . br .
+#		  'ME: ' . ($me ? $me : 'n/a'),
+#		  $alleles,
+#		  $strains,
+#		  'Phenotype: ' . ($phenotype ? $phenotype : 'No phenotypic information available'),
+#		 ];
+    }
+
+    # The hash contains a list of coordinates for each feature
+    # This is used for generating the image (and placing things in the correct category)
+    my $type;
+    $type = 'locus'  if ($label eq 'mapped mutant');
+    $type = 'cloned' if ($label eq 'named gene');
+
+    my $p = "$bestname|$pos";
+    push (@{$data{$type}},$p);
+    $data{positions}{$bestname} = $pos;
+  }
+
+  if (param('stop') && $flag) {
+    my $target = param('stop');
+    my $recenter = a({-href=>"$SCRIPT?recenter=$target"},"Recenter this view on $target");
+    push @rows,['&nbsp;',param('stop'),$stop_pos,'search term',$recenter];
+  }
+  return (@rows);
+}
+
+sub error { print h3({-class=>'error'},p(shift)); }
+
+
+sub fetch_alleles {
+  my $gene = shift;
+  my $ref = $gene->Reference_Allele;
+  my $alleles;
+  if (my @alleles = $gene->Allele) {
+    foreach my $a (sort @alleles) {
+      if ($a eq $ref) {
+	$alleles .= b(ObjectLink($a)) . br;
+      } else {
+	$alleles .= ObjectLink($a) . br;
+      }
+    }
+  } else { $alleles = 'n/a' }
+  return $alleles;
+}
+
+
+sub fetch_strains {
+  my $gene = shift;
+  my @strains = $gene->Strain;
+  my $strains;
+  if (@strains) {
+    my $counter = 0;
+    foreach my $strain (@strains) {
+      if ($counter == 5) {  # just print out 5 strains...
+	last if (scalar @strains == 5);
+	$strains .= b("&nbsp;--&gt;&nbsp;" . (scalar @strains - $counter) . 
+		      " more strains carrying " . a({-href=>Object2URL($gene)},Bestname($gene)));
+	last;
+      }
+      $counter++;	
+      my $genotype = $strain->Genotype;
+      my $location = $strain->Location;
+
+#      # Display CGC strains only?
+#      next if (param('cgc') eq 'CGC Strains Only' && 
+#	       ($location ne 'CGC'));
+
+      $strains .= b($strain) . ": " . $genotype . 
+	"&nbsp;(Available at $location)" . "<br>";
+    }
+  } else { $strains = 'n/a'; }
+  return $strains;
+}
+
+sub fetch_description {
+  my $gene = shift;
+  my $description = $gene->Provisional_description;
+  $description  ||= eval {$gene->Corresponding_protein->Motif_homol->Title };
+  if (!$gene->Corresponding_CDS) {
+    $description = 'Molecular identity unknown.';
+  } else {
+    $description ||= 'No molecular description available.';
+  }
+  return $description;
+}
+
+
+sub fetch_phenotype {
+  my ($gene,$bestname) = @_;
+  my $center_locus = param('start') || url_param('recenter');
+  #    my $rnai = get_rnai($_);
+  #    $description .= br . $phene if $phene;
+  #    $description .= br . 'RNAi: ' . join('; ',@$rnai) if @$rnai;
+
+  # my $chrom = $_->get(Interpolated_map_position=>1);
+  # my $pos   = $_->get(Interpolated_map_position=>2);
+
+  # This is broken as of WS190.
+  #  my $phenotype = (sort { length $b <=> length $a } $gene->Phenotype)[0];
+  # I am deprecating Ease of scoring, Mating Efficiency, and lethal options
+  my $phenotype;
+  my ($es,$me);
+  if ($phenotype) {
+      # Something of a kludge for both ES and ME
+      # I include loci that have not had anything assigned to them yet.
+      # which is probably as it should be - since many loci do not have this
+      # info in the db
+      
+      # Compressing everything together
+      $es = $1 if ($phenotype =~ /ES(\d)?/);
+      # This isn't quite right...
+      unless (param('es') eq 'Any') {
+	  next if (($es) && $es < param('es')
+		   && ($bestname ne $center_locus &&  $bestname ne param('stop')));
+      }
+      
+      unless (param('me') eq 'Any') {
+	  $me = $1 if ($phenotype  =~ /ME(\d)/);
+	  next if (($me) && ($me < param('me'))
+		   && ($bestname ne param('start') && $bestname ne param('stop')));
+      }
+  }
+  return ($phenotype,$es,$me);
+}
+
+
+#### Image subroutines
+sub image_and_map {
+  my ($url,$boxes,$width,$height)    = generate_image();
+  my $img = 
+    center(img({-src=>$url,-usemap=>'#imap',-width => $width,-height => $height,-border=>0}));
+  my $img_map = make_map($boxes);
+  return join "\n",$img,$img_map;
+}
+
+sub generate_image {
+  # All of these parameters will be provided
+  my $default_interval = Configuration->Interval_default_size;  
+  
+  # Was a stop provided (either for drawing imagemap or for two position search)
+  # If so use those coords
+  my $stop  = $data{stop};
+  my $start = $data{start};
+  
+  if ($stop) {
+    $start = $start->[1];
+    $stop =  $stop->[1];
+  } else {
+    $start = $start->[1] + ($default_interval/2);
+    $stop  = $stop->[1]  - ($default_interval/2);
+  }
+  
+  ($start,$stop) = ($stop,$start) if $start > $stop; # flip the order if needed
+  
+  # Establishing a hidden expanded coordinate system
+  # multiplying everything by 1000 should be sufficient for the genetic map
+  $start = $start * 1000;
+  $stop  = $stop  * 1000;
+  
+  # Setup the panel - I'll be creating my own feature objects...
+  my $ftr = 'Bio::Graphics::Feature';
+  my $panel = establish_panel_and_ruler($ftr,$start,$stop);
+  add_search_loci_track($panel,$ftr,$start,$stop);
+  
+  # Compile all of the features together,
+  # named parameters passed in: loci: cloned,locus; snps: predicted,verified
+  my %features = generate_segments($ftr);
+  generate_tracks($panel,%features) if (%features);
+  
+  my $image = $panel->gd;
+  my $boxes = $panel->boxes;
+  
+  my ($width,$height) = $image->getBounds;
+  my $segment = [$data{start},$data{stop}];
+  my $signature = md5_hex($segment,'',$width,$height);
+  
+  my $extension = $image->can('png') ? 'png' : 'gif';
+  my ($uri,$path) = @{Configuration()->Pictures};
+  $uri  .= '/strains';
+  $path .= '/strains';
+  mkdir($path,0777) unless (-d $path);
+
+  my $url         = "$uri/$signature.$extension";
+  my $imagefile   = "$path/$signature.$extension";
+  open (F,">$imagefile") || die("Can't open image file $imagefile for writing: $!\n");
+  print F $image->can('png') ? $image->png : $image->gif;
+  close F;
+  
+  return ($url,$boxes,$width,$height);
+}
+
+
+sub make_map {
+  my $boxes = shift;
+  my $map = qq(<map name="imap">\n);
+  
+  # use the scale as a centering mechanism
+  #  my $ruler = shift @$boxes;
+  foreach (@$boxes){
+    #my $alt   = make_alt($_->[0]);
+    my $alt = $_->[0]->name;
+    my $href = '#' . $_->[0]->name;
+    $map .= qq(<AREA SHAPE="RECT" COORDS="$_->[1],$_->[2],$_->[3],$_->[4]" 
+	       HREF="$href" ALT="$alt" TITLE="$href">\n);
+  }
+  $map .= "</map>\n";
+  $map;
+}
+
+
+sub establish_panel_and_ruler {
+  my ($ftr,$start,$stop) = @_;
+  # create a  faux segment object to initialize the panel
+  my $segment = $ftr->new(-start=>$start,-end=>$stop,
+			  -name=>'Search Range',
+			  -type=>'Genetic Map');
+  
+  my $panel = Bio::Graphics::Panel->new(-segment=>$segment,
+					-pad_left  => 30,
+					-pad_right => 30,
+  					-key       =>'Key',
+					-key_style =>'between',
+  					-key_align =>'left',
+					-pad_right =>15,
+					-pad_left  =>15,
+					-grid      => 1,
+  					-width     =>'800');
+  
+  $panel->add_track(arrow       =>  $segment,
+		    -label      => 'Genetic Map (cM)',
+		    -scale      => 10, # new methods...
+		    -unit_divider => 100,
+		    -arrowstyle =>'regular',
+		    -tick       => 1
+  		   );
+  return $panel;
+}
+
+
+# Add a seperate track for the central locus
+sub add_search_loci_track {
+  my ($panel,$ftr,$start,$stop) = @_;
+  
+  my $center_locus = url_param('recenter') || $data{'center_locus'};
+  my $stop_locus   = $data{'stop_locus'};
+  my $start_locus  = $data{'start_locus'};
+  
+  my (%loci,$key);
+  # If a stop locus was provided, map BOTH
+  if (param('stop')) {
+    $loci{$start_locus} = $start;
+    $loci{$stop_locus}  = $stop;
+    $key = "Search Interval";
+  } else {
+    $loci{$center_locus} = $data{'center_pos'} * 1000;
+    $key = "Central Locus";
+  }
+  
+  my @segment;
+  foreach (CORE::keys %loci) {
+    my $segment  = $ftr->new(-start =>$loci{$_},
+			     -stop  =>$loci{$_},
+			     -name  => (eval { Bestname($_) } ? Bestname($_) : $_),
+			     -type  =>'locus');
+    push (@segment,$segment);
+  }
+  
+  $panel->add_track(generic=>[ @segment ],
+		    -label     =>1,
+		    -glyph     =>'generic',
+		    -key       =>$key,
+		    -bump      =>0,
+		    -height    =>10,
+		    -spacing   =>50,
+		    -linewidth =>1
+		   );
+  return;
+}
+
+sub generate_segments {
+  my $ftr = shift;
+  my %features;
+  my @types = qw(locus cloned verified predicted unclassified x_sequenced_genes);
+  foreach my $type (@types) {
+    next if ($type =~ /locus|cloned|x_sequenced_genes/) && param('cloned') eq 'None';
+    my @locus = @{$data{$type}} if (defined $data{$type});
+    
+    # Concatenating genes into one track, snps into another,
+    # Comment the following code to place each type into its own track
+    my $key;
+    if ($type eq 'locus' || $type eq 'cloned') {             # Genes
+      $key = 'loci';
+    } elsif ($type eq 'predicted' || $type eq 'verified' || $type eq 'unclassified') {  # SNPS
+      $key = 'snps';
+    } else {
+      $key = $type;
+    }
+    
+    my %seen;
+    foreach (@locus) {
+      my ($locus,$start,$stop) = split(/\|/,$_);
+      next if $seen{$locus}++;
+      $stop ||= $start;
+      my $seg  = $ftr->new(-start =>$start * 1000,
+			   -stop  =>$stop  * 1000,
+			   -name  =>$locus,
+			   -type  =>$type);
+      push (@{$features{$key}},$seg);
+    }
+  }
+  return %features;
+}
+
+
+
+# Establish seperate tracks for each feature type - or concatenate like
+# features into single tracks...
+sub generate_tracks {
+  my ($panel,%features) = @_;
+  my $height = 3;
+  # Serendipity: alpha of CORE::keys matches desired display order...
+  foreach (sort (CORE::keys %features)) {
+    $panel->add_track(generic=>[  @{$features{$_}}  ],
+		      -glyph     => 'generic',
+		      -key       => &keys($_),
+		      -fgcolor   => \&colors,
+		      -fontcolor => \&colors,
+#		      -bgcolor   => \&colors,
+		      -label     => 1,
+		      -bump      => +1,
+		      -height    => $height,
+		      -spacing   => 50,
+		      -linewidth => 1,
+		      -connect   => 'false'
+		     );
+  }
+}
+
+
+sub colors {
+  my ($feature) = @_;
+  return 'black' if $feature->type eq 'locus';
+  return 'red'   if $feature->type eq 'cloned';
+  return 'red'   if $feature->type eq 'verified';
+  return 'black' if $feature->type eq 'predicted';
+  return 'black' if $feature->type eq 'unclassified';
+  return 'black';
+}
+
+
+sub keys {
+  my ($type) = @_;
+  return 'Cloned Loci'     if $type eq 'cloned';
+  return 'Genetic loci (cloned in red)' if $type eq 'loci';
+  return 'Mapped Loci'     if $type eq 'locus';
+  return 'Predicted SNPs'  if $type eq 'predicted';
+  return 'Sequenced Genes' if $type eq 'x_sequenced_genes';
+  return 'SNPs (verified in red)' if $type eq 'snps';
+  return 'Verified SNPs'   if $type eq 'verified';
+  return 'other';
+}
+
+############ End image subs
+
+
+
+sub print_header {
+  PrintTop(undef,undef,undef,
+	   '-Title' =>'Wormbase: Strain, SNP, and Visible Genetic Marker Search',
+#	   '-Target'=>'_top',
+	   '-Class' =>'search'); 
+  print h2('SNP, Visible Marker, And Strain Search');
+  return;
+}
+
+
+
+sub display_search_form {
+  my %values = ('Any' => 'Any','3'=>'3','2'=>'2','1'=>'1','0'=>'0 (Worm Gurus Only)');
+  print
+    start_center,
+      start_form,
+	table({-width=>'70%',-cellpadding=>'1',-cellspacing=>'1'},
+	      TR(th({-colspan=>2,-class=>'searchtitle'},'Search Parameters')),
+	      TR(
+		 th({-class=>'searchtitle'},'From position/landmark: '),
+		 td({-class=>'searchbody'},
+		    textfield(-name=>'start'),
+		    ' to ',
+		    textfield(-name=>'stop'))),
+	      TR(th({-class=>'searchtitle'},
+		    'Loci'),
+		 td({-class=>'searchbody'},
+		    radio_group(-name=>'cloned',
+				-values=>['All','Cloned Only','None'],
+				-default=>'All'))),
+	      TR(th({-class=>'searchtitle',-rowspan=>2},'SNPs'),
+		 td({-class=>'searchbody'},
+		    radio_group(-name=>'snps',
+				-values=>[qw/All Snip-SNPs SNPs/],
+				-default=>'All'))),
+	      TR(td({-class=>'searchbody'},
+		    radio_group(-name=>'status',
+				-values=>[qw/All Verified Predicted/],
+				-default=>'Verified'))),
+#	      TR(th({-class=>'searchtitle',-rowspan=>2},'Ease Of Scoring'),
+#		 td({-class=>'searchbody'},
+#		    popup_menu(-name=>'es',
+#			       -values=>[reverse sort (CORE::keys %values)],
+#			       -labels=>\%values,
+#			       -default=>'Any'))),
+#	      TR(
+#		 td({-class=>'searchbody'},
+#		    checkbox(-name=>'no_es',
+#			     -value=>'Yes',
+#			     -label=>'Exclude loci with no Ease of Scoring data?'))),
+#	      TR(th({-class=>'searchtitle',
+#		     -rowspan=>2},'Mating Efficiency'),
+#		 td({-class=>'searchbody'},
+#		    popup_menu(-name=>'me',
+#			       -values=>[reverse sort (CORE::keys %values)],
+#			       -labels=>\%values,
+#			       -default=>'Any'))),
+#	      TR(
+#		 td({-class=>'searchbody'},
+#		    checkbox(-name=>'no_me',
+#			     -value=>'Yes',
+#			     -label=>'Exclude loci with no mating efficiency data?'))),
+#
+#	      TR(th({-class=>'searchtitle'},'Exclude Lethals?'),
+#		 td({-class=>'searchbody'},
+#		    checkbox(-name=>'let',
+#			     -value=>'Yes',
+#			     -label=>'Yes'))),
+#	      TR(th({-class=>'searchtitle'},
+#		    'Strains'),
+#		 td({-class=>'searchbody'},
+#		    radio_group(-name=>'cgc',
+#				-values=>['CGC Strains Only','All Strains'],
+#				-default=>'All Strains'))),
+	      TR(th({-colspan=>2,
+		     -align=>'right'},
+		    reset('Reset'),
+		    submit('Search')))),
+		      end_form,
+			end_center,hr;
+  display_explanation();
+  return;
+}
+
+sub linear_regression {
+  my @data = @_;
+  my $ls = Statistics::OLS->new;
+  $ls->setData(\@data) or return;
+  $ls->regress or return;
+  return $ls->coefficients;
+}
+
+sub display_instructions {
+  my $max              = Configuration->Interval_max_search;
+  my $default_interval = Configuration->Interval_default_size;
+
+  print p("This page is designed to assist in the selection of SNPS
+  and visible genetic markers for mapping experiments. Provided with a
+  genetic interval, it will display all visible markers and SNPs
+  within that interval, as well as strains carrying those SNPs. The
+  severity of markers can be restricted to avoid conflicts with the
+  mutation of interest.  To simplify in the acquisition of strains,
+  strains can be restricted to those directly available from the
+  CGC.");
+  
+  print ul(
+	   li('Specify the interval using the names of two genetically
+	   defined loci (',cite('unc-70'),'), or predicted genes
+	   (JC8.10a).'),
+	   li('Alternatively, you may provide genetic map positions using ' . i('chromosome:position') . '  notation (III:-0.685).'),
+	   li("Please note: intervals are restricted to $max cM."),
+	   li("Entering a single value into the start position will
+	   center the search on a window $default_interval cM wide."),
+	   li(a({-href=>'#how'},"Learn more")," about how this script works."));
+  return;
+}
+
+
+
+sub display_explanation {
+  print h3(a({-name=>'how'},'How This Works'));
+  print p(<<END);
+The WormBase Consortium has interpolated the physical (sequence)
+coordinates of each genetically defined gene and polymorphism into the
+genetic map, thereby creating an interpolation between the two.
+END
+
+print p(<<END);
+After determining the range specified, this script dumps out all mapped mutants
+within the range.
+END
+  
+  print p(<<END);
+Please note that since not all genetic loci are mapped relative to one
+another, the order of genetic loci presented in chromosomal
+coordinates may not actually reflect the physical order of these
+genes. When using this search, it is especially important to remember
+that if the genetic position of one of the provided loci is known with
+only low confidence, the span the interval provides may be skewed.  In
+these cases, providing loci with established physical coordinates may
+more accurately display the interval of interest.
+<p>
+Similarly, interpolating sequence features like polymorphisms onto the
+genetic map results in a compression of distances, placing many
+features on top of one another. In these cases, the Genome Browser is
+useful for visualizing the order of polymorphisms within a span.
+END
+}

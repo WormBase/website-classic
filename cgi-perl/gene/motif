@@ -1,0 +1,143 @@
+#!/usr/bin/perl
+##############################################################
+# REIMPLEMENTATION:                                          #
+#    THIS SCRIPT IS NOW FROZEN! (v1.20)                      #
+#       Please do not make edits to it.                      #
+#       Frozen by: tharris on 02.09.2008                     #   
+##############################################################
+
+# file: motif
+# $Id: motif,v 1.2 2010-06-03 21:32:08 tharris Exp $
+# motif display
+
+use strict;
+use Ace::Browser::AceSubs qw/:DEFAULT/;
+use ElegansSubs qw/:DEFAULT GetEvidenceNew/;
+
+use CGI qw(:standard *table);
+use lib '../lib';
+use WormBase;
+use vars qw/$motif $WORMBASE $query/;
+
+END {
+  undef $motif;
+  undef $WORMBASE;
+  undef $query;
+}
+
+$motif = GetAceObject();
+PrintTop($motif ? "Motif Summary: $motif" : "Motif Summary");
+
+
+
+$WORMBASE = WormBase->new();
+$WORMBASE->print_prompt(-message  => 'Specify a motif such as',
+			-class    => 'Motif',
+			-examples => [qw/(AAATG)n (ATGGTG)n (CAAGC)n/]);
+
+$query = param('name');
+if ($query eq "" && !$motif) {
+    AceError("No such motif known.");
+    PrintBottom();
+    exit 0;
+}
+
+
+my $title = join '; ',$motif->Title;
+my $motif_urls    = Configuration->Motif_urls;
+my $database_urls = Configuration->Motif_database_urls;
+
+
+print start_table({-border=>1});
+identification();
+homols_simple();
+go() if $motif->GO_term;
+print end_table();
+
+
+sub identification {
+    StartSection('Identification');
+    SubSection('Title',$motif->Title);
+    SubSection('Remarks',join(br,$motif->Remark)) if $motif->Remark;
+    
+    if ($motif->Database) {
+	my ($database,$accession1,$accession2) = $motif->Database('@')->row;
+	my $accession = $accession2 || $accession1;
+	SubSection('Source database',a({-href=>$database_urls->{$database}},$database));
+	SubSection('Name/Accession Number',
+		   a({-href=>$motif_urls->{$database}.$accession},"$accession (details)"))
+	}
+    
+    foreach my $tag (qw/Associated_transposon_family Match_sequence Num_mismatch/) {
+	my $data = $motif->$tag;
+	my $title = $tag;
+	$title =~ s/_/ /g;
+	SubSection($title,$data) if $data;
+    }
+    EndSection();
+}
+    
+
+sub homols_simple {
+    my %labels = (DNA_homol => 'DNA homology',
+		  Pep_homol => 'Peptide homology',
+		  Motif_homol => 'Motif homology',
+		  Homol_homol => 'Homology');
+    
+    foreach (qw/DNA_homol Pep_homol Motif_homol Homol_homol/) {
+	if (my @homol = $motif->$_) {
+	    StartSection($labels{$_});
+	    my @rows;
+	    foreach (@homol) {
+		my $url; 
+		if ($_ =~ /.*RepeatMasker/g) {
+		    $_ =~ /(.*):.*/;
+		    my $clone = $1;
+		    $url = "$_: ";
+		    $url .= a({-href=>"/db/seq/clone?name=$clone;class=Clone"},"[Clone report] ");
+		    $url .= a({-href=>"/db/gb2/gbrowse/c_elegans?name=$clone;class=Clone"},"[Genome View]");
+		} else {
+		    $url = ObjectLink($_);
+		}
+		
+		push @rows,$url;
+	    }
+	    SubSection('',join(br,@rows));
+	    EndSection();
+	}       
+    }
+}
+
+
+sub go {
+    my $text = start_table({-border=>1}) . TR(th('Term'),th('Description'),th('GO code'),th('Evidence'));
+    
+    # In order to display evidence, I actually need to visit each gene or CDS object,
+    # fetch all GO_terms and find the one which corresponds to the current one
+    my $evidence;
+    foreach my $go ($motif->GO_term) {
+	($evidence) = $go->right . 
+	    (($go->right) ?
+	     ': '. join(br,GetEvidenceNew(-object=>$go->right,-format => 'inline'))
+	     : '');
+
+	my $desc = $go->Definition;
+	$text .= TR(
+		    td(ObjectLink($go)),
+		    td($desc),
+		    td($go->right),
+		    td($evidence),
+		    );
+    }
+    $text .= end_table;
+	StartSection('Gene Ontology term associations');
+    SubSection('',
+	       i('This motif has been associated with the following Gene Ontology Terms'),
+	       $text);
+	EndSection();
+}
+
+
+
+PrintBottom();
+exit 0;

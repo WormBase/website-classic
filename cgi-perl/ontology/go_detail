@@ -1,0 +1,714 @@
+#!/usr/bin/perl
+
+use strict;
+use lib '../lib';
+use Ace::Browser::AceSubs;
+use ElegansSubs qw/:DEFAULT Bestname Species2URL format_reference format_references/;
+use Data::Dumper;
+use CGI qw(:standard *table escape toggle img a);
+# use CGI::Toggle;
+use WormBase;
+use vars qw/$WORMBASE $DB  $name  $gene $gene_object/;
+use strict;
+
+END {
+  undef $WORMBASE;
+  undef $name;
+  undef $gene;
+  undef $gene_object;
+  undef $DB;
+}
+
+$gene = param('name');
+
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+my $version = $DB->version;
+my $cgi = new CGI;
+my $script_url = "/db/";
+
+#### data ###
+
+StartCache();
+
+
+
+if ($gene) {
+
+	$gene_object = $DB->fetch(-class=> 'Gene',-name=> $gene);
+}
+
+my $cgc_name = $gene_object->CGC_name;
+my $gene_name;
+
+if ($cgc_name) {
+
+	$gene_name = $cgc_name;
+
+} else {
+
+	$gene_name = $gene_object->Sequence_name;
+
+}
+
+
+
+PrintTop($gene_object ,'GO Annotation Details',$gene_object ? "GO Annotation Details for $gene_name" : "GO Annotation Details");
+
+if ($gene_object) {
+
+my ($term_data_x_ar,$term_data_p_ar) = get_go_detail_data($gene_object);
+
+print h3("Annotations based on Experiment");
+print br();
+my $dtx = print_go_details($term_data_x_ar);
+print "$dtx";
+print br();
+print h3("Predicted Annotations");
+print br();
+my $dtp = print_go_details($term_data_p_ar);
+print "$dtp";
+}
+
+
+
+ClosePage;
+
+exit 0;
+
+### subroutines ###
+
+
+sub gd_annotation_basis {
+	my ($method,$details_ar) = @_;
+	my $basis;
+	my $basis_links_ar = $details_ar;
+	  # Object2URL();$basis_link ;
+	## annotation basis
+	
+	### format basis
+	
+	if ($method =~ m/Variation/){
+		$basis = "Variation";
+		#$basis_link = format_variation_evidence($detail);
+	}
+	elsif($details_ar->[0] =~ m/phenotype/i){
+		$basis = "Phenotype to GO Mapping";
+		#$basis_link = format_phenotype_evidence($detail);
+	}
+	elsif($details_ar->[0] =~ m/interpro/i){
+		$basis = "Interpro to GO Mapping";
+		#$basis_link = format_interpro_evidence($detail);
+	}
+	elsif($details_ar->[0] =~ m/tmhmm/i){
+		$basis = "TMHMM to GO Mapping";
+	}
+	elsif($details_ar->[0] =~ m/nbsp/i) {
+		$basis = "&nbsp\;";
+	}
+	else {
+		$basis = "No Method"
+	}
+	
+	### format evidences
+	
+	
+	if ($method =~ m/Variation/){
+	
+		my @basis_links = map {$_ = format_variation_evidence($_)} @$details_ar;
+		$basis_links_ar = \@basis_links;
+	}
+	elsif($details_ar->[0] =~ m/phenotype/i){
+		my @basis_links = map {$_ = format_phenotype_evidence($_)} @$details_ar;
+		$basis_links_ar = \@basis_links;
+	}
+	elsif($details_ar->[0] =~ m/interpro/i){
+		my @basis_links = map {$_ = format_interpro_evidence($_)} @$details_ar;
+		$basis_links_ar = \@basis_links;
+	}
+	
+	
+	## links
+
+	
+	
+	return $basis,$basis_links_ar;
+}
+
+
+sub print_go_details {
+
+## get data from data pull off @_
+
+my $go_detail_data_hr = shift;
+
+## start go details table
+
+my $details_table = start_table({-border=>2, -cellspacing=>3, -cellpadding=>3});
+
+## set up headers for table
+
+	$details_table .= TR(
+			th({-align => 'left'},'Term'),
+			th({-align => 'left'},'Evidence Code'),
+			th({-align => 'left'},'Reference'),
+			th({-align => 'left'},'Annotation Bases and Evidences')
+		);
+	
+	#$details_table .= "\n";
+
+## pull term evidence keys
+
+my @term_ecs = keys %$go_detail_data_hr;
+
+## foreach term_evidence_code
+
+foreach my $tec(@term_ecs) {
+
+	## get paper evidence, key: Paper_evidence
+
+	my $paper_evidences = $go_detail_data_hr->{$tec}->{Paper_evidence};
+	
+	## format @paper_evidences content for table
+	
+	my @paper_evidences = keys %$paper_evidences;
+
+	my @paper_evidence_links = map {$_ = gd_ref($_)} @paper_evidences ;
+
+	my $paper_evidence_links = join ',<br>',@paper_evidence_links;	
+
+	
+	my $other_evidences_table = start_table({-border=>0, -cellspacing=>3, -cellpadding=>3});
+	
+	## get evidence_type keys for $tec
+	
+	my $evidence_types_hr = $go_detail_data_hr->{$tec};
+	
+	## foreach evidence_type
+	
+	foreach my $evidence_type (keys %$evidence_types_hr) {
+	
+		## move on if paper evidence
+		if ($evidence_type =~ m/paper/i) {
+		
+			next;
+			
+		}
+		else {
+		
+		
+		
+			### get evidences for the type
+			my $other_evidences = $go_detail_data_hr->{$tec}->{$evidence_type};
+			
+			### format contents for table
+	
+			my @other_evidences = keys %$other_evidences;
+			my ($formated_et,$formated_other_evidences_ar) = gd_annotation_basis($evidence_type, \@other_evidences);
+			
+			my $formated_other_evidence_line = join ', ', @$formated_other_evidences_ar;
+			
+			#my $other_evidence_line = join ", ",@other_evidences;
+			#my $formated_et = $evidence_type;
+			#$formated_et =~ s/_evidence//;
+			#$formated_et =~ s/\_/ /;
+			#$formated_et = b($formated_et);
+
+
+			### put in table
+			
+		
+			$other_evidences_table .= TR(
+				td({-align => 'left'},"$formated_et\: $formated_other_evidence_line") ##  $other_evidence_line
+			);
+			
+		
+		}
+		
+	
+	} ## end foreach my $evidence_type
+	
+	
+	## end other evidences table
+	
+	
+	$other_evidences_table .= end_table();
+
+	## add table row
+	
+	my ($term,$ev_code) = split "&", $tec;
+	
+	
+	$details_table .= TR(
+			td({-align => 'left'},$term),
+			td({-align => 'left'},$ev_code),
+			td({-align => 'left'},$paper_evidence_links),
+			td({-align => 'left'},$other_evidences_table)
+		);
+
+} ### end foreach my $tec(@term_ecs)
+
+
+## end go details table
+
+$details_table .= end_table();
+
+return $details_table;
+
+
+}
+
+
+
+sub get_go_detail_data {
+
+	my $object = shift @_;
+	my %go_terms;
+	my @go_terms = $object->GO_term;	
+	my %annotation_bases  = (
+		'EXP' , 'x',
+		'IDA' , 'x',
+		'IPI' , 'x',
+		'IMP' , 'x',
+		'IGI' , 'x',
+		'IEP' , 'x',
+		'ND' , 'x',
+		
+		'IEA' , 'p',
+		'ISS' , 'p',
+		'ISO' , 'p',
+		'ISA' , 'p',
+		'ISM' , 'p',
+		'IGC' , 'p',
+		'RCA' , 'p',
+		'IC' , 'p'
+	);
+
+	
+	
+	my @return_data_x;
+	my @return_data_p;
+	
+	foreach my $go_term (@go_terms) {
+		my $term = convert_term($go_term);
+		my $evidence_code = $go_term->right;
+		my @annotation_bases = $go_term->right->col;
+		my @papers;
+		my @other_evidence_set;
+		
+		foreach my $annotation_base (@annotation_bases) {
+			 
+			if ($annotation_base =~ m/curator_confirmed/i) {
+			
+				next;
+				
+			} else {
+					
+					my @other_evidences = $annotation_base -> col;
+					foreach my $other_evidence  (@other_evidences){
+					
+						push @other_evidence_set, join "\t", ($annotation_base,$other_evidence); 
+					
+					}		
+			}			
+		}
+		my $paper_count = 	@papers;
+			
+		if ($paper_count == 0) {
+		
+			push @papers, "&nbsp\;";
+				
+		}
+			
+		my $oe_count = 	@other_evidence_set;		
+		
+		if ($oe_count == 0)  {
+				
+			push @other_evidence_set, "&nbsp\;" . "\t" . "&nbsp\;"
+		
+		}
+			
+		my @ref_evidence;
+		
+		foreach my $other_evidence (@other_evidence_set) {
+
+			push @ref_evidence, join "\t", ($other_evidence) 
+	
+		}
+				
+		foreach my $ref_evidence (@ref_evidence) {
+			
+			if ($annotation_bases{$evidence_code} eq 'x') {
+			
+				push @return_data_x, join "\t", ($term,$evidence_code,$ref_evidence);
+			
+			} else {
+			
+				push @return_data_p, join "\t", ($term,$evidence_code,$ref_evidence);			
+			
+			}				
+		}
+	}
+	
+	my %return_data_x;
+	my %return_data_p;
+	
+	
+	foreach my $rdx (@return_data_x) {
+	
+		my ($term,$evidence_code,$evidence_type,$evidence) = split /\t/, $rdx;
+		
+		$return_data_x{"$term\&$evidence_code"}{$evidence_type}{$evidence} = 1;
+	
+	}
+	
+	
+	foreach my $rdp (@return_data_p) {
+	
+		my ($term,$evidence_code,$evidence_type,$evidence) = split /\t/, $rdp;
+		
+		$return_data_p{"$term\&$evidence_code"}{$evidence_type}{$evidence} = 1;
+	
+	}
+	
+	
+	return \%return_data_x,\%return_data_p;
+
+}
+
+
+sub convert_term {
+	
+	my $go_term_obj = shift @_;
+	my $term = $go_term_obj->Term;
+	
+	return $term;
+	
+}
+
+
+
+sub gd_ref {
+
+	my $paper_id = shift @_;
+	
+	my $paper = $DB->fetch(-class=>'Paper',-Name=>$paper_id);
+	# my $cit = $paper->Brief_citation;
+	# my $paper_url = Object2URL($paper);
+	
+	my $paper_link;
+	
+	
+	eval {$paper_link = format_reference(-reference=>$paper,-format=>'short');}; # a({-href=>"/db/misc/paper?class=Paper\;name=" . $paper},$cit);
+	
+	
+	return $paper_link; #
+}
+
+
+sub format_variation_evidence {
+
+	my $var_object = shift @_;	
+	my $vo_url = "/db/gene/variation?class=Variation;name=" . $var_object; #Object2URL($var_object)
+	my $vo_link = a({-href=>$vo_url,-target=>'_NEW'},$var_object);
+
+
+}
+
+sub format_phenotype_evidence {
+
+	my $phenotype_detail = shift @_;
+	my($pheno_name,$ids) = split /\(/,$phenotype_detail;
+	$ids =~ s/\)//;
+	my ($phenotype_id,$rnai_id) = split/\|/,$ids;
+	chomp $pheno_name;
+	
+	if (!($pheno_name =~ m/[a-z]/)) {
+		
+		$pheno_name = "Phenotype";
+		
+	}
+	$pheno_name =~ s/\_/ /g;
+	
+	my $pheno_url =  "/db/misc/phenotype?name=" . $phenotype_id;
+	my $pheno_link = a({-href=>,$pheno_url,-target=>"_NEW"},$pheno_name);
+	my $rnai_url = "/db/misc/etree?class=RNAi;name=" .  $rnai_id;
+	my $rnai_link = a({-href=>,$rnai_url,-target=>"_NEW"},$rnai_id);
+	
+	my $detail_txt = "$pheno_link\ via\ $rnai_link";
+	
+	return $detail_txt;  #$pheno_name
+
+}
+
+sub format_interpro_evidence {
+
+	my $interpro_id = shift @_;
+	my $motif_url = "/db/gene/motif?class=Motif;name=" . $interpro_id;
+	my $motif_link = a({-href=>$motif_url},$interpro_id);
+	
+	return $motif_link;
+}
+
+
+### superceded subroutines
+
+sub get_go_detail_data_old {
+
+	my $object = shift @_;
+	my %go_terms;
+	my @go_terms = $object->GO_term;	
+	my %annotation_bases  = (
+		'EXP' , 'x',
+		'IDA' , 'x',
+		'IPI' , 'x',
+		'IMP' , 'x',
+		'IGI' , 'x',
+		'IEP' , 'x',
+		'ND' , 'x',
+		
+		'IEA' , 'p',
+		'ISS' , 'p',
+		'ISO' , 'p',
+		'ISA' , 'p',
+		'ISM' , 'p',
+		'IGC' , 'p',
+		'RCA' , 'p',
+		'IC' , 'p'
+	);
+
+	
+	
+	my @return_data_x;
+	my @return_data_p;
+	
+	foreach my $go_term (@go_terms) {
+		my $term = convert_term($go_term);
+		my $evidence_code = $go_term->right;
+		my @annotation_bases = $go_term->right->col;
+		my @papers;
+		my @other_evidence_set;
+		
+		foreach my $annotation_base (@annotation_bases) {
+			 
+			if ($annotation_base =~ m/curator_confirmed/i) {
+			
+				next;
+				
+			} else {
+			
+				if ($annotation_base =~ m/paper_evidence/i) {
+					@papers = $annotation_base -> col;
+				
+				} else {
+				
+					my @other_evidences = $annotation_base -> col;
+					foreach my $other_evidence  (@other_evidences){
+						my $cleaned_ab = $annotation_base;
+                    	$cleaned_ab =~ s/\_/ /;
+						push @other_evidence_set, join "\t", ($cleaned_ab,$other_evidence);
+					
+					}	
+				}	
+			}			
+		}
+		my $paper_count = 	@papers;
+			
+		if ($paper_count == 0) {
+		
+			push @papers, "&nbsp\;";
+				
+		}
+			
+		my $oe_count = 	@other_evidence_set;		
+		
+		if ($oe_count == 0)  {
+				
+			push @other_evidence_set, "&nbsp\;" . "\t" . "&nbsp\;"
+		
+		}
+			
+		my @ref_evidence;
+		
+		foreach my $other_evidence (@other_evidence_set) {
+
+			foreach my $paper (@papers){
+					
+				push @ref_evidence, join "\t", ($paper,$other_evidence)
+			
+			}		
+		}
+				
+		foreach my $ref_evidence (@ref_evidence) {
+			
+			if ($annotation_bases{$evidence_code} eq 'x') {
+			
+				push @return_data_x, join "\t", ($term,$evidence_code,$ref_evidence);
+			
+			} else {
+			
+				push @return_data_p, join "\t", ($term,$evidence_code,$ref_evidence);			
+			
+			}				
+		}
+	}
+	
+	
+	
+	
+	return \@return_data_x,\@return_data_p;
+
+}
+
+sub print_go_details_old {
+
+	my ($term_data_ar,$annotation_source) = @_;
+
+	my @term_data;
+	
+	my $first_line = shift @$term_data_ar;
+	
+	my ($starting_term, $starting_ec, $starting_ref, $starting_ab,$starting_evidence) = split /\t/,$first_line;
+	
+	push @term_data, $first_line;
+	
+	
+	foreach my $data_line (@$term_data_ar){
+		
+		my ($next_term, $next_ec, $next_ref, $next_ab, $next_evidence) = split /\t/,$data_line;
+		
+	# remove term repetition
+		
+ 	if($next_term eq $starting_term) {
+		
+			$next_term = "&nbsp\;";
+		
+		} else {
+		
+			$starting_term = $next_term;
+		
+		}
+		
+		## remove evidence code repetition
+		
+		if(($next_ec eq $starting_ec)  &&  ($next_term eq "&nbsp\;")) {
+		
+			$next_ec = "&nbsp\;";
+		
+		} else {
+		
+			$starting_ec = $next_ec;
+		
+		}
+		
+		## remove reference repetition
+		
+		if(($next_ref eq $starting_ref)  &&  ($next_term eq "&nbsp\;")) {
+		
+			$next_ref = "&nbsp\;";
+		
+		} else {
+		
+			$starting_ref = $next_ref;
+		
+		}
+	
+		push @term_data, join "\t", ($next_term, $next_ec, $next_ref, $next_ab, $next_evidence);
+	
+	}
+	
+	my $details_table = start_table({-border=>2, -cellspacing=>3, -cellpadding=>3});
+
+	$details_table .= TR(
+			th({-align => 'left'},'Term'),
+			th({-align => 'left'},'Evidence Code'),
+			th({-align => 'left'},'Reference'),
+			th({-align => 'left'},'Annotation Basis'),
+			th({-align => 'left'},'Evidence')
+		);
+	
+	$details_table .= "\n";
+	
+	
+
+	foreach my $term (@term_data) {
+	my ($term_id, $ec, $ref, $ab, $evidence) = split /\t/,$term;
+	
+	## format data here ###
+	
+	my ($ab_f,$evidence_f) = gd_annotation_basis($ab,$evidence);
+	
+	my $ref_f;
+	
+	if (!($ref =~ m/nbsp/)) {
+	
+		$ref_f = gd_ref($ref);
+	
+	} elsif ($annotation_source =~ m/p/) {
+	
+		$ref_f = "N/A";
+	
+	}
+	
+	$details_table .= TR(
+			td({-align => 'left'},$term_id),
+			td({-align => 'center'},$ec),
+			td({-align => 'left'},$ref_f),
+			td({-align => 'left'},$ab_f),
+			td({-align => 'left'},$evidence_f)
+			
+		);
+	
+	$details_table .= "\n";
+
+	}
+	
+	$details_table .= end_table();
+	
+	print "$details_table";
+}
+
+sub gd_annotation_basis_old {
+	my ($method,$detail) = @_;
+	my $basis;
+	my $basis_link = $detail;
+	  # Object2URL();$basis_link ;
+	## annotation basis
+	
+	if ($method =~ m/Variation/){
+		$basis = "Variation";
+		$basis_link = format_variation_evidence($detail);
+	}
+	elsif($detail =~ m/phenotype/i){
+		$basis = "Phenotype to GO Mapping";
+		$basis_link = format_phenotype_evidence($detail);
+	}
+	elsif($detail =~ m/interpro/i){
+		$basis = "Interpro to GO Mapping";
+		$basis_link = format_interpro_evidence($detail);
+	}
+	elsif($detail =~ m/tmhmm/i){
+		$basis = "TMHMM to GO Mapping";
+	}
+	elsif($detail =~ m/nbsp/i) {
+		$basis = "&nbsp\;";
+	}
+	else {
+		$basis = "No Method"
+	}
+	
+	
+	## links
+
+	
+	
+	return $basis,$basis_link;
+}
+
+
+# 
+# sub format_tmhmm_evidence {
+# 
+# 
+# 
+# }

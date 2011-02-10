@@ -1,0 +1,17 @@
+This is the software needed for the WormBase site.  It is a bunch of
+HTML files and ModPerl Apache::Registry scripts, plus a small number of
+Java applets.
+
+It does not include:
+
+	- The wormbase data.
+	- Other software packages.
+
+See the file INSTALL.txt for detailed installation instructions.
+INSTALL.html has the same information in HTML format.
+
+Please send questions and requests for support to
+wormbase-dev@wormbase.org.
+
+Lincoln Stein
+lstein@cshl.org

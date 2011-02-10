@@ -1,0 +1,221 @@
+New release of WormBase WS179, Wormpep179 and Wormrna179 Mon Jul 30 12:21:01 BST 2007
+
+
+WS179 was built by [Paul]
+======================================================================
+
+This directory includes:
+i)   database.WS179.*.tar.gz    -   compressed data for new release
+ii)  models.wrm.WS179           -   the latest database schema (also in above database files)
+iii) CHROMOSOMES/subdir         -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)  WS179-WS178.dbcomp         -   log file reporting difference from last release
+v)   wormpep179.tar.gz          -   full Wormpep distribution corresponding to WS179
+vi)   wormrna179.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)  confirmed_genes.WS179.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+viii) cDNA2orf.WS179.gz           -   Latest set of ORF connections to each cDNA (EST, OST, mRNA)
+ix)   gene_interpolated_map_positions.WS179.gz    - Interpolated map positions for each coding/RNA gene
+x)    clone_interpolated_map_positions.WS179.gz   - Interpolated map positions for each clone
+xi)   best_blastp_hits.WS179.gz  - for each C. elegans WormPep protein, lists Best blastp match to
+                            human, fly, yeast, C. briggsae, and SwissProt & TrEMBL proteins.
+xii)  best_blastp_hits_brigprot.WS179.gz   - for each C. briggsae protein, lists Best blastp match to
+                                     human, fly, yeast, C. elegans, and SwissProt & TrEMBL proteins.
+xiii) geneIDs.WS179.gz   - list of all current gene identifiers with CGC & molecular names (when known)
+xiv)  PCR_product2gene.WS179.gz   - Mappings between PCR products and overlapping Genes
+
+
+Release notes on the web:
+-------------------------
+http://www.wormbase.org/wiki/index.php/Release_notes
+
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS179       	WS178      	change
+----------------------------------------------
+a    	32365888	32365888	  +0
+c    	17779857	17779856	  +1
+g    	17756016	17756017	  -1
+t    	32365689	32365689	  +0
+n    	0       	0       	  +0
+-    	0       	0       	  +0
+
+Total	100267450	100267450	  +0
+
+
+Chromosomal Changes:
+--------------------
+
+Chromosome: IV
+16601824 16601823 0   ->   16601824 16601824 1
+
+Chromosome: V
+14444487 14444487 1   ->   14444487 14444486 0
+
+
+Gene data set (Live C.elegans genes 24133)
+------------------------------------------
+Molecular_info              22426 (92.9%)
+Concise_description          4803 (19.9%)
+Reference                    7211 (29.9%)
+CGC_approved Gene name       9332 (38.7%)
+RNAi_result                 19883 (82.4%)
+Microarray_results          19234 (79.7%)
+SAGE_transcript             18646 (77.3%)
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 20150 CDS in autoace, 23481 when counting 3331 alternate splice forms.
+
+The 23481 sequences contain  base pairs in total.
+
+Modified entries      28
+Deleted entries       0
+New entries           35
+Reappeared entries    1
+
+Net change  +36
+
+
+
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              7456 (31.8%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed   11327 (48.2%)	Some, but not all exon bases are covered by transcript evidence
+Predicted              4698 (20.0%)	No transcriptional evidence at all
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+UniProtKB/Swiss-Prot accessions   3557 (15.1%)
+UniProtKB/TrEMBL accessions     19641 (83.6%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            23198 (98.8%)
+
+
+
+Gene <-> CDS,Transcript,Pseudogene connections (cgc-approved)
+---------------------------------------------
+Entries with CGC-approved Gene name   7697
+
+
+GeneModel correction progress WS178 -> WS179
+-----------------------------------------
+Confirmed introns not in a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|   3543  |  3475  |
+St Louis 	|   3556  |  3400  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Repeats | Change |
+		+---------+--------+
+Cambridge	|      6  |     0  |
+St Louis 	|      6  |     0  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+CHROMOSOME_IV	sequence AL132952
+CHROMOSOME_V	sequence Z72508
+CHROMOSOME_V	sequence Z77659
+CHROMOSOME_X	sequence Z67755
+
+There are no gaps remaining in the genome sequence
+---------------
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+
+New Data:
+---------
+1) There is a new set of GFF files of anomalies which curators may take into account when 
+   curating gene structure. The existence of one or more of these anomalies near a gene does 
+   not mean that there is necessarily anything wrong with the existing gene structure. 
+
+   SUPPLEMENTARY_GFF/CHROMOSOME_*_curation_anomalies.gff
+
+   
+
+Genome sequence updates:
+-----------------------
+
+   |----------------------------------------------------------------------------|
+   | Clone  |    Type   |      Flank           | Change |        Flank          |
+   |--------|-----------|----------------------|--------|-----------------------|
+   | F23B12 | deletion  | tggcttccaacgtgg      |   G    | atcttctggagatg        |
+   | Y51H4A | insertion | caggaccagctggatcacctg|   G    | gcgatcaggacaaccaggatc |
+   |----------------------------------------------------------------------------|
+
+New Fixes:
+----------
+1) WABA has been rerun and standardised for both elegans and briggsae.
+
+   Previous WABA datasets contained data from different molecule types, clones vs chromosomes or chromosomes vs scaffolds etc.
+   All old cb25 data has been removed as previous releases contained old and new.
+ 
+   We Now have:
+   elegans_chromosomes::briggsaeCB3_chromosomes
+   briggsaeCB3_chromosomes::elegans_chromosomes.
+   
+
+
+Known Problems:
+---------------
+
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+-------------------------------------
+
+1) ~5000 21U RNA genes are going to be in WS180
+
+
+Model Changes:
+------------------------------------
+
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

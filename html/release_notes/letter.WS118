@@ -1,0 +1,186 @@
+New release of WormBase WS118, Wormpep118 and Wormrna118  January 30th
+
+WS118 was built by me
+======================================================================
+
+This directory includes:
+i)	database.WS118.*.tar.gz    -   compressed data for new release
+ii)	models.wrm.WS118           -   the latest database schema (also in above database files)
+iii)	CHROMOSOMES/subdir         -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)	WS118-WS117.dbcomp         -   log file reporting difference from last release
+v)	wormpep118.tar.gz          -   full Wormpep distribution corresponding to WS118
+vi)	wormrna118.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)	confirmed_genes.WS118.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+viii)	yk2orf.WS118.gz            -    Latest set of ORF connections to each Yuji Kohara EST clone
+ix)	gene_interpolated_map_positions.WS118.gz    - Interpolated map positions for each coding/RNA gene
+x)	clone_interpolated_map_positions.WS118.gz   - Interpolated map positions for each clone
+xi)	best_blastp_hits.WS118.gz    - for each C. elegans WormPep protein, lists Best blastp match to
+                                        human, fly, yeast, C. briggsae, and SwissProt & Trembl proteins.
+xii)	best_blastp_hits_brigprot.WS118.gz   - for each C. briggsae protein, lists Best blastp match to 
+                                        human, fly, yeast, C. elegans, and SwissProt & Trembl proteins.
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS118
+------------------------------------
+brigdb : 2004-01-15 - updated
+camace : 2004-01-21 - updated
+citace : 2004-01-18 - updated
+cshace : 2003-11-26
+genace : 2004-01-22 - updated
+stlace : 2004-01-16 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS118       	WS117      	change
+----------------------------------------------
+a    	32368607	32368607	  +0
+c    	17780992	17780992	  +0
+g    	17758424	17758424	  +0
+t    	32369797	32369797	  +0
+n    	95      	95      	  +0
+-    	0       	0       	  +0
+
+Total	100277915	100277915	  +0
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 19890 CDS in autoace, 22237 when counting 2347 alternate splice forms.
+
+The 22237 sequences contain 9,731,099 base pairs in total.
+
+Modified entries              69
+Deleted entries               32
+New entries                   33
+Reappeared entries             9
+
+Net change  +10
+
+
+
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              4848 (21.8%)	Every base has transcription evidence (mRNA, EST etc )
+Partially_confirmed   12044 (54.2%)	Some but not all bases are covered by transcript evidence
+Predicted              5345 (24.0%)	No transcriptional evidence at all
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2450 (11.0%)
+TrEMBL accessions     18490 (83.1%)
+TrEMBLnew accessions   1238 (5.6%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            22177 (99.7%)
+
+
+
+Locus <-> Sequence connections (cgc-approved)
+---------------------------------------------
+Entries with locus connection   4895
+
+
+GeneModel correction progress WS117 -> WS118
+-----------------------------------------
+Confirmed introns not is a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|    436  |   -31  |
+St Louis 	|    267  |   -90  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|      0  |     0  |
+St Louis 	|     37  |     1  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+No synchronisation issues
+
+
+There are no gaps remaining in the genome sequence
+---------------
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+
+New Data:
+---------
+
+15,900 new EST sequences. These are 5' single reads from the cDNA clones used in the 
+interacteome project from the Vidal lab. Currently, we ahve dealt with these as EST
+sequences in WormBase.
+
+1330 TEC-RED trans-splice leader acceptor sites from Hwang, Muller and Sternberg. A
+further 31 tags need clarification due to multiple matches in the genome preventing a
+unique mapping of the tag sequence.
+
+
+New Fixes:
+----------
+
+The C.briggsae gene predictions (all ab initio predictions and the hybrid set) have been
+corrected for the loss of exon structures seen in WS115-WS116.
+
+Corrected script for calculating confirmed_introns not in gene models. 
+
+Known Problems:
+--------------
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

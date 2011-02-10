@@ -1,0 +1,86 @@
+
+New release of acedb WS53 and wormpep63 29/08/2001
+==================================================
+
+This directory includes:
+   WS53 database.*.tar.gz 
+     files to be installed using INSTALL
+   WS52-WS53.dbcomp
+     Test log reporting differences in Class objects
+     between WS52 and WS53 
+   chromosomes.WS53.tar.gz
+     CHROMOSOMES subdirectory with DNA sequence and GFF files for 
+     the 6 chromsomes
+   wormpep63.tar.gz
+     full wormpep distribution corresponding to WS53 database
+     this contains a log file showing a number of errors in naming 
+     and gene structures that should be fixed
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+Sequence composition:
+---------------------
+
+6 sequences >= 0, 100178843 total
+  - 247096      0 %
+  a 32260261    32 %
+  c 17719951    18 %
+  g 17698757    18 %
+  n 96  0 %
+  t 32252682    32 %
+
+No change from last week.
+
+Wormpep data set:
+-----------------
+
+there are 19,371 CDS in autoace, 20,100 when counting (728) alternate
+splice_forms
+20,100 sequences totalling 8,819,854 letters
+
+ Modified entries      30
+ Deleted entries       11
+ New entries           25
+ Reappeared entries     1
+ ------------------------
+ Net Change          + 15
+
+There are 110 provisional gene models in WS53.
+
+GeneModel correction progress:
+------------------------------
+
+# Confirmed_intron not in CDS GeneModels
+
+           +----------+---------+
+           | Introns  | Change  |
+           +----------+---------+
+Cambrige   |       77 |     0   |
+St Louis   |      495 |     0   |
+           +----------+---------+
+
+Synchronisation with GenBank/EMBL:
+----------------------------------
+
+No current problems with regard to sequence.  
+
+
+Known problems:
+---------------
+
+A lot of the older WormPep proteins don't have a WormPep tag and so don't 
+appear in the 'Wormpep' class.  I think these are all proteins that have been
+replaced by newer predictions, but I need to check this.
+
+
+Known fixes:
+------------
+
+In the last release an errant sequence object was created in camace.  This sequence
+was just called 'x' which led to problems for the scripts involved in building the
+WormBase website.  I assumed Lincoln fudged a workaround as he seems to have all
+the data for WS52 at www.wormbase.org.  This problem sequence was removed.
+
+

@@ -1,0 +1,25 @@
+The scripts in this directory perform various administration
+related tasks for a WormBase installation.
+
+acedb.xinetd       This is a default configuration file for running
+                   acedb under xinetd. It should be copied to 
+                   /etc/xinetd.d/acedb
+
+For systems that use initd:
+
+blat_server.initd  This script works with restart_blat.pl to
+                   restart the blat server.  It should be placed
+                   under /etc/rc.d/init.d and named blat_server.
+                   If your system lacks the /etc/rc.d, ignore this step.
+
+restart_blat.pl
+restart_mysqld.pl
+                   These two scripts are intended to be run as
+                   cron jobs, periodically monitoring the blat
+                   and mysql servers. Place the follwing commands
+                   under the crontab of a priviliged user:
+
+    0 * * * * /usr/local/wormbase/util/admin/restart_mysql.pl
+    0 * * * * /usr/local/wormbase/util/admin/restart_blat.pl
+
+rotate_acedb_logs

@@ -1,0 +1,410 @@
+#!/usr/bin/perl
+
+use strict;
+use Ace::Browser::AceSubs qw/:DEFAULT/;
+use ElegansSubs qw/:DEFAULT/;
+use CGI qw/:standard *table *blockquote *div/;
+use vars qw/@datasets @analysis @outreach $DB/;
+
+use constant SURVEY_LOG => '/usr/local/wormbase/logs/2006_topics_meetings.log';
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");  
+
+PrintTop(undef,undef,'2006 Future Of C. elegans Topic Meetings Survey');
+
+process_form() if param();
+generate_form() unless param();
+
+PrintBottom;
+exit;
+
+
+sub process_form {
+  print h3('Responses received!');
+  print p('Thank you for your time.  Your responses will help to shape the future of the C. elegans Topics meetings.');
+
+  my @questions = qw/continue_development
+		     continue_neuro
+		     expand_meetings
+		     how_to_maintain_size
+		     how_to_cover_other_topics
+		     prefer_topics_meeting_or_regional 
+		     new_meetings
+		     other_meeting_topics
+		     expanding_development
+		     expanding_neuro
+		     additional_topics
+		     topics_only_at_iwm
+		     meeting_length
+		     dev_meeting_location
+		     neuro_meeting_location
+		     meetings_always_in_madison
+		     meetings_rotate
+		     meetings_rotate_internationally
+		     where_from
+		     willing_to_organize
+		     help_with_current_meetings
+		     other_suggestions
+		     /;
+
+  my %checkboxes = (
+		    new_meetings           => 1,
+		    expanding_development  => 1,
+		    expanding_neuro        => 1,
+		    topics_only_at_iwm     => 1);
+
+  
+#  my %are_tallyable = map {$_ => 1 } qw/continue_development
+#					continue_neuro
+#					expand_meetings					
+#					how_to_cover_other_topics
+#					new_meetings
+#					expanding_development
+#					expanding_neuro
+#					topics_only_at_iwm
+#					meeting_length
+#					dev_meeting_location
+#					neuro_meeting_location
+#					meetings_always_in_madison
+#					meetings_rotate
+#					meetings_rotate_internationally
+#					where_from
+#					/;
+
+
+  open LOG,">>" . SURVEY_LOG or die "$!";
+  #  open TALLY,">>" . SURVEY_LOG . '.tallied' or die "$!";
+  print LOG "IP=" . $ENV{REMOTE_ADDR},"\n";
+  foreach (@questions) {
+    my $answer;
+    if (defined $checkboxes{$_}) {
+      $answer = join(';',param($_));
+    } else {
+      $answer = param($_);
+    }
+    print LOG "$_===$answer\n";
+  }
+  #    if (defined $is_tallyable{$_}) {
+  #      if (defined $checkboxes{$_}) {
+  #	$answer = join(';',param($_));
+  #      } else {
+  #	$answer = param($_);
+  #	$answer = ($answer eq 'Yes') ? 1 :
+  #	  ($answer eq 'No' ? '-1'
+  #      }
+  #
+  #    }
+  #  }
+  print LOG "=\n";
+  close LOG;
+}
+
+
+sub display_greeting {
+  print start_div({-id=>'narrowcontainer'});
+  print
+    div({-class=>'block'},
+	'The C. elegans community needs to plan for topic meetings in
+    2008.  We need to reserve a site, select topics and identify
+    organizers.  To make this decision-making process available to
+    all, we ask you to provide your feedback.
+    <p>
+    This brief questionnaire is provided to help make that easy for you. Even if you filled out an
+    evaluation form at one of the recent Madison meetings, please fill
+    out this one.
+    <p>And even if you did not attend one of the recent
+    Madison meetings, please fill out this one so that we can decide
+    on specific topics and locations based on information from the
+    entire community. The collective responses will determine how
+    topic meetings will be run in 2008 and beyond.
+    <p>
+    The survey ends on September 8th, 2006.');
+
+
+}
+
+sub generate_form {
+  display_greeting();
+  print start_form();
+  print hr;
+  print h2('Future of the Topics');
+
+  print div({-class=>'block'},
+	    'Two topic meetings were held in 2006: (1) Development &
+	Evolution and (2) Neurobiology (based on willing
+	organizers). These topics were based on individuals who
+	stepped forward to lead their organization.');
+  
+  print div({-class=>'surveyitem'},
+	    div({-class=>'surveyquestion'},
+		'Would you like to see the Development & Evolution topic meeting repeated every two years?'),
+	    blockquote(radio_group({-name   => 'continue_development',
+				    -values => ['Yes',
+						'No',
+						'No opinion'
+					       ],
+				    -linebreak => 'true',
+				    -default => '--',
+				   })));
+
+  print div({-class=>'surveyitem'},
+	    div({-class=>'surveyquestion'},
+		'Would you like to see the Neurobiology topic meeting repeated every two years?'),
+	    blockquote(radio_group({-name   => 'continue_neuro',
+				    -values => ['Yes',
+						'No',
+						'No opinion'
+					       ],
+				    -linebreak => 'true',
+				    -default => '--',
+				   })));
+
+  print div({-class=>'surveyitem'},
+	    div({-class=>'surveyquestion'},
+		'Would you like to expand these meetings to include other areas?'),
+	    blockquote(radio_group({-name   => 'expand_meetings',
+				    -values => ['Yes',
+						'No',
+						'No opinion'],
+				    -linebreak => 'true',
+				    -default => '--',
+				   })));
+
+   print div({-class=>'surveyitem'},
+	     div({-class=>'surveyquestion'},
+		 'If yes, how would you propose to maintain the size of the meeting (i.e. what would you cut out?)'),
+	     blockquote(
+			textarea({-name=>'how_to_maintain_size',-rows=>5,cols=>64,-wrap=>'virtual'})));
+
+  print div({-class=>'surveyitem'},
+	    div({-class=>'surveyquestion'},
+		'If no, how would you propose to cover other topics'),
+	    blockquote(radio_group({-name   => 'how_to_cover_other_topics',
+				    -values => ['Cover other topics at International Meetings',
+						'Develop new and separate topic meetings',
+						'No opinion',
+					       ],
+				    -linebreak=>'true',
+				    -default => '--',
+				   })));
+  print hr();
+
+  print div({-class=>'surveyitem'},
+	    div({-class=>'surveyquestion'},
+		'Do you prefer a topic-oriented biannual meeting or a regional-oriented meeting?'),
+		blockquote(radio_group({-name   => 'prefer_topics_meeting_or_regional',
+					-values => ['Prefer topics meeting',
+						    'Prefer regional meeting',
+						    'No opinion',
+						    ],
+					-linebreak=>'true',
+					-default => '--',
+				    })));
+
+  print div({-class=>'surveyitem'},
+	      div({-class=>'surveyquestion'},
+		  'If you propose to add more topics meetings or break up
+	   those existing, which would you likely attend?'),
+	    i('Check as many as you or at least one member of your lab might attend.'),
+	    blockquote(checkbox_group({-name   => 'new_meetings',
+				       -values =>
+				       ['Genomics, RNAi, & Gene Expression',
+					'Cell biology and development',
+					'Evolution and genomics',
+					'Gene expression and its control',
+					'Developmental Timing (Dauer, Aging, Stress)',
+					'Cell Death and neurodegeneration',
+					'Pathogenesis',
+					'Other'],
+				       -linebreak=>'true',
+				      })),
+	    blockquote('If "Other", please specify',
+		   textfield({-name=>'other_meeting_topics',
+			      -size=>50})));
+  
+    print div({-class=>'surveyitem'},
+	      div({-class=>'surveyquestion'},
+		  'If you propose to change the current meetings, what topics
+	   would you add or delete?'),
+	      i('Remember that adding topics means
+	   either adding a day or two to the three-day format we used
+	   this past summer, having fewer speakers per topic or having
+	   shorter talks. Check all that apply.'),
+	      
+	      div({-class=>'surveyquestion'},
+		  'What areas might be added to the Development & Evolution meeting?'),
+	      blockquote(checkbox_group(-name=>'expanding_development',
+					-values=> ['Cell Death',
+						   'Dauer & Developmental timing',
+						   'Genomics',
+						   'RNAi',
+						   'Gene Expression',
+						   'Aging and Stress'],
+					-linebreak=>'true')),
+	      
+	      div({-class=>'surveyquestion'},
+		  'What areas might be added to the Neurobiology meeting?'),
+	      blockquote(checkbox_group(-name   => 'expanding_neuro',
+					-values => ['Neurodegeneration',
+						    'Dauer & Developmental timing',
+						    'Pathogenesis',
+						    'Aging and Stress',
+						    'Genomics'],
+					-linebreak => 'true')));
+  
+  print div({-class=>'surveyitem'},
+	    div({-class=>'surveyquestion'},
+		'Additional topics not listed?'),
+	    blockquote(textfield({-name=>'additional_topics',-size=>50})));
+  
+  print div({-class=>'surveyitem'},
+	    div({-class=>'surveyquestion'},
+		'If topics were ONLY covered at the International C. elegans meeting, which topics would they be?'),
+	    blockquote(checkbox_group({-name   => 'topics_only_at_iwm',
+				       -values => ['Genomics, RNAi & Gene Expression',
+						   'Cell death',
+						   'Aging and Stress',
+						   'Dauer & Developmental Timing',
+						   'Neurodegeneration',
+						   'Pathogenesis'],
+				       -linebreak=>'true'})));
+  
+  print div({-class=>'surveyitem'},
+	    div({-class=>'surveyquestion'},
+		'Would you prefer that:'),
+	    blockquote(radio_group({-name   => 'meeting_length',
+				    -values => ['meetings remain in a 3-day format',
+						'meetings be increased to a 5-day format (independent of which topics are added',
+						'No opinion',
+					       ],
+				    -linebreak => 'true',
+				    -default => '--',
+				   })));
+  
+  print hr();
+
+  print h2('Meeting Site');
+  print div({-class=>'surveyitem'},
+	    div({-class=>'surveyquestion'},
+		'Where should the topics meetings be held?'),
+	    i('The Madison venue was a great success and among those
+	    attending those meetings, 64% voted to continue with
+	    Madison.  International sites were excluded since they
+	    would limit attendee numbers (due to cost and visa
+	    issues).  What do you think?'),
+
+	    div({-class=>'surveyquestion'},
+		'Development & Evolution:'),
+	    blockquote(radio_group({-name   =>'dev_meeting_location',
+				    -values => [
+						'Madison, WI, USA',
+						'East Coast, USA (possibly Cold Spring Harbor)',
+						'West Coast, USA',
+						'International site',
+						'No opinion',
+					       ],
+				    -linebreak => 'true',
+				    -default => '--'})),
+	    div({-class=>'surveyquestion'},
+		'Neurobiology:'),
+	    blockquote(radio_group({-name   =>'neuro_meeting_location',
+				    -values => [
+						'Madison, WI, USA',
+						'East Coast, USA (possibly Cold Spring Harbor)',
+						'West Coast, USA',
+						'International site',
+						'No opinion',
+					       ],
+				    -linebreak => 'true',
+				    -default => '--'})));
+  
+  print div({-class=>'surveyitem'},
+	    div({-class=>'surveyquestion'},
+		'Would you prefer that topic meetings always be in Madison?'),
+	    blockquote(radio_group({-name   => 'meetings_always_in_madison',
+				    -values => ['Yes',
+						'No',
+						'No opinion',
+					       ],
+				    -linebreak => 'true',
+				    -default => '--',
+				   })));
+  
+    print div({-class=>'surveyitem'},
+	      div({-class=>'surveyquestion'},
+		  'Would you prefer topic meetings to rotate between Madison and other US sites?'),
+	      blockquote(radio_group({-name   => 'meetings_rotate',
+				      -values => ['Yes',
+						  'No',
+						  'No opinion',
+						 ],
+				      -linebreak => 'true',
+				      -default => '--',
+				     })));
+  
+  print div({-class=>'surveyitem'},
+	    div({-class=>'surveyquestion'},
+		'Would you prefer topic meetings to rotate between Madison and International sites?'),
+	    blockquote(radio_group({-name   => 'meetings_rotate_internationally',
+				    -values => ['Yes',
+						'No',
+						'No opinion',
+					       ],
+				    -linebreak => 'true',
+				    -default => '--',
+				   })));
+  
+  print hr();
+  print h2('About you');
+  print div({-class=>'surveyitem'},
+	    div({-class=>'surveyquestion'},
+		'Where are you from?'),
+	    blockquote(radio_group({-name=>'where_from',
+				    -values => [
+						'East Coast',
+						'Midwest',
+						'West',
+						'South',
+						'Canada',
+						'Europe',
+						'Asia',
+						'Other',
+					       ],
+				    -linebreak => 'true',
+				    -default   => '--',
+				   })),
+	    blockquote('If other, please specify: ',textfield(-name=>'otherfrom',-size=>50)));
+  print div({-class=>'surveyitem'},
+	    div({-class=>'surveyquestion'},
+		'If you suggest that another meeting be organized, will you be willing to organize it?'),
+	    i('Remember that a failure to help organize certain topics will lead to a topic or topics only found at the international meetings.  If so, please leave your contact details:
+	   '),
+	    blockquote(textfield({-name=>'willing_to_organize',-size=>'50'})));
+  
+  print div({-class=>'surveyitem'},
+	    div({-class=>'surveyquestion'},
+		'Are you willing to help organize the abstracts & program
+	   for the current topic meetings (Development or Neuro)?'),
+	    i('If Yes, please state your name, email and which topic.'),
+	    blockquote(textfield({-name=>'help_with_current_meetings',-size=>'50'})));
+  
+  print div({-class=>'surveyitem'},
+	    div({-class=>'surveyquestion'},
+		'Any other comments/suggestions?'),
+	    blockquote(textarea({-name=>'other_suggestions',-rows=>5,cols=>64,-wrap=>'virtual'})));
+
+  
+  print br,hr;
+  print table({-width=>'100%'},
+	      TR(td({-align=>'right'},
+		    submit({-name=>'submit',-value=>'Submit Questionnaire Now'})))),
+		      blockquote(
+				 'Thank you for your help!',br,
+				 '-- The Organizers of the 2006 Topics Meetings');
+  
+  print end_form;
+  print end_div();
+}
+
+
+

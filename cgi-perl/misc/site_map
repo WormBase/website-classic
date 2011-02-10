@@ -1,0 +1,917 @@
+#!/usr/bin/perl
+# Creator: T. Harris, 6.2004
+
+use strict;
+use lib '../lib';
+use Ace::Browser::AceSubs;
+use ElegansSubs;
+use CGI qw(:standard :form *div *table);
+use vars qw/$PAGES $JOIN @ORDER/;
+
+OpenDatabase;
+
+$JOIN = '|';
+
+=pod
+
+=head1 Maintaing The WormBase Site Map
+
+The WormBase Site Map provides a quick way for users to learn about
+the various searches and displays at WormBase.  It is very easy to
+maintain.  This document describes how to add new entries.
+
+=head2 1. Choose which broad category the entry should fall under.
+
+Categories are used for seperating pages into intellectually-related
+groups on the "Outline View" and "Detailed Views" of the Site Map.
+
+Available categories are:
+
+           Genes
+           Phenotypes
+           Proteins
+           Genetics
+	   Cells, Lineage, Pedigree
+           Citations
+	   The Genome And Comparative Genomics
+	   Sequences
+	   Expression
+	   Ontologies
+	   Reagents
+	   People and Authors
+	   Tools
+	   Searches And Data Mining
+	   Downloads
+	   Database
+	   Feedback And Comments
+	   User Guides And Documentation
+	   About WormBase
+
+Don't worry too much about which category something should fall under;
+all items are also available in an alphabetical listing on the Site
+Map, too.
+
+Once you have decided which category you'd like to place the item
+under, find the datastructure of that same name.  The data structures
+are hash references containing arrays of items.
+
+=head2 2. Add the item to the data structure
+
+The format for each entry should look like this:
+
+  { title => 'A Title For The Entry'  (Typically the name of the page),
+    url   => URL (path, not full),
+    desc  => 'A brief description',
+    search_type => 'type of search' [optional]
+  }
+
+The optional 'search_type' entry controls whether or not the item
+should be displayed on the search page. Available categories are:
+
+  general, sequences, cells, genetics
+
+=head1 Author
+
+ Author: Todd Harris (harris@cshl.org)
+ $Id: site_map,v 1.4 2010-11-24 22:29:34 tharris Exp $
+ Copyright @ 2004 Cold Spring Harbor Laboratory
+
+=cut
+
+@ORDER = ('Genes','Phenotypes','Proteins','Genetics',
+	  'Cells, Lineage, Pedigree',
+	  'The Genome And Comparative Genomics',
+	  'Sequences',
+	  'Expression',
+	  'Ontologies',
+	  'Reagents',
+	  'People, Authors, Laboratories',
+	  'Citations',
+	  'Tools',
+	  'Searches And Data Mining',
+	  'Downloads',
+	  'Database',
+	  'Feedback And Comments',
+	  'User Guides And Documentation',
+	  'About WormBase',
+	 );
+
+$PAGES->{Genes} = 
+  [ { title => 'Genes',
+      url   => '/db/gene/gene',
+      desc => 'The Gene Summary displays gene models, sequences,
+      functional information, and bibliographies for <a
+      href="/db/gene/gene?name=vab-1;class=Gene">three-letter locus
+      names</a> and <a
+      href="/db/gene/gene?name=R13A5.9;class=Gene">predicted
+      genes</a>.'},
+    { title => 'Gene Classes',
+      url   => '/db/gene/gene_class',
+      desc => 'The Gene Class page summarizes information on three- and four- letter
+	 gene classes. Entering a specific class such as <a
+	 href="/db/gene/gene_class?name=unc">unc</a> or <a
+	 href="/db/gene/gene_class?name=egl">egl</a> displays all
+	 genes associated with that class.'
+    },
+    { title => 'Alleles And Polymorphisms',
+      url   => '/db/gene/variation',
+      desc => 'The Allele Summary includes information on isolation,
+      mutagen, strains, and phenotype.  When available, it will also
+      display the sequence and predicted effect on transcripts and
+      proteins',
+    },
+    { title => 'Operons',
+      url   => '/db/gene/operon',
+      desc => 'The Operon Summary provides information on specific
+      operons keyed by <a
+      href="/db/gene/operon?name=CEOP1140;class=operon">operon
+      ID</a>.'},
+    { title => 'Gene Regulation',
+      url   => '/db/gene/regulation',
+      desc => 'The Gene Regulation Summary displays manually curated
+      regulation of expression data. Regulation data can be retrieved
+      by <a
+      href="/db/gene/regulation?name=par-2;class=Gene_regulation">three-letter
+      locus name</a>, <a
+      href="/db/gene/regulation?name=JC8.10;class=Gene_regulation">predicted
+      gene ID</a>, or <a
+      href="/db/gene/regulation?name=cgc5377_lin-11.a;class=Gene_regulation">gene
+      regulation ID</a>.'},
+#    { title => 'Batch Genes',
+#      url   => '/db/searches/batch_genes',
+#      desc  => 'The "Batch Genes" page facilitates the retrieval of a
+#      wide variety of information on sets of genes.  For example,
+#      using this page, it is possible to quickly retrieve the genetic
+#      map position of all genes that mutate to lethality
+#      (let). See <a href="#batch_genes">below</a> for additional information.'},
+  ];
+
+$PAGES->{Phenotypes} =
+  [
+   { title => 'Phenotype',
+      url   => '/db/misc/phenotype',
+     desc => 'The Phenotype display provides a simple mechanism to search the phenotype ontology.',
+     search_type => 'ontologies'},
+   
+   { title => 'RNAi',
+      url   => '/db/seq/rnai',
+      desc => 'The RNAi display provides information on RNAi
+      experiments using either a <a
+      href="/db/seq/rnai?name=unc-26;class=RNAi">three letter locus
+      name</a>, a <a href="/db/seq/rnai?name=R13A5.9;class=RNAi">
+      molecular gene ID</a>, or an <a
+      href="/db/seq/rnai?name=JA%3AB0414.1;class=RNAi">RNAi experiment
+      ID</a>.'},
+#     { title => 'RNAi Search',
+#       url   => '/db/searches/rnai_search',
+#       desc  => "This page provides a search-based approach to browsing
+#       RNAi by phenotype and lifestage.  For example, from this page,
+#       it is possible to find all RNAi experiments that result in an
+#       uncoordinated post-embryonic phenotype.",
+#       search_type => 'genetics',
+#     },
+  ];
+
+$PAGES->{Proteins} =
+  [ { title => 'Proteins',
+      url   => '/db/seq/protein',
+      desc => 'The Protein Summary displays a unified summary of
+      information relating to proteins.  It can be searched by <a
+      href="/db/seq/protein?name=WP%3ACE28066;class=Protein">protein
+      ID</a>, <a
+      href="/db/seq/protein?name=unc-70;class=Protein">three letter
+      locus name</a>, or <a
+      href="/db/seq/protein?name=T21C12.1;class=Protein">gene
+      ID</a>.'},
+    { title => 'Motifs',
+      url   => '/db/gene/motif',
+      desc  => 'The Motif page displays a summary for specific annotated motifs in Wormbase.'},
+
+    {title => 'Yeast Two-Hybrid Interactions',
+     url   => '/db/seq/y2h',
+    desc => 'The Yeast Two-Hybrid Interaction Summary displays protein
+    interactions uncovered from yeast two hybrid interaction screens,
+    such as those described in Li et al., (2004) Science "A map of the
+    interactome network of the metazoan C. elegans. <a
+    href="/db/misc/paper?name=%5Bcgc6332%5D;class=Paper">[cgc6332]</a>',
+    },
+  ];
+
+$PAGES->{Genetics} =
+  [ { title => 'Genetic Map',
+      url   => '/db/gene/gmap',
+      desc => 'The Genetic Map display provides a web-based interface
+      to the classical Acedb genetic map.'},
+    { title => 'Loci',
+      url   => '/db/gene/locus',
+      desc => 'The Locus Summary displays primarily genetic
+      information for loci.  This includes two- and
+      three-factor mapping data, deficiency mapping, and a graphical
+      genetic map. Additional information for many loci can also be
+      found in the corresponding gene page.'},
+    { title => 'Markers',
+      url   => '/db/searches/strains',
+      desc => 'The Markers and Strains search makes it easy to find
+      suitable polymorphism and genetic markers within an interval for
+      mapping experiments.  Intervals can be specified using
+      chromosomal coordinates, genetic map positions, or genetic
+      markers.  Returned genetic markers can be filtered based on
+      those that are cloned, their ease of scoring or their mating
+      efficiency.  Polymorphisms can be filtered by those that are
+      experimentally verified or predicted, as well as by those that
+      generate restriction sites.',
+    },
+    { title => 'Interval',
+      url   => '/db/searches/interval',
+      desc => 'Like the Markers search, the Interval search allows
+      quick retrieval of all genes within a specified interval.
+      Returned markers are classified as mapped mutants (those with
+      three-letter designations not yet associated with a sequence);
+      predicted genes (genes with no associated three-letter locus);
+      or named genes (predicted genes with associated loci.',
+      search_type => 'genetics',
+    },
+    { title => 'Rearrangements',
+      url   => '/db/gene/rearrange',
+      desc => 'The Rearrangement Summary provides detailed information
+      on specific <a
+      href="/db/gene/rearrange?name=nDf20">rearrangements</a> such as
+      deletions, inversions, and duplications.  Rearrangement end
+      points are displayed as well as genes experimentally shown to be
+      contained or out of the bounds of the rearrangement.
+      Furthermore, if provided with a <a
+      href="/db/gene/rearrange?name=III">chromosome</a>, this page
+      can also display all rearrangements on the chromosome.'},
+  ];
+
+$PAGES->{'Cells, Lineage, Pedigree'} = 
+  [ { title => 'Cells',
+      url   => '/db/cell/cell.cgi',
+      desc => 'The Cell Summary provides cell-specific information on
+      lineage, overlapping expression patterns, and references for <a
+      href="/db/cell/cell.cgi?name=M1;class=Cell">individual
+      cells</a>.'},
+    { title => 'Neurons',
+      url   => '/db/searches/neuron_display',
+      desc => 'The Neuron Display provides a search-based approach to
+      browsing neurons.  For example, this page lets users find all
+      neurons contained within specific progenitor cell groups.',
+      search_type => 'cells',
+    },
+    { title => 'Life Stage',
+      url   => '/db/misc/life_stage',
+      desc => 'Provided with a life stage like, <a
+      href="/db/misc/life_stage?name=embryo;class=Life_stage">embryo</a>
+      or <a
+      href="/db/misc/life_stage?name=L4%20larva;class=Life_stage">L4
+      larva</a>, the Life Stage Display summarizes expression
+      patterns, cells, cell groups, preceeding and following life
+      stages, and references for that life stage.'},
+    { title => 'Pedigree',
+      url   => '/db/searches/pedigree',
+      desc  => 'Browse through the entire <span style="font-style:normal">C. elegans</span> lineage, searching by cells, organs, or tissues.',
+      search_type => 'cells',
+    },
+
+  ];
+
+$PAGES->{'The Genome And Comparative Genomics'} =
+  [ { title => 'Genome Browser',
+      url   => '/db/gb2/gbrowse/c_elegans/',
+      desc  => 'The Genome Browser provides a highly configurable graphical view of the genome.',
+      search_type => 'sequences'
+    },
+    { title => 'C. elegans / C. briggsae aligner',
+      url   => '/db/seq/ebsyn',
+      desc => 'The Synteny aligner currently provides alignments
+      between specific regions of C. elegans and C. briggsae. These
+      regions are predetermined based on nucleotide similarity using
+      the WABA algorithm and a secondary algorithm that attempts to
+      connect regions with high degree of nucleotide similarity with
+      only small regions of non-collinearity.',
+      search_type => 'sequences'
+    },
+  ];
+
+$PAGES->{Sequences} =
+  [ { title => 'Sequences',
+      url   => '/db/seq/sequence',
+      desc => 'Provided with a sequence ID such as a <a
+      href="/db/seq/sequence?name=AC7;class=Sequence">clone</a>, <a
+      href="/db/seq/sequence?name=JC8.10a;class=Sequence">CDS</a> or
+      similar sequence, the Sequence page displays sequence-specific
+      information.  This include an image showing the genomic location
+      of the sequence, containing clones, transcripts in the region,
+      adjacent cosmids or clones, mapping information, and predicted
+      genes and transcriptional units, and the raw sequence.  Provided
+      with a <a
+      href="/db/seq/sequence?name=JC8.10a;class=Sequence">CDS</a>, the
+      Sequence Summary also display intron/exon boundaries relative to
+      the transcript and the clone as well as the spliced and
+      unspliced sequences.'},
+    { title => 'Clones',
+      url   => '/db/seq/clone',
+      desc => 'The Clone Summary displays the physical and genomic
+      regions for <a
+      href="/db/seq/clone?name=C01G5;class=Clone">clones</a>, YACs, or
+      fosmids. This includes hidden or buried clones that may not be
+      visible on the Genome Browser.',
+      search_type => 'genetics',
+    },
+    { title => 'Transcripts',
+      url   => '/db/seq/transcript',
+      desc  => 'The Transcript Summary displays information on specfic transcripts.'},
+    #    { title => 'Batch Sequences',
+    #      url   => '/db/searches/advanced/dumper',
+    #      desc => 'The "Batch Sequences" page facilitates the retrieval of
+    #      sequences en masse. For example, using this page, all upstream
+    #      sequences for all unc genes can easily be retrieved in standard
+    #      FASTA format. See <a href="#batch_sequences">below</a> for additional information.',
+    #    },
+  ];
+
+$PAGES->{Expression} =
+  [ { title => 'Expression Patterns',
+      url   => '/db/gene/expression',
+      desc => 'Provided with a <a
+      href="/db/gene/expression?name=ceh-14;class=Expr_pattern">three-letter
+      locus name</a>, or a <a
+      href="/db/gene/expression?name=K08E5.3;class=Expr_pattern">
+      molecular gene ID</a>, the Expression Pattern Summary returns
+      all known expression patterns for that gene.  This includes
+      curated summaries, experimental details, containing cells, cell
+      groups, and life stages, and bibliographies. If provided with a
+      <a
+      href="/db/gene/expression?name=F02E9;class=Expr_pattern">clone</a>,
+      the page will return all known expression patterns associated
+      with that clone.'},
+#    { title => 'Expression Profiles',
+#      url   => '/db/gene/expr_profile',
+#      desc => 'The Expression Profile Summary displays clustered microarray
+#      profile data from <a
+#      href="http://cmgm.stanford.edu/~kimlab/topomap/c._elegans_topomap.htm">Kim
+#      et al., Science, 293: 2087-2092. 2001</a> for <a
+#      href="/db/gene/expr_profile?name=unc-26;class=Expr_profile">three-letter
+#      locus names</a> or <a
+#      href="/db/gene/expr_profile?name=R13A5.9;class=Expr_profile">molecular
+#      gene IDs</a>.',
+#      search_type => 'cells',
+#    },
+    { title => 'Microarray Results',
+      url   => '/db/microarray/results',
+      desc => 'The Microarray Results page displays microarray results
+      for specific <a
+      href="/db/microarray/results?name=Aff_2L52.A;class=Microarray_results">microarray
+      assay IDs</a>. It can also display all microarray experiments
+      pertaining to specific genes or references.'},
+    { title => 'Microarray Download',
+      url   => '/db/microarray/download',
+      desc => 'The Microarray Download page provides bulk download of
+      micorarray data by gene or reference in either HTML or plain
+      text format.'},
+    { title => 'Expression Pattern Search',
+      url   => '/db/searches/expr_search',
+      desc => 'The Expression Pattern Search facilitates the retrieval
+      of expression patterns by cell, cell group, or life stage.',
+      search_type => 'cells',
+    },
+  ];
+
+$PAGES->{Ontologies} =
+  [ { title => 'Ontology Search',
+    url   => '/db/ontology/search',
+    desc => 'Search All Ontologies',
+    search_type => 'ontologies',
+  },
+
+	{ title => 'Gene Ontology',
+      url => '/db/ontology/gene',
+      desc => 'Find genes according to their gene ontology
+      associations using the Gene Ontology browser. <a
+      href="http://www.geneontology.org">Gene ontology</a> aims to
+      provide a controlled vocabulary to describe biology, falling
+      into three areas: biological process, cellular compartment, and
+      molecular function. The browser can be searched by protein
+      descriptions (such as <a
+      href="/db/ontology/goterm?query=transport%20protein">transport
+      protein</a>) or by specific <a
+      href="/db/ontology/goterm?query=GO%3A0003776">gene ontology
+      terms</a>. When appropriate, the display returns genes or
+      proteins that have been annotated with the terms of
+      interest. Gene ontology terms for batches of genes can also be
+      retrieved via the <a href="/db/searches/batch_genes">Batch
+      Genes</a> page.',
+      search_type => 'ontologies',
+    },
+    { title => 'Anatomy Ontology',
+      url   => '/db/ontology/anatomy',
+      desc => 'Like the Gene Ontology, the Anatomy Ontology aims to
+      provide standardized terms to describe cellular anatomy.  The anatomy
+      ontology is browsable by <a
+      href="/db/ontology/anatomy?name=GABAergic%20neuron">cells</a> or
+      <a href="/db/ontology/anatomy?name=WBbt%3A0005451">anatomy
+      ontology terms</a>.',
+      search_type => 'ontologies',
+    },
+#     { title => 'Ontology Browser',
+#       url   => '/db/ontology/browse',
+#       desc => 'Browse the Gene, Phenotype, and Ontology browsers by ontology IDs',
+#       search_type => 'ontologies',
+#     },
+
+  ];
+
+
+$PAGES->{Reagents} =
+  [ { title => 'Antibodies',
+      url   => '/db/gene/antibody',
+      desc  => 'The Antibodies page displays information for published and curated antibodies.'},
+    { title => 'Transgenes',
+      url   => '/db/gene/transgene',
+      desc => 'Provided with a <a
+      href="/db/gene/transgene?name=cgc4781Is1;class=Transgene">transgene
+      ID</a>, the Transgene Display returns information such as the
+      laboratory of origin, molecular details such as promoter and
+      reporter type, integration position if available, and expression
+      pattern.'},
+    { title => 'PCR Assays',
+      url   => '/db/seq/pcr',
+      desc => 'The PCR Assays page displays the primar pairs, assay
+      conditions, genomic location, overlapping genes for <a
+      href="/db/seq/pcr?name=mv_R151.3;class=PCR_product">specific pcr
+      assays</a>.'},
+    { title => 'SAGE tags',
+      url   => '/db/seq/sage',
+      desc => 'The SAGE Report displays results from serial analysis
+      of gene expression (SAGE) tags, searchable by <a
+      href="db/seq/sage?name=SAGE:gaagtggtcc">SAGE identifiers</a>'},
+    { title => 'Strains',
+      url   => '/db/gene/strain',
+      desc => 'The Strain Summary displays information on specific
+      strains, such as its genotype, laboratory of isolation, and
+      relevant references.'},
+    #		       { title => 'WTP entries',
+    #			 url   => '/db/seq/wtp',
+    #			 desc  => ''},
+  ];
+
+$PAGES->{'People, Authors, Laboratories'} =
+  [ { title => 'People And Authors',
+      url   => '/db/misc/person',
+      desc => 'The Person Summary displays information on <a
+      href="/db/misc/person?name=WBPerson77;class=Person">C. elegans
+      researchers</a>, including contact information, and
+      author-confirmed bibliographies. These entries are curated to a
+      high degree by WormBase curators.  Less curated "Author"
+      entries, automatically generated during the literature curation
+      process, are also displayed on these page.'},
+    { title => 'Laboratories',
+      url   => '/db/misc/laboratory',
+      desc => 'The Laboratory Summary displays information on <a
+      href="/db/misc/laboratory?name=MT;class=Laboratory">C. elegans
+      laboratories</a> including lab representative and responsible
+      gene classes'},
+    { title => 'All <i>C. elegans</i> Laboratories',
+      url   => '/db/misc/laboratory?name=*',
+      desc => 'Here you can find a list of all <i>C. elegans</i>
+      laboratories, including allele designations and lab
+      representatives'},
+    ];
+
+$PAGES->{Citations} =
+    [ 
+    { title => 'C. elegans citations',
+      url   => 'ftp://ftp.wormbase.org/pub/wormbase/misc/literature/current-wormbase-literature.endnote.gz',
+      desc  => 'All C. elegans citations, preformatted for import into the <a href="http://www.endnote.com">Endnote</a> citation manager application. Updated weekly.'
+      }, 
+    { title => 'WormBook citations',
+      url   => 'http://www.wormbook.org/endnote/references.txt',
+      desc  => 'WormBook-specific citations, preformatted for import into the <a href="http://www.endnote.com">Endnote</a> citation manager application.',
+      }, 
+
+     { title => 'Bibliography',
+	url   => '/db/misc/biblio',
+	desc => 'The Bibliography Page displays all references relating
+      to a <a href="/db/misc/biblio?name=unc-25;class=Gene">gene</a>,
+      <a
+      href="/db/misc/biblio?name=WBPerson241;class=Person">author</a>,
+      or <a
+      href="/db/misc/biblio?name=T20H4;class=Clone">clone</a>.'},
+      { title => 'Reference citation',
+	url   => '/db/misc/paper',
+	desc => 'The Citation page displays information about a <a
+      href="/db/misc/paper?name=%5Bcgc184%5D;class=Paper">given
+      paper</a> using its CGC ID.'
+  },
+    { title => 'WormBase Literature Search',
+      url   => 'http://www.textpresso.org/cgi-bin/wb/textpressoforwormbase.cgi',
+      desc  => 'Search the C. elegans literature with TextPresso.',
+      search_type => 'general',
+  },
+
+      { title => 'WormBook',
+	url   => 'http://www.wormbook.org/',
+	desc  => '<a href="http://www.wormbook.org/">WormBook</a> is a comprehensive, open-access collection of original, peer-reviewed chapters on all aspects of the biology and laboratory protocols for C. elegans and related nematodes.  Crosslinks are to WormBook are provided on many WormBase pages (such as the gene page). WormBook also supports searches using WormBase terms such as genes (<a href="http://www.wormbook.org/db/misc/search.cgi?search_html=on;search_preprints=on;query=fox-1">fox-1</a>), proteins (<a href="http://www.wormbook.org/db/misc/search.cgi?search_html=on;search_preprints=on;query=POP-1">POP-1</a>), transgenes (<a href="http://www.wormbook.org/db/misc/search.cgi?search_html=on;search_preprints=on;query=qIs26">qIs26</a>), and cells (<a href="http://www.wormbook.org/db/misc/search.cgi?search_html=on;search_preprints=on;query=p8.p">p8.p</a>).',
+	    search_type => 'general',
+	},
+
+      ];
+      
+$PAGES->{Database} =
+  [ { title => 'Statistics And Classes',
+      url   => '/db/misc/database_stats',
+      desc => 'This page displays statistics on the underlying AceDB
+      and MySQL databases that power WormBase.  This includes Acedb
+      classes, subclasses, class-to-URL mappings, and GFF methods and
+      sources. Larger of use only to WormBase developers or those
+      programmatically accessing the database.'},
+    { title => 'Etree',
+      url   => '/db/misc/etree',
+      desc => 'The Etree page shows the structure of specific Acedb
+      objects in a tree outline. This is useful for seeing data stored
+      in the database that may not be displayed on the website.'},
+    { title => 'Model',
+      url   => '/db/misc/model',
+      desc  => 'The Model page displays the underlying acedb schema for specific <a href="/db/misc/model?class=Gene">acedb objects</a>.'},
+    { title => 'Class Browser',
+      url   => '/db/searches/class_query',
+      desc  => 'The Class Browser provides a browsable interface of all Acedb classes.',
+      search_type => 'general',
+    },
+  ];
+
+
+$PAGES->{'Searches And Data Mining'} =
+  [ { title => 'Basic Query',
+      url   => '/db/searches/basic',
+      desc  => 'The most rudimentary search at WormBase, the Basic Search enables searches using wildcards of the most common database objects',
+      search_type => 'general',
+    },
+    { title => 'WormBase Queries (WQL)',
+      url   => '/db/searches/wb_query',
+      desc => 'The WormBase Query page provides a web-interface to the
+     underlying Acedb database using the WormBase Query
+     Language (WQL). Results can be returned in either plain text or HTML',
+      search_type => 'general',
+    },
+    { title => 'Acedb Queries (AQL)',
+      url   => '/db/searches/aql_query',
+      desc => 'The Acedb Query page provides a web-interface to the
+      underlying Acedb database using the Ace Query Language (AQL). Results
+      can be returned in either plain text or HTML.',
+      search_type => 'general',
+    },
+    { title => 'WormMart',
+      url   => 'http://www.wormbase.org/biomart/martview',
+      desc  => 'WormMart provides an intuitive and flexible interface for fetching
+                large amounts of data from the database.  Data can be filtered by a large number
+                of parameters and dumped in a variety of formats.',
+      search_type => 'general',
+    },
+
+    { title => 'Batch Genes',
+      url   => '/db/searches/batch_genes',
+      desc => '<a name="batch_genes"></a><b>NOTE: The Batch Genes page
+      will be retired in favor of <a
+      href="http://www.wormbase.org/BioMart/martview">WormMart</a> in
+      the near future</b>.  The "Batch Genes" page facilitates the
+      retrieval of information from genes, loci, or proteins en
+      masse. For example, using this page, it is possible to quickly
+      retrieve the genetic map position of all genes that mutate to
+      lethality (let). Information can be retrieved in HTML format
+      with links back to the database or in plain text, suitable for
+      import into a spreadsheet. Among the available datatypes are
+      various internal and external database IDs, genetic and physical
+      map positions, phenoypes, strains, alleles, RNAi results,
+      concise functional descriptions, and gene ontology terms.',
+      search_type => 'sequences',
+    },
+    { title => 'Batch Sequences',
+      url   => '/db/searches/advanced/dumper',
+      desc => '<a name="batch_sequences"></a>The "Batch Sequences"
+      page facilitates the retrieval of sequences en masse. For
+      example, using this page, all upstream sequences for all unc
+      genes can easily be retrieved in standard FASTA format.  Among
+      the available features are gene models, UTRs, alleles, ESTs,
+      RNAi experiments, and PCR assays. Searches can be conducted by
+      virtually any sequence including genes, CDS, transcripts,
+      clones, and chromosomes. Results can be retrieved in plain text
+      or HTML in standard FASTA format.',
+      search_type => 'sequences',
+    },
+    { title => 'Markers',
+      url   => '/db/searches/strains',
+      desc => 'The Markers and Strains search makes it easy to find
+      suitable polymorphism and genetic markers within an interval for
+      mapping experiments.',
+      search_type => 'genetics',
+    },    
+  ];
+
+$PAGES->{Tools} =
+  [ { title => 'BLAT And BLAST',
+      url   => '/db/searches/blast_blat',
+      desc  => 'The BLAT and BLAST page provides similarity searching to the various genomes and protein sets housed at WormBase.',
+      search_type => 'sequences'
+    },
+    { title => 'Coordinate Mapper',
+      url   => '/db/misc/c2c',
+      desc => 'The Coordinate Mapper translates supplied reference
+      points into genomic coordinates, returning the smallest
+      canonical sequence that contains the reference point.',
+      search_type => 'sequences',
+    },
+    { title => 'ePCR',
+      url   => '/db/searches/epcr',
+      desc  => "This search uses Greg Schuler's e-PCR program to search for STSs in the current C. elegans genome.",
+      search_type => 'sequences'
+    },
+    { title => 'EST Aligner',
+      url   => '/db/seq/aligner',
+      desc  => 'Provided with a gene or EST ID, the EST Aligner displays a graphical alignment of that sequence with known ESTs.'},
+    { title => 'Feature Renderer',
+      url   => '/db/seq/frend',
+      desc => 'This is an experimental sequence annotation renderer
+      that illustrates use of the Generic Model Organisms System
+      Bio::Graphics module. It can be used to quickly generate images
+      of genomic ranges with custom annotations, such as images used
+      to display a genomic span during the cloning process.'},
+    { title => 'Promoter Motif Search',
+      url   => '/db/seq/promoter',
+      desc => 'The Promoter Motif Search searches for the occurence of
+      known motifs using either a predicted gene ID or a DNA
+      sequence.',
+    },
+    { title => 'CisOrtho',
+      url   => '/cisortho',
+      desc => 'Find additional binding sites for a transcription
+      factor using a known set of transcription factor binding sites',
+      search_type => 'sequences',
+    },
+  ];
+
+
+$PAGES->{'Feedback And Comments'} =
+  [ { title => 'Comments And Suggestions',
+      url   => '/db/misc/feedback',
+      desc  => 'Comments? Suggestions? Use this form to submit them to the WormBase team.'},
+    { title => 'Data Submission',
+      url   => '/db/curate/base',
+      desc  => 'Data submission forms and curator contact information'},
+    { title => 'WormBase Mailing Lists',
+      url   => 'http://groups.wormbase.org/',
+      desc  => 'This page lists WormBase-related mailing lists.'},
+    { title => 'WormBase Help Mailing List Archive',
+      url   => 'http://groups.google.com/a/wormbase.org/group/help/topics',
+      desc  => 'The archives of wormbase-help, the mailing list of most interest to WormBase users.'},
+  ];
+
+$PAGES->{'User Guides And Documentation'} =
+    [
+     { title => 'WormBaseWiki',
+       url   => 'http://www.wormbase.org/wiki',
+       desc  => 'The WormBaseWiki, collecting information on the use of WormBase and general inforamtion pertinent to the C. elegans research community'}, 
+       { title => 'WormBase Glossary',
+     url   => 'http://www.wormbase.org/wiki/index.php/Glossary_of_terms',
+     desc  => 'The WormBase Glossary contains searchable and browsable definitions 
+               of terms and features used at WormBase.'},
+   { title => "User's Guide (HTML)",
+     url   => 'http://www.its.caltech.edu/~wormbase/userguide/',
+     desc  => "The primary WormBase User's Guide."},
+   { title => "User's Guide (PDF)",
+     url   => 'http://www.its.caltech.edu/~wormbase/userguide/WormBaseUG.pdf',
+     desc  => "The primary WormBase User's Guide, in Adobe PDF format."},
+#   { title => 'Documentation Index',
+#     url   => '/docs/index.html',
+#     desc  => 'This page lists documentation of interest to WormBase users.'},
+#   { title => 'Installing WormBase (RedHat Linux)',
+#     url   => '/docs/INSTALL.html',
+#     desc  => 'This document describes the installtion procedure for WormBase on Redhat Linux.'},
+#   { title => 'Installing WormBase (Mac OS X)',
+#     url   => '/docs/install_macosx/INSTALL.macosx.html',
+#     desc  => 'This document describes the installtion procedure for WormBase on Mac OS X.'},
+  ];
+
+
+$PAGES->{'About WormBase'} =
+  [ { title => 'Mission Statement',
+      url   => '/about/mission.html',
+      desc  => 'The WormBase Mission Statement.'},
+    { title => 'Copyright Notice',
+      url   => 'http://www.wormbase.org/wiki/index.php/WormBaseWiki:Copyrights',
+      desc  => 'The WormBase Copyright Notice.'},
+    { title => 'Privacy Notice',
+      url   => 'http://www.wormbase.org/wiki/index.php/Acceptable_use_policy#Privacy_statement',
+      desc  => 'The WormBase Privacy Notice.'},
+    { title => 'People Of WormBase',
+      url   => 'http://www.wormbase.org/wiki/index.php/WormBase_Consortium',
+      desc  => 'Names and contact information of the WormBase team.'},
+    { title => 'Citing WormBase',
+      url   => 'http://www.wormbase.org/wiki/index.php/Citing_WormBase',
+      desc  => 'This document describes how to cite WormBase in publications.'},
+    { title => 'Acceptable Use Policy',
+      url   => 'http://www.wormbase.org/wiki/index.php/Acceptable_use_policy',
+      desc  => 'This document describes the acceptable use policy of the various WormBase servers.'},
+    { title => 'WormBase CVS',
+      url   => 'http://www.wormbase.org/wiki/index.php/CVS_Access_To_WormBase',
+      desc  => 'A guide to using the anonymous CVS server to check out and maintain a local installation of WormBase'},
+    { title => 'WormBase News Archive',
+      url   => '/archive/news/index.html',
+      desc  => 'Old WormBase news from years past.'},
+  ];
+
+
+$PAGES->{Downloads} =
+  [ { title => 'FTP Site',
+      url   => 'ftp://ftp.wormbase.org/pub/wormbase',
+      desc  => 'The WormBase FTP site has software, databases, and large scale datasets.'
+    },
+    { title => 'C. elegans genomic sequence',
+      url   => 'ftp://ftp.wormbase.org/pub/wormbase/genomes/c_elegans/sequences/dna/current.dna.fa.gz',
+      desc  => 'C. elegans genomic sequence in FASTA format.'},
+    { title => 'C. elegans genomic annotations',
+      url   => 'ftp://ftp.wormbase.org/pub/wormbase/genomes/c_elegans/genome_feature_tables/GFF2/current.gff2.gz',
+      desc => 'Genomic annotations in the GFF2 format.  See the
+      elegansWSXXX.gff.gz file for post-processed GFF that is used at
+      WormBase.'},
+    { title => 'C. elegans genomic annotations (GFF3)',
+      url   => 'ftp://ftp.wormbase.org/pub/wormbase/genomes/c_elegans/genome_feature_tables/GFF3/current.gff3.gz',
+      desc => 'Genomic annotations in the GFF3 format.'},
+    { title => 'Supporting Datasets',
+      url   => 'ftp://ftp.wormbase.org/pub/wormbase/datasets',
+      desc  => 'Large-scale supporting datasets archived in WormBase.'},
+    { title => 'C. briggsae analysis',
+      url   => 'ftp://ftp.wormbase.org/pub/wormbase/genomes/c_briggsae',
+      desc => 'Genomic sequence and supporting data from the
+      C. briggsae analysis: <a
+      href="/db/misc/paper?name=%5Bcgc6396%5D;class=Paper">Stein et
+      al., 2003</a>. PLoS, 1: 166-192. The genome sequence of
+      Caenorhabditis briggsae: a platform for comparative genomics.'},
+    { title => 'WormBase Software',
+      url   => 'ftp://ftp.wormbase.org/pub/wormbase/software',
+      desc => 'WormBase software releases.  See the <a
+      href="/docs/INSTALL.html">installation guide</a> for
+      additional details and prerequisites.'},
+    { title => 'WormPep',
+      url   => 'ftp://ftp.wormbase.org/pub/wormbase/genomes/c_elegans/sequences/protein/current.tar.gz',
+      desc  => 'The current C. elegans predicted protein set'},
+  ];
+
+
+
+PrintTop(undef,undef,'WormBase Site Map');
+print start_div({-class=>'container'});
+print_pages();
+PrintBottom;
+exit;
+
+
+
+######################
+# subs
+######################
+
+sub print_pages {
+  my $current = param('format');
+  $current ||= 'outline';
+  my $url = url(-absolute=>1);
+  my $alpha_url    = a({-href=>$url . '?format=alphabetical',-class=>'nochange'},'Alphabetical View');
+  my $search_url   = a({-href=>$url . '?format=searches',-class=>'nochange'},'Searches');
+  my $detailed_url = a({-href=>$url . '?format=detailed',-class=>'nochange'},'Detailed View');
+  my $outline_url  = a({-href=>$url,-style=>'color:#0000FF'},'Outline View');
+  my $old          = a({-href=>'/db/searches/search_index'},'Old Search Index');
+
+  if ($current eq 'outline') {
+    print h3(join(" $JOIN ",
+		  span({-style=>'color:black'},'Outline View'),
+		  $detailed_url,
+		  $alpha_url,
+		  $search_url,
+		  $old));
+    add_popup();
+  } elsif ($current eq 'detailed') {
+    print h3(join(" $JOIN ",
+		  $outline_url,
+		  span({-style=>'color:black'},'Detailed View'),
+		  $alpha_url,
+		  $search_url,
+		  $old));
+    add_popup();
+  } elsif ($current eq 'alphabetical') {
+    print h3(join(" $JOIN ",
+		  $outline_url,
+		  $detailed_url,
+		  span({-style=>'color:black'},'Alphabetical View'),
+		  $search_url,
+		  $old));
+  } else {
+    print h3(join(" $JOIN ",
+		  $outline_url,
+		  $detailed_url,
+		  $alpha_url,
+		  span({-style=>'color:black'},'Searches'),
+		  $old));
+  }
+
+  print start_div({-class=>'blue'});
+  search_view()       if ($current eq 'searches');
+  outline_view()      if ($current eq 'outline');
+  detailed_view()     if ($current eq 'detailed');
+  alphabetical_view() if ($current eq 'alphabetical');
+  print end_div,end_div;
+}
+
+sub add_popup {
+  my @values  = map { "#$_" } @ORDER;
+  my %labels = map { '#' . $_ => $_ } @ORDER;
+  print start_form({-name=>'categories'}),'Categories:&nbsp;&nbsp;',
+    popup_menu(-labels=>\%labels,
+	       -values=>\@values,
+	       -onChange=>'window.location.href=options[selectedIndex].value'),
+		 end_form;
+}
+
+sub outline_view {
+  foreach my $category (@ORDER) {
+    print a({-name=>$category},'');
+    print div({-class=>'category'},$category);
+    print start_div({-class=>'pages'});
+    print join (" $JOIN ",map { a({-href=>$_->{url}},$_->{title}) } @{$PAGES->{$category}});
+    print end_div;
+  }
+}
+
+
+sub detailed_view {
+  foreach my $category (@ORDER) {
+    print a({-name=>$category},'');
+    print div({-class=>'category'},$category);
+    print start_table({-class=>'incontainer',-cellpadding=>10});
+    print map { TR({-class=>'pageentry'},
+		   td({-class=>'pagetitle'},a({-href=>$_->{url}},$_->{title})),
+		   td({-class=>'pagedescription'},$_->{desc})) } @{$PAGES->{$category}};
+    print end_table;
+  }
+}
+
+sub alphabetical_view {
+  my @all;
+  foreach my $category (@ORDER) {
+    push (@all,@{$PAGES->{$category}});
+  }
+  print div({-class=>'category'},'&nbsp;');
+  print start_table({-class=>'incontainer',-cellpadding=>10});
+  # This should ignore case...
+  foreach (sort { $a->{title} cmp $b->{title} } @all) {
+    print TR({-class=>'pageentry'},
+	     td({-class=>'pagetitle'},a({-href=>$_->{url}},$_->{title})),
+	     td({-class=>'pagedescription'},$_->{desc}));
+  }
+  print end_table,end_div;
+}
+
+
+sub search_view {
+  my @all;
+  foreach my $category (@ORDER) {
+    push (@all,grep { defined $_->{search_type}} @{$PAGES->{$category}});
+  }
+
+  my %labels = (general => 'General',
+		sequences => 'Sequences',
+		cells     => 'Cells And Gene Expression',
+		genetics  => 'Genetics, Strains, Phenotypes',
+		ontologies => 'Ontologies');
+
+  foreach my $category (qw/general sequences cells genetics ontologies/) {
+    # Sort them based on the search category
+    print div({-class=>'category'},$labels{$category});
+    print start_table({-class=>'incontainer',-cellpadding=>10});
+    foreach (sort { $a->{title} cmp $b->{title} } @all) {
+      next unless ($_->{search_type} eq $category);
+      print TR({-class=>'pageentry'},
+	       td({-class=>'pagetitle'},a({-href=>$_->{url}},$_->{title})),
+	       td({-class=>'pagedescription'},$_->{desc}));
+    }
+    print end_table;
+  }
+}
+
+
+
+sub search_view_old {
+  my @all;
+  foreach my $category (@ORDER) {
+    push (@all,grep { defined $_->{search_type}} @{$PAGES->{$category}});
+  }
+
+  # Sort them based on the search category
+  print div({-class=>'category'},'&nbsp;');
+  print start_table({-class=>'incontainer',-cellpadding=>10});
+  foreach (sort { $a->{title} cmp $b->{title} } @all) {
+    print TR({-class=>'pageentry'},
+	     td({-class=>'pagetitle'},a({-href=>$_->{url}},$_->{title})),
+	     td({-class=>'pagedescription'},$_->{desc}));
+  }
+  print end_table,end_div;
+}

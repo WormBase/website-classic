@@ -1,0 +1,86 @@
+#!/usr/bin/perl -w
+# -*- Mode: perl -*-
+# file: epic
+# load geneticMap from a servlet
+
+use lib '../lib';
+use strict;
+
+use CGI 2.42 qw/:standard escape Map Area Layer/;
+use CGI::Carp;
+use Ace::Browser::AceSubs;
+use ElegansSubs;
+
+use LWP::UserAgent;
+use HTTP::Request;
+use HTTP::Response;
+
+my $name = param('name');
+my $cls = param('class');
+
+#my $url = Configuration->Map_servlet;
+# We're either called with a map name or with a locus name.  We need to find out which.
+my $obj = GetAceObject();
+PrintTop($obj);
+AceError("No such map or locus known.") if $name && !$obj;
+
+print_obj($obj) if $obj;
+print h1('Genetic Map');
+print p('Type in the name of a map, such as',ObjectLink('II','II','Map'),'or a marker on a map such as '
+	,ObjectLink('unc-9','unc-9','Locus'),'.');
+
+print
+  start_form(-action=>url()),
+  table (
+	 TR (th('Name'),td(textfield(-name=>'name')),
+	     th('Class'),td(popup_menu(-name=>'class',-value=>['Map','Locus'],-labels=>{Locus=>'Marker'})),
+	     td(submit({-style=>'background: white', -name=>'Change'}))),
+	 ),
+  end_form;
+
+PrintBottom();
+
+sub print_obj {
+  my $obj = shift;
+  my $chrom = $obj;
+
+  # sort of nasty stuff that we have to pass to the servlet
+  my $linkurl = Object2URL('foo','Locus');
+  $linkurl =~ s/foo.+$//;
+  my $server = server_name();
+  my $url = "http://$server:8080/mapview/servlet/LocusDisplayHtml";
+  my $aceport = Configuration->Jadex_port;
+
+  my $query = "$url?server=$server&aceport=$aceport&linkurl=$linkurl&script=".url();
+  my $start = param('start');
+  my $end = param('end');
+
+  if ($obj->class =~ /Map/) {
+    $query .= "&name=$obj";
+    $query .= "&start=$start" if defined $start;
+    $query .= "&end=$end" if defined $end;
+  } elsif ($obj->class eq 'Locus') {
+    $chrom = $obj->Map;
+    my $position = $obj->Map(3);
+    AceError("$obj is not genetically mapped") unless $chrom;
+    $start = $position - 2 unless defined $start;
+    $end   = $position + 2 unless defined $end;
+    $query .= "&name=$chrom&start=$start&end=$end&locus=$obj";
+  }
+  my $req = HTTP::Request->new(GET=>$query);
+  my $ua = LWP::UserAgent->new();
+  my $response = $ua->request($req);
+  unless ($response->is_success) {
+    print h1({-class=>'error'},'An unexpected error occurred and we were unable to process your request');
+    print h2({-class=>'error'},'Please notify the webmaster.');
+    print pre("failed request =\n$query");
+    exit 0;
+  }
+    
+
+  print h1("Chromosome $chrom");
+  print $response->content();
+}
+
+
+exit 0;

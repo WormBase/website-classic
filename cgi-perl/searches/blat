@@ -1,0 +1,10 @@
+#!/usr/bin/perl
+
+# $Id: blat,v 1.1.1.1 2010-01-25 15:36:05 tharris Exp $
+
+use strict;
+use CGI qw/:standard/;
+
+print redirect('/db/searches/blast_blat');
+
+1;

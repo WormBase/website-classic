@@ -1,0 +1,154 @@
+#!/usr/bin/perl
+
+use CGI;
+
+my $query = new CGI;
+my $uid = $query->param("uid");
+my $uidencode = $uid;
+my $java_location = "/usr/local/jdk/bin";
+my $iBrowse_dir = "/usr/local/wormbase/cgi-perl/nbrowse";
+my $temp_data = "$iBrowse_dir/temp_data";
+my $tempJAR_directory =  "$iBrowse_dir/temp_data/$uid";
+my $jar_file = "$uid.jar";
+my $keystore_location = "$iBrowse_dir/myKeystore";
+my $jnlp_plugins_dir="dev.wormbase.org:9022/nbrowse_t/jnlp/plugins"; # localhost:9022/NBrowse_WS/jnlp/plugins
+my $codebase = "dev.wormbase.org:9022/db/nbrowse"; # localhost:9002/db/NBrowse/
+
+#print $query->header( -type => "text/html");
+
+#print $query->header( -type => "application/x-java-jnlp-file");
+
+#print &CGI::header;
+#
+#print "<H1> Date </H1>\n";
+#print "<pre>\n";
+#print `date\n`;
+#print "</pre>\n";
+#
+#print "<H1> Execute Java DB </H1>\n";
+#print "<pre>\n";
+#print "user id = $uid\n";
+#print "make dir\n";
+
+$uidencode =~ s/([^A-Za-z0-9])/sprintf("%%%02X", ord($1))/seg;
+
+if ( ! -d "./temp_data/$uid"){
+   `mkdir ./temp_data/$uid`;
+   `chmod 777 ./temp_data/$uid`;
+}
+
+#print "make dir done~\n";
+#`java -classpath .:mysql-connector-java-3.0.15-ga-bin.jar databaseProcess.genSIF 147917a:101bae28e47:-7fff`;
+my $shell_cmd1 = "$java_location/java -classpath .:mysql-connector-java-3.0.15-ga-bin.jar databaseProcess.genSIF $uid";
+my $return_1A = system($shell_cmd1); # return '0' means OK!
+
+#print "Java Done~ and return $return_1A\n";
+#print "</pre>\n";
+
+
+my ($project_file)  = makeProjectFile();
+#print $project_file." build end.<p>\n";
+#print "<H1> build data.jar and sign </H1>\n";
+#print "<pre>\n";
+chdir "$tempJAR_directory";
+
+`cp ../../vizmap.props ./`;
+
+my $shell_cmd2 = "$java_location/jar cf $jar_file \*";
+my $return_2A = system($shell_cmd2); # return '0' means OK!
+#print "jar is done and return $return_2A<p>";
+
+my $shell_cmd3 ="$java_location/jarsigner -keystore $keystore_location -storepass testPass $tempJAR_directory/$jar_file myself";
+my $return_3A =system($shell_cmd3); # return '0' means OK!
+#print "jar has already been signed and return $return_3A<p>";
+#print "</pre>\n";
+chdir "$iBrowse_dir";
+#`mv $tempJAR_directory/$jar_file /usr/local/apache2/rnai3_pub/hueyling/`;
+`mv $tempJAR_directory/$jar_file $temp_data/`;
+`echo $uid | ./hueyling.pl`;
+`rm -rf $tempJAR_directory`;
+`chmod 755 $temp_data/$uid.pl`;
+`chmod 755 $temp_data/$jar_file`;
+
+#print &CGI::header;
+
+print $query->header( -type => "application/x-java-jnlp-file");
+
+print "<?xml version=\"1.0\" encoding=\"utf-8\"?>";
+print "<jnlp  codebase=\"$codebase\">";
+print "  <information>                                             ";
+print "    <title>Cytoscape with NBrowse data</title>                 ";
+print "    <vendor>NYU Biology</vendor>                       ";
+print "    <homepage href=\"http://gnetbrowse.org/\"/>               ";
+print "    <offline-allowed/>                                      ";
+print "  </information>                                            ";
+print "  <security>                                                ";
+print "      <all-permissions/>                                    ";
+print "  </security>                                               ";
+print "  <resources>                                               ";
+print "    <j2se version=\"1.4+\" max-heap-size=\"1024M\"/>        ";
+print "    <jar href=\"dev.wormbase.org:9022/nbrowse_t/jnlp/cytoscape.jar\"/>                           "; # localhost:9022/NBrowse_WS/jnlp/cytoscape.jar
+print "    <jar href=\"temp_data/$uid.pl\"/>             ";
+print "  </resources>                                              ";
+print "  <application-desc>                                        ";
+print "    <argument>-p</argument>                                 ";
+print "    <argument>jar://project</argument>                      ";
+print "    <argument>--JLW</argument>                              ";
+print "    <argument>$jnlp_plugins_dir/control.jar</argument>       ";
+print "    <argument>--JLW</argument>                              ";
+print "    <argument>$jnlp_plugins_dir/diff.jar</argument>       ";
+print "    <argument>--JLW</argument>                              ";
+print "    <argument>$jnlp_plugins_dir/filter.jar</argument>       ";
+print "    <argument>--JLW</argument>                              ";
+print "    <argument>$jnlp_plugins_dir/HierarchicalLayout.jar</argument>       ";
+print "    <argument>--JLW</argument>                              ";
+print "    <argument>$jnlp_plugins_dir/jgraphLayout.jar</argument>       ";
+print "    <argument>--JLW</argument>                              ";
+print "    <argument>$jnlp_plugins_dirs/layout.jar</argument>       ";
+print "    <argument>--JLW</argument>                              ";
+print "    <argument>$jnlp_plugins_dir/MCODE.jar</argument>       ";
+print "    <argument>--JLW</argument>                              ";
+print "    <argument>$jnlp_plugins_dir/SigAttributes.jar</argument>       ";
+print "    <argument>--JLW</argument>                              ";
+print "    <argument>$jnlp_plugins_dir/yeast-context.jar</argument>       ";
+print "    <argument>--JLW</argument>                              ";
+print "    <argument>$jnlp_plugins_dir/yLayouts.jar</argument>       ";
+#print "    <argument>--JLL</argument>                              ";
+#print "    <argument>http://nematodadev.bio.nyu.edu:8080/NBrowse/jnlp/pluginList</argument>       ";
+print "  </application-desc>                                       ";
+print "                                                            ";
+print "                                                            ";
+print "</jnlp>                                                     ";
+print "                                                            ";
+
+
+## project file : list all sub files in this JNLP files.
+#   eg.
+#		sif=jar://sample.sif
+#		props=jar://props
+#		noa=jar://node.noa
+#		noa=jar://edge.noa
+#		noa=jar://nodeExperssion.noa
+#		noa=jar://nodeGLproperty.noa
+#		noa=jar://nodeCluster.noa
+sub makeProjectFile {
+	my $base = "/usr/local/wormbase/cgi-perl/nbrowse/temp_data";
+	my $folder = "$base/$uid";
+	my $attr_folder = "$base/attributes";
+	my $newfile = "project";
+	open OUT, ">", "$folder/$newfile"
+	or die "Can't open output file $folder/$newfile : $!\n";
+	print OUT "sif=jar://sample.sif \n";
+	print OUT "vprops=jar://vizmap.props \n";
+	#print OUT "noa=jar://node.noa \n";
+	#print OUT "eoa=jar://edge.noa \n";
+	#print OUT "noa=jar://nodeExperssion.noa  \n";
+	close OUT;
+
+	#`cp $attr_folder/\* $folder/ 2> $folder/err` ;
+
+	return $newfile;
+
+}
+## end of makeProjectFile
+###############################################################################################

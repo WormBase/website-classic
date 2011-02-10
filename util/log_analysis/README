@@ -1,0 +1,115 @@
+WormBase log analysis
+
+---------------------------------------------
+Analyzing logs on a per-release basis
+---------------------------------------------
+Typically, at the end of a release cycle, you should update
+the log analysis. You can do this by:
+
+  % /usr/local/wormbase/logs/analyze_logs.sh WSXXX
+  
+(See the bottom of analyze_logs.sh for complete examples
+for different scenarios)
+
+analyze_logs.sh will:
+
+  1. Concatenate the current logs to a single file, access_log.WSXXX.gz
+       (via concatenate_logs.sh)
+  2. Do hostname lookups (via add_hostnames.pl)
+  3. Do log analysis on the release (using analog)
+  4. Calculate the most popular genes for the current release
+  5. Create reports and graphs at html/stats/WSXXX/ using report magic
+
+  6. Concatenate the current logs to the current running year
+  7. Do log analysis and report generation for year-to-date
+  8. Do log analysis and report generation for total accesses
+
+The scripts and files that make this process happen are:
+
+concatenate_logs.sh
+   Concatenates all the logs for a current release, generating 
+   logs/archive/accesss_log.WSXXX.gz
+
+ % concatenate_logs.sh WS130
+
+most_popular_genes.pl
+    Calculate the most popular genes for a given time period
+     
+ % most_popular_genes.pl \
+	-logs /usr/local/wormbase/logs/access_log \
+	-output /usr/local/wormbase/html/stats/WS130/ \
+	-release WS130 \
+	-format HTML
+
+analog.conf and analog-yearly.conf
+    Configuration files for analog-based log analysis. The misnamed
+    "analog-yearly.conf" should be used for periods less than one 
+    year. It excludes the "YEARLY" stats.
+
+rmagic.conf
+    Configuration file for report magic-based generation of charts
+
+
+
+For releases that bracket a year, the release needs to be split from
+one year to the next. Sorry, this should be robust enough to handle this.
+
+For the second half of the release in the new year.
+
+1. Concatenate the logs using concatenate_logs.sh
+
+    concatenate_logs.sh WSXXX
+
+2. ./extract_daterange.pl 01/Jan/2005 12/Dec/2005 \
+    'zcat /usr/local/wormbase/logs/archive/raw/access_log.WS136.gz |' \
+    | gzip -c > /usr/local/wormbase/logs/archive/raw/access_log.2005-cumulative.gz 
+
+3. Modify the analyze_logs.sh so as not to repeat the log
+concatenation(actually occurs in two places)
+
+etc, etc, etc.  Total pain.
+
+--
+
+What follows is Lincoln's original log analysis tools
+(some of which are used above)
+
+--
+
+1) Run add_hostnames.pl and redirect output to a file.  This runs the resolver
+on the IP addresses.  Suggest:
+
+    mkdir 2003
+    add_hostnames.pl |gzip -c > 2003/access_log_through_10_march_2003.gz
+
+NOTE: This takes a long time to run (maybe overnight).  It might be better to
+run extract_datarange.pl FIRST and then to run add_hostnames.pl.
+
+2) Run wormbase_stats.pl on the file you just created:
+
+   wormbase_stats.pl 2003/access_log_through_10_march_2003.gz > 2003/host_stats.txt
+
+   This will give the list of hits, sorted by month, but the rest of the data
+   will be the WHOLE PROJECT.
+
+3) Extract a recent period, say last six complete months:
+
+   extract_daterange.pl 01/Sep/2002 28/Feb/2003 \
+	'zcat 2003/access_log_through_10_march_2003.gz |' \
+	| gzip -c > 2003/access_log_sep2002_feb2003.gz
+
+Be careful with this, because the dates are pattern matches and the
+file must be sorted in chronological order.
+
+4) Run wormbase_stats.pl to get recent stats
+
+   wormbase_stats.pl 2003/access_log_sep2002_feb2003.gz > 2003/host_stats_recent.txt
+
+3) Run tally_hosts.pl on the file to get domain list:
+
+   tally_hosts.pl 2003/host_stats_recent.txt > 2003/domains.txt
+
+4) Run tally_referers.pl on the file to get domain list:
+
+   tally_referers.pl 2003/host_stats_recent.txt > 2003/referers.txt
+

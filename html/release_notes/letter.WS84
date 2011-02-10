@@ -1,0 +1,172 @@
+New Release of acedb WS84, Wormpep84 and Wormrna84 Mon Aug 12 18:05:39 BST 2002
+
+======================================================================
+
+This directory includes:
+
+i)	database.WS84.*.tar.gz     -   compressed data for new release
+
+ii)	models.wrm.WS84           -   the latest database schema (also in above database files)
+
+iii)	CHROMOSOMES/subdir         -   contains 3 files (DNA, GFF & AGP per chromosome)
+
+iv)	WS84-WS83.dbcomp    -   log file reporting difference from last release
+
+v)	wormpep84.tar.gz           -   full Wormpep distribution corresponding to WS84
+
+vi)	wormrna84.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+
+vii)	confirmed_genes.WS84.gz  -   DNA sequences of all genes confirmed by EST &/or cDNA
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS84
+------------------------------------
+brigdb : 2002-08-05 - updated
+camace : 2002-08-06 - updated
+citace : 2002-08-06 - updated
+cshace : 2002-06-30
+genace : 2002-08-06 - updated
+stlace : 2002-08-05 - updated
+
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS84       	WS83      	change
+----------------------------------------------
+a    	32344742	32344796	 -54
+c    	17767680	17767733	 -53
+g    	17745321	17745345	 -24
+t    	32346297	32346366	 -69
+n    	95      	95      	  +0
+-    	62800   	62800   	  +0
+
+Total	100266935	100267135	-200
+
+Removal of 200bp due to correction of error where overlapping sequence
+was duplicated.
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 19476 CDS in autoace, 20800 when counting 1324 alternate splice forms.
+
+The 20800 sequences contain 9,194,857 base pairs in total.
+
+Modified entries             188
+Deleted entries               51
+New entries                  116
+Reappeared entries             3
+
+Net change  +68
+
+
+GeneModel correction progress WS83 -> WS84
+-----------------------------------------
+
+Confirmed introns not is a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|   1644  |  -329  |
+St Louis 	|    539  |  -144  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|     29  |     0  |
+St Louis 	|    181  |    -3  |
+		+---------+--------+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+CHROMOSOME_II	sequence AF016683
+CHROMOSOME_II	sequence AF016683
+CHROMOSOME_IV	sequence AC006701
+CHROMOSOME_IV	sequence AC025724
+CHROMOSOME_IV	sequence AC025724
+CHROMOSOME_IV	sequence AF125445
+CHROMOSOME_IV	sequence AF125445
+----------------------------------------------------------------
+
+
+Remaining gaps: 
+---------------
+For more info mail worm@sanger.ac.uk 
+
+# Gaps are covered by a 950Kb SseI fragment 
+
+III      1005794   1028769   37  F    AC087078.1      1       22976  +
+III      1028770   1029769   38  N                             1000
+III      1029770   1075569   39  F    AC084156.1      1       45800  +
+
+# Gaps are covered by YAC clones in production at St Louis
+
+X              1      2649    1  F    AL031272.2      1       2649   +
+X           2650      3649    2  N                            1000
+X           3650     14860    3  F    AC087735.2      1       11211  +
+
+X         177585    194657    6  F    AC084160.2      1       17073  +
+X         194658    225057    7  N                            30400
+X         225058    254821    8  F    Z83097.1        1       29764  +
+
+X         225058    254821    8  F    Z83097.1        1       29764  +
+X         254822    285221    9  N                            30400
+X         285222    299761   10  F    AC024789.1      1       14540  +
+
+
+
+New Data:
+---------
+updated Interpro and Pfam motifs
+
+New Fixes:
+----------
+
+
+Known Problems:
+--------------
+
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

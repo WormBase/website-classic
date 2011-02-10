@@ -1,0 +1,52 @@
+#!/usr/bin/perl
+
+use strict;
+use Bio::Das;
+
+my %servers;
+my %ok;
+
+#read from das.servers.conf
+open(IN, './das.servers.conf');
+my @servers = <IN>;
+foreach (@servers){
+  chomp;
+  my ($handle,$server,$dsn) = split /\t/, $_;
+  $servers{$handle} = $server;
+  $ok{$handle}{$dsn} = 1;
+}
+close(IN);
+
+#write to das.servers
+open(OUT, '>./das.servers');
+foreach my $handle (keys(%servers)){
+
+  my $server = $servers{$handle};
+
+  my $db            = Bio::Das->new($server);
+  my $stylesheet    = $db->stylesheet;
+  my @sources       = $db->sources;
+
+  warn  "Updating $handle $server:";
+
+  foreach my $source (@sources){
+    #comment this if you want to get everything
+    next unless $ok{$handle}{$source};
+
+    warn "    $source....";
+
+    $db->dsn($source);
+    my @entry_points = $db->entry_points;
+    #remove the pesky coords from the returned entry point
+    foreach(@entry_points){s/^(.+?)\/.+/$1/;}
+
+    my @types        = sort $db->types;
+
+    print OUT $handle,"\t",$server,"\t";
+    print OUT $source,"\t";
+    print OUT join "^", @entry_points,"\t";
+    print OUT join "^", @types;
+    print OUT "\n";
+  }
+}
+close(OUT);

@@ -1,0 +1,121 @@
+#!/usr/bin/perl
+
+use CGI qw(:standard *table *TR *td escape);
+use strict;
+
+
+my $cgi = new CGI;
+
+print $cgi->header;
+
+print $cgi->start_html('Form Development');
+
+
+print_search_form($cgi);
+
+
+print $cgi->end_html;
+
+
+
+
+sub print_search_form {
+    
+    my $cgi = shift @_;
+    
+    print $cgi->startform(-method=>'GET', 
+			  -action=>'search');   
+
+    print "<br><hr><br>Search for term, phrase, or term ID that \&nbsp\;\&nbsp;";
+    
+    my %string_choices = (#'before'=>'Starts with', 
+			  #'after'=>'Followed by', 
+			  'middle'=>'Contains',
+			  'stand_alone'=>'Stands Alone'
+			  );
+
+    print $cgi->popup_menu(-name=>'string_modifications', 
+			   -values=>[
+				     #'before',
+				     #'after',
+				     'middle',
+				     'stand_alone'], 
+			   -default=>'middle', 
+			   -labels=>\%string_choices);
+ 
+    
+    print "<br><br>\n";
+
+    print $cgi->textfield(-name=>'query', 
+			  -size=>50, 
+			  -maxlength=>80);
+    
+    print "<br><br>In the following ontologies\:<br><br>\n";
+
+    my %ontologies = ('biological_process'=>'GO: Biological Process',
+                      'cellular_component'=>'GO: Cellular Component',
+                      'molecular_function'=>'GO: Molecular Function',
+		      'anatomy'=>'Anatomy',
+		      'phenotype'=>'Phenotype'
+		      );
+
+#    print $cgi->scrolling_list(-name=>'ontologies', 
+#			       -values=>['biological_process','cellular_component','molecular_function','anatomy','phenotype'], 
+#			       -default=>['biological_process','cellular_component','molecular_function'], 
+#			       -multiple=>'true', -labels=>\%ontologies);
+#	print "<br><br>";
+
+    print $cgi->checkbox_group(-name=>'ontologies', 
+			       -values=>['biological_process','cellular_component','molecular_function','anatomy','phenotype'], 
+			       -default=>['biological_process','cellular_component','molecular_function'], 
+			       -multiple=>'true', -labels=>\%ontologies);
+	print "<br><br>";
+
+
+
+    print $cgi->checkbox(-name=>'with_annotations_only', 
+			 #-checked=>'checked', 
+			 -value=>'ON', 
+			 -label=>'Return Only Terms with Annotations');
+
+    print "<br><br>Sort Annotations \&nbsp\;\&nbsp\;";
+    
+    my %sorting_choices = ('alpha'=>'Alphabetically',
+			   'annotation_count'=>'By number of annotations'
+			   );
+
+    print $cgi->popup_menu(-name=>'sort',
+                           -values=>[
+                                     'alpha',
+                                     'annotation_count'],
+                           -default=>'alpha',
+		       -labels=>\%sorting_choices);
+
+    print "<br><br>";
+
+    print "Include the following areas in the search\:<br><br>\n";
+
+
+ my %filter_choices = (
+ 				'd'=>'definition',
+			   	's'=>'synonyms'
+			   	);
+
+    print $cgi->scrolling_list(-name=>'filters',
+                           -values=>[
+                                     'd',
+                                     's'],
+						   -default=>[
+						         'd',
+                                 's'],
+		      				-multiple=>'true',
+		      				-labels=>\%filter_choices);
+
+    print "<br><br>\n";
+
+    print $cgi->submit('Submit');
+    print "\&nbsp\;\&nbsp\;";
+    print $cgi->defaults('  Reset  ');
+
+	print $cgi->endform;
+}

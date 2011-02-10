@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="8"
+   name=""
+   committed-date="2008-09-06T14:00:30.280143Z"
+   url="svn+ssh://tharris@toddharris.net/home/tharris/svn/public/Flickr-API-Simple/lib/Flickr/API/Simple"
+   last-author="tharris"
+   kind="dir"
+   uuid="2fd37b26-5054-0410-acc1-87f233285a77"
+   revision="10"/>
+<entry
+   committed-rev="11"
+   name="Photo.pm"
+   text-time="2008-09-06T20:26:33.000000Z"
+   committed-date="2008-09-15T16:45:56.194675Z"
+   checksum="50d32da14c256662f909afa2a64a487d"
+   last-author="tharris"
+   kind="file"
+   prop-time="2008-09-06T15:55:41.000000Z"
+   revision="11"/>
+<entry
+   committed-rev="11"
+   name="Tag.pm"
+   text-time="2008-09-06T19:48:02.000000Z"
+   committed-date="2008-09-15T16:45:56.194675Z"
+   checksum="24d5c84708abed2140f191048fab614c"
+   last-author="tharris"
+   kind="file"
+   prop-time="2008-09-06T15:55:41.000000Z"
+   revision="11"/>
+<entry
+   committed-rev="8"
+   name="Group.pm"
+   text-time="2008-09-06T15:55:41.000000Z"
+   committed-date="2008-09-06T14:00:30.280143Z"
+   checksum="03cde855abdd85b037038f9e411267b8"
+   last-author="tharris"
+   kind="file"
+   prop-time="2008-09-06T15:55:41.000000Z"/>
+<entry
+   committed-rev="8"
+   name="User.pm"
+   text-time="2008-09-06T15:55:41.000000Z"
+   committed-date="2008-09-06T14:00:30.280143Z"
+   checksum="919beb9b3ebd19079eb4b745b8ef786f"
+   last-author="tharris"
+   kind="file"
+   prop-time="2008-09-06T15:55:41.000000Z"/>
+<entry
+   committed-rev="8"
+   name="Comment.pm"
+   text-time="2008-09-06T15:55:41.000000Z"
+   committed-date="2008-09-06T14:00:30.280143Z"
+   checksum="383cbdadab1df3ffd0060063f7bd5e44"
+   last-author="tharris"
+   kind="file"
+   prop-time="2008-09-06T15:55:41.000000Z"/>
+</wc-entries>

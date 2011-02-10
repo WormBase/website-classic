@@ -1,0 +1,30 @@
+#!/usr/bin/perl
+
+use strict;
+use CGI qw(param header);
+use DBI;
+
+my $dsn  = 'dbi:mysql:elegans';
+my $user = 'nobody';
+my $passwd = '';
+
+my $dbh = DBI->connect($dsn,$user,$passwd) or die DBI->errstr;
+my $name  = param('query');
+my $class = param('class') || 'AnyGene';
+
+print header('text/plain');
+
+my $query = $class eq 'Any'     ? 'select gname from fgroup where gname like ? order by gname LIMIT 30'
+           :$class eq 'AnyGene' ? "select gname from fgroup where gclass in ('Gene','Locus','Transcript') and gname like ? order by gname LIMIT 30"
+                                : "select gname from fgroup where gclass='$class' and gname like ? order by gname LIMIT 30";
+
+warn $query;
+
+my $sth =  $dbh->prepare($query)      or die $dbh->errstr;
+$sth->execute(quotemeta($name).'%')   or die $sth->errstr;
+
+while (my($h) = $sth->fetchrow_array) {
+  print $h,"\n";
+}
+
+exit 0;

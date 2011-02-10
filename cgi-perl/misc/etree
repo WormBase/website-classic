@@ -1,0 +1,182 @@
+#!/usr/bin/perl
+
+# version of tree that is very
+# slightly optimized for C. elegans data model
+
+use lib '../lib';
+
+use strict;
+use vars qw/$DB $URL $NAME $CLASS %PAPERS $VIEW $MAXEXPAND/;
+
+use Ace 1.51;
+use CGI 2.42 qw/:standard :html3 escape/;
+use CGI::Carp qw/fatalsToBrowser/;
+use Ace::Browser::AceSubs qw(:DEFAULT Style);
+use Ace::Browser::TreeSubs;
+use ElegansSubs qw(:DEFAULT GenBankLink);
+
+END {
+  undef $URL;
+  undef $NAME;
+  undef $CLASS;
+  undef %PAPERS;
+  undef $VIEW;
+}
+
+$NAME  = param('name');
+$CLASS = param('class');
+$VIEW  = param('view');
+$NAME =~ s/^#/?/ if $CLASS eq 'Model';
+$MAXEXPAND = 10;
+
+# fetch database handle
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+display_object($NAME,$CLASS);
+exit 0;
+
+sub display_object {
+  my ($name,$class) = @_;
+
+  my $style = Style();
+  $style->{'code'} =<<END;
+TH,TD { 
+    font-size: 10pt;
+}
+h1 {
+    font-size: 18pt;
+}
+END
+;
+
+  my ($obj) = $DB->fetch(-class=>$class,
+			 -name=> $name,
+			 -fill=>1) if $class && $name;
+  PrintTop($obj,$class,$obj ? "Tree display of: $obj" : "Tree display",
+	   -Style=>$style);
+
+  if (param()) {
+      my $url = url({-absolute=>1}) . "?name=$NAME;class=$CLASS";
+      print p(a({-href=>$url . ';view=expand'},'[expand all nodes]'),
+	      a({-href=>$url . ';view=collapse'},'[collapse all nodes]'));
+  }
+  print 
+      start_form(-name=>'question'),
+      table(
+	    TR (th('Name'),td(textfield(-name=>'name',-onChange=>'document.question.submit()')),
+		th('Class'),td(textfield(-name=>'class',-size=>15,-onChange=>'document.question.submit()')),
+		td(submit({-style=>'background: white',-name=>'Change'}))),
+	    ),
+      end_form;
+  
+
+  if ($obj) {
+    my ($n,$c) = (CGI::escape($name),CGI::escape($obj->class));
+    local(%PAPERS) = ();
+    my $myimage = ($class =~ /^Picture/ ? $obj->Pick_me_to_call->right->right : 'No_Image') ;
+    print $obj->asHTML(\&to_href) || strong('No more text information about this object in the database'),"\n";
+  } elsif (param('name')) {
+    print strong('No more information about this object in the database.'),"\n";
+  }
+
+  PrintBottom;
+}
+
+sub to_href {
+  my $obj = shift;
+
+  if ($obj->class eq 'txt') {
+    return $obj =~ /\n/ ? pre(escapeHTML($obj)) : escapeHTML($obj);
+  }
+
+  if ($obj->class=~/dna|peptide/) {
+    my $dna = "$obj";
+    $dna=~s/(\w{50})/$1\n/g;
+    return (pre({-class=>$obj->class},$dna),0);
+  }
+
+  if ($obj->class eq 'Text') {
+      return GenBankLink(escapeHTML($obj->name));
+  }
+
+  unless ($obj->isObject or $obj->isTag) {
+    $obj = escapeHTML($obj);
+    $obj =~s/\\n/<BR>/g;
+    return ($obj,0);
+  }
+
+  # if we get here, we're dealing with an object or tag
+  my $name = $obj->name;
+
+  # modperl screws up with subroutine references for some reason
+  my $page_name = param('name');
+  my $page_class = param('class');
+  my %squash = map { $_ => 1; } grep($_ ne '',param('squash'));
+  my %expand = map { $_ => 1; } grep($_ ne '',param('expand'));
+
+  my ($n,$c) = (CGI::escape($name),CGI::escape($obj->class));
+  my ($pn,$pc) = (CGI::escape($page_name),CGI::escape($page_class));
+  my $cnt = $obj->col;
+
+  # special case for papers -- display their titles rather than their IDs
+  my ($title);
+  if ($obj->class eq 'Paper' and $PAPERS{$name}) {
+    $title = $PAPERS{$name}->Title->at if $PAPERS{$name}->Title;
+  }
+
+  # set up %PAPERS in one fell swoop
+  if ($obj->isTag and $name=~/^(Paper|Reference|Quoted_in)$/ and (!$squash{$name} or $cnt <= MAXEXPAND)) {
+    my @papers = $DB->find(-query=>qq{$page_class IS "$page_name" ; >$name},
+			   -fill=>1);
+    foreach (@papers) {
+      $PAPERS{"$_"} = $_;
+    }
+  }
+
+  # here's a hack case for external images
+  if ($obj->isTag && $name eq 'Pick_me_to_call' && $obj->right(2)=~/\.(jpg|jpeg|gif)$/i) {
+      return (td({-colspan=>2},img({-src=>AceImageHackURL($obj->right(2))})),1,1);
+  }
+
+  $title ||= $name;
+  if ($cnt > 1) {
+      # Really, really big arbitrary expansion. Sloppy.
+      $MAXEXPAND = ($VIEW eq 'expand') ? 100000 : MAXEXPAND;
+      if ($VIEW eq 'collapse' || !$obj->isObject && $squash{$name} || ($cnt > $MAXEXPAND && !$expand{$name})) {
+	  my $to_squash = join('&squash=',map { CGI::escape($_) } grep $name ne $_,keys %squash);
+	  my $to_expand = join('&expand=',map { CGI::escape($_) } (keys %expand,$name));
+	  return (a({-href=>url(-relative=>1,-path_info=>1) 
+			 . "?name=$pn&class=$pc"
+			 . ($to_squash ? ";squash=$to_squash" : '') 
+			 . ($to_expand ? ";expand=$to_expand" : '')
+			 . "#$name",
+			 -name=>"$name",
+			 -target=>"_self"},
+		    b(font({-color=>CLOSEDCOLOR},"$title ($cnt)"))),
+		  1);
+      } elsif (!$obj->isObject) {
+	  my $to_squash = join('&squash=',map { CGI::escape($_) } (keys %squash,$name));
+	  my $to_expand = join('&expand=',map { CGI::escape($_) } grep $name ne $_,keys %expand);
+	  return (a({-href=>url(-relative=>1,-path_info=>1) 
+			 . "?name=$pn&class=$pc"
+			 . ($to_squash ? "&squash=$to_squash" : '') 
+			 . ($to_expand ? "&expand=$to_expand" : '')
+			 . "#$name",
+			 -name=>"$name",
+			 -target=>"_self"},
+		    b(font({-color=>OPENCOLOR},"$title"))),
+		  0);
+      }
+  }
+  
+  return i($title) if $obj->isComment;
+
+  if ($obj->isObject) {
+      my $href = Object2URL($obj);
+      return (a({ -href=>$href},$title), 0);
+  }
+
+  if ($obj->isTag) {
+    return ("<B>$title</B>",0);
+  }
+  # shouldn't ever get here.
+}

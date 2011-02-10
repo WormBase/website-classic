@@ -1,0 +1,178 @@
+New Release of acedb WS90, Wormpep90 and Wormrna90 Sun Nov 10 10:19:36 GMT 2002
+
+>>> NOTE <<<
+C. elegans Genome Sequence is Complete!
+
+The WS90 release of WormBase made available today has a complete C. 
+elegans genome sequence. The 100,258,171 base pairs are present in six 
+contiguous segments corresponding to the six C. elegans nuclear 
+chromosomes. On behalf of the C. elegans community we thank the C. 
+elegans Genome Sequencing Consortium at the Wellcome Trust Sanger 
+Institute and Washington University's Genome Sequencing Center for this 
+impressive accomplishment.  In spite of the high quality of the 
+sequence, there are undoubtedly remaining errors in the genome sequence, 
+and thus the Sequencing Consortium will remain active in responding to 
+and resolving any potential errors that arise. Please inform WormBase of 
+any errors.
+
+--Lincoln Stein and Paul Sternberg (for WormBase)
+
+======================================================================
+
+This directory includes:
+i)	database.WS90.*.tar.gz    -   compressed data for new release
+ii)	models.wrm.WS90           -   the latest database schema (also in above database files)
+iii)	CHROMOSOMES/subdir        -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)	WS90-WS89.dbcomp          -   log file reporting difference from last release
+v)	wormpep90.tar.gz          -   full Wormpep distribution corresponding to WS90
+vi)	wormrna90.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)	confirmed_genes.WS90.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS90
+------------------------------------
+brigdb : 2002-10-27 - updated
+camace : 2002-11-06 - updated
+citace : 2002-10-26 - updated
+cshace : 2002-10-10
+genace : 2002-10-30 - updated
+stlace : 2002-10-28 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS90       	WS89      	change
+----------------------------------------------
+a    	32362216	32353009	+9207
+c    	17777361	17772424	+4937
+g    	17754941	17749963	+4978
+t    	32363558	32354518	+9040
+n    	95      	95      	  +0
+-    	0       	2259    	-2259
+
+Total	100258171	100232268	+25903
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 19488 CDS in autoace, 20970 when counting 1478 alternate splice forms.
+
+The 20970 sequences contain 9,271,352 base pairs in total.
+
+Modified entries             153
+Deleted entries               56
+New entries                   72
+Reappeared entries             3
+
+Net change  +19
+
+Status of entries: Confidence level of prediction
+-------------------------------------------------
+Confirmed              3492 (16.7%)
+Partially_confirmed    8661 (41.3%)
+Predicted              8817 (42.0%)
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2130 (10.2%)
+TrEMBL accessions     18211 (86.8%)
+TrEMBLnew accessions    478 (2.3%)
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            20790 (99.1%)
+
+Locus <-> Sequence connections (cgc-approved)
+---------------------------------------------
+Entries with locus connection   3367
+
+
+GeneModel correction progress WS89 -> WS90
+-----------------------------------------
+Confirmed introns not is a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|   1150  |  -103  |
+St Louis 	|    324  |    18  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|     27  |     0  |
+St Louis 	|    103  |   -76  |
+		+---------+--------+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+No synchronisation issues
+
+
+Remaining gaps:
+---------------
+None!  The remaining St. Louis gaps have been finished and therefore this release of WormBase
+contains the complete genome sequence, six contiguous chromosome sequences.
+
+
+New Data:
+---------
+
+
+New Fixes:
+----------
+
+
+Known Problems:
+--------------
+
+
+Other Changes:
+--------------
+
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+
+Changes to Allele data to better integrate with Knockout Consortium strain and allele
+information.
+
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

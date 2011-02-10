@@ -1,0 +1,26 @@
+#!/usr/bin/perl
+#the quick brown fox jumps over the lazy dog
+use strict;
+use lib '../lib';
+use ElegansSubs qw/:DEFAULT Bestname/;
+use Ace::Browser::AceSubs;
+use CGI qw(:standard *table escape);
+use WormBase;
+use vars qw/$WORMBASE $object/;
+
+END {
+  undef $WORMBASE;
+  undef $transg;
+}
+
+$object = OpenPageGetObject('Template',undef,1);
+
+StartCache();
+
+$WORMBASE = WormBase->new();
+# $WORMBASE->print_prompt();
+
+
+ClosePage;
+
+exit 0;

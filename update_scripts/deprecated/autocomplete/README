@@ -1,0 +1,7 @@
+To create a new autocomplete database:
+
+./create_autocomplete_db.pl WS169 root kentwashere
+
+./do_load_of_db.sh [VERSION] [/path/to/acedb/elegans]
+
+

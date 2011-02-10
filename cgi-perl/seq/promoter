@@ -1,0 +1,150 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# file: sequence
+# C. elegans sequence report built for the model organism databases meeting
+
+use lib '../lib';
+
+use strict;
+use CGI 2.70 qw(:standard *table *pre);
+use Ace::Browser::AceSubs;
+use Ace::Browser::SearchSubs;
+use ElegansSubs qw/:DEFAULT Bestname/;
+
+use vars '$DB';
+
+# print HTTP header & open the database
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+PrintTop(undef,undef,'Promoter Motif Search',
+	  '-Title' =>'Upstream Sequence Search',
+#	  '-Target' =>'_top',
+	  '-Class' =>'search');
+
+#display_instructions('Upstream Sequence Search',
+#		     'Type the motif you wish to search for.');
+
+if (param('Start Over')) {
+  Delete('motif');
+  Delete('new_motif');
+  Delete('old_results');
+}
+
+summary_results();
+prompt();
+detailed_results() if param('Details');
+PrintBottom;
+exit 0;
+
+sub summary_results {
+  print start_table({-width=>'75%',-border=>1});
+  print TR(th ['Motif/ID','Hits','Dump Details']) if param('new_motif') || param('old_results') || param('Details');
+  my %seen;
+  my @m = grep { $_ && !$seen{$_}++ } (param('motif'), param('new_motif'));
+  return unless @m;
+  my @hits = do_search(@m);
+  %seen = ();
+  my @r = grep { !$seen{$_}++ } (param('old_results'),join('+',@m).'='.scalar @hits);
+  param(-name=>'old_results',-value=>\@r);
+  old_results();
+  print end_table;
+}
+
+sub old_results {
+  my @old = param('old_results');
+  foreach (@old) {
+    my ($motifs,$hits) = split /=/;
+    next unless $motifs;
+    my @m = split /\+/,$motifs;
+    print_row(\@m,$hits);
+  }
+}
+
+sub print_row {
+  my ($m,$hits) = @_;
+  print TR(td([join(' + ',map { strong($_) } @$m),$hits]),
+	   th(start_form,
+	      hidden(-name=>'motif',-value=>$m,-force=>1),
+	      hidden('old_results'),
+	      submit('Details'),
+	      end_form));
+}
+
+sub prompt {
+  param(-name=>'motif',-value=>[param('motif'),param('new_motif')]);
+  print p('Type a lower-case DNA string or the predicted gene ID.');
+  print start_form,
+        b('Search String '),
+        textfield(-name=>'new_motif',-value=>'',-force=>1),
+        hidden(-name=>'motif'),
+        hidden(-name=>'old_results'),
+        submit('Search'),br,
+        button(-name=>'Go Back',-onClick=>'history.back()'),
+        submit('Start Over'),
+        end_form;
+}
+
+sub detailed_results {
+  my ($s,$pattern) = start_search(param('motif'));
+  $pattern =~ s/([gatc])/$1\n?/g;
+  print start_pre();
+  while (<$s>) {
+    chomp;
+    my ($id,$dna) = split /\s+/;
+    next unless my $s = $DB->fetch(-class=>'CDS',-name => $id,-fill=>1);
+    my $gene = Bestname($s->Gene);
+    my $comment = $gene;
+    $comment .= $comment ? ' ('.$s->Brief_identification. ')'
+                         : $s->Brief_identification if $s->Brief_identification;
+    my $link = ObjectLink($s);
+    print ">$link $comment\n";
+    $dna =~ s/(.{1,60})/$1\n/g;
+    $dna =~ s!($pattern)!<b>$1</b>!g;
+    print $dna,"\n";
+  }
+  print end_pre()
+}
+
+sub do_search {
+  my ($s,$pattern) = start_search(@_); 
+  my @results;
+  while (<$s>) {
+    chomp;
+    my ($id,$dna) = split /\s+/;
+#    next unless $dna =~ /$pattern/;
+    push @results,$id;
+  }
+  close $s;
+  return @results;
+}
+
+sub start_search {
+  my @search = @_;
+  foreach (@search) {
+    if (/[A-Z]/) {        # looks like an accession number
+      $_ = quotemeta($_); # don't allow metacharacters
+    } elsif (/^([gatc\[\].,\(\)\d\{\}?*|\\-]+)$/) { # Otherwise, a regular expression.  Filter out bad characters.
+      $_ = $1;
+      $_ = "($_)" if /\|/;
+    } else {
+      $_ = quotemeta($_);
+    }
+  }
+
+  my $urdb = Configuration->Promoter_db;
+  if ($ENV{MOD_PERL}) { # we have apache, so no reason not to take advantage of it
+    my $r = Apache->request;
+    my $subr = $r->lookup_uri($urdb);
+    $urdb = $subr->filename;
+  }
+
+  return unless $urdb;
+
+  my $command = $urdb =~ /\.gz$/ ? "zcat $urdb |" : "cat $urdb |";
+  $command .= "egrep '$_' |" foreach @search;
+  my $pattern = join '|',@search;
+#  warn "command = $command, regexp = $pattern";
+
+  open (S,$command) or die "Can't open egrep: $!\n";
+  return (\*S,$pattern);
+}

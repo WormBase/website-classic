@@ -1,0 +1,383 @@
+#!/usr/bin/perl
+
+# TODO:
+# Confirm that accession numbers are working
+
+# Update matrix by search term:
+#  ie searching with Gene, hits:
+#      protein
+#      strain
+
+# Detailed output:
+   # Add option for browsing / displaying all hits
+   # Add option for fetching in CSV/Excel
+   # Add paged report browsing, customizable by items per page
+
+# Cross-browser issues
+   # Figure out cross-browser problem with safari
+   #  adding form element causes page to submit
+
+# Misc
+   # Strain description should include the genotype
+   # Add reagents like Antibody
+   # Add ability to search with sequences
+   # Add support for (not currently available from home page)
+       #    Laboratory
+       #    Life_stage
+       #    Mass_spec_experiment
+       #    Interaction
+       #    Expr_pattern
+
+# add sorting of results
+
+use strict;
+use CGI qw/:standard *table *TR *div/;
+use lib '../';
+use Ace::Browser::AceSubs qw/:DEFAULT AceRedirect/;
+#use ElegansSubs qw/:DEFAULT/;
+
+use vars qw/@CLASSES $DB $RESULTS_CONTAINER/;
+
+use constant DEBUG => 0;
+
+$RESULTS_CONTAINER = 'details';
+
+
+# Classes that will be available in the multi-class search.
+# These must exist in the autocomplete database!
+
+# The order classes appear in this list is the order in which they
+# will be searched
+@CLASSES = qw/
+	      Gene
+	      Paper
+	      Strain
+	      Clone
+	      Person
+	      Sequence
+	      Protein
+	      RNAi
+	      Variation
+	      Motif
+	      PCR_product
+	      GO_term
+	      Anatomy_term
+	      Gene_class
+	      Operon
+	      Microarray_experiment
+	      Phenotype
+	      Gene_regulation
+	      Species
+	      /;
+
+
+# Finish these
+#@CLASSES = qw/
+# Genetic_map
+# Models
+#    Accession_number
+#    Y2H
+#    /;
+
+#$DB = OpenDatabase() || AceError("Couldn't open database.");
+print display_page();# unless param('query');
+
+exit 0;
+
+
+##############################################
+# Begin Subs
+##############################################
+sub display_page {
+  my $content = start_page();
+  $content   .= search_box();
+
+  if (param('name')) {
+    # Ajaxed  or separate page?
+    $content .= detailed_results();
+  } else {
+    $content .= counts_display();
+  }
+
+  $content .= end_page();
+  return $content;
+}
+
+
+
+
+sub start_page {
+    my $classes  = join(",", map { "'$_'"} @CLASSES);
+    my $rows     = (scalar @CLASSES) + 1;
+
+#    <script type="text/javascript" src="/js/multi.js"></script>
+
+    # We've followed a link to fetch a list of results
+    my $format   = url_param('name') ? 'list' : 'count';
+    my $query    = url_param('name');
+    my $database = url_param('database');
+    my $class    = url_param('class');
+
+    my $header = header();
+
+    $header .= <<EOF;
+<html>
+     <head>
+            <link rel="stylesheet" type="text/css" href="/stylesheets/multi.css">
+	    <script type="text/javascript" src="/js/prototype.js"></script>
+
+            <script language="javascript">
+
+// Functions for powering the Ajax multi search
+// Iteratively search a variety of classes
+// using either a customized autocomplete database (fast)
+// or acedb shallow and deep queries (slow)
+function getCounts() {
+  // Turn on display of the results block
+  // THE NAME OF THIS SELECTOR HAS CHANGED!
+  document.getElementById('counts').style.display = 'block';
+  var url = '/db/searches/multi.search';
+  var query  = \$F('query');
+
+  //     	        var databases = ['autocomplete','acedb_shallow','acedb_deep'];
+  var databases = ['autocomplete'];
+  var classes   = [$classes];
+
+  for (var y=0; y < databases.length; y++) {
+    var database = databases[y];
+    for (var x=0; x < classes.length; x++) {
+
+      var myclass = classes[x];
+      var params = 'class=' + myclass + '&query=' + query + '&database=' + database + "&format=$format";
+      
+      var label_target = document.getElementById(myclass + '_label');
+      var count_target = document.getElementById(myclass + '_count');
+      label_target.innerHTML=myclass;
+
+      count_target.style.color="#9EA0A2";
+      count_target.innerHTML="...";
+      
+      new Ajax.Request(url,{
+		       method: 'post',
+		       parameters: params,
+		       onFailure: function() {	
+                                count_target.innerHTML="0";
+			    },
+                       onSuccess: function(transport) {
+
+                                // Fetch the JSONized response
+                                var data = transport.responseText.evalJSON();
+                                // Turn display of the field to block or table-row
+                                var hitclass = data.class;
+                                var count    = data.count_href;
+                                // Dynamically populate labels in some instances
+                                var label_target = document.getElementById(hitclass + '_label');
+                                var count_target = document.getElementById(hitclass + '_count');
+                                label_target.innerHTML=hitclass;
+                                count_target.innerHTML=count;
+
+                                document.getElementByClass('label').style.display = 'block';
+
+//                                // addRow(target)
+//                                // Fill the text of the row with the counts URL (and links to expand, download, etc)
+			 }
+
+
+		       }
+		       );
+
+//      			// Via Ajax.Updater
+//      			var myAjax = new Ajax.Updater(
+//      					       {success: target, failure: target},
+//                                               url, {method: 'post',
+//      					       parameters: params}
+//      						      );
+
+    }
+
+  }
+}
+
+function clearContents() {
+  var classes   = [$classes];
+  document.getElementById('counts').style.display = 'none';
+  for (var x=0;x<classes.length;x++) {
+      var myclass=classes[x] + '_count';
+
+      var span = document.getElementById(myclass);
+      span.style.color="#000000";
+      span.innerHTML='--';
+  }
+}
+
+
+
+// Would like to handle this as a standard Ajax Request, not an updater
+function getResults() {
+  var url = '/db/searches/multi.search';
+  var format   = 'list';
+  var myclass  = "$class";
+
+  // params to pass to the ajax handler
+  var params = "class=$class&query=$query&database=$database&format=" + format;
+
+  var target   = "$RESULTS_CONTAINER";
+  var myAjax = new Ajax.Updater(
+				{success: target},url, {method: 'post',
+     					      parameters: params,onFailure: reportError});
+
+  // This is for displaying results inline
+  // target a specific class container
+  if (0) {
+  var target = "$class" + '_result';
+  var myAjax = new Ajax.Updater(
+				{success: target},url, {method: 'post',
+						      parameters: params,onFailure: reportError});
+  }
+}
+
+function reportError(request) {
+  \$F('results') = "Ajax Error";
+}
+
+</script>
+</head>
+
+EOF
+;
+
+
+    if ($format eq 'list') {
+	$header .= '<body onload="getResults();">';
+    } else {
+	$header .= "<body>";
+    }
+    $header .= '<div id="container">';
+
+    return $header;
+}
+
+
+=pod
+
+function addResult(result) {
+   var newResultDiv = document.createElement('div');
+   Element.extend(newResultDiv);
+   newResultDiv.addIdName(result).show();
+}
+
+
+
+function addRow(target,transport) {
+  //	alert(target);
+
+  // This should maybe be document.write instead of altering the display parameter
+  document.getElementById(target).style.display = 'table-row';
+  document.getElementById(target).inlineHTML = transport;
+  
+  
+  // alert(transport);
+}
+
+=cut
+
+
+sub search_box {
+
+    my $html = <<EOF; 
+           <h1><i>WormBase</i></h1>
+         <div id="searchfield">
+  	   <input type="text" name="query" id="query" size="40">
+	   <span class="button" name="Search" onclick="getCounts();" />Search</span>
+           <span class="button" name="clear" onclick="clearContents();" />Reset</span>
+<!--	   <input type="submit" name="Search" value="Search" onclick="getCounts();" /> -->
+<!--	   <input type="reset" name="clear" onclick="clearContents();" /> -->
+           <br>
+<!--           Style: <label><input type="radio" name="style" value="table" onchange>Table</label>
+           <label><input type="radio" name="style" value="css">CSS</label>
+           <label><input type="radio" name="style" value="simple">Simple</label>
+-->
+        </div>
+EOF
+}
+
+
+sub end_page {
+    return "</body></html>";
+}
+
+
+
+# Display counts of hits
+# Three formatting approaches:
+# 1. Pure CSS
+# 2. A table
+# 3. "Simple", where only hits are displayed via hidden divs
+sub counts_display {
+    my $html;
+    $html .= start_div({-id=>'counts'});
+    $html .= h3('Matches');
+    
+    if (param('style') eq 'table') {
+	$html .= start_table({-border=>0})
+	    . TR(th('Class')
+		 . th('Description')
+		 );
+	#  th('AceDB (shallow)'),
+	#  th('AceDB (deep)')
+	
+	foreach my $class (sort { $a cmp $b } @CLASSES) {
+	    my $count_id = $class . '_count';
+	    my $label_id = $class . '_label';
+	    my $label    = $class;
+	    $label =~ s/_/ /g;
+	    $html .= TR(
+			td(span({-class=>'label'},
+				span({-id=>$label_id},
+				     $label))),
+			td(span({-class=>'count'},
+				span({-id=>$count_id},'--'))));
+	}
+
+	#		    td(span({-id=>$_ . "_acedb_shallow"},' ')),
+	#		    td(span({-id=>$_ . "_acedb_deep"},' ')),
+    } else {
+	# This variant uses pure-CSS. In addition, we:
+	# - do not pre-display a list of available classes
+	# - only display classes which have hits
+	
+	# onclick of the search submit, the display property of the
+	# results table is change to block
+	foreach my $class (sort { $a cmp $b } @CLASSES) {
+	    my $label    = $class;
+	    my $count_id = $class . '_count';
+	    my $label_id = $class . '_label';
+	    $label =~ s/_/ /g;
+	    $html .= 
+		div({-id=>$class . '_item'},
+		    span({-class =>'label'},
+			 span({-id => $label_id},'')),
+		    span({-class=>'count'},
+			 span({ -id=> $count_id },'')),
+		    # This is a terget for displaying results inline via an Ajax call.
+		    span({-id   => $class . '_result'},''));
+	}
+    }
+    $html .= end_div();
+    return $html;
+}
+
+
+
+# Displaying lists of objects after the initial query
+sub detailed_results {
+  my $html = h3('Detailed Results');
+  $html .= qq{<div id="$RESULTS_CONTAINER">Loading results...</div>};
+#  $html .= <<EOF;
+#    <script type="text/javascript" language="JavaScript" onload="getResults();">
+#    </script>
+#EOF
+#  ;
+
+   return $html;
+}

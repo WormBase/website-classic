@@ -1,0 +1,111 @@
+#!/usr/bin/perl
+
+use strict;
+use lib '../lib';
+use GD;
+use Ace::Browser::AceSubs;
+use ElegansSubs;
+use CGI qw(:standard);
+
+my $cell    = param('cell');
+my $synapse = param('synapse');
+my $class   = param('class');
+my $posx    = param('pos.x');
+my $posy    = param('pos.y');
+my $markup  = param('markup');
+
+my $raw_image = Configuration->Wa_synapse_images."/".lc($cell).".png";
+my $coord     = Configuration->Wa_synapse_conf.  "/".lc($cell).".conf";
+
+my (%pos,%typ);
+open (CONF,$coord); while(<CONF>){
+  chomp;
+  my ($cell,$type,$x,$y) = split /\t/;
+  $pos{$cell} = [$x,$y];
+  $typ{$cell} = $type;
+} close(CONF);
+
+##################################################
+# everything happens here
+if (param('draw')) {
+  my $image = make_image(url2path($raw_image));
+  if($markup){
+    markup($image,$markup);
+  }
+  print header('image/jpg');
+#  markup($image,$synapse);
+  print $image->png;
+  exit 1;
+} else {
+  my $title = $cell ? "Synapse Locator for ".uc($cell) : "Synapse Locator";
+  PrintTop(undef,undef,$title);
+
+  if($cell){
+    print table({-width=>'100%'},
+		TR(
+		   td(image($cell)),
+		   td(table(TR({-class=>'datatitle'},th('&nbsp;'),th('&nbsp;'),th('&nbsp;')),
+			    map {"<TR class=\"databody\"><TD>".uc($cell).
+				   "</TD><TD>".$typ{$_}."</TD><TD>".markup_link($_)."</TD></TR>"
+				 } sort keys %pos),
+		     ),
+		  ),
+	       );
+  }
+
+  PrintBottom();
+}
+##################################################
+
+sub markup {
+  my ($image,$synapse) = @_;
+  my ($x,$y) = @{$pos{$synapse}};
+  my ($r,$g,$b);
+
+     if($typ{$synapse} eq '|-|'){$r=152;$g=255,$b=255;} #99FFFF
+  elsif($typ{$synapse} eq  '->'){$r=0;  $g=101;$b=255;} #0066FF
+  else                          {$r=255;$g=255;$b=0  ;} #FFFF00
+
+  my $brush = GD::Image->new(2,2);
+  my $paint = $brush->colorAllocate($r,$g,$b);
+     $brush->fill(2,2,$paint);
+  $image->setBrush($brush);
+  $image->arc($x,$y,5,5,0,360,gdBrushed);
+}
+
+sub markup_link {
+  my $cell = shift;
+#print h4($cell);
+  param(markup => $cell);
+  param(draw   => 0);
+  my $self = url(-relative=>1,-query=>1);
+  return a({href=>$self},"$cell");
+}
+
+sub make_image {
+  my $path = shift;
+  my $image = GD::Image->newFromPng($path);
+  return $image->clone;
+}
+
+sub url2path {
+  my $url = shift;
+  my $r = Apache->request;
+  my $subr = $r->lookup_uri($url) or die "Can't look up path for $url";
+  return $subr->filename;
+}
+
+sub image {
+  my $cell = shift;
+  param(draw=>1);
+  param(cell=>$cell);
+  my $self = url(-relative=>1,-query=>1);
+
+#  print div({-align=>'CENTER'},
+#	  start_form(),
+#	  image_button(-name  =>  'pos',
+#		       -src   =>  $self),
+#	  end_form()
+#	 );
+  return img({-src=>$self});
+}

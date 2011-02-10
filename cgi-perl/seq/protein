@@ -1,0 +1,1159 @@
+#!/usr/bin/perl
+##############################################################
+# REIMPLEMENTATION:                                          #
+#    THIS SCRIPT IS NOW FROZEN! (v1.122)                     #
+#       Please do not make edits to it.                      #
+#       Frozen by: tharris on 03.05.2008                     #   
+#
+#       Ver 1.123: small fix to display all motifs even when
+#                  under the same interpro motif. Migrated
+#                  to new structure 03.20.2008
+#      
+#       Ver 1.124: added hack to fetch sub that prevents
+#                  remanei proteins from redirecting to 
+#                  the tree display. NOT YET MIGRATED.               
+#
+#       Ver 1.126: PrintTop now uses locus name instead of
+#                  protein ID when available.
+#
+#       Ver 1.127: Fixed Redirect problem
+#
+#       Ver 1.128: formatting changes only.
+#
+#       Ver 1.129: Removed some aeglcy code in print_desc
+#                  related to display of transcripts.
+#                  CHECK HOW THIS IS BEING DONE IN REARCH
+#
+##############################################################
+
+
+### unfroze to rectify multiple motif image bug 20080703 - NBC ####
+## further defrosted to add links to the PO4 site
+
+# $Id: protein,v 1.1.1.1 2010-01-25 15:35:55 tharris Exp $
+# filename: protein
+
+# To add:
+# Format motif homologies
+#  Physical position, genetic position
+#  Problem with display of pep_homol in image. Only displays hits that have the same score...
+# This really should display a description of the protein as well
+# so that users don't have to traverse to the gene to find it.
+
+### modified 20080710 to fix to motif dupication -- nbc
+
+use lib '../lib';
+
+use CGI qw/:standard *table *TR *td *center :Pretty/;
+#use CGI::Carp qw/fatalsToBrowser/;
+
+use Ace;
+use Ace::Graphics::Panel;
+use Ace::Browser::AceSubs qw(:DEFAULT AceRedirect Toggle);
+#use Ace::Browser::GeneSubs;   # This delivers links to external DBs
+use Bio::Graphics::Panel;
+use Bio::Graphics::Feature;
+use Bio::Tools::SeqStats;
+use pICalculator;
+use WormBase;
+use Data::Dumper;
+use ElegansSubs qw(:DEFAULT Best_BLAST_Table StartCache EndCache FetchGene Bestname generate_reactome_table LinkToGlossary);
+use strict;
+
+use vars qw($DB $script %SEQ_CACHE %EXT_LINKS %HIT_CACHE $WORMBASE);
+
+END {
+  undef $script;
+  undef $WORMBASE;
+};
+
+
+use constant GENPEP => 'http://www.ncbi.nlm.nih.gov/htbin-post/Entrez/query?db=p&form=1&field=Sequence+ID&term=%s';
+%EXT_LINKS = %{Configuration()->Protein_links} unless defined %EXT_LINKS;
+%HIT_CACHE = ();
+
+$WORMBASE = WormBase->new($DB);
+
+## The Worm Pep ID is passed from 'sequence' and internally to draw the image
+my $name      = param('name');
+my $class     = param('class');
+my $draw_flag = param('draw');
+
+$script    = url({-relative=>1});
+
+# fetch database handle
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+# StartCache();
+END { EndCache(); }
+
+my $obj = get_object($name,$class) if $name;
+
+# my %okay = map { $_ => 1 } qw/WP BP RP CN JA/;
+
+if ($obj) {    # Did we succesfully retrieve an object?
+#     $obj =~ /(\w\w)\:.*/;
+#     unless (defined $okay{$1}) {
+#  unless ($obj->Wormpep(0) || $obj->Database eq 'WormPep' || $obj->Species =~ /briggsae/i || $obj =~ /^BP/) 
+#  unless ($obj->Database eq 'WormPep' || $obj->Species =~ /briggsae/i || $obj =~ /^BP/) 
+	# foreign protein, probably no information
+# 	AceRedirect('tree' => $obj);
+# 	exit 0;
+#     }
+    
+  if (my $detail_type = param('details')) {
+    PrintTop($obj,"Details");
+    print_details($obj,$detail_type);
+    PrintBottom;
+    exit;
+  }
+    
+    # Use a gene name if one exists (and make it uppercase);
+    my $name = eval { $obj->Corresponding_CDS->Gene->CGC_name };
+    $name = uc($name) if $name;
+    $name = $name ? "Protein Summary: $name" : $obj;
+    
+  PrintTop($name, 'Protein');
+
+#  unless ($obj->class eq 'CDS' || $obj->Live(0) || $obj->Species =~ /briggsae/i || $obj =~ /^BP/) {
+  unless ($obj->class eq 'CDS' || $obj->Live(0) || $obj->Corresponding_CDS || $obj =~ /^ENSEMBL/ ) {
+    print h2(font({-color=>'red'},'The protein named',$obj,'has been superseded or retired'));
+    print p('History follows');
+    print_history($obj);
+    print p('For more details see the',a
+	    ({-href=>"/db/misc/etree?name=$obj;class=Protein"},'Acedb tree representation'),
+	    'of this protein');
+    PrintBottom;
+    exit;
+  }
+
+  print_prompt(); #print out prompt even though there is protein displayed, jack 
+
+  # The description and external links are nested tables
+  # within a larger table (just so ya' know). 
+  
+  print_links(); 		
+  print start_table({-border=>0,-width=>'100%'});
+  print_description($obj);
+
+  # Retrieve the protein sequence and clean off the identifier
+  my $peptide = $obj->asPeptide;
+  $peptide =~ s/^>.*//;
+  $peptide =~ s/\n//g;   
+  print_naked_sequence($name,$peptide);
+
+  print_homologies($obj);
+  print end_table;
+
+  print_reactome_table($obj);
+  print_protein_stats($peptide,$obj);
+  #=====
+  # Retrieve and print tables of identified motifs
+  # and a schematic of these motifs on the protein
+  # motif_details($obj);
+  #=====
+  #  print_external_links($obj);  #forget it
+  print end_table;
+  print h2('Protein object history');
+  print_history($obj);
+
+} else { 
+  PrintTop("Protein Summary");
+  PrintWarning($name,$class) if $name;
+  print_prompt();
+}
+
+PrintBottom;
+exit;
+
+
+###############################################################################
+sub print_naked_sequence {
+  my ($name,$peptide) = @_;
+  print a({-name=>"amino_acid"}, "");
+
+
+  print 
+    table({-border=>0,-width=>'100%'},
+	  TR(
+	     th({-class=>'datatitle',-colspan=>2},'Amino Acid Sequence')),
+	  TR(
+	     td({-class=>'pre'},
+		font({-size=>'+1'},
+		     pre(to_fasta($name,$peptide))
+		    )
+	       )
+	    )
+	 ),br();
+}
+
+###############################allow users to retrieve protein pages for loci and sequences
+sub get_object {
+  my ($name,$class) = @_;
+
+  # Search via a protein ID
+  # allow users to type "CE12345" rather than "WP:CE12345"
+  $name = "WP:$name" if $name =~ /^CE\d+/;
+  $name = "BP:$name" if $name =~ /^CBP\d+/;
+  
+  # Search via a gene if provided with a WBGene ID
+  # or something that looks like one
+  if ($name =~ /^WBG/ || $name =~ /\w{3,4}\-\d+/i) {
+      my $bestname;
+      ($obj,$bestname) = FetchGene($DB,$name);
+      if ($obj){
+	  return undef unless $obj->Corresponding_CDS;
+	  my $pro = eval { $obj->Corresponding_CDS->Corresponding_protein(-fill=>1) };
+	  if ($pro){
+	      param(name=>$pro);
+	      param(class=>$pro->class);
+	      return $pro;
+	  }
+	  warn $obj;
+      }
+  }
+
+  # Class may be one of Protein or Wormpep (for elegans specific queries)
+  if ($class eq 'Protein' || !$class) {
+      $class ||= 'Protein';
+      my ($obj) = $DB->fetch(-class=>$class,-name=>$name,-fill=>1);
+      return $obj if $obj;
+  }
+ 
+  # Search via a gene ID. Note: This is NOT a transcript
+  ($obj) = $DB->fetch(-class=>'CDS',-name=>$name,-fill=>1);
+  # Try the primary transcript since there is no pan-object for a CDS
+  ($obj) = $DB->fetch(-class=>'CDS',-name=>"${name}a",-fill=>1) unless ($obj);
+  if ($obj){
+      if ($obj->Corresponding_protein) {
+	  my $pro = $obj->Corresponding_protein(-fill=>1);
+	  param(name=>$pro);
+	  param(class=>$pro->class);
+	  return $pro;
+      }
+  }
+}
+
+sub get_length {
+  my $obj = shift;
+  my $length = $obj->at('Peptide[2]');
+  return $length if defined $length;
+
+  my $peptide = $obj->asPeptide;
+  $peptide =~ s/^>.*//;
+  $peptide =~ s/\n//g;
+  return length $peptide;
+}
+
+sub draw_image {
+  my $obj = shift;
+  my $best_only = shift;
+
+  # Get out the length;
+  my $length = get_length($obj);
+
+  # Setup the panel, using the protein length to establish the box as a guide
+  my $ftr = 'Bio::Graphics::Feature';
+  my $segment = $ftr->new(-start=>1,-end=>$length,
+			  -name=>$obj,
+			  -type=>'Protein');
+
+  my $panel = Bio::Graphics::Panel->new(-segment   =>$segment,
+					-key       =>'Protein Features',
+					-key_style =>'between',
+					-key_align =>'left',
+					-grid      => 1,
+					-width     =>'650');
+
+  # Get out the gene - will use to extract the exons, then map them
+  # onto the protein backbone.
+  my $gene    = $obj->Corresponding_CDS;
+  my @exons;
+  if ($gene && (my $gffdb = OpenGFFDB($DB,get_species($gene)))) {
+      my ($seq_obj) = $gffdb->segment(CDS => $gene);
+      @exons = $seq_obj->features('exon:curated') if $seq_obj;
+      @exons = grep { $_->name eq $gene } @exons;
+  }
+  
+
+  # Translate the bp start and stop positions into the approximate amino acid
+  # contributions from the different exons.
+  my ($count,$end_holder);
+  my @segmented_exons;
+  local $^W = 0;  # kill uninitialized variable warning
+
+  foreach my $exon (sort { $a->start <=> $b->start } @exons) {
+
+    $count++;
+    my $start = $exon->start;
+    my $stop  = $exon->stop;
+
+    # Calculate the difference of the start and stop to figure
+    # to figure out how many amino acids it corresponds to
+    my $length = (($stop - $start) / 3);
+    
+    my $end = $length + $end_holder;
+    my $seg = $ftr->new(-start=>$end_holder,-end=>$end,
+			-name=>"exon $count",-type=>'exon');
+    push @segmented_exons,$seg;
+    $end_holder = $end;
+  }
+  
+
+  ## Structural motifs (this returns a list of feature types)
+  my %features;
+  my @features = $obj->Feature;
+  # Visit each of the features, pushing into an array based on its name
+  foreach my $type (@features) {
+    # 'Tis dangereaux - could lose some features if the keys overlap...
+    my %positions = map {$_ => $_->right(1)} $type->col;
+    foreach my $start (keys %positions) {
+      my $seg   = $ftr->new(-start=>$start,-end=>$positions{$start},
+			    -name=>"$type",-type=>$type);
+      # Create a hash of all the features, keyed by type;
+      push (@{$features{'Features-' . $type}},$seg);
+    }
+  }
+  
+  ## A protein ruler
+  $panel->add_track(arrow => [ $segment ],
+  		    -label => 'amino acids',
+		    -arrowstyle=>'regular',
+		    -tick=>5,
+  		    #		    -tkcolor => 'DarkGray',
+  		   );
+  
+  ## Print the exon boundaries
+  $panel->add_track(generic=>[ @segmented_exons ],
+		    -glyph     => 'generic',
+		    -key       => 'exon boundaries',
+		    -bump      => 0,
+		    -height    => 6,
+		    -spacing   => 50,
+		    -linewidth =>1,
+		    -connector =>'none',
+		   ) if @segmented_exons;
+
+  my %glyphs = (low_complexity => 'generic',
+		transmembrane   => 'generic',
+		signal_peptide  => 'generic',
+		tmhmm           => 'generic'
+	       );
+  
+  my %labels   = ('low_complexity'       => 'Low Complexity',
+		  'transmembrane'         => 'Transmembrane Domain(s)',
+		  'signal_peptide'        => 'Signal Peptide(s)',
+		  'tmhmm'                 => 'Transmembrane Domain(s)',
+		  'wublastp_ensembl'      => 'BLASTP Hits on Human ENSEMBL database',
+		  'wublastp_fly'          => 'BLASTP Hits on FlyBase database',
+		  'wublastp_slimSwissProt'=> 'BLASTP Hits on SwissProt',
+		  'wublastp_slimTrEmbl'   => 'BLASTP Hits on Uniprot',
+		  'wublastp_worm'         => 'BLASTP Hits on WormPep',
+		 );
+  
+  my %colors   = ('low_complexity' => 'blue',
+		  'transmembrane'  => 'green',
+		  'signalp'        => 'gray',
+		  'Prosite'        => 'cyan',
+		  'seg'            => 'lightgrey',
+		  'Pfam'           => 'wheat',
+		  'Motif_homol'    => 'orange',
+		  'Pep_homol'      => 'blue'
+		 );
+  
+  foreach ($obj->Homol) {
+    my (%partial,%best);
+    my @hits = $obj->get($_);
+	my %motif_ranges = ();
+	
+    # Pep_homol data structure is a little different
+    if ($_ eq 'Pep_homol') {
+      my @features = wrestle_blast(\@hits,1);
+
+      # Sort features by type.  If $best_only flag is true, then we only keep the
+      # best ones for each type.
+      my %best;
+      for my $f (@features) {
+	next if $f->name eq $obj;
+	my $type = $f->type;
+	if ($best_only) {
+	  next if $best{$type} && $best{$type}->score > $f->score;
+	  $best{$type} = $f;
+	} else {
+	  push @{$features{'BLASTP Homologies'}},$f;
+	}
+      }
+
+      # add descriptive information for each of the best ones
+      local $^W = 0; #kill uninit variable warning
+      for my $feature ($best_only ? values %best : @{$features{'BLASTP Homologies'}}) {
+	my $homol = $HIT_CACHE{$feature->name};
+	my $description = $homol->Species;
+	my $score       = sprintf("%7.3G",10**-$feature->score);
+	$description    =~ s/^(\w)\w* /$1. /;
+	$description   .= " ";
+	$description   .= $homol->Description || $homol->Gene_name;
+	$description   .= eval{$homol->Corresponding_CDS->Brief_identification}
+	  if $homol->Species =~ /elegans|briggsae/;
+	my $t = $best_only ? "best hit, " : '';
+	$feature->desc("$description (${t}e-val=$score)") if $description;
+      }
+
+      if ($best_only) {
+	for my $type (keys %best) {
+	  push @{$features{'Selected BLASTP Homologies'}},$best{$type};
+	}
+      }
+
+      # these are other homols
+    } else {	
+      for my $homol (@hits) {
+	my $title = eval {$homol->Title};
+	my $type  = $homol->right or next;
+	my @coord = $homol->right->col;
+	my $name  = $title ? "$title ($homol)" : $homol;
+	
+	### filter out duplicate segments ####
+	foreach my $segment (@coord) {
+	my ($start,$stop) = $segment->right->row;
+	my $range = $start."_to_".$stop;
+	
+
+	if ($motif_ranges{$range}){
+	   next;
+	}
+	 else{
+	     my $seg  = $ftr->new(-start=>$start,
+			       -end =>$stop,
+			       -name =>$name,
+			       -type =>$type);
+	     push (@{$features{'Motifs'}},$seg);
+	     # print "<pre>$range</pre>"; 
+	     $motif_ranges{$range} = 1;;
+	}
+   }
+      }
+    }
+  }
+
+  ## diagnostic ####
+  # print "<pre>";
+#   foreach my $dmotif (@{$features{'Motifs'}}) {
+#   	print "$dmotif<br>";
+#   }
+#   print "</pre>";
+  ### end diagnostic ###
+  
+  
+  foreach my $key (sort keys %features) {
+    # Get the glyph
+    my $type  = $features{$key}[0]->type;
+    my $label = $labels{$key}  || $key;
+    my $glyph = $glyphs{$key}  || 'graded_segments';
+    my $color = $colors{$type} || 'green';
+    my $connector = $key eq 'Pep_homol' ? 'solid' : 'none';
+    
+    $panel->add_track(segments     => $features{$key},
+		      -glyph       => $glyph,
+		      -label       => ($label =~ /Features/) ? 0 : 1,
+		      -bump        => 1,
+		      -sort_order  => 'high_score',
+		      -bgcolor     => $color,
+		      -font2color  => 'red',
+		      -height      => 6,
+		      -linewidth   => 1,
+		      -description => 1,
+		      -min_score   => -50,
+		      -max_score   => 100,
+		      -key         => $label,
+		      -description => 1,
+		     );
+  }
+  
+  # turn some of the features into urls
+  my $boxes = $panel->boxes;
+  my $map   = '';
+  foreach (@$boxes) {
+    my ($feature,@coords) = @$_;
+    my $name = $feature->name;
+    my $url  = hit_to_url($name) or next;
+    # print $url, ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>br";
+    my $coords    = join ',',@coords;
+    $map   .= qq(<area shape="rect" target="_new" coords="$coords" href="$url" />\n);
+  }
+
+  my $gd = $panel->gd;
+  my $url = AceImage($gd);
+   
+  # Create a url suitable for passing through squid
+  # Remove protocol and host since it bypasses proxy.
+  my ($stripped_url) = $url =~ /http:\/\/.*?(\/.*)/;
+  # TODO!! Need to edit ace tmp image path so that I can
+  # redirect via squid
+  #  $stripped_url =~ s|/ace_images/|/ace_images/protein/|;
+
+  return ($stripped_url,$map);
+}
+
+sub hit_to_url {
+  my $name = shift;
+  $name =~ /(\w+):(\w+)/ or return; # was $name =~ /(\w+):(.+)/ or return;
+  my $prefix    = $1;
+  my $accession = $2;
+  # Hack for flybase IDs
+  $accession =~ s/CG/00/ if ($prefix =~ /FLYBASE/);
+  my $link      = $EXT_LINKS{$prefix} or next;
+  my $url       = sprintf($link,$accession);
+  $url;
+}
+
+
+sub print_links{
+  print p({-align=>'CENTER'},b(
+	    a({-href=>'#description'},'[identification]'),
+	    a({-href=>'#amino_acid'},'[amino acid sequence]'),
+	    a({-href=>'#best_blast'},'[best blast hits]'),
+	    a({-href=>'#motif_homo'},'[motif summary]'),
+            a({-href=>'#protein_statistics'},'[protein statistics]'),
+	    a({-href=>'#history'},'[protein history]'))
+  );
+}
+
+sub print_description {
+  print a({-name=>'description'},'');
+  my $obj = shift;
+  my $wormpep = $obj;
+  my $origin  = $obj->Species || eval { $obj->Corresponding_CDS->Species };
+  my $title   = $obj->Description || $obj->Gene_name || $obj;
+
+  my $kog_string = 'not assigned';
+  my @kogs = $obj->Homology_group;
+  if (@kogs) {
+      $kog_string = join(br, map {$_->Group_type . ': ' . $_->Title . ' [' . 
+			 ObjectLink($_) . ']'}  @kogs);
+    }
+
+  my (@transcripts,@related_transcripts,@genes,$type);
+  foreach my $cds ($obj->Corresponding_CDS) {
+    $type         = $cds->Method;
+    next if $type eq 'history';
+    my $gene     = $cds->Gene;
+    my $bestname = Bestname($gene);
+    $gene        ||= $cds;
+
+    # This should link to the gene page...
+    push @genes,$gene->class eq 'Gene' ? a({-href=>Object2URL($gene)},$bestname) : ObjectLink($gene);
+    push (@transcripts,a({href=>"/db/seq/sequence?name=$cds" . ";class=CDS"}, $cds));
+    
+    # Fetch out related transcripts, ignoring history objects
+    push @related_transcripts,map { ObjectLink($_) } $cds->Corresponding_transcript;
+
+
+#    my $query = $transcript;
+#    $query =~ s/[a-z]$//;
+#    foreach (grep {/[a-z]$/} $DB->fetch(-class=>'CDS',-name=>"${query}*",-fill=>1)) {
+#      next if $_ eq $transcript;
+#      push (@related_transcripts,ObjectLink($_));
+#    }
+  }
+  push @genes, $obj->Gene_name unless(@genes);
+  $type ||= 'None (see remark)';
+  my $gene_header  = @genes > 1       ? 'Genes' : 'Gene';
+  my $trans_header = @related_transcripts ? 'Transcripts' : 'Transcript';
+
+#  my $kog_header = 'NCBI KOGs' . LinkToGlossary('KOGs',undef,'*');  
+  my $kog_header  = 'Homology Groups';
+
+  print
+    table({-border=>0,-width=>'100%',-valign=>'TOP'},
+	  TR(th({-colspan=>6,-class=>'datatitle'},'Identification')),
+	  TR({-class=>'datatitle'},th(['Protein name','Species',
+				       $kog_header,$gene_header,$trans_header,'Type','Ortholog Gene'])),
+	  TR({-class=>'databody'},
+	     td($title),
+	     td(i($origin)),
+	     td($kog_string),
+	     td(join ', ',@genes),
+	     td(join(', ',@transcripts) . br . join(br,@related_transcripts)),
+	     td($type),
+	     td(join( br, map {a({-href=>Object2URL($_)},Bestname($_)."(".$_->Species.")")} $obj->Ortholog_gene)),
+	    )
+	 ),br();
+} # end sub print_desc
+
+sub print_homologies {
+  my $obj = shift;
+  homology_image($obj,1);
+  motif_homologies($obj);
+  blast_homologies($obj);
+}
+
+sub blast_homologies {
+  my $obj = shift;
+  my $table = Best_BLAST_Table($obj);
+  my $url   = url(-absolute=>1,-query=>1);
+  print a({-name=>'best_blast'});
+  print
+    table({-border=>0,-class=>'databody',-width=>'100%'},
+	  TR({-class=>'datatitle'},
+	     th('Best BLAST Hits from Selected Species',
+		a({-href=>"$url;details=blast_hits",-target=>'_blank'},'[Full List]'))),
+	  TR(td({-align=>'center'},$table)));
+}
+
+sub motif_homologies {
+  my ($obj) = @_;
+  my (%motif);
+  my @homol = $obj->Motif_homol;
+
+  my $motif_urls = Configuration->Motif_urls;
+  my $db_urls    = Configuration->Motif_database_urls;
+  my $url   = url(-absolute=>1,-query=>1);
+
+  my @row;
+  foreach (@homol) {
+    my $title = $_->Title;
+    my ($database,$description,$accession) = $_->Database->row if $_->Database;
+ #   my $accession_url = ($accession =~ /^http/) ? a({-href=>$motif_urls->{$database}.$accession,-target=>'_new'},$accession)
+#                        : make_ext_link($_);
+#    push (@row,td([$database,($title||$_).' '.ObjectLink($_,"[related worm proteins]",'Motif'),
+
+    push (@row,td([$database,($title||$_),
+		   ObjectLink($_)]));
+#		   $accession_url]));
+}
+  
+  if (@homol) {
+      print br();
+      print a({-name=>'motif_homo'},'');
+      print start_table({-border=>0,-width=>'100%'});
+      print TR(
+	       th({-class=>'datatitle',-colspan=>4},'Motif Summary',a({-href=>"$url;details=motif",-target=>'_blank'},'[View Details]')));
+      print TR({-align=>'LEFT'},
+	       th({-class=>'datatitle'},'Database'),
+	       th({-class=>'datatitle'},'Description'),
+	       th({-class=>'datatitle'},'Accession'));
+      print Tr({-class=>'databody'},\@row);
+      print end_table,br();
+  }
+  
+  	### check if there's an associated Correspondin_CDS
+  	
+  	my $cds = $obj->Corresponding_CDS;
+  	
+  	if ($cds) {
+  		
+  		print hr();
+  		my $PO4_URL = 'http://www.sbeams.org/dev1/sbeams/cgi/Glycopeptide/peptideSearch.cgi?action=Show_hits_form&search_type=accession&organism=cel&search_term=' . $cds;
+    	my $PO4_link = a({-href=>$PO4_URL}, 'Access Phosphorylation Information in Phosphopep');
+  		print $PO4_link;
+  		print hr();
+		
+  	}
+}
+
+sub print_reactome_table {
+  my $obj = shift;
+  my $reactome_table = generate_reactome_table($obj);
+  return unless $reactome_table;
+  print a({-name=>'reactome_links'});
+  print p();
+  print $reactome_table;
+}
+
+sub blast_details {
+  my $obj = shift;
+  local $^W = 0;  # to avoid loads of uninit variable warnings
+
+  print p({-align=>'CENTER'},b(
+			       a({-href=>'#blast_table'},'[BLASTP table]'),
+			       a({-href=>'#blast_diagram'},'[BLASTP diagram]'))
+	  );
+
+  my @homol = $obj->Pep_homol;
+
+  # wrestle blast hits into a workable data structure!!
+  my @hits = wrestle_blast(\@homol);
+
+  # sort by score
+  @hits = sort {$b->{score}<=>$a->{score} || $a->{source}<=>$b->{source}} @hits;
+  my @rows;
+  for my $h (@hits) {
+    my $url = hit_to_url($h->{hit}) or next;
+    my $method = $h->{type};
+
+    my $species =
+      $method =~ /ensembl/ ? 'Homo sapiens'
+	: $method =~ /fly/ ? 'Drosophila melanogaster'
+	  : $method =~ /worm/ ? 'Caenorhabditis elegans'
+	    : $method =~ /briggsae/ ? 'Caenorhabditis briggsae'
+	    : $h->{hit}->Species;
+    $species =~ s/^(\w)\w* /$1. /;
+
+    $species = 'C. elegans' if $h->{hit} =~ /^WP:/; # workaround for C. briggsae
+    $species = 'C. briggsae' if $h->{hit} =~ /^BP:/; # workaround for C. briggsae
+    
+    my $description = $method =~ /worm|briggsae/ ? 
+      (eval {$h->{hit}->Corresponding_CDS->Brief_identification} ||
+       "gene " . $h->{hit}->Corresponding_CDS)
+	: $h->{hit}->Description;	#->Title does not exist
+    # warn "$h->{hit} is bad" if $method =~ /worm|briggsae/ && ! $h->{hit}->Corresponding_CDS;
+
+    push @rows,[$h->{hit},$species,$description,$h->{score},
+		$h->{source},
+		$h->{target},$url];
+  }
+
+  my %cols = (
+	      0 => 'Hit',
+	      1 => 'Species',
+	      2 => 'Description',
+	      3 => 'E Value',
+	      4 => 'Source Range',
+	      5 => 'Target Range'
+	     );
+
+  my %widths = (0=>'25%',1=>'15%',2=>'15%',3=>'45%');
+
+  my $sort_by    = url_param('sort');
+  $sort_by = ($sort_by eq '') ? 3 : $sort_by; # Have to do it this way because of 0
+  my $sort_order = (param('order') eq 'ascending') ? 'descending' : 'ascending';
+  $sort_order = 'descending' if ($sort_by == 3 && param('order') eq '');
+
+  my @sorted;
+  if ($sort_by =~ /[012]/) {
+    if ($sort_order eq 'ascending') {
+      @sorted = sort { lc ($a->[$sort_by]) cmp lc ($b->[$sort_by]) } @rows;
+    } else {
+      @sorted = sort { lc ($b->[$sort_by]) cmp lc ($a->[$sort_by]) } @rows;
+    }
+  } else {
+    if ($sort_order eq 'ascending') {
+      @sorted = sort { $a->[$sort_by] <=> $b->[$sort_by] } @rows;
+    } else {
+      @sorted = sort { $b->[$sort_by] <=> $a->[$sort_by] } @rows;
+    }
+  }
+
+  # Create column headers linked with the sort options
+  print a({-name=>'blast_table'});
+  print start_table({-width=>'100%'});
+  my $url = url(-absolute=>1);
+  $url .= "?name=" . param('name') . ';details=blast_hits;sort=';
+  print TR(map {th({-class=>'dataheader',-width=>$widths{$_}},
+		   a({-href=>$url . $_ . ";order=$sort_order"},
+		     $cols{$_}
+		     . img({-width=>17,-src=>'/images/sort.gif'})
+		    ))}
+	   sort {$a <=> $b} keys %cols);
+
+  foreach (@sorted) {
+    my ($hit,$species,$description,$eval,$source,$target,$url) = @$_;
+    print TR(td({-class=>'datacell'},a({-href=>$url,-target=>'_blank'},$hit)),
+	     td({-class=>'datacell'},i($species)),
+	     td({-class=>'datacell'},$description),
+	     td({-class=>'datacell'},sprintf("%7.3g",10**-$eval)),
+	     td({-class=>'datacell'},$source),
+	     td({-class=>'datacell'},$target));
+  }
+  print end_table,br;
+  print a({-name=>'blast_diagram'});
+  homology_image($obj);
+}
+
+sub homology_image {
+  my $obj = shift;
+  my $best_only = shift;
+  my ($image_url,$map) = draw_image($obj,$best_only);
+
+  print start_table({-border=>0,-width=>'100%'});
+  print start_td({-align=>'CENTER'});
+  # Pass a flag to draw the image
+  my $img = img({-src    =>$image_url,
+		 -align  =>'center',
+		 -usemap =>'#protein_domains',
+		 -border =>0,
+		});
+  #print $seq ? a({-href=>Object2URL($seq)},$img) : $img;
+
+  print "\n",$img,"\n";
+  print end_td,end_TR,end_table();
+  print qq(\n<map name="protein_domains">\n),$map,qq(</map>\n);
+}
+
+sub print_external_links {
+  my ($obj) = @_;
+
+  print br();
+  print a({-name=>'external_links'},'');
+  ## Gather the appropriate information
+  ## Retrieve DB identifiers for external links
+  my $wormpep   = $obj;
+  my($genpep,$swissprot,@locus,$wormpd_id);
+  my $gene      = $obj->Corresponding_CDS;
+  if ($gene) {
+    $wormpep   = $gene->Corresponding_Protein;
+    if ($wormpep) {
+      my ($spdb) = grep {/SwissProt/} $wormpep->Database;
+      $swissprot = $spdb->right if $spdb;
+      $swissprot    ||= $gene->at('DB_info[3]'); # Only cloned genes have Genpep
+      $swissprot    = a({-href=>sprintf(Configuration->SRS,$swissprot)},$swissprot);
+    }
+    my $ac_protein = $gene->Protein_id(2);
+    $genpep        = $ac_protein;
+    @locus         = $gene->CGC_name;
+    ## WORMPD: Use a locus name if it exists; else use the sequence name
+    $wormpd_id = $locus[0] || $gene;
+  }
+
+  my $meow      = Configuration->Meow_predicted;
+  my $intronerator = Configuration->Intronerator;
+
+  #print start_td({-width=>'100%',-valign=>'TOP'});#jack
+  print start_table({-border=>0,-width=>'100%',-valign=>'TOP'});
+  print TR(th({-class=>'datatitle',-colspan=>2,-valign=>'TOP'},'External Links'));
+
+  if ($genpep) {
+    my $tmp_genpep = a({-href=>sprintf(GENPEP,$genpep)},$genpep);
+    PrintOne('GenPep',$tmp_genpep);
+  }
+  if ($swissprot) {
+    PrintOne('SwissProt', $swissprot);
+  }
+  if ($gene && $meow) {
+    my $tmp_gene = a({-href=>$meow . $gene}, $gene);
+    PrintOne('EuGenes', $tmp_gene);
+  }
+  if ($gene && $intronerator) {
+    my $tmp_gene = a({-href=>$intronerator . $gene}, "Interonerator: $gene");
+    PrintOne('Intronerator',$tmp_gene);
+  };
+  print end_table(); # End the internal table
+  print end_TR();
+}
+
+sub print_protein_stats {
+  my ($peptide,$obj) = @_;
+
+  my $pic     = pICalculator->new();
+  my $selenocysteine_count = 
+    (my $hack_seq = $peptide) =~ tr/Uu/Cc/;  # primaryseq doesn't like selenocysteine, so make it a cysteine
+  my $seq     = Bio::PrimarySeq->new($hack_seq);
+  my $stats   = Bio::Tools::SeqStats->new($seq);
+  my $length  = length $peptide;
+  
+  my $mw = $obj->Molecular_weight;
+  $pic->seq($seq);
+  my $iep     = $pic->iep;
+
+  # The obligatory hash lookups
+  my %abbrev = (A=>'Ala',R=>'Arg',N=>'Asn',D=>'Asp',C=>'Cys',E=>'Glu',
+		Q=>'Gln',G=>'Gly',H=>'His',I=>'Ile',L=>'Leu',K=>'Lys',
+		M=>'Met',F=>'Phe',P=>'Pro',S=>'Ser',T=>'Thr',W=>'Trp',
+		Y=>'Tyr',V=>'Val',U=>'Sec<sup>*</sup>',X=>'Xaa');
+  # Amino acid content
+  my $composition = $stats->count_monomers;
+  if ($selenocysteine_count > 0) {
+    $composition->{C} -= $selenocysteine_count;
+    $composition->{U} += $selenocysteine_count;
+  }
+
+  my %aminos = map {$abbrev{$_}=>$composition->{$_}} keys %$composition;
+
+  # Protein Statistics
+  print p();
+  print a({-name=>"protein_statistics"},"");
+  print 
+    start_table({-border=>0,-width=>'100%'}),
+    TR(
+       th({-class=>'datatitle',-colspan=>2},'Protein Statistics'));
+  print 
+    TR({-class=>'databody'},
+       th({-align=>'LEFT'},'Length: '),
+       td("$length aa"));
+  print 
+    TR({-class=>'databody'},
+       th({-align=>'LEFT'},'Estimated Molecular Weight: '),
+       td($mw));
+  print 
+    TR({-class=>'databody'},
+       th({-align=>'LEFT'},'Estimated Isoelectric Point: '),
+       td($iep));
+  print 
+    TR({-class=>'databody'},
+       th({-align=>'LEFT',-colspan=>2},'Amino Acid Composition:'));
+  print end_table;    
+  
+  # Amino acid composition
+  print start_table({-border=>0,-width=>'100%'});    
+  my (@id,@count,@id_row,@count_row);
+  foreach (sort keys %aminos) {  
+    push (@id_row,td( $_ ));
+    push (@count_row,td($aminos{$_}));
+    push (@id,$_);
+    push (@count,$aminos{$_});
+  }
+  print Tr({-class=>'databody'},@id_row);
+  print Tr({-class=>'databody'},@count_row);
+  print 
+    Tr({-class=>'databody'},
+       td({-align=>'LEFT',-colspan=>scalar @count_row},
+	  "<sup>*</sup>This protein contains $selenocysteine_count selenocysteine (Sec) residues"))
+      if $selenocysteine_count;
+  print end_table;
+
+  return;
+}
+
+
+sub motif_details {
+    my ($obj) = shift;
+    my $seq   = $obj->Corresponding_CDS;
+    
+    my @raw_features = $obj->Feature;
+    my @motif_homol = $obj->Motif_homol;
+    
+    #  return unless $obj->Feature;
+    
+    print br();
+    print a({-name=>'motif_sum'}, "");
+    
+    # Summary by Motif
+    my @tot_positions;
+    
+    if (@raw_features > 0 || @motif_homol > 0) {
+	my %positions;
+	foreach my $feature (@raw_features) {
+	    %positions = map {$_ => $_->right(1)} $feature->col;
+	    foreach my $start (sort {$a <=> $b} keys %positions) {			
+		push @tot_positions,{ feature => $feature,
+				      start   => $start,
+				      stop    => $positions{$start},
+				      range   => $start."_to_".$positions{$start}  ### add range to total position
+				  };
+	    }
+	}
+	
+	# Now deal with the motif_homol features
+	foreach my $feature (@motif_homol) {
+	    my $score = $feature->right->col;
+
+	    my $start = $feature->right(3);
+	    my $stop  = $feature->right(4);
+	    my $type = $feature->right;
+	    $type  ||= 'Interpro' if $feature =~ /IPR/;
+	    (my $accession = $feature) =~ s/^[^:]+://;
+	    my $label = "$type&nbsp;$accession";
+	    my $link = make_ext_link($feature,$label);
+
+	    # Are the multiple occurences of this feature?
+	    my @multiple = $feature->right->right->col;
+	    if (@multiple > 1) {
+		foreach my $start (@multiple) {
+		    my $stop = $start->right;
+		    push @tot_positions,{ feature => $link,
+					  start   => $start,
+					  stop    => $stop,
+					  range   => $start."_to_".$stop  ### add range to total position
+				      };
+		}
+	    } else {
+		push @tot_positions,{ feature => $link,
+				      start   => $start,
+				      stop    => $stop,
+				      range   => $start."_to_".$stop  ### add range to total position
+				  };
+	    }
+
+	}
+
+	print start_table({-border =>1, -width=>'100%'});
+	
+	print TR({-class=>'datatitle',-valign=>'top'},
+		 th({-colspan=>3},'Motif Details'));
+	print TR({-class=>'datatitle',-valign=>'top'},
+		 th('Feature'),
+		 th('Start'),
+		 th('End'));
+	
+	### include filter for motifs here 20080703 - nbc ####
+	
+	# my @tot_positions_filtered;
+# 	my %ranges;
+# 	
+# 	foreach my $position (@tot_positions){
+# 		my $range = ${$position}{'range'};
+# 		
+# 		if(!($ranges{$range})){
+# 			push @tot_positions_filtered, $position;
+# 			$ranges{$range} = 1;
+# 			}
+# 		else{
+# 			next;
+# 		}
+# 		
+# 	}
+# 	
+	##### 
+	
+	foreach my $feature (sort {$a->{start} <=> $b->{start} } @tot_positions) 
+	{
+	    # Print the by Motif table
+	    print TR({-class=>'databody'},
+		     td($feature->{feature}),
+		     td($feature->{start}),
+		     td($feature->{stop}));
+	}
+	
+	
+	print end_table;
+    }
+    return;
+}
+
+
+sub to_fasta {
+  my ($name,$protein) = @_;
+  $protein ||= '';
+  my @markup;
+  for (my $i=0; $i < length $protein; $i += 10) {
+    push (@markup,[$i,$i % 80 ? ' ':"\n"]);
+  }
+  markup(\$protein,\@markup);
+  return $protein;
+}
+
+
+# insert HTML tags into a string without disturbing order
+sub markup {	
+  my $string = shift;
+  my $markups = shift;
+  for my $m (sort {$b->[0]<=>$a->[0]} @$markups) { #insert later tags first so position remains correct
+    my ($position,$markup) = @$m;
+    next unless $position <= length $$string;
+    substr($$string,$position,0) = $markup;
+  }
+}
+
+sub print_prompt {
+  $WORMBASE->print_prompt(-message  => 'Specify a protein using',
+			  -class    => 'Protein',
+			  -examples => [ {'Protein' => 'WP:CE28239'},
+					 {'Gene'    => 'T21C12.1'},
+					 {'Locus'   => 'unc-70'},
+				       ]);
+}
+
+
+sub print_protein {
+  my $peptide = shift;
+
+  print table({-width=>'80%',
+	       -align=>'center'},
+	      TR(td(pre($peptide))));
+
+  return;
+}
+
+sub make_ext_link {
+  my $name = shift;
+  my $text = shift;
+  return $name unless $name && $text;  # Good god, man, what is this
+  $name =~ /(\w+):(.+)/ or return;
+  my $prefix    = $1;
+  my $accession = $2;
+  my $link      = $EXT_LINKS{$prefix} or return;
+  my $url       = sprintf($link,$accession);
+  return a({-href=>$url,-target=>'_new'},$text || $accession);
+}
+
+##print go_term in a nice way, eliminate duplicated go_term types if there are 
+##one type for a term.
+
+sub PrintGoTerm {
+  my $options = shift if ref($_[0]) && ref($_[0]) eq 'HASH';
+  my $label   = shift;
+  my @a = @_;
+  return unless @a;
+  my $first = shift @a;
+  print TR($options,
+	   th({-align=>'LEFT',-class=>'databody'},"$label: "),
+	   td({-class=>'databody'},eval{ref($first) && $first->isClass && $first->class !~ /Text/} ? ObjectLink($first)
+                                                                                                   : $first)
+	  );
+  for my $obj (@a) {
+    print TR({-class=>'databody'},
+	     th({-align=>'RIGHT'},'&nbsp;'),
+	     td(eval{ref($obj) && $obj->isClass && $obj->class !~ /Text/} ? ObjectLink($obj) : $obj)
+	    );
+  }
+}
+
+sub print_history {
+  my $obj = shift;
+  print a({-name=>'history'});
+  my @wormpep_versions = $obj->History;
+  print start_table({-border=>0,-width=>'100%'});
+  print TR({-class=>'datatitle'},th('WormPep Version'),th('Event'),th('Predicted Gene'));
+  for my $version (@wormpep_versions) {
+    my ($status,$prediction) = $version->row(1);
+    $status =~ s/replaced by (\w+)/"replaced by ".a({-href=>Object2URL($1,'Protein')},$1)/e;
+    print TR({-class=>'databody'},td($version),td($status),td($prediction)),"\n";
+  }
+  print end_table;
+}
+
+sub print_details {
+  my $obj = shift;
+  my $detail_type = shift;
+  print start_form(),button(-onClick=>'window.close()',-label=>'Close Window'),end_form(),br();
+
+  if ($detail_type eq 'motif') {
+    motif_details($obj);
+  } else {
+    blast_details($obj);
+  }
+}
+
+sub wrestle_blast {
+  my $hits = shift;
+  my $as_features = shift;
+
+  my (@hits,%cached_features);
+  my %seen;
+  for my $homol (@$hits) {
+    for my $type ($homol->col) {
+      for my $score ($type->col) {
+	for my $start ($score->col) {
+	  for my $end ($start->col) {
+	    my ($tstart,$tend) = $end->row(1);
+
+	    next if ($seen{"$start$end$homol"}++);
+
+	    $HIT_CACHE{$homol} = $homol;
+
+	    if ($as_features) {
+	      my $f = $cached_features{$type}{$homol};
+	      if (!$f) {
+		$f
+		  = $cached_features{$type}{$homol}
+		    = Bio::Graphics::Feature->new(-name     => "$homol",   # quotes and +0 stringifies ace object
+						  -type     => "$type",
+						  -score    => $score+0);
+		push @hits,$f;
+	      }
+	      $f->add_segment(Bio::Graphics::Feature->new(-start => $start+0,
+							  -end   => $end+0,
+							  -score => $score+0,
+							 ));
+	    } else {
+	      push @hits,{hit=>$homol,type=>$type,score=>$score,source=>"$start..$end",target=>"$tstart..$tend"};
+	    }
+	  }
+	}
+      }
+    }
+  }
+  @hits;
+}
+

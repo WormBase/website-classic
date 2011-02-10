@@ -1,0 +1,87 @@
+#!/usr/bin/perl
+
+use lib '../lib';
+use CGI qw(:standard);
+use Tie::Hash;
+use strict;
+use Ace::Browser::AceSubs;
+use ElegansSubs;
+
+OpenDatabase();
+PrintTop();
+
+my @forms = (
+             ['section', 'General'],
+             ['Addresses of Authors'               , ['http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/person.cgi']],
+	     ['Updating contact information'       , ['http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/person.cgi']],
+	     ['Updating intellectual lineage information',['http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/person_lineage.cgi']], 
+
+
+             ['section', 'Proteome/WormPep'],
+             ['Gene/Sequence Links'                , ['http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/gene_name.cgi']],
+
+             ['section', 'Cells and Anatomy'],
+             ['Gene Expression and Regulation'     , ['http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/expr_pattern.cgi']],
+
+
+             ['section', 'Gene Function'],
+             ['Gene Expression and Regulation'     , ['http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/expr_pattern.cgi']],
+             ['RNAi'                               , ['http://elbrus.caltech.edu/cgi-bin/igor/rnaitools/rnai_submission']],
+             ['Transgenes'                         , ['http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/transgene.cgi']],
+
+
+             ['section', 'Genes'],
+             ['Gene/Sequence Links'                , ['http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/gene_name.cgi']],
+             ['Gene Ontology Terms'                , ['http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/go_gene.cgi']],
+
+             ['section', 'Genetic Map Data'],
+  	     ['Allele data'			   , ['http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/allele.cgi']], 
+             ['Breakpoint Data'                    , ['http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/breakpoint.cgi']],
+             ['Deletion/Duplication Data'          , ['http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/df_dp.cgi']],
+             ['Multipoint Cross Data'              , ['http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/multi_pt.cgi']],
+             ['Two-point Cross Data'               , ['http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/2_pt_data.cgi']],
+             ['New/Altered Rearrangement Data'     , ['http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/rearrangement.cgi']],
+             ['Gene/Sequence Links'                , ['http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/gene_name.cgi']],
+
+             ['section', 'Nomenclature'],
+             ['New Gene Class Name Proposal'       , ['http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/gene_name.cgi']],
+            );
+
+print h2('WormBase Online Data Submission forms');
+
+print p('WormBase welcomes data submissions!',
+	'These online forms enable our curators to more quickly integrate data into WormBase.',
+	' For general questions and comments, use the <a href="/db/misc/feedback">feedback page</a> or send e-mail directly to',
+	a({-href=>'mailto:pws@its.caltech.edu'},'Paul Sternberg')
+	);
+
+print '<table class="resultsbody">';
+
+my $in = 0;
+foreach (@forms){
+  if ($_->[0] eq 'section') {
+      print '</table><br>';
+                          print '<table width="100%" class="resultsbody">';
+			  print "<tr><td colspan=2 class=\"resultstitle\"><b>$_->[1]</b></td></tr>";
+			  $in = 1;
+			  next;
+			  }
+  my $alink;
+
+  print "<tr><td width='50%'>$_->[0]</td><td>";
+
+  #it is a URL
+  unless (@{$_->[1]}[0] =~ /\@/) { $alink = ('Fill out online form'); print a({-href=>@{$_->[1]}[0]},$alink);}
+  #is is an Email address
+  else {
+        my $href = join ',', @{$_->[1]};
+	   $alink = "Email ". join ", ", @{$_->[2]};
+
+	print a({-href=>"mailto:$href?subject=Wormbase online form RE: $_->[0]"},$alink);
+        }
+
+  print '</td></tr>';
+}
+print '</table>';
+
+PrintBottom();

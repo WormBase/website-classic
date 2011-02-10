@@ -1,0 +1,284 @@
+TEST LOGIP=66.222.64.185
+attendee_type===
+attendee_origin===
+help_organize_next_meeting===
+comments_suggestions===test
+good_meeting_size===
+good_talk_number===
+good_poster_time===
+attended_dance===
+good_topic_set===
+topic_suggestions===
+attend_next_meeting===
+meeting_preference===Prefer topics meeting
+additional_areas===
+additional_topics===
+format_preference===
+other_meetings===
+food_rating===
+map_rating===
+staff_rating===
+presentation_rating===
+difficult_meal_access===
+suggested_improvements===
+keynote_rating===
+more_keynotes===
+suggested_keynote===
+=
+IP=66.222.64.185
+attendee_type===Keynote Speaker
+attendee_origin===East Coast
+help_organize_next_meeting===test 23
+comments_suggestions===test 24
+good_meeting_size===Yes
+good_talk_number===Yes
+good_poster_time===Yes
+attended_dance===Yes
+good_topic_set===Yes
+topic_suggestions===test 19
+attend_next_meeting===Yes
+meeting_preference===Prefer regional meeting
+additional_areas===Aging and Stress
+additional_topics===test 2b
+format_preference===Neuro meeting be increased to a 5-day format (independent of which topics are added)
+other_meetings===Aging, Stress, and Pathogenesis
+food_rating===Good
+map_rating===Other
+staff_rating===Other
+presentation_rating===Good
+difficult_meal_access===Yes
+suggested_improvements===test 13
+keynote_rating===Good
+more_keynotes===No
+suggested_keynote===test 7
+=
+IP=66.222.64.185
+attendee_type===Keynote Speaker
+attendee_origin===East Coast
+help_organize_next_meeting===test 23
+comments_suggestions===test 24
+good_meeting_size===Yes
+good_talk_number===Yes
+good_poster_time===Yes
+attended_dance===Yes
+good_topic_set===Yes
+topic_suggestions===test 19
+attend_next_meeting===Yes
+meeting_preference===Prefer topics meeting
+additional_areas===aging_stress;cell_bio;developmental_timimg;genomics
+additional_topics===test 2b
+format_preference===Neuro meeting remain in a 4-day format
+other_meetings===aging_et_al;dev_evol
+food_rating===Very good
+map_rating===Very good
+staff_rating===Very good
+presentation_rating===Very good
+difficult_meal_access===Yes
+suggested_improvements===test 13
+keynote_rating===Very good
+more_keynotes===Yes
+suggested_keynote===test 7
+=
+IP=66.222.64.185
+attendee_type===Keynote Speaker
+attendee_origin===East Coast
+help_organize_next_meeting===test 23
+comments_suggestions===test 24
+good_meeting_size===Yes
+good_talk_number===Yes
+good_poster_time===Yes
+attended_dance===Yes
+good_topic_set===Yes
+topic_suggestions===test 19
+attend_next_meeting===Yes
+meeting_preference===Prefer topics meeting
+additional_areas===aging_stress;cell_bio;developmental_timimg;genomics
+additional_topics===test 2b
+format_preference===Neuro meeting remain in a 4-day format
+other_meetings===aging_et_al;dev_evol
+food_rating===Very good
+map_rating===Very good
+staff_rating===Very good
+presentation_rating===Very good
+difficult_meal_access===Yes
+suggested_improvements===test 13
+keynote_rating===Very good
+more_keynotes===Yes
+suggested_keynote===test 7
+=
+IP=66.222.64.185
+attendee_type===Keynote Speaker
+attendee_origin===East Coast
+other_origin===test 22
+help_organize_next_meeting===test 23
+comments_suggestions===test24
+good_meeting_size===Yes
+good_talk_number===Yes
+good_poster_time===Yes
+attended_dance===Yes
+good_topic_set===Yes
+topic_suggestions===test19
+attend_next_meeting===Yes
+meeting_preference===Prefer topics meeting
+additional_areas===aging_stress;cell_bio;developmental_timimg
+additional_topics===test 2b
+format_preference===Neuro meeting remain in a 4-day format
+other_meetings===aging_et_al;dev_evol
+food_rating===Very good
+map_rating===Very good
+staff_rating===Very good
+presentation_rating===Very good
+difficult_meal_access===Yes
+suggested_improvements===test 13
+keynote_rating===Very good
+more_keynotes===Yes
+suggested_keynote===test 7
+=
+IP=66.222.64.185
+meeting_preference===Prefer topics meeting
+additional_areas===aging_stress;cell_bio;developmental_timimg
+additional_topics===test 2b
+format_preference===Neuro meeting remain in a 4-day format
+other_meetings===aging_et_al;dev_evol
+keynote_rating===Very good
+more_keynotes===Yes
+suggested_keynote===test 7
+food_rating===Very good
+map_rating===Very good
+staff_rating===Very good
+presentation_rating===Very good
+difficult_meal_access===Yes
+suggested_improvements===test 13
+good_meeting_size===Yes
+good_talk_number===Yes
+good_poster_time===Yes
+attended_dance===Yes
+good_topic_set===Yes
+topic_suggestions===test19
+attend_next_meeting===Yes
+attendee_type===Keynote Speaker
+attendee_origin===East Coast
+other_origin===test 22
+help_organize_next_meeting===test 23
+comments_suggestions===test24
+=
+IP=66.222.64.185
+meeting_preference===Prefer topics meeting
+additional_areas===aging_stress;cell_bio;developmental_timimg
+additional_topics===test 2b
+format_preference===Neuro meeting remain in a 4-day format
+other_meetings===aging_et_al;dev_evol
+IP=66.222.64.185
+meeting_preference===Prefer topics meeting
+additional_areas===aging_stress;cell_bio;developmental_timimg
+additional_topics===test 2b
+format_preference===Neuro meeting remain in a 4-day format
+other_meetings===aging_et_al;dev_evol
+keynote_rating===Very good
+more_keynotes===Yes
+suggested_keynote===test 7
+food_rating===Very good
+map_rating===Very good
+staff_rating===Very good
+presentation_rating===Very good
+difficult_meal_access===Yes
+suggested_improvements===test 13
+good_meeting_size===Yes
+good_talk_number===Yes
+good_poster_time===Yes
+attended_dance===Yes
+good_topic_set===Yes
+topic_suggestions===test19
+attend_next_meeting===Yes
+attendee_type===Keynote Speaker
+attendee_origin===East Coast
+other_origin===test 22
+help_organize_next_meeting===test 23
+comments_suggestions===test24
+=
+IP=66.222.64.185
+meeting_preference===Prefer regional meeting
+additional_areas===cell_bio;developmental_timimg
+additional_topics===test 2b
+format_preference===No opinion
+other_meetings===dev_evol
+keynote_rating===Good
+more_keynotes===No
+suggested_keynote===test 7
+food_rating===Good
+map_rating===Good
+staff_rating===Good
+presentation_rating===Good
+difficult_meal_access===No
+suggested_improvements===test 13
+good_meeting_size===No
+good_talk_number===No
+good_poster_time===No
+attended_dance===No
+good_topic_set===No
+topic_suggestions===test 19
+attend_next_meeting===Maybe
+attendee_type===Sponsor
+attendee_origin===Midwest
+other_origin===test 22
+help_organize_next_meeting===test 23
+comments_suggestions===test 24
+=
+IP=66.222.64.185
+meeting_preference===No opinion
+additional_areas===cell_bio;genomics
+additional_topics===test 2b
+format_preference===No opinion
+other_meetings===aging_et_al
+keynote_rating===Other
+more_keynotes===No
+suggested_keynote===test 7
+food_rating===Other
+map_rating===Other
+staff_rating===Other
+presentation_rating===Other
+difficult_meal_access===No
+suggested_improvements===test 13
+good_meeting_size===No
+good_talk_number===No
+good_poster_time===No
+attended_dance===No
+good_topic_set===No
+topic_suggestions===test 19
+attend_next_meeting===Maybe
+attendee_type===Other
+other_attendee===test 21
+attendee_origin===Other
+other_origin===antarctica
+help_organize_next_meeting===test 23
+comments_suggestions===test 24
+=
+IP=66.222.64.185
+meeting_preference===Prefer topics meeting
+additional_areas===aging_stress
+additional_topics===test 2b
+format_preference===Neuro meeting remain in a 4-day format
+other_meetings===aging_et_al;dev_evol
+keynote_rating===Very good
+more_keynotes===Yes
+suggested_keynote===Todd Harris
+food_rating===Very good
+map_rating===Very good
+staff_rating===Very good
+presentation_rating===Very good
+difficult_meal_access===Yes
+suggested_improvements===test 13
+good_meeting_size===Yes
+good_talk_number===Yes
+good_poster_time===Yes
+attended_dance===Yes
+good_topic_set===Yes
+topic_suggestions===add Wormbase
+attend_next_meeting===Yes
+attendee_type===Other
+other_attendee===attendee
+attendee_origin===Midwest
+other_origin===
+help_organize_next_meeting===no
+comments_suggestions===this is a test
+=

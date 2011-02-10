@@ -1,0 +1,187 @@
+#!/usr/bin/perl
+# Creator: T. Harris, 7.2004
+
+# This script adds news items to the bottom of the
+# file used to generate the RSS news feed.
+
+# It also triggers the update script to
+# reparse the news feed file
+
+use strict;
+use Time::ParseDate;
+use Date::Format;  # For converting stringified dates to RFC822
+use Ace::Browser::AceSubs;
+use ElegansSubs;
+use CGI qw(:standard :form *div *table *center);
+
+use constant ENTRIES  => '/usr/local/wormbase/conf/news-entries.xml';
+use constant RSS      => '/usr/local/wormbase/html/news.rss';
+use constant GENERATE => '/usr/local/wormbase/util/admin/generate_rss_feed.pl';
+
+OpenDatabase;
+
+PrintTop(undef,undef,'Add A New Item To The RSS Feed');
+print_form() unless param();
+do_preview() if param('Preview Entry');
+do_submit()  if param('Add Entry');
+PrintBottom;
+
+
+sub print_form {
+  if (param('Preview Entry')) {
+    print h2('Edit Entry');
+  }
+
+  print start_div({-id=>'narrowcontainer'});
+  unless (param('Preview Entry')) {
+    print div({-class=>'block'},
+	      'The WormBase RSS news feeds provide a convenient
+	      mechanism for keeping users up-to-date with new
+	      features, datasets, and system status.  This form adds a
+	      new item to the news feed on the current server. News
+	      feeds are located at:',
+	      div({-class=>'paddedbox'},
+		  a({-href=>'feed://dev.wormbase.org/news.rss'},
+		    'feed://dev.wormbase.org/news.rss'),
+		  br,
+		  a({-href=>'feed://www.wormbase.org/news.rss'},'feed://www.wormbase.org/news.rss')),
+	      p,
+	      'See ' . a({-href=>"/docs/SOPs/rss.html"},'the WormBase
+	      RSS') . ' documentation for a description of appropriate
+	      content for the live vs. development servers. In
+	      general, the live feed should contain entries of broad
+	      interest.  This includes anything listed in the main
+	      News section of the index page.  The development news
+	      feed can be used more casually, announcing features
+	      under development, calls for testing, etc.');
+    print p;
+  }
+
+  print start_form();
+  print
+      table(TR(th({-align=>'left',-width=>100},'Title'),
+	       td(textfield({-name=>'title',-size=>50}))),
+	    TR(td('&nbsp;'),td(i('Enter a brief title for the item.',br,'eg: WormBase has been updated to WS127'))),
+
+	    TR(td({-colspan=>2},'&nbsp;')),
+	    TR(th({-align=>'left',-width=>100},'Link'),
+	       td(textfield({-name=>'link',-size=>50}))),
+	    TR(td('&nbsp;'),td(
+			       i('Enter a link for the item.',
+				 br,
+				 'The title will be hyperlinked using this URL in RSS viewers and aggregators.',br,
+				 'eg: http://www.wormbase.org/db/gene/gene?name=unc-26'))),
+
+	    TR(td({-colspan=>2},'&nbsp;')),
+	    TR(th({-align=>'left',-valign=>'top',-width=>100},'Description'),
+	       td(textarea({-name=>'description',-columns=>50,-rows=>10}))),
+	    TR(td('&nbsp;'),td(
+			       i('Enter a brief description of the item.'))),
+
+	    TR(td({-colspan=>2},'&nbsp;')),
+	    TR(th({-align=>'left',-width=>100},'Posted by'),
+	       td(textfield({-name=>'posted_by',-size=>50}))),
+
+	    TR(td({-colspan=>2},'&nbsp;')),
+	    TR(td('&nbsp'),td({-align=>'right'},submit(-name=>'Preview Entry'))));
+  print end_form;
+  print end_div;
+}
+
+
+
+sub do_preview {
+  my ($title,$link,$desc,$time,$posted_by) = get_params();
+  print h2('Preview Entry');
+  print start_div({-id=>'narrowcontainer'});
+
+  if ($title && $link && $desc && $posted_by) {
+    print div({-class=>'block'},
+	      'Your entry will appear like this in RSS news viewers and aggregators:');
+    
+    print div({-class=>'paddedbox'},
+	      a({-href=>$link},$title),br,
+	      $desc,br,
+	      "[Posted $time by $posted_by]");
+    
+    print div({-class=>'block'},
+	      'If acceptable, click "Add Entry" to add this item to the RSS feed; otherwise, edit the item below.');
+    print start_center(),
+      start_form(),
+	hidden({-name=>'title'},-value=>$title),
+	hidden({-name=>'link'},-value=>$link),
+	hidden({-name=>'description'},-value=>$desc),
+	hidden({-name=>'posted_by'},-value=>$posted_by),
+	submit({-name=>'Add Entry'}),
+	  end_form(),
+	    end_center;
+  } else {
+    print div({-class=>'warning'},
+	      'All fields must be filled in to add an item to the RSS feed. Please edit your entry below');
+  }
+
+  print end_div;
+  print p,hr,p;
+  print_form();
+}
+
+
+
+sub do_submit {
+  # Add the entry to the bottom of the news_feed-entries.xml document
+  my ($title,$link,$desc,$time,$posted_by) = get_params();
+  my $item = <<END;
+
+<item>
+   <title>$title</title>
+   <link>$link</link>
+   <description>$desc</description>
+   <date>$time</date>
+   <posted_by>$posted_by</posted_by>
+</item>
+
+END
+;
+
+  open OUT,">>" . ENTRIES or die "Warning: Could not open the entries file at " . ENTRIES . ' for writing: $!';
+  print OUT $item;
+  close OUT;
+
+  # Now do the update
+  my $server = `hostname`;
+
+  # The tag in the generate command controls extra formatting for live/development server in the RSS
+  my $tag = ($server =~ /brie6/) ? 'live' : 'development';
+
+  my $result = system("/usr/local/wormbase/util/admin/generate_rss_feed.pl $tag xml");
+
+  print start_div({-id=>'narrowcontainer'});
+  print div({-class=>'block'},
+	    "The following entry was added to the RSS news feed on $server");
+  print div({-class=>'paddedbox'},
+	    a({-href=>$link},$title),br,
+	    $desc,br,
+	    "[Posted at $time by $posted_by]");
+  print end_div;
+  print p;
+  print start_center(),
+    'Add ' . a({-href=>'/db/private/update_newsfeed'},'another item') . ' to the news feed.',
+      end_center();
+}
+
+sub get_params {
+  my $title     = param('title');
+  my $link      = param('link');
+  my $desc      = param('description');
+  my $time      = get_time_string();
+  my $posted_by = param('posted_by');
+  return ($title,$link,$desc,$time,$posted_by);
+}
+
+sub get_time_string {
+  my $time = localtime();
+  my $time_template = '%a, %d %b %Y %T %Z';   # RFC 822 compliant time format
+  my $fmtime = time2str($time_template,parsedate($time));
+  return $fmtime;
+}
+

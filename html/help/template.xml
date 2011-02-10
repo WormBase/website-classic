@@ -1,0 +1,42 @@
+<!-- 
+
+This is a template help file.
+
+$Id: template.xml,v 1.1.1.1 2010-01-25 15:47:29 tharris Exp $
+
+Sheldon McKay <mckays@cshl.edu>
+
+Help files contain tooltip contents that are served for ajax 
+requests to populate tooltip balloons or offer other dynamic content.
+They are parsed by /cgi-perl/misc/help.
+
+Each page or script gets its own xml file and each help item
+is contained in a section element.  Each section ID must be
+unique in this file. Note the CDATA to hide
+html markup from the XML parser. 
+
+
+FILE NAME FORMAT:
+
+example: the "/db/gene/gene" script will have a help file named "db-gene-gene.xml";
+
+-->
+
+<xml>
+ <section section_id="help_message0"> 
+  <![CDATA[
+    <b>Help 0:</b> 
+    Blah Blah Blech. I am here to help. <i> Please let me help </i>
+  ]]>
+ </section>
+ 
+ <section section_id="help_message1">
+  <![CDATA[
+    <b>Help 1:</b>
+    If you thought the other message was helpful, try me!
+    I am <b>MUCH</b> more helpful.
+  ]]>
+ </section>
+
+
+</xml>

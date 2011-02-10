@@ -1,0 +1,77 @@
+#!/usr/bin/perl
+use strict;
+
+# $Id: gbrowse_popup,v 1.1.1.1 2010-01-25 15:36:03 tharris Exp $
+# Sheldon McKay mckays@cshl.edu
+# an AJAX handler for wormbase gbrowse popup balloons
+
+use strict;
+use lib '../lib';
+
+use vars qw($DB $DBGFF $CLASS $NAME $SPECIES $OBJ);
+use CGI qw(:standard);
+use ElegansSubs ':DEFAULT';
+use Ace::Browser::AceSubs ':DEFAULT';
+
+$CLASS = param('class') || '';
+$NAME  = param('name')  || '';
+my $type  = param('type');
+
+$DB    = OpenDatabase() || AceError("Couldn't open acedb database.");
+if ($CLASS && $NAME) { 
+    $OBJ   = $DB->fetch($CLASS => $NAME) || warn ("$0: Couldn't find $CLASS $NAME in the database");
+                                                    # AceError("Couldn't find $CLASS $NAME in the database");
+    $SPECIES = eval{$OBJ->Species}
+}
+$SPECIES ||= param('species');
+$DBGFF = OpenGFFDB($DB,$SPECIES)   || AceError("Couldn't open GFF database.");
+
+print header;
+
+gene_description() if $type eq 'CG';
+expression_pattern_description() if $type eq 'EXPR_PATTERN';
+
+sub gene_description {
+    my $default = $NAME;
+    my $ace = $OBJ ||return $default;
+    my $gene = eval{$ace->Corresponding_CDS->Gene} || eval{$ace->Gene};
+    my $desc = join(' ', eval{$gene->Concise_description});
+    $desc  ||= join(' ', eval{$gene->Detailed_description});
+    $desc  ||= join(' ', eval{$gene->Provisional_description});
+    $desc  ||= join(' ', eval{$gene->Sequence_features});
+    $desc  ||= join(' ', eval{$gene->Molecular_function});
+    $desc  ||= join(' ', eval{$gene->Biological_process});
+    $desc  ||= join(' ', eval{$gene->Functional_pathway});
+    $desc  ||= join(' ', eval{$gene->Functional_physical_interaction});
+    $desc  ||= join(' ', eval{$gene->Expression});
+    $desc  ||= join(' ', eval{$gene->Other_description});
+    $desc  ||= join(' ', eval{$gene->Remarks});
+    unless ($desc) {
+      my @desc = eval{$ace->Corresponding_CDS->DB_Remark};
+      $desc = join('<br>',@desc);
+    }
+    $desc =~ s/^(.{512}).+/$1.../ if $desc;
+
+    my $final = $desc ? "<b>$default:</b> $desc" : $default;
+    print "<div style='padding:5px'>$final</div>";
+}
+
+sub expression_pattern_description {
+  my $pattern = $DB->fetch(Expr_pattern => $NAME);
+  my ($gene) = ElegansSubs::Bestname($pattern->Gene);
+  my $type   = $pattern->Type;
+  my $text   = $pattern->Pattern;
+  $text      =~ s/;/,/g;
+  $text      =~ s/,$//;
+  my $cartoon = param('cartoon') ? "/db/gene/expression?name=$NAME;draw=1;thumb=300" : '';
+  # can't draw a cartoon if no base image exists
+  undef $cartoon unless -e "/usr/local/wormbase/html/images/expression/assembled/$NAME.png";
+  my $default = qq(<font color="steelblue"><b>$type for $gene</b></font><p><i>$text</i></p>);
+  my @pics    = $pattern->Picture;
+  my $url     = $pics[0] ? '/ace_images/elegans/external/'.$pics[0] : $cartoon;
+  $url or print $default and exit;
+  # image size constraints depending on type -- height must be specified
+  my $img = $url ? img({-src => "$url", -width => '300px'}) : '';
+  print div({style=>"padding:5px"},$default.$img);
+  exit;
+}

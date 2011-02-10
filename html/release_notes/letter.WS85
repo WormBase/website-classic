@@ -1,0 +1,159 @@
+New Release of acedb WS85, Wormpep85 and Wormrna85 020823
+=========================================================
+
+This directory includes:
+
+i)	database.WS85.*.tar.gz     -   compressed data for new release
+
+ii)	models.wrm.WS85            -   the latest database schema (also in above database files)
+
+iii)	CHROMOSOMES/subdir         -   contains 3 files (DNA, GFF & AGP per chromosome)
+
+iv)	WS85-WS84.dbcomp           -   log file reporting difference from last release
+
+v)	wormpep85.tar.gz           -   full Wormpep distribution corresponding to WS85
+
+vi)	wormrna85.tar.gz           -   latest WormRNA release containing non-coding RNA's in the genome
+
+vii)	confirmed_genes.WS85.gz    -   DNA sequences of all genes confirmed by EST &/or cDNA
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+Primary databases used in build WS85
+------------------------------------
+brigdb : 2002-08-16 - updated
+camace : 2002-08-19 - updated
+citace : 2002-08-16 - updated
+cshace : 2002-08-14 - updated
+genace : 2002-08-19 - updated
+stlace : 2002-08-16 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS85       	WS84      	change
+----------------------------------------------
+a    	32344742	32344742	  +0
+c    	17767680	17767680	  +0
+g    	17745321	17745321	  +0
+t    	32346297	32346297	  +0
+n    	95      	95      	  +0
+-    	62800   	62800   	  +0
+
+Total	100266935	100266935	  +0
+
+No net change to sequence.
+
+
+Wormpep data set:
+----------------------------
+
+There are 19479 CDS in autoace, 20844 when counting 1365 alternate splice forms.
+
+The 20844 sequences contain 9,217,597 base pairs in total.
+
+Modified entries              33
+Deleted entries               32
+New entries                   71
+Reappeared entries             5
+
+Net change  +44
+
+
+GeneModel correction progress WS84 -> WS85
+-----------------------------------------
+
+Confirmed introns not in a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|   1616  |   -28  |
+St Louis 	|    463  |   -76  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|     29  |     0  |
+St Louis 	|    181  |     0  |
+		+---------+--------+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+CHROMOSOME_II	AF016683
+CHROMOSOME_II	AL845469
+CHROMOSOME_IV	AC006701
+CHROMOSOME_IV	AC025724
+CHROMOSOME_IV	AF125445
+CHROMOSOME_IV	AF038618
+
+----------------------------------------------------------------
+
+New Data:
+---------
+
+Added features to the EST/mRNA sequences to indicate the oligo cap 
+sequence and TSL sequences.
+	 
+	 No. of ESTs with Oligo_cap	     8567
+	 No. of ESTs with SL1               14212
+	 No. of ESTs with SL2 (& variants)   3195
+	 
+Added C.briggsae gene predictions to the ultracontigs. Predictions
+using the following prediction algorithms have been added: genefinder,
+fgenesh, twinscan and ensembl. 
+
+New strains from the CGC.
+
+New alleles from the knockout consortium.
+
+New loci and gene classes.
+
+New Fixes:
+----------
+
+
+Known Problems:
+--------------
+
+
+Other Changes:
+--------------
+
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+
+New sequence data from St Louis to fill two of the remaining gaps.
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

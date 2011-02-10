@@ -1,0 +1,17 @@
+# file: /etc/xinetd.d/acedb
+# default: on
+# description: wormbase acedb database
+service acedb
+{
+    protocol                = tcp
+    socket_type             = stream
+    port                    = 2005
+    flags                   = REUSE
+    wait                    = yes
+    user                    = acedb
+    group                   = acedb
+    log_on_success          += USERID DURATION
+    log_on_failure          += USERID HOST
+    server                  = /usr/local/acedb/bin/sgifaceserver
+    server_args             = /usr/local/acedb/elegans 1200:1200:0
+}

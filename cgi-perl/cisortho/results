@@ -1,0 +1,212 @@
+#!/usr/bin/perl -w
+
+#ENVIRONMENT
+$WEBROOT='/usr/local/wormbase/website-classic/html/cisortho/';
+$URIROOT='http://www.wormbase.org/cisortho/';
+use lib '/usr/local/wormbase/website-classic/cgi-perl/cisortho';
+#///////////////////////////////
+
+
+use Env;
+use Data::Dumper;
+use CGI qw(:standard);
+use CGI::Pretty;
+use CGIsubs;
+sub Cleanup;
+
+$q= new CGI;
+
+
+$Query=$ARGV[0];
+$Lock=$Query.'.lock';
+system "mv $Query $Lock";
+
+$LogFile=$WEBROOT.'log/results.log';
+$ErrFile=$WEBROOT.'log/results.error';
+open MYERR,'>>'.$ErrFile;
+
+#Global Paths
+$Per=$WEBROOT.'per/';
+$OutBase=$WEBROOT.'out/';
+$Out=$OutBase.$Query.'/';
+$OutRel='../out/'.$Query.'/';
+$OutURI="$URIROOT/out/$Query/";
+$Exe1=$WEBROOT.'cisortho';
+$Exe2='/usr/bin/zip';
+$Exe3='/bin/tar';
+$Exe4 = $WEBROOT.'site_score';
+$ParFile=$Out.'params';
+$PwmFile=$OutRel.'PWMfile';
+$PutativeHits = $OutRel . 'PutativeHits';
+$PwmURI=$OutURI.'PWMfile';
+
+$Page=$WEBROOT.'out/'.$Query.'.html';
+
+#Parse Par file, loading into %Par
+open P,'<'.$ParFile;
+while ($line=<P>){
+	($key,$val)=split /\s+/,$line;
+	$Par{$key}=$val;
+}
+close P;
+
+#Run system commands
+$html.= h3({-class=>'table'}, "The system is working on your request.",
+		   "This page will update every minute until done.",
+		   "The",&a({-href=>$PwmURI,-target=>"window2"},'Position weight matrix'),
+		   "generated from your input is already being used in the search.",
+		   "You may inspect it while you are waiting.");
+&PrintPage($Page,$html,60);
+
+if ($Par{program_type} eq 'cisortho') {
+    $Cmd1 = "$Exe1 \@$Per/options -p $PwmFile -t $Par{nretrieve} -d $Par{nreport}".
+	  " -r $Par{npairs} -h $Par{name} -l $Out";
+}
+elsif ($Par{program_type} eq 'sitescores') {
+    $Cmd1 = "$Exe4 -p $PwmFile -s $PutativeHits -o $Out$Par{name}";
+}
+else {print MYERR "Unknown or undefined program type"; exit(1)}
+
+#print "Executing:\n\n$Cmd1\n";
+$html.="Running...";
+&PrintPage($Page,$html,60);
+
+$ErrorMsg=`$Cmd1 2>&1`;
+
+print MYERR $ErrorMsg;
+
+if ($? == 256){
+	print STDERR "child produced error message:\n$ErrorMsg\n";
+	$html.=$ErrorMsg;
+	$html.="Had an error executing\n$Cmd1\n";
+	&PrintPage($Page,$html,0);
+	&Cleanup;
+}
+
+elsif ($? == 512){
+	print STDERR "child produced error message:\n$ErrorMsg\n";
+	$html.=&h4({-style=>'color: rgb(255,0,0)'},
+			   "We're sorry, but your binding site alignment is either ",
+			   "too poorly conserved or too similar to background",
+			   " composition to retrieve any hits.  Please check to make sure",
+			   " the binding sites are correctly aligned.  For more details ",
+			   "about why this might happen, please consult the HMMER ",
+			   "user guide or the CisOrtho user guide, in the",
+			   &a({-href=>$URIROOT},'Introduction'),
+			   "page.");
+	&PrintPage($Page,$html,0);
+	&Cleanup;
+}
+
+else {
+	$html.="Done." . br;
+	&PrintPage($Page,$html,60);
+}
+
+
+if ($Par{program_type} eq 'cisortho') {
+
+#print "Running $Exe2...\n";
+	$html.="Zipping results...";
+	&PrintPage($Page,$html,60);
+
+	$ErrorMsg=`cd $OutBase; $Exe2 -lr $OutBase$Query.zip $Query 2>&1 1>/dev/null`;
+	print MYERR $ErrorMsg;
+	if ($? != 0){
+		$html.=$ErrorMsg;
+		$html.="Had an error executing\n$Exe2\n";
+		&PrintPage($Page,$html,0);
+		&Cleanup;
+	}
+
+	else {
+		$html.="Done." . br;
+		&PrintPage($Page,$html,60);
+	}
+
+#print "Running $Exe3...\n";
+	$html.="GZipping Results...";
+	$ErrorMsg=`cd $OutBase; $Exe3 -f  $OutBase$Query.tgz -cz $Query 2>&1 1>/dev/null`;
+	print MYERR $ErrorMsg;
+	if ($? != 0){
+		$html.=$ErrorMsg;
+		$html.="Had an error executing\n$Exe3\n";
+		&PrintPage($Page,$html,0);
+		&Cleanup;
+	}
+
+	else {
+		$html.="Done." . br;
+		&PrintPage($Page,$html,60);
+	}
+
+	$ErrorMsg=`mv $OutBase$Query.zip $Out$Par{name}.zip 2>&1 1>/dev/null`;
+	print MYERR $ErrorMsg;
+	if ($? != 0){
+		$html.=$ErrorMsg;
+		$html.="Had an error executing last command\n";
+		&PrintPage($Page,$html,0);
+		&Cleanup;
+	}
+
+	$ErrorMsg=`mv $OutBase$Query.tgz $Out$Par{name}.tgz 2>&1 1>/dev/null`;
+	print MYERR $ErrorMsg;
+	if ($? != 0){
+		$html.=$ErrorMsg;
+		$html.="Had an error executing last command\n";
+		&PrintPage($Page,$html,0);
+		&Cleanup;
+	}
+
+
+	$html.= br . &h3({-class=>'table'},"Please find all results files here.") . br .
+	  ul(
+		 li("Each webpage contains 100 hits.  View pages with suffix '1' first."),
+		 li("ehits.txt and bhits.txt are the complete set of individual hits input into the phylogenetic filtering procedure."),
+		 li("The .tgz (linux/mac osX) and .zip (windows/mac) files contain all files here")
+		 ), hr;
+
+
+	unlink $ParFile;
+
+}
+
+
+#Par{program_type} is sitescores
+else {}
+
+
+
+opendir OUT,$Out;
+while ($file=readdir OUT){
+	next if ($file=~/^\./);
+	$html.=&a({-href=>$OutURI.$file},$file);
+	$html.=$q->br;
+}
+closedir OUT;
+
+
+
+$html.= br . br . &b(&i('Please save webpages locally.',
+						'This webpage will be deleted',
+						'after 24 hours for your privacy.'));
+&PrintPage($Page,$html,0);
+open MYLOG,'>>'.$LogFile;
+$TodaysDate=`date`;
+chomp $TodaysDate;
+
+print MYLOG "Date: $TodaysDate\t";
+print MYLOG join ", ", map {$_.": ".$Par{$_}} keys %Par;
+print MYLOG "\n";
+close MYLOG;
+unlink $Lock;
+
+close MYERR;
+
+#SUBS/////////////////////
+sub Cleanup {
+	unlink $Lock;
+	unlink $ParFile;
+	exit;
+}
+

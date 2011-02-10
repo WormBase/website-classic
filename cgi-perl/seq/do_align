@@ -1,0 +1,166 @@
+#!/usr/local/bin/perl
+# -*- Mode: perl -*-
+# file: do_align
+# Show EST alignments
+
+use lib '../lib';
+use strict;
+use Ace 1.51;
+use CGI qw(:standard *pre);
+use Ace::Browser::AceSubs;
+use ElegansSubs;
+
+my $sequence = GetAceObject();
+PrintTop($sequence,'Sequence',"EST Alignments for $sequence");
+unless ($sequence || param()) {
+  print_prompt();
+  PrintBottom;
+  exit 0;
+}
+AceError("No such sequence ID known.")    unless $sequence;
+AceError("Sequence is not a transcript.") unless $sequence->Coding(0);
+
+# a little explanation
+print p (qq(Predicted <FONT CLASS="EXONMULTI">EXONS</FONT>, <FONT CLASS="INTRONMULTI">introns</FONT>, and <FONT CLASS="FLANKMULTI">flanking regions</FONT>) );
+
+# fetch all the EST alignments
+my $seq        = Ace::Sequence->new($sequence);
+my @alignments = $seq->features('similarity:EST_GENOME',
+				'similarity:EST_elegans',
+				'similarity:BLAST._briggsae');
+
+# get the DNA for each of the alignment targets
+my %dna;
+foreach (@alignments) {
+  my $target = $_->target;
+  next if $dna{$target};  # already got it for some reason
+  $dna{$target} = $target->asDNA;
+  clean_fasta(\$dna{$target});
+}
+
+# sort the alignments by their start position -- this looks nicer
+@alignments = sort { $a->start <=> $b->start } @alignments;
+
+# the coding sequence is going to begin at nucleotide 1, but one or
+# more of the alignments may start at an earlier position.
+# calculate an offset, which when subtracted from the first alignment,
+# puts the first nucleotide at string position 0
+my $align_start =  $seq->start;
+$align_start    =  $alignments[0]->start
+  if $alignments[0] && $alignments[0]->start < $seq->start;
+
+# the same thing applies to the end of the aligned area
+my @reversed_alignments = sort { $b->end <=> $a->end } @alignments;
+my $align_end           = $seq->end;
+$align_end = $reversed_alignments[0]->end
+  if $reversed_alignments[0] && $reversed_alignments[0]->end > $seq->end;
+
+# align_length holds the full length of the alignment
+my $align_length = $align_end - $align_start + 1;
+
+# we're going to grow two arrays, one holding each row of the padded
+# alignment, and the other holding the labels to use for each row
+# The catch here is that if the cDNAs extend beyond the boundary of the
+# gene, we want to extend the genomic sequence, so we refetch the DNA
+my $genomic = Ace::Sequence->new(-seq   => $sequence,
+				 -start => $align_start,
+				 -end   => $align_end);
+my @dnas   = $genomic->dna;
+my @labels = $sequence;
+
+for my $align (@alignments) {
+  my $pads = '.' x $align_length;
+  for my $seg ($align->segments) {
+    my $start  = $seg->start;
+    my $stop   = $seg->stop;
+    my $target = $seg->target;
+    my $tstart = $target->start;
+    my $tend   = $target->end;
+    my $tdna;
+    if ($tend < $tstart) {
+      $tdna   = substr($dna{$target},$tend-1,$tstart-$tend+1)
+    } else {
+      $tdna   = substr($dna{$target},$tstart-1,$tend-$tstart+1);
+    }
+    substr($pads,$start-$align_start,length($tdna)) = $tdna;
+  }
+  push @dnas,$pads;
+  push @labels,$align->target;
+}
+
+# $dnas[0] gets special treatment -- upcase the predicted exons
+my %seenit;
+my @exons = grep { $_->info eq "$sequence" && !$seenit{$_->start}++ } $seq->features('exon');
+foreach (@exons) {
+  substr($dnas[0],$_->start-$align_start,$_->length) =~ tr/a-z/A-Z/;
+}
+
+# @dnas now contains each of the padded alignments.
+# we want to break each one into pieces for wrapping
+# we could also add HTML markup at this point
+for (my $i=0; $i < @dnas; $i++) {
+  my $pad = \$dnas[$i];
+  my @markup;
+  # add word and line breaks
+  for (my $i=0; $i < length $$pad; $i += 10) {
+    push (@markup,[$i, $i % 80 ? ' ':"\n"]);
+  }
+  markup($pad,\@markup);
+}
+
+#tag exons with CSS hilites
+$dnas[0] =~ s/([ATCGN]+)/<FONT CLASS="EXONMULTI">$1<\/FONT>/gs;
+
+# reorder so that lines are interleaved
+my @lines;
+for (my $i = 0; $i < @dnas; $i++) {
+  my @segments = split "\n",$dnas[$i];
+  for (my $j = 0; $j < @segments; $j++) {
+    $lines[$j][$i] = $segments[$j];
+  }
+}
+
+print start_pre;
+for (my $i = 0; $i < @lines; $i++) {
+  for (my $j = 0; $j < @{$lines[$i]}; $j++) {
+    next unless $lines[$i][$j];
+    printf ("%-15s %s\n",$labels[$j],$lines[$i][$j]);
+  }
+  print "\n";
+}
+print end_pre;
+
+PrintBottom();
+
+sub clean_fasta {
+  my $stringref = shift;
+  $$stringref =~ s/^>.*//;
+  $$stringref =~ s/\n//g;
+}
+
+# insert HTML tags into a string without disturbing order
+sub markup {
+  my $string = shift;
+  my $markups = shift;
+  for my $m (sort by_position @$markups) { #insert later tags first so position remains correct
+    my ($position,$markup) = @$m;
+    next unless $position <= length $$string;
+    substr($$string,$position,0) = $markup;
+  }
+}
+
+sub by_position {
+  return $b->[0]<=>$a->[0] || $b->[1] cmp $a->[1];
+}
+
+sub print_prompt {
+  print start_form,
+    p({-class=>'caption'},"Type in a predicted sequence name, such as",
+      cite('AC3.6'),'or',cite('B0019.1'),':'
+     ),
+       p("Symbol: ",
+	 textfield(-name=>'name')
+	),
+	  hidden(-name=>'class',-value=>'Sequence'),
+    end_form;
+}

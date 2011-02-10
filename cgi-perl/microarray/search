@@ -1,0 +1,330 @@
+#!/usr/bin/perl
+
+# Igor's microarray_search script, circa 11.2003
+# Edited and initiated into the WB core by TWH, 12.2003.
+# The spirit remains the same, but the path is quite different
+
+use strict;
+use lib '../lib';
+use vars qw/$DB/;
+use Ace::Browser::AceSubs;
+use ElegansSubs;
+use CGI qw(:standard *table *TR *th *td);
+
+use constant DEBUG => 1;
+
+$DB         = OpenDatabase() || AceError("Couldn't open database.");
+
+# Readable-labels to form value lists for popup menus and the selectable
+# output list.
+# Also provides translation of these values into ace query fragments
+# used to generate full query
+
+# In Igor's modified version, he uses Gene in the popupmenu
+# but allows users to select CDS, Locus, or Transcript in the output options
+
+my %value2query = ( # Label                    # Query                       ##### Ace tag #####
+		   'Microarray results'       => 'a',                          # Microarray_results
+#		   'Gene'                     => 'Gene',                       # Gene
+		   'CDS'                      => 'CDS',                        # CDS
+		   'Locus'                    => 'Locus',                      # Locus
+		   'Transcript'               => 'Transcript',                 # Transcript
+		   'Microarray'               => 'Microarray',                 # Microarray
+		   'PCR product'              => 'PCR_product',                # PCR_product
+		   'Oligo set'                => 'Oligo_set',                  # Oligo_set
+		   'Reference'                => 'b->Reference',               # Reference
+		   'Experiment name'          => 'b',                          # Microarray_experiment
+		   'Life stage'               => 'c->Life_Stage',              # Life_stage
+		   'Strain'                   => 'c->Strain',                  # Strain
+		   'Genotype'                 => 'c->Genotype',                # Genotype
+		   'log(A/B) (two channel)'   => 'b[A_vs_B_log_ratio]',        # A_vs_B_log_ratio
+		   'Frequency (one channel)'  => 'b[Frequency]',               # Frequency
+		   'Presence'                 => 'b[Presence]',                # Presence
+		   'Standard Deviation'       => 'b[A_vs_B_SD]',               # A_vs_B_SD
+		   'P value'                  => 'b[P_value]',                 # P_value
+		   'Confidence level'         => 'b[Confidence_level]',        # Confidence_level
+		   'Number of experiments'    => 'b[Number_of_experiments]',   # Number_of_experiments
+		   'Cluster'                  => 'b[Cluster]');                # Cluster
+
+my @compare = qw/= > >= < <=/;
+my @combine = qw/AND OR NOT XOR/;
+
+if (param('style') eq "text") {
+  print header("text/plain");
+} else {
+  my $qualifier = param() ? ' Results' : '';
+  PrintTop(undef,undef,undef,
+	   '-Title' =>'Microarray Search' . $qualifier,
+	   '-Target'=>'_top',
+	   '-Class' =>'search');
+
+  print div({style=>'width:50%;background-color:#CCCCFF;margin-left:auto;margin-right:auto;padding:5px;border:2px solid blue;margin-bottom:20px'},
+		   h3("SPELL Microarray Resource now available"),    
+    p('Interested users may also wish to try the C. elegans <a href="http://spell.caltech.edu:3000/search/">SPELL microarray resource</a> which provides much greater sophistication in query and display of microarray data.'),
+	    p('For details, please see <a href="http://www.wormbase.org/wiki/index.php/SPELL">documentation</a> on the <a href="http://www.wormbase.org/org/wiki">WormBase Wiki</a>.'));
+
+}
+print_form() unless param();
+print_results() if param();
+PrintBottom();
+
+#====================
+sub print_form {
+  print h2('Microarray Search');
+  print ol(
+	   li('Select tag names and enter corresponding values.'),
+	   li('Multiple tags can be combined using logical operators,
+	 which can be grouped to control the order in which they are
+	 evaluated.'),
+	   li('If tag name is selected but no value is entered, the tag
+	 will be evaluated for the presence of data.'),
+	   li('Choose output options. Multiple tags can be selected or
+	 all available data can be included in the output.'),
+	   li('Read
+	 ',a({-href=>"/~igor/microarray_search_help.html"},'Additional
+	 documentation'),' on using this search'));
+  
+  print start_form({-action=>'/db/microarray/search'}),
+    start_table(),
+      start_TR(),
+	start_td(),
+	  start_table();
+  
+  for (my $i=1;$i<=5;$i++) {
+    print
+      TR(
+	 th('Tag Name'),
+	 th(br),
+	 th('Value'),
+	);
+    # This is a *total* kludge...since this should NOT use the CDS, Locus, or Transcript
+    # but rather the pan Gene query.  Total hack
+    $value2query{Gene} = 'Gene';
+    delete $value2query{CDS};
+    delete $value2query{Locus};
+    delete $value2query{Transcript};
+
+    print TR(
+	     td(popup_menu({-name=>"tag_name$i",-size=>1,-default=>($i == 1) ? 'Gene' : undef,
+			    -values=> [sort keys %value2query]})),
+	     td(popup_menu({-name=>"compare$i",-size=>1,-selected=>'=',
+			    -values=>\@compare})),
+	     td(textarea({-name=>"tag_value$i",-size=>50})));
+    print TR(
+	     td(popup_menu({-name=>"combine$i",-size=>1,-values=>\@combine})),
+	     td(),
+	     td('group&nbsp;',popup_menu({-name=>"group$i",-size=>1,-values=>[qw/NO YES/],
+					  -selected=>'NO'}))
+	    );
+  }
+  print end_table,end_td;
+  
+  # Now restore... Ugh...
+  delete $value2query{Gene};
+  $value2query{CDS}        = 'CDS';
+  $value2query{Locus}      = 'Locus';
+  $value2query{Transcript} = 'Transcript';
+  
+  # This should be using CDS, Locus, Transcript (as opposed to the the Gene aggregate)
+  print td(
+	   table(
+		 TR(th('Output Options')),
+		 TR(td(scrolling_list({-name=>'output',-size=>18,-multiple=>'multiple',
+				       -default=>'Microarray_results',
+				       -values=>[sort keys %value2query]}))),
+		 TR(td(checkbox(-name=>'output_all',-value=>'yes',-label=>'Include all data')))));
+  print end_TR,end_table;
+  print table(TR(td(submit(-label=>'Submit Query'),'&nbsp;',
+		    reset(-label=>'Reset Form')),
+		 td(radio_group({-name=>'style',-values=>[qw/HTML Text/],-default=>'HTML'}))));
+  print end_form;
+}
+
+sub generate_query {
+  print join(br,param('output'));
+  # Integers need not be quoted in the query
+  my %dont_quote = ('Confidence level'       => 1,
+		    'Frequency (one channel)'  => 1,
+		    'log(A/B) (two channel)'   => 1,
+		    'Number of experiments'    => 1,
+		    'P value'                  => 1,
+		    'Standard Deviation'       => 1);
+
+  my $query;
+  if (param('output_all')) {
+    $query = "select a, CDS, Locus, Transcript,
+       Microarray, PCR_product, Oligo_set, b->Reference, b,
+       c->Life_stage, c->Strain, c->Genotype, b\[A_vs_B_log_ratio\],
+       b\[Frequency\], b\[Presence\], b\[A_vs_B_SD\], b\[P_value\],
+       b\[Confidence_level\], b\[Number_of_experiments\],
+       b\[Cluster\]";
+  } else {
+    $query = 'select ';
+    # Tack on all the desired output fields
+    my @fields;
+    foreach (param('output')) {
+      #      if ($_ eq 'Gene') {
+      #	push @fields,qw/Predicted_gene Locus Transcript/;
+      #      } else {
+      push @fields,$value2query{$_};
+      #      }
+    }
+    $query .= join(',',@fields);
+  }
+  
+  $query .= " from a in class microarray_results, b in a->results, c
+  in b->sample[2], CDS in a->CDS, Locus in
+  a->Locus, Transcript in a->Transcript, PCR_product in
+  a->PCR_product, Oligo_set in a->Oligo_set, Microarray in
+  a->Microarray where";
+
+  my $parens_open;
+  for (my $i=1;$i<=5;$i++) {
+    my $text    = param('tag_value' . $i);
+    my $tag     = param('tag_name' . $i);
+    my $compare = param('compare' . $i);
+    my $combine = lc param('combine' . $i);
+    my $group   = param('group' . $i);
+    
+    # Ignore rows where no text was entered
+    next if $text eq '';
+
+    # I think my logic is wrong here.
+    # I need to be looking at the LAST in the bunch
+    #  if (param('group' . ($i-1)) eq 'YES' && ($i > 1)) { $query .= ")" }
+    $query .= " $combine" if $i != 1;
+    
+    # Open the parentheses, if necessary
+    # We are concatenating a bunch of parens here.
+    # Based on the number of groupings in use
+    if ($i != 1 && param('group' . $i) eq 'YES' && !$parens_open) {
+      $parens_open++;
+      $query .= " (";
+      for (my $n=$i;$n<=5;$n++) {
+	if (param('group' . $n) eq 'YES' && param('tag_name' . ($n+1) ne 'Gene')) {
+	  $query .= " (";
+	} else {
+	  last;
+	}
+      }
+    }
+
+    if ($tag eq 'Gene') {
+      if ($text eq '*') {
+	$query.=" (exists a->CDS or exists a->Locus or exists a->Transcript)";
+	next;
+      }
+      # Predicted genes
+      my $term = ($text =~ /\*|\?/) ? " like" : $compare;
+      $query .= " (a->CDS" . $term . ' "' . $text . '"';
+      # Loci
+      my $term = ($text =~ /\*|\?/) ? " like" : $compare;
+      $query .= " or a->Locus" . $term . ' "' . $text . '"';
+      # Transcripts
+      my $term = ($text =~ /\*|\?/) ? " like" : $compare;
+      $query .= " or a->Transcript" . $term .' "' . $text . '"';
+      $query .= ')';
+      next;
+   } else {
+      if ($text eq '*') {
+	$query .= " exists " . $value2query{$tag};
+	next;
+      }
+      my $term = ($text =~ /\*|\?/) ? " like" : $compare;
+      if (defined $dont_quote{$tag}) {
+	$query .= " $value2query{$tag}" . $term . $text;
+      } else {
+	$query .= " $value2query{$tag}" . $term .' "' . $text . '"';
+      }
+    }
+    
+    # Close the parens, if needed
+    # This isn't quite right - it needs to be the last one..
+    if (param('group' . ($i+1)) eq 'NO' && $parens_open > 0) {
+      $query .= ')';
+      $parens_open = 0;
+    }
+  }
+
+  print $query,br,br if (DEBUG);
+  return $query;
+}
+
+
+sub print_results {
+  my $query = generate_query();
+  my @objects = $DB->aql($query);
+  print p(((@objects) ? scalar @objects : 'No'), " objects that satisfy the search criteria were found.");
+#  return  if (@objects == 0);
+ 
+  # Determine which headers will be necessary for the selected output
+  my @headers;
+  if (param('output_all')) {
+    @headers = (qw/
+		Result CDS Locus Transcript Microarray PCR_product 
+		Oligo_set Reference Experiment Life_stage Strain Genotype 
+		A_vs_B_log_ratio Frequency Presence A_vs_B_SD P_value Confidence_level
+		Number_of_experiments Cluster/);
+  } else {
+    my @tmp = param('output');
+    foreach (@tmp) {
+      #      if ($_ eq 'Gene') {
+      #	push(@headers,qw/Predicted_gene Locus Transcript/);
+      #      } else {
+      push(@headers,$_);
+      #      }
+    }
+  }
+
+
+  # Gather all the appropriate data in rows
+  # Do not link the fllowing fields
+  my %dont_link = (Genotype => 1,
+		   A_vs_B_log_ratio => 1,
+		   Frequency => 1,
+		   Presence  => 1,
+		   A_vs_B_SD => 1,
+		   P_value   => 1,
+		   Confidence_level => 1,
+		   Number_of_experiments => 1);
+
+  my $rows = [];
+  my $style = param('style');
+  foreach my $obj (@objects) {
+    my @cells;
+    foreach (@headers) {
+      # Link 'em up as we go!
+      my $text;
+      if ($style eq 'HTML') {
+	# This needs to be library-ized....	
+	if (defined $dont_link{$_}) {
+	  $text = $obj->$_;
+	} else {
+	  $text = ($_ eq 'Microarray_results')
+	    ? a({-href=>"/db/microarray/results?name=" . $obj->$_},$obj->$_)
+	      : ObjectLink($obj->$_);
+	}
+	$text ||= '&nbsp;';
+      } else {
+	$text = $obj->$_;
+	$text ||= ' ';
+      }
+      push(@cells,$text);
+    }
+    push (@{$rows},@cells);
+  }
+
+  print h2("Microarray Search Results");
+  if ($style eq 'HTML') {
+    print start_table(),TR(td({-class=>'datatitle'},\@headers));
+    foreach (@$rows) {
+      print TR(td({-class=>'databody'},\@$_));
+    }
+    print end_table;
+  } else {
+    print join("\t",@headers),"\n";
+    foreach (@$rows) {
+      print join("\t",@$_),"\n";
+    }
+  }
+}

@@ -1,0 +1,61 @@
+#!/usr/local/bin/perl
+
+# Script for debugging dumper
+# Payan Canaran
+
+use strict;
+use CGI;
+use Bio::DB::GFF;
+
+my $cgi = new CGI;
+print $cgi->header;
+
+my @items = qw(AC3);
+
+my @features = qw(
+processed_transcript:gene
+processed_transcript:curated
+pseudo:Pseudogene
+miRNA_primary_transcript:miRNA
+rRNA_primary_transcript:rRNA
+scRNA_primary_transcript:scRNA
+snRNA_primary_transcript:snRNA
+snoRNA_primary_transcript:snoRNA
+stRNA_primary_transcript:stRNA
+tRNA_primary_transcript:tRNAscan-SE-1.23
+nc_primary_transcript:Non_coding_transcript
+RNA:RNA
+);
+
+my @segment_types = qw(Locus CDS);
+
+my $db   = Bio::DB::GFF->new(	-adaptor     => 'dbi::mysqlace',
+								-dsn         => 'dbi:mysql:database=elegans;host=localhost',
+								-aggregators => [qw(processed_transcript{coding_exon,5_UTR,3_UTR/CDS}
+													clone alignment waba_alignment
+													coding{coding_exon} pseudo{exon:Pseudogene/Pseudogene}
+													rna{exon/Transcript})],
+								-user        => 'nobody',
+								-pass        => '',
+								) or die "Cannot connect!";
+
+foreach my $item (@items) {
+
+	print "\n";
+
+	my $segment = $db->segment($item);
+
+	$segment = $db->segment    (
+								-class => $segment->class,
+								-name  => $segment->ref,
+								-start => $segment->stop,
+								-stop  => $segment->start
+								);
+
+	my $iterator = $segment->features(-type=>\@features,-iterator=>1);
+
+		while (my $f = $iterator->next_seq) {
+			my $f_as_string = '[feature: ' . $f .']' . '[location: ' . $f->refseq . ':' . $f->abs_start . '-' . $f->abs_end . '] [info: ' . $f->info . '] [strand: ' . $f->abs_strand . '] [method: ' . $f->method . '] [class: ' . $f->class . '] [group: ' . $f->group . ']';
+			print "[ITEM: $item] $f_as_string\n";
+			}
+		}

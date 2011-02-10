@@ -1,0 +1,85 @@
+New release of acedb WS45 and wormpep55 10/07/2001
+==================================================
+
+This directory includes:
+   WS45 database.*.tar.gz 
+     files to be installed using INSTALL
+   WS44-WS45.dbcomp
+     Test log reporting differences in Class objects
+     between WS44 and WS45 
+   chromosomes.WS45.tar.gz
+     CHROMOSOMES subdirectory with DNA sequence and GFF files for 
+     the 6 chromsomes
+   wormpep55.tar.gz
+     full wormpep distribution corresponding to WS45 database
+     this contains a log file showing a number of errors in naming 
+     and gene structures that should be fixed
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+Sequence composition:
+---------------------
+
+6 sequences >= 0, 100151813 total
+  - 247196      0 %
+  a 32252030    32 %
+  c 17715417    18 %
+  g 17693379    18 %
+  n 96  0 %
+  t 32243695    32 %
+
+This is a gross increase of 62,135 bp and a net increase of 63,599 bp. This corresponds to
+the finishing of Y67H2A (Y67H2B is subsumed into Y67H2A).
+ 
+Wormpep data set:
+-----------------
+
+there are 19326 CDS in autoace, 19984 when counting (658) alternate splice_forms
+19,984 sequences totalling 8,778,106 letters
+
+ Modified entries      64
+ Deleted entries       35
+ New entries	       57 
+ Reappeared entries     5
+ ------------------------
+ Net Change          + 27
+
+There are 115 provisional gene models in WS45.
+
+GeneModel correction progress:
+------------------------------
+
+# Confirmed_intron not in CDS GeneModels
+
+           +----------+---------+
+           | Introns  | Change  |
+           +----------+---------+
+St Louis   |      690 | -    92 |
+Cambrige   |      169 | +     4 |
+           +----------+---------+
+
+Synchronisation with GenBank/EMBL:
+----------------------------------
+
+           +---------------+---------+ 
+	   | Discrepencies | Change  |
+           +---------------+---------+
+St Louis   |             4 |     n/a |
+Cambridge  |             3 |     n/a | 
+           +-------------------------+ 
+
+New data:
+---------
+
+Known problems:
+---------------
+
+S_child features which overlap genome_sequences.
+
+Known fixes:
+------------
+
+
+

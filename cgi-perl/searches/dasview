@@ -1,0 +1,384 @@
+#!/usr/bin/perl
+
+use strict;
+use vars qw/%FEATURES %SERVERS %PARENTS @CHILDREN %CHILDREN @ENTRIES/;
+use vars qw/$REFSERVER $REFDSN/;
+use CGI  qw/:standard center *table/;
+use Ace::Browser::AceSubs qw/:DEFAULT/;
+use ElegansSubs qw/:DEFAULT/;
+use Bio::Das;
+use Bio::Das::Segment;
+
+use IO::File;
+use IO::Select;
+
+use constant MAX_LENGTH    =>  200_000;  # maximum segment we will display
+use constant SUPPRESS_EST  =>  20_000;   # point at which we start supressing EST display
+use constant TIMEOUT       =>  300;      # timeout for IO::Select
+
+my $REFSERVER     = 'http://www.wormbase.org/db/das';
+my $REFDSN        = 'elegans';
+
+my $dasdraw   = Configuration->Das_draw;
+
+%FEATURES = %SERVERS = %PARENTS = %CHILDREN = (); @ENTRIES = ();
+@CHILDREN = populate_tree();
+
+#save prefs in a cookie, or load the old cookie prefs
+
+exit 1 if set_cookie();
+
+my @features       = param('feature');       #features to display in the graphic
+my @servers        = grep /s\~/, param();    #servers to query for data
+   @servers        = ('s~Wormbase~elegans') unless @servers;  #maybe a server wasn't selected?
+my $name           = param('name');          #name of the locus to search for
+my $chromosome     = param('chromosome');    #chromosome to display
+my $start          = param('start');         #start position on chromosome in bp
+my $stop           = param('stop');          #stop position on chromosome in bp
+my $nav            = param('nav');           #scan image left/right along chromosome
+my $zoom           = param('zoom');          #zoom by how much ?
+
+PrintTop(undef,undef,'DasView for C.elegans (in development)');
+show_javascript();
+
+
+if(param() && !param('Save_Settings')){
+  #elegans DSN specific massage to get the coords
+  my $db     = Bio::Das->new($REFSERVER => $REFDSN);
+
+#  $db->debug(1);
+  my $segment;
+
+  $name = "Locus:$name" if $name =~ /^\w{3,4}-[\d.]+$/;
+
+  if($start){
+    $segment = $db->segment(-refseq=>$chromosome,-start=>$start,-stop=>$stop);
+    $start   = $segment->start; # $chromosome->start * -1;
+    $stop    = $segment->end;   #$start + $segment->end ;
+  } else {
+    $segment = $db->segment(-refseq=>$name);
+    my  @features  = $segment->features('Link');
+    for (@features){
+      if (/CHROMOSOME/) {
+	$chromosome = $_;
+	$start = 1 + $segment->start - $_->start;
+	$stop = 1 + $segment->end - $_->start;
+      }
+    }
+    unless (ref $chromosome) {
+      print h2({-class=>'error'},"Unknown reference point $name. Try again.");
+      searchtable($name,$start,$stop,$chromosome,\@features,\@servers,\@ENTRIES);
+      PrintBottom();
+      exit 0;
+    }
+  }
+
+  zoomnav(\$start,\$stop,\$chromosome,\@features,\$zoom,\$nav) if $nav or ($zoom and ($zoom!=1));
+  slidertable(\$start,\$stop,\$chromosome,\$name,\@servers);
+  show_image($name,$chromosome,\@servers,$start,$stop,$dasdraw);
+}
+
+searchtable($name,$start,$stop,$chromosome,\@features,\@servers,\@ENTRIES);
+PrintBottom();
+
+sub searchtable{
+  my($name,$start,$stop,$chromosome,$features,$servers,$valid_chroms) = @_;
+  $start     ||= 0; $stop  ||= 0;
+  $name      ||= '';$chromosome ||= 'CHROMOSOME_I';
+
+  my $dna_url = $start ? $REFSERVER.'/'.$REFDSN."/dna?ref=$chromosome;start=$start;stop=$stop"
+                       : $REFSERVER.'/'.$REFDSN."/dna?ref=$name";
+  my $fea_url = $start ? $REFSERVER.'/'.$REFDSN."/features?ref=$chromosome;start=$start;stop=$stop"
+                       : $REFSERVER.'/'.$REFDSN."/features?ref=$name";
+  my $dumpline = ($name or $start) ?
+    TR(td({-class=>'searchtitle',-align=>'left',-colspan=>2},b('Refserver Dumps: '),
+	  a({href=>$dna_url},'DNA'),', ',
+	  a({href=>$fea_url},"Features"),', ',
+	  a({href=> $REFSERVER.'/'.$REFDSN."/types"},"Types"),', ',
+	  a({href=> $REFSERVER.'/'.$REFDSN."/stylesheet"},"Stylesheet"),' ',
+	 )
+      ) : '';
+
+  print start_form(-name=>'f2'),
+        start_table({-width=>'100%'}),
+	$dumpline,
+        TR(
+	   th({-class=>'searchtitle',-align=>'left' },"Data Source"),
+	   th({-class=>'searchtitle',-align=>'right'},"Features to Show"));
+
+  foreach my $p (@CHILDREN) {
+    foreach (sort {$a cmp $b} @{$CHILDREN{$p}}){
+      my $default_choice = $p eq 'Wormbase' ? 'all' : 'none'; #turn on wormbase by default
+      print TR(
+	       td({-class=>'searchbody',-width=>'70%'},"$p - $_"),
+	       td({-class=>'searchbody',-align=>'right'},
+		  radio_group(-name    =>"s~$p~$_",
+			      -values  =>['none','all','custom'],
+			      -onClick =>'setCustom(this)',
+			      -default =>$default_choice,
+			     )
+		 )
+	      );
+    }
+  }
+
+  print TR(
+	   td({-class=>'searchbody',-align=>'center',-colspan=>2},
+	      popup_menu(-name=>'chromosome',
+			 -values=>$valid_chroms,
+			 -default=>$chromosome,
+			 -force=>1),
+	      ' from ', textfield(-name=>'start',-value=>$start,-onFocus=>'clr_name()',-force=>1),
+	      'bp to ', textfield(-name=>'stop' ,-value=>$stop ,-onFocus=>'clr_name()',-force=>1),
+	      'bp',br,'Gene, locus or sequence name (e.g. ',
+	      a({-href=>"$ENV{SCRIPT_NAME}?name=B0019"},'B0019'),'or',
+	      a({-href=>"$ENV{SCRIPT_NAME}?name=mec-3"},'mec-3'),
+	      ') ',
+	      textfield(-name=>'name',-value=>$name,-size=>18,-onFocus=>'clr_coords()',-force=>1)
+	     ),
+	   TR(td({-class=>'searchbody',-align=>'center',-colspan=>2},submit))
+	  ), end_table;
+  print end_form;
+  return 1;
+}
+
+sub show_javascript {
+print <<END;
+<script>
+//<!--
+function setCustom(t){
+  if(t.value == 'custom'){
+    var url = "$ENV{SCRIPT_NAME}"+"?cook="+t.name;
+    window.open(url,"_new","status=no,width=500,height=500");
+  }
+}
+function clr_coords(){
+  document.f2.start.value= "";
+  document.f2.stop.value = "";
+}
+function clr_name(){
+  document.f2.name.value = "";
+}
+function cap_view(start, stop){
+  if( (stop - start) > ${\MAX_LENGTH} ){
+    alert("you may not view more than ${\MAX_LENGTH} bp");
+    return false;
+  }
+}
+function zoom_submit(){
+  if(document.f1.zoom.options[document.f1.zoom.selectedIndex].value != 1){
+    document.f1.submit();
+  }
+}
+//-->
+</script>
+END
+;
+}
+
+sub slidertable {
+  my ($start,$stop,$ref,$name,$server) = @_;
+
+  print start_form(-name=>'f1');
+    foreach (@$server){
+      print hidden(-name=>$_          ,-value=>[param($_)],-force=>1);
+    }
+      print hidden(-name=>'start'     ,-value=>[$$start]  ,-force=>1),
+            hidden(-name=>'stop'      ,-value=>[$$stop]   ,-force=>1),
+            hidden(-name=>'chromosome',-value=>[$$ref]    ,-force=>1),
+            hidden(-name=>'name'      ,-value=>[$$name]   ,-force=>1),
+            hidden(-name=>'server'    ,-value=>[@$server] ,-force=>1),
+    table({-width=>'100%'},
+	  th({-class=>'searchtitle'},'DasView showing ',
+	     ($$stop-$$start),' bp from ',$$ref),
+	    TR(td({-class=>'searchbody',-align=>'center'},
+	       submit(-name=>'nav',-value=>'<<'),
+	       submit(-name=>'nav',-value=>'<'),
+	       popup_menu(-name=>'zoom',
+		          -values=>[0.25,0.5,1,2,4],
+			  -labels=>{
+				 0.25 => 'zoom out 4x',
+				 0.5  => 'zoom out 2x',
+				 1    => 'zoom',
+				 2    => 'zoom in 2x',
+				 4    => 'zoom in 4x'
+				},
+			  -onChange=>'zoom_submit();',
+			  -default=>1,
+			  -override=>1),
+	       submit(-name=>'nav',-value=>'>' ),
+	       submit(-name=>'nav',-value=>'>>'),
+	   )
+	)
+     );
+  print end_form, "\n\n\n";
+}
+
+sub zoomnav {
+  my ($start,$stop,$chromosome,$features,$zoom,$nav) = @_;
+  my ($center, $ohalf, $nhalf, $span);
+
+  if($$zoom && ($$zoom != 1)){
+    $center = int(($$stop - $$start) / 2) + $$start;
+    $ohalf  = $center - $$start;
+    $nhalf  = int($ohalf / $$zoom);
+    $$start  = $center - $nhalf; $$start < 0 ? $$start = 0 : 0;
+    $$stop   = $center + $nhalf;
+  }
+  elsif ($$nav){
+    $span = $$stop - $$start;
+    if($$nav eq '<<'){ $$start -= int($span / 2); $$stop -= int($span / 2); }
+    if($$nav eq '<' ){ $$start -= int($span / 4); $$stop -= int($span / 4); }
+    if($$nav eq '>' ){ $$start += int($span / 4); $$stop += int($span / 4); }
+    if($$nav eq '>>'){ $$start += int($span / 2); $$stop += int($span / 2); }
+
+    $$start < 0 ? $$start = 0 : 0;
+  }
+  $$zoom = 1;
+}
+
+sub populate_tree {
+  my @children;
+  open (IN, Configuration->Das_servers);
+  while(<IN>){
+    chomp;
+    my ($s, $u, $d, $e, $f) = split /\t/;
+    my @fs = split /\^/, $f;
+    my @es  = split /\^/, $e;
+
+    push @children,$s unless $SERVERS{$s};
+    $SERVERS{$s} = $u;
+    push @{$CHILDREN{$s}}, $d;
+    $PARENTS{$d} = $s;
+    $FEATURES{"$s~$d"} = \@fs;
+    @ENTRIES = @es if($s eq 'Wormbase' and $d eq 'elegans');
+
+  }
+  close(IN);
+  @children;
+}
+
+sub show_image {
+  my ($name, $chromosome, $servers, $start, $stop, $dasdraw) = @_;
+
+  $name = defined $start ? $chromosome : $name;
+
+  if($stop - $start <= MAX_LENGTH){
+    my $comb = ';comb=1';
+    my @maps = ();
+    foreach my $s (sort @$servers){
+      unless(param($s) eq 'none'){
+	my (undef,$server,$dsn) = split /\~/, $s;
+	my $url = $SERVERS{$server};
+
+	my $das = Bio::Das->new($url=>$dsn);
+
+	#set the features;
+	my $fs       = join ";feature=", cookie($s);
+	   $fs       = join ";feature=", @{$FEATURES{"$server~$dsn"}} if param($s) eq 'all';
+#	   $fs       = '' if param($s) eq 'all';
+
+	my $img_link = "../mapview/dasdraw2?".join(';',"url=$url",
+						   "dsn=$dsn",
+						   "refseq=$name",
+						   "start=$start",
+						   "end=$stop",
+						   "feature="
+						  ).$fs.$comb;
+	push @maps, [$server,$dsn,"$img_link;map=1"];
+
+	print center(small("$server - $dsn")),br;
+	print center(img({-src=>$img_link,-border=>0,-usemap=>'#'.$server.'~'.$dsn})),hr;
+	$comb = '';
+      }
+    }
+
+    {
+      #show image maps
+
+      local $ENV{GATEWAY_INTERFACE} = undef;
+      local $ENV{REQUEST_METHOD}    = undef;
+      local $ENV{MOD_PERL}          = undef;
+
+      my %fh          = ();
+      my $select      = IO::Select->new;
+      foreach my $map (@maps){
+	my ($server, $dsn, $cmd) = @$map;
+	$cmd =~ s/\?/ \'/;
+	$cmd =~ s/(.+)/$1\' \|/;
+
+	my $fh = IO::File->new($cmd);
+	$fh{$fh} = $server.'~'.$dsn;
+	$select->add($fh);
+      }
+
+      my %data = ();
+      while($select->handles){
+	my @can_read = $select->can_read(TIMEOUT) or last;
+	for my $handle (@can_read){
+          my $bytes = sysread($handle,$data{$handle},1024,length $data{$handle});
+
+	  if((defined $bytes) && ($bytes == 0)){
+	    print qq(\n\n<MAP NAME="$fh{$handle}">);
+	    print $data{$handle};
+	    print qq(</MAP>\n\n);
+
+	    delete $data{$handle};
+            #close $handle;              #why can't i do it?
+	    $select->remove($handle);
+	  }
+	}
+      }
+    }
+
+  } else {
+    print h3({-class=>'error',-align=>'CENTER'},"Sorry, sequence display is limited to ${\MAX_LENGTH} bp");
+  }
+}
+
+sub set_cookie {
+  my @prefs  = param(param('Save_Settings')) ? param(param('Save_Settings')) : cookie(param('Save_Settings'));
+  my $cookie = cookie(-name=>param('Save_Settings'),
+		      -value=>\@prefs,
+		      -path=>'/',
+		      -expires=>'+10d',
+		     );
+
+  print header(-cookie=>$cookie);
+
+  #close window if a cookie was just set
+  if(param('Save_Settings')){
+    print start_html(-onLoad=>'close()'),end_html;
+    return 0;
+  }
+
+  #ok, no cookie set.  set one?
+  if(param('cook')){
+    param(-name=>param('Save_Settings'),-value=>\@prefs);
+    new_cookie(param('cook'));
+    return 1;
+  }
+}
+
+sub new_cookie {
+  my ($raw) = @_;
+  $raw =~ /^.+?~(.+?)~(.+?)$/;
+  my $server = $1;
+  my $dsn    = $2;
+
+  print start_html(-title=>"Features from: $1 - $2",
+        -style=>{-src=>"/stylesheets/wormbase.css"}),
+        qq(<link rel="stylesheet" href="/stylesheets/wormbase.css">),
+        h1('Select the features to show.  After closing this window, press the "Submit Query" button on the main page.'),
+	start_form,
+        checkbox_group(-name=>$raw,-values=>$FEATURES{"$server~$dsn"},-columns=>3,-defaults=>[cookie($raw)]),
+        hr,"Click Button to Save Settings",br,submit(-name=>'Save_Settings',-value=>$raw),
+        end_form,end_html;
+}
+
+sub biasedly {
+  my ($a,$b) = @_;
+  return -1 if $a =~ /wormbase/i;
+  return +1 if $b =~ /wormbase/i;
+  return $a cmp $b
+}

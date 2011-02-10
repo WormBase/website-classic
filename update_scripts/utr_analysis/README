@@ -1,0 +1,18 @@
+1. Run propose_utr.pl against live GFF database (WS78) and record
+result in proposed_utrs.txt.  Took a couple of hours to run.
+
+2. Run close_gaps.pl against proposed_utrs.txt to close up gaps from
+EST misalignments.  This removes gaps less than 5 bp in length
+(probably should be even more aggressive).  Store result in
+proposed_utrs_gaps_closed.txt.
+
+3. Run consolidate_utrs.pl against proposed_utrs_gaps_closed.txt.
+This joins partially coding with implied coding UTRs and trims the UTR
+to end one base adjacent to the CDS.  It also reverses start and end
+so that orientation of UTRs is correct.  Store result into
+consolidated_utrs.txt.
+
+4. Run to_gff.pl to put it into GFF format.  This swaps the
+orientation again, and assigns strandedness.  Final output in utrs.gff.
+
+

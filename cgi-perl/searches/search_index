@@ -1,0 +1,113 @@
+#!/lab/bin/perl
+# filename: search_index
+# Author: T. Harris
+
+# This is just a simple little jumpstation to all of the searches on WormBase
+
+use CGI qw/:standard *table *TR *td *center :Pretty *ul/;
+#use CGI::Carp qw/fatalsToBrowser/;
+
+use lib '../';
+use Ace::Browser::AceSubs;
+use ElegansSubs qw(:DEFAULT GenBankLink);
+use strict;
+
+OpenDatabase();
+PrintTop(undef,undef,undef,"-Title"=>'Index of Available Searches');
+
+print start_center;
+print start_table({-width=>'75%',-cellpadding=>5,-cellspacing=>5,-class=>'searchbody'});
+
+print 
+  TR(
+     td({-colspan=>2,-class=>'searchtitle',-valign=>'middle'},
+	h3('General'))),
+  TR(
+     td(a({-href=>'basic'},'WormBase Search')),
+     td('Search the entire database with this simple search.')),
+  TR(
+     td(a({-href=>'http://www.textpresso.org/cgi-bin/wb/textpressoforwormbase.cgi'},'WormBase Literature Search')),
+     td('Search the',i('C. elegans'),'literature with TextPresso')),
+  TR(
+     td(a({-href=>'class_query'},'WormBase Class Browser')),
+     td('Search each WormBase classes.')),
+
+  TR(
+     td(a({-href=>'wb_query'},'WormBase Query Language Search')),
+     td('This search uses the old-style Ace Query Language.')),
+
+  TR(
+     td(a({-href=>'aql_query'},'Advanced AQL Search')),
+     td('Conduct general searches against the database using by browsing classes of the database, through Ace Query Language (AQL) queries.'));
+  
+
+print 
+  TR(
+     td({-colspan=>2,-class=>'searchtitle',-valign=>'middle'},
+	h3('Sequence'))),
+  TR(td(a({-href=>'/db/seq/gbrowse'},'Genome')),
+     td('Search for a sequence or sequence features.')),
+  TR(td(a({-href=>'blat'},'BLAST / BLAT')),
+     td('Conduct BLAST / BLAT searches against WormBase.')),
+  TR(td(a({-href=>'/db/seq/ebsyn'},'Synteny Browser')),
+     td('Examine synteneic regions between',i('C. elegans'),
+       'and',i('C. briggsae'))),
+  TR(td(a({-href=>'/db/searches/epcr'},'ePCR')),
+     td('Uses Greg Schuler e-PCR program to search for STSs in the current' ,i('C. elegans'), 'genome.')),
+  TR(td(a({-href=>'/db/misc/c2c'},'Coordinate Mapper')),
+     td('Find the smallest canonical sequence (a cosmid, a link or a superlink) that contains the range specified.')),
+
+  TR(td(a({-href=>'/db/ontology/goterm'},'Gene Ontology')),
+     td('Find gene products by their Gene Ontology associations.')),
+  TR(td(a({-href=>'batch_genes'},'Batch Genes')),
+     td('Download summaries of particular genes or sets of genes.')),
+  TR(td(a({-href=>'advanced/dumper'},'Batch Sequences')),
+     td('Download extracts of the genome.'));
+
+print 
+  TR({-class=>'searchbody'},
+     td({-colspan=>2,-class=>'searchtitle',-valign=>'middle'},
+	h3('Cells And Gene Expression'))),
+  TR(td(a({-href=>'../searches/pedigree'},'Cell and Pedigree')),
+     td('Search for cells, organs and tissues.')),
+
+  TR(td(a({-href=>'../searches/neuron_display'},'Neurons')),
+     td('Search for neurons and neuronal connections.')),
+  
+  TR(td(a({-href=>'expr_search'},'Expression Pattern')),
+     td('Search for expression patterns within given cells, cell groups, or life stages.')),
+
+  TR(td(a({-href=>'/db/gene/expr_profile'},'Expression Profile')),
+     td('Search for expression profiles based on clustered microarray data.'));
+
+print
+  TR({-class=>'searchbody'},
+     td({-colspan=>2,-class=>'searchtitle',-valign=>'middle'},
+	h3('Genetics, Strains, Phenotypes'))),
+
+  TR(td(a({-href=>'/db/gene/allele?name=b1021;class=Allele'},'Allele report')),
+     td('Display allele and affected genes, allele type, genetic position and physical position.')),
+
+  TR(td(a({-href=>'interval'},'Genetic Interval')),
+     td('A gene-centric search. To assist in candidate gene hunting, displays all genes and loci within a given region, including brief descriptions of each gene.')),
+ 
+  TR(td(a({-href=>'/db/seq/clone'},'Clone')),
+     td('A clone-centric search. Displays information such as clone type, corresponding sequences, genomic location and map.')),
+ 
+  TR(td(a({-href=>'strains'},'SNPs, Markers, and Strains')),
+     td('A locus-centric search. Search for genetic and physical markers in a given interval. Displays information such as phenotype for genetic markers, and SNP sequence information for SNPS. Also retrieves information about existing strains carrying those markers.')),
+
+  TR(td(a({-href=>'rnai_search'},'RNAi')),
+     td('Search for RNAi phenotypes, limited by life stage.'));
+  
+
+
+
+print 
+  end_table;
+
+
+PrintBottom;
+exit;
+
+

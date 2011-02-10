@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="10"
+   name=""
+   committed-date="2008-09-06T17:19:29.852077Z"
+   url="svn+ssh://tharris@toddharris.net/home/tharris/svn/public/Flickr-API-Simple"
+   last-author="tharris"
+   kind="dir"
+   uuid="2fd37b26-5054-0410-acc1-87f233285a77"
+   revision="10"/>
+<entry
+   name="t"
+   kind="dir"/>
+<entry
+   name="lib"
+   kind="dir"/>
+<entry
+   committed-rev="8"
+   name="MANIFEST"
+   text-time="2008-09-06T15:55:41.000000Z"
+   committed-date="2008-09-06T14:00:30.280143Z"
+   checksum="1616857dabc4664e4be9f22c1aa20b65"
+   last-author="tharris"
+   kind="file"
+   prop-time="2008-09-06T15:55:41.000000Z"/>
+<entry
+   committed-rev="8"
+   name="Changes"
+   text-time="2008-09-06T15:55:41.000000Z"
+   committed-date="2008-09-06T14:00:30.280143Z"
+   checksum="c3f42ed1f2fc70dfa4effa3fec655bfa"
+   last-author="tharris"
+   kind="file"
+   prop-time="2008-09-06T15:55:41.000000Z"/>
+<entry
+   committed-rev="8"
+   name="flickr.conf.template"
+   text-time="2008-09-06T15:55:41.000000Z"
+   committed-date="2008-09-06T14:00:30.280143Z"
+   checksum="4809ff9385cd0517964c3faaf649e210"
+   last-author="tharris"
+   kind="file"
+   prop-time="2008-09-06T15:55:41.000000Z"/>
+<entry
+   committed-rev="8"
+   name="Build.PL"
+   text-time="2008-09-06T15:55:41.000000Z"
+   committed-date="2008-09-06T14:00:30.280143Z"
+   checksum="c12224ab293b3911386e8a40cdacdbce"
+   last-author="tharris"
+   kind="file"
+   prop-time="2008-09-06T15:55:41.000000Z"/>
+<entry
+   name="eg"
+   kind="dir"/>
+<entry
+   committed-rev="8"
+   name="MANIFEST.SKIP"
+   text-time="2008-09-06T15:55:41.000000Z"
+   committed-date="2008-09-06T14:00:30.280143Z"
+   checksum="9e1ea33c8e2ebd8ff93eca8626bd8cdf"
+   last-author="tharris"
+   kind="file"
+   prop-time="2008-09-06T15:55:41.000000Z"/>
+<entry
+   committed-rev="8"
+   name="log4perl.conf"
+   text-time="2008-09-06T15:55:41.000000Z"
+   committed-date="2008-09-06T14:00:30.280143Z"
+   checksum="e161dfd619c688f49f004d790a85a36c"
+   last-author="tharris"
+   kind="file"
+   prop-time="2008-09-06T15:55:41.000000Z"/>
+<entry
+   committed-rev="8"
+   name="README"
+   text-time="2008-09-06T15:55:41.000000Z"
+   committed-date="2008-09-06T14:00:30.280143Z"
+   checksum="6c9efb9d000fbf25c8c89d273cc2a03c"
+   last-author="tharris"
+   kind="file"
+   prop-time="2008-09-06T15:55:41.000000Z"/>
+<entry
+   committed-rev="8"
+   name="flickr.conf"
+   text-time="2008-09-06T15:55:41.000000Z"
+   committed-date="2008-09-06T14:00:30.280143Z"
+   checksum="4809ff9385cd0517964c3faaf649e210"
+   last-author="tharris"
+   kind="file"
+   prop-time="2008-09-06T15:55:41.000000Z"/>
+</wc-entries>

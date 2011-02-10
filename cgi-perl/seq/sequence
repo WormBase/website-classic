@@ -1,0 +1,1462 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# file: sequence
+# C. elegans sequence report built for the model organism databases meeting
+
+use strict;
+use vars qw($DB $PmapGFF %SEQ_CACHE $GFF $WORMBASE $seq);
+use lib '/usr/local/wormbase/website-classic/extlib/lib/perl5', '../lib/';
+use Bio::Seq;
+use CGI qw(:standard :html3 escape *blockquote *table *TR *td *iframe *ul :imagemap);
+use CGI::Carp;
+
+use Ace 1.51;
+use Ace::Browser::AceSubs qw(:DEFAULT AceMultipleChoices Toggle !TypeSelector Configuration AceRedirect);
+use Bio::Graphics::Browser::Markup;
+use Ace::Sequence;
+use ElegansSubs  qw(:DEFAULT PrintLongDescription GetInterpolatedPosition FindPosition
+                     overlapping_microarray AddCommas OverlappingPCR
+                     StartCache EndCache FetchGene Bestname
+                    );
+use WormBase;
+
+use Data::Dumper;
+
+BEGIN {
+  undef %SEQ_CACHE;
+  undef $seq;
+}
+END {
+  undef %SEQ_CACHE;
+}
+
+use constant SEQ_DISPLAY_LIMIT => 10000;  # display sequence for sequences shorter than this value
+
+# print HTTP header & open the database
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$DB->class('Ace::Object::Wormbase');
+
+$WORMBASE = WormBase->new($DB);
+
+###### l'cache #####
+my $cache_key = CGI->new->Vars;
+delete $cache_key->{class};  # irrelevant for this page
+StartCache($cache_key) unless param('nocache');
+END { EndCache(); }
+###################
+
+my (%open);
+my $seq_name  = param('name');
+my $seq_class = param('class');
+my $gb_acc    = param('gb');
+
+$seq = get_seq($seq_name,$seq_class) if $seq_name;
+$seq = get_acc($gb_acc)              if $gb_acc;
+$GFF     = OpenGFFDB($DB,get_species($seq)) if $seq;
+#$PmapGFF = OpenPmapGFF($DB) || AceError("Couldn't open PmapGFF database");
+
+my $d = param('details') ? 'Details' : 'Summary';
+PrintTop($seq,'Sequence',"Sequence $d for: $seq");
+PrintWarning($seq_name,'Sequence') if $seq_name && !$seq;
+
+print_prompt();
+if ($seq) {
+  my %seen;
+  my $type = get_type($seq);
+  my @genes = grep {!$seen{$_}++} eval { $seq->Locus };
+  print h3("Identified as",join(', ',(@genes,$seq->Brief_identification)),
+	   $type eq 'pseudogene' ? ' (pseudogene)' : '')
+    if (eval { $seq->Locus} || eval { $seq->Brief_identification });
+
+  if (param('details')) {
+  
+    eval{print_details($seq);};
+  
+  } else {
+    print_report($seq,$type);
+  }
+}
+
+PrintBottom();
+# exit 0;
+
+
+###################### fetching the sequence from db ###############
+sub get_seq {
+  my ($name,$class) = @_;
+  my $thing = _get_seq($name,$class) or return;
+  if ($thing->class eq 'Protein') {
+    my $seq = $thing->Corresponding_CDS;
+    my $seq_class;
+    $seq_class = eval{$seq->class};
+    
+    param(name  => $seq);
+    param(class => $seq_class);
+    return $seq;
+  } elsif ($thing->class eq 'Gene_name') {
+    my $gene = $thing->Public_name_for || $thing->CGC_name_for || $thing->Molecular_name_for
+      || $thing->Other_name_for || $thing->Sequence_name_for;
+    my $seq = $gene->Corresponding_CDS || $gene->Corresponding_transcript || $gene->Corresponding_pseudogene;
+    if ($gene && !$seq) {
+	# Send us to Gene for the history display
+	# I should just creeate a separate history page...
+	exit;
+	AceRedirect(gene => $gene);
+    } else {
+	param(name  => $seq);
+	param(class => $seq->class);
+    }
+    return $seq;
+  } elsif ($thing->class eq 'Gene') {
+    # There could, of course, be multiple CDSes here.
+    my $seq     = $thing->Corresponding_CDS || $thing->Corresponding_transcript || $thing->Corresponding_pseudogene;
+    # Some genes have no sequence yet.  Just redirect them to the gene
+    # page since there really won't be any informative information on
+    # the sequence page form them
+    AceRedirect(gene => $thing) unless $seq;
+    param(name  => $seq);
+    param(class => $seq->class);
+    return $seq;
+  } elsif ($thing->class eq 'Transcript') {
+    # There could, of course, be multiple CDSes here.
+    my $seq = $thing;
+    param(name  => $seq);
+    param(class => $seq->class);
+    return $seq;
+  }
+  return $thing;
+}
+
+
+# Fetching an object or sequence from the DB should be optimized and
+# library-ized.  GetAceObject could form the basis but it needs to be
+# robustified and have configuration parameters added. - TH
+sub _get_seq {
+  my ($name,$class) = @_;
+  $name =~ s/^cel//i;  # people sometimes add the CEL prefix
+
+  # try Pseudogenes
+  my @seq = $DB->fetch('Pseudogene' => $name);
+
+  # CDSes
+  @seq = $DB->fetch('CDS' => $name) unless (@seq);
+
+  # HACK! HACK! HACK!
+  # Rearranged this heuristic for WS130.  Is it still correct?
+  # Previously, I was trying to fetch transcripts first but this was blocking retrieval
+  # of genes from the in-page prompt.
+
+  # Try transcripts first to pick up non-coding transcripts
+  @seq = $DB->fetch('Transcript' => $name) unless @seq;
+
+  # Is this a non-coding transcript?  If so, let's return
+  my $flag;
+  map {$flag++ if $_->Method eq 'non_coding_transcript'} @seq;
+  return $seq[0] if $flag;
+
+  # Genes
+  @seq = $DB->fetch('Gene' => $name) unless @seq;
+
+  # Gene-names
+  @seq = $DB->fetch('Gene_name' => $name) unless @seq;
+
+  # Proteins
+  @seq = $DB->fetch('Protein' => $name) unless @seq;
+
+  # Next, search via Sequence for clones and such
+  unless (@seq) {
+    $class = 'Sequence';
+    @seq = $DB->fetch($class => $name);
+  }
+
+  # Search via Locus
+  # NOW DEPRECATED BUT SAVE UNTIL POLYMORPHISMS CONVERTED
+  #unless (@seq) {
+  #  if (my $gene = $DB->fetch(Locus => $name)) {
+  #    # Is this right for CDS?
+  #    @seq = $gene->CDS;
+  #    unless (@seq) {
+  #	AceRedirect('gene' => $gene);
+  #	exit 0;
+  #      }
+  #    }
+  #  }
+
+  if (@seq > 1) {
+    PrintTop(undef,'Sequence','Search Results');
+    AceMultipleChoices($name,'',\@seq);
+    exit 0;
+  }
+
+  if (@seq == 1) {
+#    unless ($seq[0]->Species(0)) { # maybe a ghost
+#      # Splices should ALWAYS be class CDS now.
+#      my @splices = $DB->fetch('CDS'=>"${name}*");
+#      @seq = @splices if @splices;
+#    }
+    return $seq[0];
+  }
+}
+
+sub get_acc {
+  my $acc = shift;
+  my ($seq) = $DB->fetch(-query=>"find Accession_number $acc; >Sequence");
+  return $seq;
+}
+
+# Aaaah!
+sub get_type {
+    my $s = shift;
+    # figure out where this sequence comes from
+    # should rearrange in order of probability
+    my $type;
+    if ($s =~ /^cb\d+\.fpc\d+$/) {
+	$type = 'C. briggsae draft contig'
+	} elsif (is_gap($s)) {
+	    $type = 'gap in genomic sequence -- for accounting purposes';
+	} elsif (eval { $s->Genomic_canonical(0) }) {
+	    $type = 'genomic';
+	} elsif ($s->Method eq 'Vancouver_fosmid') {
+	    $type = 'genomic -- fosmid';
+	} elsif (eval { $s->Pseudogene(0) }) {
+	    $type = 'pseudogene';
+	} elsif (eval { $s->RNA_Pseudogene(0) }) {
+	    $type = 'RNA_pseudogene';
+	} elsif (eval { $s->Locus }) {
+	    $type = 'confirmed gene';
+	} elsif (eval { $s->Coding }) {
+	    $type = 'predicted coding sequence';
+	} elsif ($s->get('cDNA')) {
+	    ($type) = $s->get('cDNA');
+	} elsif ($s->Method eq 'EST_nematode') {
+	    $type   = 'non-Elegans nematode EST sequence';
+	} elsif (eval { $s->AC_number }) {
+	    $type = 'external sequence';
+	} elsif (is_merged($s)) {
+	    $type = 'merged sequence entry';
+	} elsif ($s->Method eq 'NDB') {
+	    $type = 'GenBank/EMBL Entry';
+	    # This is going to need more robust processing to traverse object structure
+	} elsif (eval { $s->RNA} ) {
+	    $type = eval {$s->RNA} . ' ' . eval {$s->RNA->right};
+	} else {
+	    $type = eval {$s->Properties(1)};
+	}
+    $type ||= 'unknown';
+    return $type;
+}
+
+
+############################## the prompt #########################
+sub print_prompt {
+  $WORMBASE->print_prompt(-message  => 'Specify a sequence using',
+			  -class    => 'Sequence',
+			  -examples => [ {'Clone' => 'AC7'},
+					 {'CDS'   => 'JC8.10a'},
+				       ]);
+}
+
+########################### the report #################################
+sub print_report {
+  my ($s,$type) = @_;
+
+  my @segment  = get_segment($s,$type);
+  if ($type =~ /coding|gene|genomic/) {
+    print p({-align=>'CENTER'},
+	    b(
+	      a({-href=>'#description'},'[Identification]'),
+	      a({-href=>'#sequence'},'[DNA sequence]'),
+	      a({-href=>'#structure'},'[Map position]'),
+	      a({-href=>'#feature'},'[Similarities]')));
+  }
+
+  print a({-name=>'description'});
+  print_description ($s,$type,\@segment);
+	
+	#print_analysis($s);	
+
+  foreach (qw(Concise_description Detailed_description Provisional_description)) {
+    PrintLongDescription($s,$_);
+  }
+
+  print_gff($segment[0],$type=~/EST|cDNA/) if defined $segment[0]
+    && $segment[0]->length < 100_000;
+
+  if (is_merged($s)) {
+    print_link_parts($s);
+  } else {
+    print a({-name=>'sequence'},'');
+#    my $length = print_sequence($s,$type);
+#    my $length = print_sequence($s,$type,$segment[0]);
+    my $length = print_sequence($s,$type);
+    print_blast($s);
+    print a({-name=>'structure'},'');
+    print_structure ($s);
+    print a({-name=>'feature'},'');
+    print_feature ($s,$length) unless is_gap($s);
+  }
+}
+
+
+sub print_gff {
+  my $segment = shift;
+  my $do_rnas = shift;
+ # $BROWSER  ||= Bio::Graphics::Browser->new or die;
+ # eval {$BROWSER->read_configuration(Configuration->Gff_conf)};  # or die "Can't read gff configuration";
+
+  my $source = get_species($seq);  # Source is the same as species name
+#  $BROWSER->source($source);
+
+  # my $abs = $segment->absolute(0);
+  my $ref   = $segment->ref;
+  my $start = $segment->start;
+  my $stop  = $segment->stop;
+  
+  # add another 10% to left and right
+  $start = int($start - 0.05*($stop-$start));
+  $stop  = int($stop  + 0.05*($stop-$start));
+
+  my @segments;
+  if ($seq->class eq 'CDS' or $seq->class eq 'Transcript') {
+      my $gene = eval { $seq->Gene;};
+      $gene ||= $seq;
+      @segments = $GFF->segment(-class=>'Coding_transcript',-name=>$gene);
+      @segments      = grep {$_->method eq 'wormbase_cds'} $GFF->fetch_group(CDS => $seq) unless @segments;  # CB discontinuity
+  }
+  # In cases where more than one segment is retrieved
+  # (ie with EST or OST mappings)
+  # choose that which matches the original segment.
+  # This is slightly bizarre but expedient fix.
+  my $new_segment;
+  if (@segments > 1) {
+   foreach (@segments) {
+
+      if ($_->start == $start && $_->stop == $_->stop) {
+	$new_segment = $_;
+	last;
+      }
+    }
+  }
+
+  $new_segment ||= $segments[0];
+	$new_segment ||= $segment;
+  
+  my $browser = HunterUrl($ref,$start,$stop,$source);
+  $browser   =~ s/wormbase/briggsae/ if $source eq 'briggsae';  # hack hack hack
+  my $iframe;
+  if($new_segment) {
+	my $type = $source =~ /elegans/ ? "t=NG;t=CG;t=CDS;t=PG;t=PCR;t=SNP;t=TcI;t=MOS;t=CLO":"";
+	#my $type = $source =~ /elegans/ ? "t=NG;t=CG;t=CDS;t=PG;t=PCR;t=SNP;t=TcI;t=MOS;t=CLO":"t=CG";
+ 	$iframe = InlineImage($type,$source,$ref,$start,$stop); 
+ }
+  print p({-align=>'CENTER'},
+       br,$iframe);
+	$segment->absolute(1);
+}
+
+
+
+sub get_segment {
+  my $s    = shift;
+  my $type = shift;
+
+  # special case: return the union of 3' and 5' EST if possible
+  if ($type =~ /EST/) {
+      if ($s =~ /(.+)\.[35]$/) {
+	  my $base = $1;
+	  my ($seg_start) = $GFF->segment(Sequence => "$base.3");
+	  my ($seg_stop)  = $GFF->segment(Sequence => "$base.5");
+	  if ($seg_start && $seg_stop) {
+	      my $union = $seg_start->union($seg_stop);
+	      return $union if $union;
+	  }
+      }
+  }
+  return sort {$b->length<=>$a->length} $GFF->segment($s->class => $s);
+}
+
+sub overlapping_genes {
+  my @segments = @_;
+  return map { $_->features('Transcript:Coding_transcript') } @segments;
+}
+
+sub hunter_url {
+  my ($ref,$start,$stop);
+
+  # can call with three args (ref,start,stop)
+  if (@_ == 3) {
+    ($ref,$start,$stop) = @_;
+  }
+
+  # or with a sequence object
+  else {
+    my $seq_obj = shift or return;
+    $seq_obj->abs(1);
+    $start      = $seq_obj->start;
+    $stop       = $seq_obj->stop;
+    $ref        = $seq_obj->refseq;
+  }
+
+  $ref =~ s/^CHROMOSOME_//;
+  my $length = abs($stop - $start)+1;
+  $start = int($start - 0.05*$length) if $length < 500;
+  $stop  = int($stop  + 0.05*$length) if $length < 500;
+  ($start,$stop) = ($stop,$start) if $start > $stop;
+  $ref .= ":$start..$stop";
+  return "/db/gb2/gbrowse?name=$ref;source=c_elegans";
+}
+
+
+
+####################### Give external and internal links ####################
+sub print_description {
+  my ($s,$type,$segments) = @_;
+
+  print start_table({-border=>1,-width=>'100%'});
+  print TR(th({-class=>'datatitle'},'Description'),
+	   th({-class=>'datatitle'},'External Links'),
+	  );
+  print start_TR,start_td({-valign=>'TOP'});
+
+  print_narrative($s,$type,$segments);
+  print end_td;
+  print start_td({-valign=>'TOP'});
+  print_links($s,$type);
+  print end_td;
+  print end_TR,end_table;
+  print br;
+  print_analysis($s);
+  print_remarks($s);
+}
+
+sub print_remarks {
+  my $s = shift;
+  my @remarks = map { $s->get($_) } qw(Remark DB_remark);
+  return unless @remarks;
+  print br();
+  print start_table({-cellpadding=>0,-cellspacing=>0,-border=>1,-width=>'100%'});
+  print TR((th({-class=>'datatitle'},'Remarks')));
+  print TR({-class=>'databody'},[map {td(ucfirst($_))} @remarks]);
+  print end_table;
+}
+
+sub print_narrative {
+  my ($s,$type,$segments) = @_;
+
+
+  # duplications in database between other_locus & genomic_locus
+  my %seen;
+  my @genes  = grep {!$seen{$_}++} eval { $s->Locus };
+
+  my $origin = find_origin($s);
+  my $protein = eval { $s->Corresponding_protein };
+  my $parent = get_source($s);
+  my $clone = eval { $s->Clone };
+  $clone ||= eval { $parent->Clone } if $parent;
+  if ($type eq 'genomic') {
+      my ($finished) = grep /Finished/,$s->Status;
+      $finished = "finished " . ($s->Finished->right || '') 
+	  if $finished && $finished->right;
+      $type = "$type (C. BRIGGSAE)" if $s->Species =~ /briggsae/;
+      $type = "$type -- $finished" if $finished;
+      $type = "$type -- unfinished" unless $finished;
+  } elsif ($type eq 'cDNA_EST' && $s =~ /^OST/) {
+      $type .= ' (ORFeome Project Sequence Tag)';
+  } elsif ($s =~ /^RST/) {
+      $type = "RACE sequence tag";
+  }
+
+  my (%motif);
+  if ($protein) {
+    my @homol = $protein->Motif_homol;
+    foreach (@homol) {
+      my $title = eval { $_->Title };
+      my ($database,$accession) = $_->Database->row if $_->Database;
+      $database ||= $_->right;
+      push (@{$motif{$database}},[$title,$accession,$_]);
+    }
+  }
+
+  my $title = eval { $s->Title };
+  my $species = $s->Species;
+  my $motif_urls = Configuration->Motif_urls;
+
+  my (@orfeome,@pcr);
+  if ($type =~ /gene|coding sequence|cDNA/) {
+    @pcr     = OverlappingPCR(@$segments) if @$segments;
+    @orfeome = grep {/^mv_/} @pcr;
+  }
+
+  my @briggsae;
+  if ($seq->Species =~ /briggsae/) {
+      @briggsae = map {a({-href=>"ebsyn?name=$_->[0]"},$_->[0])} grep {$_->[1] =~ /\Q$s/} $GFF->search_notes($s);
+  }
+
+  my ($gene,$bestname) = FetchGene($DB,$s,'suppress_multiples') if $s->class =~ /gene|cds|transcript/i;
+  my $locus    = eval { $s->Locus };
+  $bestname  ||= $locus;
+  $bestname  ||= $s if $type =~ /gene|coding/;
+
+  if ($s->Gene) {
+      $gene = $s->Gene;
+      $bestname = Bestname($gene);
+  }
+
+  my $db        = $s->Database;
+  print start_table({-border=>0,-width=>'100%'});
+  PrintMultiple('Species',i($species)) if $species;
+  PrintMultiple('Description',$title)  if $title;
+  PrintMultiple('Sequence type',$type) if $type;
+  PrintMultiple('Corresponding gene',ObjectLink($gene,($s->Method ne 'Coding_transcript' && $gene ne $bestname)
+						? "$bestname ($gene)" : $bestname))
+    if $bestname && ($s->Method ne 'Genefinder');
+  PrintMultiple('Corresponding protein',$protein)       if $protein;
+  PrintMultiple('Matching CDS',ObjectLink($s->Matching_CDS)) if eval {$s->Matching_CDS };
+  PrintMultiple('Matching Transcript',ObjectLink($s->Matching_transcript)) if eval {$s->Matching_transcript };
+  PrintMultiple('Origin',a({-href=>Object2URL($origin)},$origin->get(Mail=>1))) if $origin;
+  PrintMultiple('Available from',a({-href=>Configuration->Geneservice_fosmids},'GeneService')) if $s->Method eq 'Vancouver_fosmid';
+
+  PrintMultiple('Sequence method',$s->Method) if $s->Method;
+  PrintMultiple('Briggsae Orthologs',@briggsae)    if @briggsae;
+  PrintMultiple('ORFeome Assays',
+		map { ObjectLink($_) . " (".($_->Amplified(1) ? "PCR assay amplified" 
+                                    : font({-color=>'red'},"PCR assay did NOT amplify")).")"} @orfeome)
+   if @orfeome;
+
+  PrintMultiple('Source clone',$clone)  if $clone;
+
+
+  my @a;
+  if ($s->Structure(0) || $s->Method eq 'Vancouver_fosmid') {
+    for my $segment (@$segments) {
+      $segment->absolute(1);
+      my $ref = $segment->ref;
+      my $start = $segment->start;
+      my $stop  = $segment->stop;
+      next unless abs($stop-$start) > 0;
+      my $url = hunter_url($ref,$start,$stop);
+      AddCommas($start,$stop);
+      push @a,a({-href=>$url},"$ref:$start..$stop");
+    }
+    PrintMultiple('Genomic Location',@a) if @a;
+    my ($chrom,$pos) = GetInterpolatedPosition($DB,$s);
+    PrintMultiple('Interpolated Genetic Position',a({-href=>Object2URL($chrom)},$chrom . ":$pos")) if ($chrom && $pos);
+
+    if ($type =~ /genomic|confirmed gene|predicted coding sequence/) {
+      PrintMultiple('Transcripts in this region',
+		    map { a({-href=>Object2URL($_->name,'Sequence')},$_)  }
+		    sort {$b cmp $a } map {$_->info} overlapping_genes(@$segments));
+      PrintMultiple('Microarray assays in this region',
+		    sort {$a cmp $b } map {$_->info} overlapping_microarray(@$segments));
+  }
+}
+  my %t;
+  my @transgenes = grep {!$t{$_}++} (eval { $s->Drives_Transgene},eval { $s->Transgene_product });
+  
+  PrintMultiple('Transgene constructs',@transgenes)   if @transgenes;
+
+  print end_table;
+}
+
+sub print_links {
+  my ($s,$type) = @_;
+  my $ac_number = find_ac($s,'NDB');
+  my $ac_protein = eval { $s->Protein_id(2);};
+  my $swissprot = find_swissprot($s);
+  my $wormpd_id = find_wormpd($s);
+  my $uniprot    = find_ac($s,'UniProt');
+  my %ac_hash = %$uniprot;
+  
+  my $meow;
+  if ($type eq 'predicted coding sequence' or $type eq 'confirmed gene') {
+      $meow = Configuration->Meow_predicted;
+  }
+  
+  
+  
+  print start_table({-border=>0,-width=>'100%'});
+   ## test
+  #print "AC\:";
+  #print Dumper %ac_hash;
+  ## 
+
+  if( keys(%{$ac_number}) > 0 ) {
+    PrintMultiple('GenBank/EMBL',a({-href=>sprintf(Configuration->Entrez . $ac_number->{GI_number})},$ac_number->{GI_number}));
+  } else {
+    $ac_number = find_ac($s, 'EMBL');
+    $ac_number = find_ac($s, 'GenBank') if( keys(%{$ac_number}) == 0 );
+
+
+    # Get the longtext for the DB. Should probably include the URL constructor too, oh well.
+    my ($source,@rest) = $s->DB_annotation if $s->class eq 'Sequence';
+    my $details;
+    if ($source) {
+	my ($text)  = $source->col if ($source);
+	$details = a({-href=>Object2URL($text)},' [details]');
+    }
+
+    PrintMultiple('GenBank/EMBL',a({-href=>sprintf(Configuration->Entrez . $ac_number->{NDB_AC})},$ac_number->{NDB_AC}) . $details) if( keys(%{$ac_number}) > 0 );
+
+  }
+
+  
+
+
+
+  PrintMultiple('GenPep',a({-href=>sprintf(Configuration->Entrezp . $ac_protein)},$ac_protein))
+      if $ac_protein;
+  PrintMultiple("Uniprot Accession number",a({-target=>'_blank',
+					      -href=>sprintf(Configuration->Trembl . $uniprot->{UniProtAcc})},$uniprot->{UniProtAcc}))
+      if (defined $uniprot->{UniProtAcc});
+  PrintMultiple('Intronerator',a({-href=>Configuration->Intronerator . $s},"Intronerator: $s"))
+      if eval { $s->Coding(0) };
+  
+  
+  # Still necessary
+  PrintMultiple('SwissProt/TrEMBL',a({-href=>Configuration->Uniprot . $swissprot},$swissprot))
+      if $swissprot;
+  PrintMultiple('Eugenes',a({-href=>$meow . $s},"ACEPRED:$s"))
+      if $meow;
+  PrintMultiple('NextDB',a({-href=>Configuration->Nextdb . $s},$s)) if $meow;  # meow is not a bug
+  PrintMultiple('ORFeome Project',a({-href=>Configuration->Orfeome},"WORFDB: $s"))
+      if $s =~ /^OST/;
+  PrintMultiple('WormPD (fee required)',a({-href=>Configuration->Proteome . "$wormpd_id.html",-target=>'proteome'},$wormpd_id))
+      if $wormpd_id;
+
+  # RSTs. Yuck.
+  if ($s =~ /^RST/) {
+      my $link = 
+      PrintMultiple("RACE project page at WORFDB",
+		    a({-href=>"http://worfdb.dfci.harvard.edu/index.php?page=race"},$s));
+  }
+
+  
+  my $parent = get_source($s);
+  my $clone = eval { $s->Clone };
+  $clone ||= eval { $parent->Clone } if $parent;  
+
+  if ($clone && $s->From_laboratory eq 'YK') {
+      $clone =~ s/YK//i;  # Strip the YK from the ID      
+      PrintMultiple(a({-href=>Configuration->Nextdb_home},'NextDB'),
+		    a({-href => sprintf(Configuration->Nextdb_exp,$clone)},$s->Clone));
+  }
+  
+  print end_table;
+}
+
+##################### print mapping information #####################
+sub print_structure {
+    my $s = shift;
+    my ($chrom,$pos) = GetInterpolatedPosition($DB,$s);
+
+    return if ($s->class eq 'CDS');
+    return unless $chrom || eval { $s->at('Properties.Genomic_canonical') };
+    return unless $chrom || get_source($s) || $s->Clone_left_end || $s->Clone_right_end;
+
+    print hr(),h3({-class=>'heading'},'Mapping Information');
+    print start_blockquote;
+
+    if ($chrom) {
+	print p(b("Approximate genetic map position:"),b("$chrom"). ":$pos",
+		a({-href=>Url('nearby_genes',"name=$s")},'[Browse nearby genes]')
+		);
+    }
+    my ($seqleft,$seqright) = get_overlaps($s);
+
+    if ($seqleft || $seqright) {
+	my @o;
+	if ($seqleft) {
+	    if ($seqleft=~/GAP/) {
+		push @o,"There is a gap to the ".strong('left')." of this sequence";
+	    } else {
+		push(@o,'Sequence ' . a({href=>Url('sequence',"name=$seqleft") }, $seqleft)
+		     . " is to the left of this sequence");
+	    }
+	}
+	if ($seqright) {
+	    if ($seqright=~/GAP/) {
+		push @o,"There is a gap to the ".strong('right')." of this sequence";		
+	    } else {
+		push(@o,'Sequence ' . a({href=>Url('sequence' => "name=$seqright") },$seqright)
+		     ." is to the right of this sequence") if $seqright;
+	    }
+	}
+	
+	print p(b('Overlapping sequences:'),
+		ol(li \@o));
+    }
+
+    my (@cloneleft)  = $s->Clone_left_end;
+    my (@cloneright) = $s->Clone_right_end;
+
+    if (@cloneleft || @cloneright) {
+	# position of ends
+	my @o;
+	foreach (['left','begins',\@cloneleft],['right','ends',\@cloneright]) {
+	    my ($direction,$origin,$clones) = @{$_};
+	    for my $clone (@$clones) {
+	      $clone = '' unless defined $clone;  # get rid of warning
+	      my $c = CGI::escape("$clone");
+	      my $href = a({-href=>Object2URL($clone)},$clone);
+	      push @o,"Clone $href $origin at position " .
+		$clone->right ." of this sequence";
+	    }
+	}
+	print p(b('Overlapping clones:'),ol(li \@o));
+    }
+
+#  	  my $clone = CGI::escape($s->Clone);
+#     my ($clo) = $DB->fetch(Clone => $clone);      #retrieve the object
+#     my $seg = $PmapGFF->segment(Sequence=>$clo);  #retrieve the segment
+#     my $ref= $seg->abs_ref if $seg;                       #retrieve the reference
+#     my $st = $seg->abs_start if $seg;                     #retrieve the start point
+#     my $en = $seg->abs_end if $seg;                       #retrieve the end point
+# 
+#     #print p(a({-href=>Url('pic',"class=Clone&name=$clone")},
+#     print p(a({-href=>"/db/seq/gbrowse?source=elegans_pmap;name=$ref:$st..$en"}, 
+# 	      img({-src=>'/ico/right_arrow.gif',-border=>0,-align=>'BOTTOM'}),
+# 	      'View physical map')) if $clone;
+    print end_blockquote;
+  }
+
+##################### Transcripts and Other Features #####################
+sub print_feature {
+  my ($s,$length) = @_;
+  print hr;
+  if (0) { # dead code
+    print hr(),h3({-class=>'heading'}, 'Features');
+    print p(a({-href=>Url('pic',"class=Sequence&name=$s") },
+	      img({-src=>'/ico/right_arrow.gif',-border=>0,-align=>'BOTTOM'}),
+	      'View features &amp; similarities graphically')) unless is_merged($s);
+  }
+
+  # NB: This is not completely functional - it doesn't display cloned, named genes
+  # (The pre-WS116 version didn't either).
+  # That is, transcripts like JC8.10 are not listed under Transcripts in Ace WS116
+  if (my @genes = $s->get('Transcript')) {
+    print h3('Predicted Genes & Transcriptional Units');
+    my %data = map {$_=>$_} $s->follow(-tag=>'Transcript',-filled=>1);
+
+    my @rows = TR({-class=>'datatitle'},
+		  th(['Start','End','Name','Gene','Predicted Type','Comment']));
+    foreach (sort {$a->right <=> $b->right} @genes) {
+      my $gene = $data{$_};
+      my $href = a({ -href=>Object2URL($gene) },$gene);
+      next unless defined $gene;
+      my $CDS    = $gene->Corresponding_CDS;
+
+      # Fetch the information from the CDS if it exists, else from the transcript
+      my $class = ($CDS) ? $CDS : $gene;
+      my $locus  = eval { $class->Locus };
+      my ($desc) = $class->Brief_identification;
+      ($desc)    = $class->Remark unless $desc;
+      ($desc)    = $class->DB_remark unless $desc;
+      
+      # this sounds like important information - why is it undef'd?
+      #  undef $desc if $desc =~ /possible trans-splice site at \d+/;
+      $desc ||= '&nbsp;';
+
+      my $properties = eval { $class->Properties } || '';
+      $properties = 'merged entry' if /LINK/;
+      push @rows,Tr({-class=>'databody'},
+		    td([$_->right->row,$href,
+			$locus ? a({ -href=>Object2URL($locus)},$locus) : '-',
+			$gene || '?',
+			span({-class=>'description'},$desc)]));
+    }
+    print table({-border=>undef},@rows);
+  }
+
+  if (my @exons = $s->get('Source_Exons')) {
+    my ($start,$orientation,$parent) = get_parent_coords($s);
+    
+    # This is just 1 or -1. Should have better formatting.
+#    print p("orientation is $orientation");   
+
+    print h3('Predicted Exon Structure');
+    print $orientation < 0 ?
+      p(i('NOTE: Transcript is on (-) strand.'))
+	:
+	  p(i('NOTE: Transcript is on (+) strand.'));
+    my @rows = (TR({-class=>'datatitle'},
+		   th(''),
+		   th({-colspan=>2},'Relative to Itself'),
+		   th({-colspan=>2},"Relative to $parent")),
+		TR(th({-class=>'datatitle'},
+		      ["Exon \#",'Start','End','Start','End']))
+	       );
+    my $index = 1;
+    my $last;
+    foreach (@exons) {
+      my ($es,$ee) = $_->row;
+      my $as = $orientation >= 0 ? $start+$es-1 : $start-$es+1;
+      my $ae = $orientation >= 0 ? $start+$ee-1 : $start-$ee+1;
+      my $last = $ee;
+      # uncomment this to get intron lengths
+      #	    my $ilen = $es-$last-1;
+      #	    push @rows,Tr({-align=>RIGHT},td(['','','','','',$ilen]))
+      #		if $ilen>0;
+      push @rows,Tr({-align=>'RIGHT',-class=>'databody'},td([$index++,$es,$ee,$as,$ae]));
+    }
+    print table({-border=>'0'},@rows);
+  }
+
+  my @cDNA = $s->get('Matching_cDNA');
+  if (@cDNA) {
+    print h3("Matching cDNAs");
+    print join(' ',map {a({ -href=>Url('sequence' => "name=$_") },$_)} @cDNA);
+  }
+
+  print_homologies($s,$length);
+
+  my @feature = $s->get('Feature');
+  if (@feature) {
+    print h3("Other features");
+    my @row = TR({-class=>'datatitle'},
+		 th(['Predicted Type','Start','End','Score','Comment']));
+    for my $f (@feature) {
+      (my $label = $f) =~ s/(inverted|tandem)/$1 repeat/;
+      my ($href,$open) = Toggle($f,$label,scalar($f->col));
+      if ($open) {
+	for my $i ($f->col) {
+	  push @row,Tr({-class=>'databody'},
+		       td($href),td([$i->row]));
+	  undef $href;
+	}
+      } else {
+	push @row,Tr({-class=>'databody'},td($href));
+      }
+    }
+    print table({-border=>'0'},@row);
+  }
+}
+
+############################ display homology table ############################
+# Broken under WS116
+sub print_homologies {
+  my ($seq,$end) = @_;
+  my $start = 1;
+  # Restructuring into the ?CDS class partially kills this query
+  # Transcripts are not sequence features any more...
+  my $gff = $DB->raw_query("gif seqget $seq -coords $start $end ; seqfeatures")
+    if $end > 0;
+  return unless $gff;
+
+  my ($origin,$extent,%HITS);
+  foreach (split("\n",$gff)) {
+    next if m!^//!;  # ignore comments
+      next if m!^\0!;  # ignore ACEDB noise/grunge
+    if (/^\#\#sequence-region \S+ (\d+) (\d+)/) {
+      ($origin,$extent) = ($1,$2);
+      next;
+    }
+    next if /^\#/;
+    my ($junk,$description,$type,@data) = split("\t");  # parse
+    # This might be broken with WS121 restructuring
+    next unless $type eq 'similarity';
+    push @{$HITS{$description}},\@data;
+  }
+
+
+  # Try fetching simple homologies via Proteins if we were unable to
+  # get any through the GFF method.  N.B.: This replaces a rather ugly
+  # table-based listing that was never used with a Toggle-based
+  # display. The @data array needs to be built manually to mimic the
+  # array structure above.
+  if (0) {
+    unless (%HITS) {
+      my @homol_types = sort $seq->Corresponding_protein->Homol;
+      foreach my $type (@homol_types) {
+	my @homols = $seq->Corresponding_protein->$type;
+	foreach (@homols) {
+	  my @data = $_->row;
+	  push (@{$HITS{$type}},\@data);
+	}
+      }
+    }
+  }
+  generate_toggle_table(\%HITS) if (%HITS);
+}
+
+sub generate_toggle_table {
+  my $HITS = shift;
+  my ($origin,%hit_objs);
+  print hr(),h3({-class=>'heading'},"Similarities");
+  my ($dnas,$proteins);  # jalview flags
+  my @rows = TR({-class=>'datatitle'},
+		th(['Method','Similarity','Type','Score','Genomic Region','Hit Region','Strand','Frame']));
+  for my $type (sort keys %$HITS) {
+    my $label = $type=~ /hmmfs/ ? 'Motif' : $type;
+    my ($href,$open) = Toggle($type,$label,scalar(@{$HITS->{$type}}),1);
+    
+    # without stepping through whole array, figure out whether
+    # we have any protein or DNA alignments to display.
+    my ($class) = $HITS->{$type}->[0]->[$#{$HITS->{$type}->[0]}] =~ /^([^:]+)/;
+    $dnas++      if $class eq 'Sequence';
+    $proteins++  if $class eq 'Protein';
+    
+    unless ($open) {
+      push @rows,TR({-class=>'databodysmall'},td({-class=>'databodysmall'},$href));
+      next;
+    }
+    
+    for my $hit (sort {$a->[0] <=> $b->[0] } @{$HITS->{$type}}) {
+      my ($s_start,$s_end,$score,$strand,$frame,$packed_stuff) = @$hit;
+      my (undef,$xref,$t_start,$t_end) = split(/\s+/,$packed_stuff);
+
+      # obscure feature in gff 1a format: the name of the hit
+      # is preceded by the name of the class and a colon
+      my $class;
+      ($class,$xref) = $xref =~ /"([^:]+):(.+)"/;
+      $class ||= 'Homol';
+      $s_start -= ($origin - 1);
+      $s_end   -= ($origin - 1);
+      
+      my ($title);
+      my $obj = $hit_objs{"$class:$xref"} ||= $DB->fetch(-class=>$class,-name=>$xref,-fill=>1);
+      if (ref($obj)) {
+	$title = $obj->get(Title=>1) ||
+	  $obj->get(DB_remark=>1) ||
+	    $obj->get(Remark=>1);
+      }
+      
+      $title ||= 'Genomic' if $type =~ /brig/i;
+      $title ||= 'EST'     if $type =~ /EST/;
+      $title ||= 'Genomic' if $type =~ /cosmid/i;
+      $title ||= 'Protein' if $type =~ /blastx/i;
+      $title ||= '&nbsp;';
+      
+      push @rows,TR(
+		    td({-class=>'databodysmall'},$href),
+		    td({-class=>'databodysmall'},
+		       [ref($obj) ? ObjectLink($obj) : $obj,
+			font({-size=>-1},$title),
+			$score,
+			"$s_start&nbsp;-&nbsp;$s_end",
+			"$t_start&nbsp;-&nbsp;$t_end",
+			$strand,
+			$frame,
+		       ]
+		      ));
+      $href = '';
+    }
+  }
+  print table({-border=>0},@rows),br;
+}
+
+
+
+####################### display the DNA sequence itself #########################
+# This seriously needs some purging
+sub print_sequence {
+  my ($s,$type)  = @_;
+  print hr(),h3({-class=>'heading'},'Sequence');
+  
+#  my ($seq_obj) = sort {$b->length<=>$a->length}
+#    $type =~ /^(genomic|confirmed gene|predicted coding sequence)$/i
+#      ? $GFF->segment(full_transcript=>$s)
+#  	: $GFF->segment(-name=>$s,-class=>'full_transcript',-force=>1);
+
+#  ($seq_obj) ||= $GFF->segment(-name=>$s,-class=>'Pseudogene');
+  # my ($seq_obj) = sort {$b->length<=>$a->length}
+  #    $type =~ /^(genomic|confirmed gene|predicted coding sequence)$/i
+  #     ? grep {$_->method eq 'wormbase_cds'} $GFF->fetch_group(CDS => $s),
+  #	: grep {$_->method eq 'full_transcript'} $GFF->fetch_group(Transcript => $s);
+  # Does this still work for cosmid sequences?
+
+  my $seq_obj;
+  if ($s->Species =~ /briggsae/) {
+    ($seq_obj) = sort {$b->length<=>$a->length}
+      $type =~ /^(genomic|confirmed gene|predicted coding sequence)$/i
+	? grep {$_->method eq 'wormbase_cds'} $GFF->fetch_group(Transcript => $s),
+	  : '';
+  } else {
+    ($seq_obj) = sort {$b->length<=>$a->length}
+      #    grep {$_->method eq 'full_transcript'} $GFF->fetch_group(Coding_transcript => $s);
+      #    grep {$_->method eq 'full_transcript'}
+      grep {$_->method eq 'full_transcript'} $GFF->fetch_group(Transcript => $s);
+
+    # BLECH!  If provided with a gene ID and alt splices are present just guess
+    # and fetch the first CDS or Transcript
+    # We really should display a list for all of these.
+    ($seq_obj) ||= sort {$b->length<=>$a->length}
+      #    grep {$_->method eq 'full_transcript'} $GFF->fetch_group(Coding_transcript => $s);
+      #    grep {$_->method eq 'full_transcript'}
+      grep {$_->method eq 'full_transcript'} $GFF->fetch_group(Transcript => "$s.a");
+
+    ($seq_obj) ||= sort {$b->length<=>$a->length}
+      #    grep {$_->method eq 'full_transcript'} $GFF->fetch_group(Coding_transcript => $s);
+      #    grep {$_->method eq 'full_transcript'}
+      grep {$_->method eq 'full_transcript'} $GFF->fetch_group(Transcript => "$s.1");
+  }
+  
+  ($seq_obj) = $GFF->fetch_group(Pseudogene => $s) unless $seq_obj;
+#   print $seq_obj;
+
+  # Haven't fetched a GFF segment? Try Ace.
+  if (!$seq_obj || length($seq_obj->dna) < 2) { # miserable broken workaround
+    # try to use acedb
+    if (my $fasta = $s->asDNA) {
+#      print blockquote(pre($fasta));
+	print pre($fasta);
+      return (length $fasta);
+    } else {
+      print p("Sequence unavailable.  If this is a cDNA, try searching for $s.5 or $s.3");
+      return;
+    }
+  }
+
+  print_genomic_position($s,$type);
+
+  if (eval { $s->Properties eq 'cDNA'} ){
+    # try to use acedb
+    if (my $fasta = $s->asDNA) {
+      print pre($fasta);
+    }
+    return;
+  }
+
+  my $unspliced = lc $seq_obj->dna;
+  my $length = length($unspliced);
+  if (eval { $s->Coding_pseudogene } || eval {$s->Coding} || eval {$s->Corresponding_CDS}) {
+    my $markup = Bio::Graphics::Browser::Markup->new;
+    $markup->add_style('utr'  => 'FGCOLOR gray');
+    $markup->add_style('cds'  => 'BGCOLOR cyan');
+    $markup->add_style('cds0' => 'BGCOLOR yellow');
+    $markup->add_style('cds1' => 'BGCOLOR orange');
+    $markup->add_style('uc'   => 'UPPERCASE');
+    $markup->add_style('newline' => "\n");
+    $markup->add_style('space'   => ' ');
+    my %seenit;
+
+    my @features;
+    if ($s->Species =~ /briggsae/) {
+      $seq_obj->ref($seq_obj);  # local coordinates
+      @features = sort {$a->start <=> $b->start}
+	grep { $_->info eq $s && !$seenit{$_->start}++ }
+	  $seq_obj->features('coding_exon:curated','UTR');
+    } else {
+      $seq_obj->ref($seq_obj);  # local coordinates
+      # Is the genefinder specific formatting cruft?
+      @features =
+	sort {$a->start <=> $b->start}
+	  grep { $_->info eq $s && !$seenit{$_->start}++ }
+	    ($s->Method eq 'Genefinder') ?
+	      $seq_obj->features('coding_exon:' . $s->Method,'five_prime_UTR','three_prime_UTR')
+		:
+		  $seq_obj->features(qw/five_prime_UTR:Coding_transcript exon:Pseudogene coding_exon:Coding_transcript three_prime_UTR:Coding_transcript/);
+    }
+    print_unspliced($markup,$seq_obj,$unspliced,@features);
+    print_spliced($markup,@features);
+    print_protein($markup,\@features) unless eval { $s->Coding_pseudogene };
+  } else {
+    # Otherwise we've got genomic DNA here
+    if ($length < SEQ_DISPLAY_LIMIT) {
+      print pre(to_fasta($s,$unspliced));
+    } else {
+      my $url = self_url();
+      print blockquote(a({-href=>"$url;details=1;dna=$s",-target=>'_blank'},
+			 img({-src=>'/ico/right_arrow.gif',-border=>0,-align=>'BOTTOM'}),
+			 "Display sequence ($length bp) in a new window."));
+    }
+  }
+  return $length;
+}
+
+
+sub print_genomic_position {
+  my ($s,$type) = @_;
+  print start_blockquote();
+  my ($begin,$end,$reference) = FindPosition($DB,$s);
+  my $ref = $reference;
+  my $positions = FindPosition($DB,$s);
+  if ($positions) {
+    print b('Genomic Position(s): ');
+    print i('Pending full synteny analysis, use the Similarity listings below to',
+	    'see where C. briggsae maps onto C. elegans.')
+      if $type =~ /briggsae/;
+    print start_ul();
+    foreach (@$positions) {
+      my ($begin,$end,$reference) = @$_;
+      my $ref = $reference;
+      if (my $chroms = Configuration->Chromosome_tables) {
+	my $genomic_table_length = Configuration->Chromosome_table_length;
+	my $subscript = ('a'..'z')[$begin/$genomic_table_length];
+	(my $anchor = $s) =~ s/\..*$//;
+	my $href = "$chroms/$reference$subscript.html#$anchor";
+	$ref = a({-href=>$href},$reference);
+      }
+      print li("$ref: $begin-$end. ",
+	       a({-href=>hunter_url($reference,$begin,$end)},' [Browse map] '),
+	       eval { $s->Coding } ?
+	       a({-href=>Url('aligner',"name=$s;class=CDS"),-target=>"_blank"},' [View EST alignments]')
+	       : ''
+	      );
+    } # end foreach
+    print end_ul();
+  } else {
+    print b(a({-href=>"/db/gb2/gbrowse?name=$s"},'[Search for this Sequence on Genome]'));
+  }
+  print end_blockquote();
+}
+
+# Fetch and markup unspliced
+sub print_unspliced {
+  my ($markup,$seq_obj,$unspliced,@features) = @_;
+  my $name = $seq_obj->info . ' (' . $seq_obj->start . '-' . $seq_obj->stop . ')';
+
+  my $length   = length $unspliced;
+  if ($length > 0) {
+    # mark up the feature locations
+    my $prefasta = $unspliced;
+    my @markup;
+    my $offset = $seq_obj->start;
+    my $counter = 0;
+    for my $feature (@features) {
+      my $start    = $feature->start - $offset;
+      my $length   = $feature->length;
+      my $style = $feature->method eq 'CDS'  ? 'cds'.$counter++%2
+	: $feature->method =~ /exon/ ? 'cds'.$counter++%2
+		: $feature->method =~ 'UTR' ? 'utr' : '';
+      push @markup,[$style,$start,$start+$length];
+      push @markup,['uc',$start,$start+$length] unless $style eq 'utr';
+    }
+    push @markup,map {['space',10*$_]}   (1..length($prefasta)/10);
+    push @markup,map {['newline',80*$_]} (1..length($prefasta)/80);
+    $markup->markup(\$prefasta,\@markup);
+    print pre(">$name (unspliced + UTR - $length bp)\n$prefasta\n"),br;
+  }
+}
+
+# Fetch and markup the spliced DNA
+# markup alternative exons
+sub print_spliced {
+  my ($markup,@features) = @_;
+  my $spliced = join('',map {$_->dna} @features);
+  my $splen   = length $spliced;
+  my $last    = 0;
+  my $counter = 0;
+  my @markup  = ();
+  my $prefasta = $spliced;
+  for my $feature (@features) {
+    my $length = $feature->stop - $feature->start + 1;
+    my $style  = $feature->method =~ /UTR/i ? 'utr' : 'cds' . $counter++ %2;
+    my $end = $last + $length;
+    push @markup,[$style,$last,$end];
+    push @markup,['uc',$last,$end] if $feature->method =~ /exon/;
+    $last += $length;
+  }
+  
+  push @markup,map {['space',10*$_]}   (1..length($spliced)/10);
+  push @markup,map {['newline',80*$_]} (1..length($spliced)/80);
+  $markup->markup(\$prefasta,\@markup);
+  my $name = eval { $features[0]->refseq->name } ;
+  print pre(">$name (spliced + UTR - $splen)\n$prefasta"),br if $name;
+}
+
+sub print_protein {
+  my ($markup,$features,$genetic_code) = @_;
+  my @markup;
+  my $trimmed = join('',map {$_->dna} grep {$_->method eq 'coding_exon'} @$features);
+  return unless $trimmed;  # Hack for mRNA
+  my $peptide = Bio::Seq->new(-seq=>$trimmed)->translate->seq;
+  my $change  = $peptide =~/\w+\*$/ ? 1 : 0;
+  my $plen = length($peptide) - $change;
+  
+  @markup = map {['space',10*$_]}      (1..length($peptide)/10);
+  push @markup,map {['newline',80*$_]} (1..length($peptide)/80);
+  $markup->markup(\$peptide,\@markup);
+  $peptide =~ s/^\s+//;
+  my $name = eval { $features->[0]->refseq->name };
+  print pre(">$name (conceptual translation - $plen aa)\n$peptide"),br;
+}
+
+
+
+sub print_blast {
+  my $s = shift;
+  print p(),start_blockquote();
+  print start_form(-action=>Configuration->Blast);
+  print submit(-name  => 'autoload',
+	       -value => "Blast $s against WormPep")
+    if (eval { $s->Coding });
+  print submit(-name  => 'autoload',
+	       -value => "Blast $s against Elegans genome");
+  print end_form,end_blockquote();
+}
+
+
+
+##################### print structure of a LINK ##############3
+sub print_link_parts {
+    my $s = shift;
+
+    my @parts = $s->get('Subsequence');
+
+    if (@parts) {
+	print hr(),h3({-class=>'heading'},'Merged Parts');
+	my @rows = TR(th({-class=>'datatitle'},['Start','End','Length (bp)','Name']));
+	foreach (sort {$a->right <=> $b->right} @parts) {
+	    my $href = a({ -name=>$_,-href=>Object2URL($_) },$_);
+	    my ($start,$end) =$_->right->row; 
+	    push @rows,Tr({-class=>'databody',-align=>'RIGHT'},
+			  td([$start,
+			      $end,
+			      abs($end-$start+1),
+			      $href]));
+	}
+	print blockquote(table({-border=>'0'},@rows));
+    }
+}
+
+
+########### utility routine -- decide when a sequence is a link ###########
+sub is_merged {
+    my $s = shift;
+    return $s =~ /LINK|CHROMOSOME/i;
+}
+
+sub is_gap {
+    my $s = shift;
+    return $s =~ /(\b|_)GAP(\b|_)/i;
+}
+
+
+# Instead of traversing, let's fetch the
+# specified part of the tree
+# Returning a hash ref of field-name=id
+# for the appropriate node.
+sub find_ac {
+  my ($s,$node) = @_;
+  my %ids;
+  my @dbs = $s->Database;
+  foreach (@dbs) {
+    if ($_ eq $node) {
+      foreach my $col ($_->col) {
+	$ids{$col} = $col->right;
+      }
+    }
+  }
+  return (\%ids);
+}
+
+sub find_swissprot {
+    my $s = shift;
+    my @dbs = $s->Database;
+    foreach (@dbs) {
+      next unless $_ eq 'TREMBL' or $_ eq 'SwissProt';
+      if ($_ eq 'SwissProt') {
+	  my @ids = $_->col;
+	  foreach (@ids) {
+	      return $_->right if ($_ eq 'SwissProt_AC');
+	  }
+      }
+      return $_->right(2);
+    }
+
+    # If there wasn't a TREMBL or SWISSPROT entry associated with
+    # the main sequence, try to get it from an associated protein
+
+    # Can I get rid of this?
+    # follow the tags to the swissprot entry
+    my %protein_dbs = map {$_ => $_->right(2)} eval { $s->Corresponding_protein('Database') };
+    return unless $protein_dbs{'SwissProt'};
+    (my $swissprot = $protein_dbs{'SwissProt'}) =~ s/\W//g;
+    return $swissprot;
+}
+
+sub find_origin {
+  my $s = shift;
+  return $s->From_Laboratory;
+}
+
+# get coordinates of parent for exons etc
+sub get_parent_coords {
+  my $s = shift;
+  my ($parent) = get_source($s);
+  return unless $parent;
+  #  my $subseq = $parent->get('Subsequence');  # prevent automatic dereferencing
+
+  # Escape the sequence name for fetching
+  $s =~ s/\./\\./g;
+  # We may be dealing with transcripts, too.
+  my $self;
+  foreach my $tag (qw/CDS_child Transcript/) {
+      my $subseq = $parent->get($tag);  # prevent automatic dereferencing
+      if ($subseq) {
+	  $self = $subseq->at($s);
+	  if ($self) {
+	      my ($start,$stop) = $self->right->row;
+	      my $orientation = $start <=> $stop;
+	      return ($start,-$orientation,$parent);
+	  }
+      }
+  }
+  return;
+}
+
+# find a WormPD ID
+# rule is: if there's a corresponding locus, use that.  Otherwise use the
+# sequence name.  This is NOT foolproof.
+sub find_wormpd {
+  my $s = shift;
+  return unless eval { $s->Coding };
+  my @genes = eval { $s->Locus };
+  return $genes[0] if @genes; # oh well
+  return $s;
+}
+
+sub reversec {
+  my $dna = shift;
+  $$dna =~ tr/gatcGATC/ctagCTAG/;
+  $$dna = scalar reverse($$dna);
+}
+
+sub to_fasta {
+    my ($name,$dna) = @_;
+    $dna ||= '';
+    my @markup;
+    for (my $i=0; $i < length $dna; $i += 10) {
+      push (@markup,[$i,$i % 80 ? ' ':"\n"]);
+    }
+    markup(\$dna,\@markup);
+    $dna =~ s/^\s+//;
+    $dna =~ s/\*$//;
+    return "&gt;$name\n$dna";
+}
+
+# insert HTML tags into a string without disturbing order
+sub markup {	
+  my $string = shift;
+  my $markups = shift;
+  for my $m (sort {$b->[0]<=>$a->[0]} @$markups) { #insert later tags first so position remains correct
+    my ($position,$markup) = @$m;
+    next unless $position <= length $$string;
+    substr($$string,$position,0) = $markup;
+  }
+}
+
+sub get_source {
+  my $s = shift;
+  #return $SEQ_CACHE{$s} || ($SEQ_CACHE{$s} = eval { $s->Source });
+  return $SEQ_CACHE{$s} || ($SEQ_CACHE{$s} = eval { $s->Sequence });
+  #return $SEQ_CACHE{$s} || eval { $s->Clone } || ($SEQ_CACHE{$s} = eval { $s->Sequence });
+}
+
+sub get_overlaps {
+  my $s = shift;
+  my ($seqleft)  = eval { $s->Overlap_left };
+  my ($seqright) = eval { $s->Overlap_right };
+
+  # no overlaps -- try to get info from the superlink!
+  if (!$seqleft && !$seqright) {
+    my ($superlink) = get_source($s);
+    if ($superlink && $superlink =~ /link/i) {
+      my @subseq = sort {$a->right <=> $b->right} $superlink->Subsequence;
+      my $index = 0;
+      my %positions = map {$_=>$index++} @subseq;
+      $seqleft = $subseq[$positions{$s}-1]  if $positions{$s}>0;
+      $seqright = $subseq[$positions{$s}+1] if $positions{$s}<$#subseq;
+    }
+  }
+  return ($seqleft,$seqright);
+}
+
+
+
+
+
+#################### ANALYSIS ######
+sub get_seq_analysis_data {
+    my $seq_object = shift;
+    my $analysis = eval{ $seq_object->Analysis};
+
+    if ($analysis) {
+	my %data;
+	$data{analysis}    = "$analysis";
+	$data{description} = $analysis->Description;
+	$data{db_info}     = $analysis->DB_info;
+	$data{wormbase_release}  = $analysis->Based_on_WB_Release;
+	$data{database_release}  = $analysis->Based_on_DB_Release;
+	$data{sample}            = $analysis->Sample;
+	$data{reference}         = ($analysis->Reference ? ObjectLink($analysis->Reference,$analysis->Reference->Title) : '');
+	$data{conducted_by}      = ($analysis->Conducted_by ? ObjectLink($analysis->Conducted_by,$analysis->Conducted_by->Full_name) : '');
+	$data{url}               = ($analysis->URL ? a({-href=>$analysis->URL},'Additional details [external link]') : '');
+	$data{title}             = $analysis->Title;
+	return \%data;
+    } 
+}
+
+sub print_analysis {
+  my $s = shift;
+  my $analysis_data = get_seq_analysis_data($s);
+  return unless $analysis_data;
+  my @headers = ('Analysis',
+		 'Description',
+		 'Title',
+		 'Conducted By',
+		 'Database Info',
+		 'WormBase Release',
+		 'Database Release',
+		 'Sample',
+		 'Reference',
+		 'URL',);
+
+  print start_table({-cellpadding=>1,-cellspacing=>1,-border=>1,-width=>'100%'});
+  print TR((th({-class=>'datatitle',-colspan=>2},'Analysis')));
+  foreach my $header (@headers) {
+      my $key = lc($header);
+      $key =~ s/ /_/g;
+
+      my $data = $analysis_data->{$key};
+      next unless $data;
+
+      # Append some condition data.
+      if ($key eq 'sample') {
+	  my $life_stage = ObjectLink($data->Life_stage);
+	  my $strain     = ObjectLink($data->Strain);
+#	  my $tissue     = eval {$data->Tissue->Term } ? ObjectLink($data->Tissue,$data->Tissue->Term || $data->Tissue) : '';
+	  $data .= ": " . join(", ",$strain, $life_stage);
+      }
+	  
+     PrintMultiple($header,$data);
+  }
+  print end_table;
+  
+}
+
+################ END ANALYSIS ######
+
+############### create the appropriate JALVIEW <APPLET> tag #######################
+sub jalview {
+    my ($s,$type,$start,$length,$is_peptide) = @_;
+    my $params = $is_peptide ? "start=$start&end=$length&peptide=1&name=".escape("$s")
+         	             : "start=$start&end=$length&name=".escape("$s");
+    my $retrieve = 'http://' . virtual_host() . ':' . server_port() . Url('align' => $params );
+    my $JALVIEW = Configuration()->Jalview;
+    my $JALVIEW_MAIL = Configuration()->Jalview_mail;
+    print <<END;
+<P>
+View $type alignments with
+<APPLET ARCHIVE="$JALVIEW"
+        CODE="jalview.ButtonAlignApplet"  WIDTH=55  HEIGHT=24 ALIGN="BOTTOM">
+  <PARAM NAME="input"      VALUE="$retrieve">
+  <PARAM NAME="type"       VALUE="URL">
+  <PARAM NAME="format"     VALUE="PFAM">
+  <PARAM NAME="fontsize"   VALUE="12">
+  <PARAM NAME="consensus"  VALUE="">
+  <PARAM NAME="mailServer" VALUE = "$JALVIEW_MAIL">
+</APPLET>
+</P>
+END
+    ;
+}
+
+
+
+sub print_details {
+  my $seq = shift;
+  print start_form(),button(-onClick=>'window.close()',-label=>'Close Window'),end_form();
+  my ($seq_obj) = $GFF->segment($seq);
+  print pre(to_fasta($seq,$seq_obj->dna));
+}

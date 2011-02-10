@@ -1,0 +1,40 @@
+#!/usr/bin/perl
+# file: example
+# example author display
+
+use strict;
+use Ace::Browser::AceSubs;
+use ElegansSubs;
+use CGI qw(:standard);
+
+my $author = GetAceObject();
+PrintTop($author);
+
+AceError("No such author ID known.") unless $author;
+
+print p(
+        "The author's full name is ",($author->Full_name || 'unknown'). '.',
+        "He or she has written the following papers:"
+        );
+
+my $color = Configuration->Author_example_journal_color;
+
+my @papers = $author->Paper(-fill=>'Title');
+
+# this is the easy way
+# my @links = map { ObjectLink($_) } @papers;
+
+# this is a bit more sophisticated
+my @links = map { ObjectLink($_,font({-color=>$color},$_->Title)) 
+		} sort { $a->Title cmp $b->Title} @papers;
+
+# this is the harder way
+#my @links = map {
+#                my $journal = $_->Journal;
+#                my @authors = $_->Author;
+#                ObjectLink($_,font({-color=>$color},("$journal: ")).join ', ',@authors);
+#		 } @papers;
+
+print ol(li(\@links));
+
+PrintBottom();

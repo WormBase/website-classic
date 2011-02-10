@@ -1,0 +1,237 @@
+#!/usr/bin/perl -w
+# file: microarray_aff
+# $Id: microarray_aff,v 1.1.1.1 2010-01-25 15:36:01 tharris Exp $
+
+use strict;
+use Ace::Browser::AceSubs;
+use ElegansSubs qw(:DEFAULT  PrintMicroarray OverlappingGenes);
+use CGI qw(:standard *table);
+
+my @affy  = OpenPageGetObject('Microarray_aff');
+
+my $DB    = OpenDatabase() || AceError("Couldn't open database.");
+my $DBGFF = OpenDBGFF($DB) || AceError("Couldn't open GFF database.");
+
+#my $affy  = OpenPageGetObject('Gene');
+
+#my @affy = GetAceObject();
+#PrintTop(@affy);
+
+# find out what genes overlap...
+if (my $segment = $DBGFF->segment('Microarray_aff' => @affy)) {
+  my @genes   = OverlappingGenes(@affy);
+  print p(b("The gene(s) covered by this set of arrays oligos are ",join ",  ",map{ObjectLink($_)} sort @genes));
+
+#  print_affy_result2([$segment]);
+
+  my %seen ;
+  foreach ( @affy ) {   # each affymetrix sequence
+    next if ($seen{$_}++);
+    PrintMicroarray($_);
+#    print_general_microarray($_);
+  }
+} else {
+  print p(b("This microarray assay couldn't be located on the genome"));
+}
+
+ClosePage();
+
+exit;
+
+
+###############################################################################
+###########  SUBROUTINES FOR  REF ONLY ___ NOT USED. APR 03
+
+sub print_affy_result2  {
+  my ($segment_ref) = @_;
+  my @affy_objects;
+
+# Get all the microarray data for each segment
+  foreach (@$segment_ref){
+    my @all_affy =  $_->features('microarray_aff');         # get affy
+    @affy_objects = map {$_->info} @all_affy;
+    print @all_affy;
+  }
+
+  # Print header
+  unless (@affy_objects) {
+    print blockquote({-class=>'databody'},
+		     font({-class=>'note'},
+			  'Either no expression map is known for this gene or it has not been entered into WormBase'));
+    return;
+  }
+  eval {
+    if ($affy_objects[0]->Microarray_result->Reference) {
+      print p(
+      	      b("Paper "),
+      	      (":", $affy_objects[0]->Microarray_result->Reference->Brief_citation),
+ 	      (ObjectLink($affy_objects[0]->Microarray_result->Reference)),
+	     );
+    }
+
+    print p(
+	b('Null Hypothesis:'),
+	('no variation in the frequency of the transcript across 
+                the 8 samples')
+       );
+
+  my %unique_genes;
+  foreach my $affy (@affy_objects)    # each affymetrix sequence
+    {
+      next if ($unique_genes{$affy}++);
+      print p(
+	      h3('Results: Microarray', $affy),
+	      b('Results:'),
+	      ('p-value=',$affy->Microarray_result->P_value),
+	      em({-align=>'RIGHT'}, "(where p=0.00 represents a certain significance and p >= ~0.5 represents random noise)")
+	     );
+
+      # Print results
+      print start_table({-class => 'resultsbody',-border=>1});
+      print TR({-class => 'resultstitle'},
+	       th('Condition'),
+	       th('Life Stage'),
+	       th('Presence'),
+	       th('Frequency (ppm)')
+	      );
+
+      my @affy_stage = $affy->Microarray_result;
+
+      foreach my $result (@affy_stage) {
+ 	my @life_stages;
+
+	if ($result->Sample->right->right){
+	  foreach ($result->Sample->right->right->Life_stage)
+	    {	  push @life_stages,ObjectLink($_);	}}
+	print @life_stages;
+	print TR({-align=>'CENTER',-class=>'databody'},
+		 td({-align=>'LEFT'},ObjectLink($result->Sample->right)),
+		 td(join br(),@life_stages),
+		 td($result->Presence),
+		 td($result->Result->right),
+		);
+	
+      } # end of foreach $result 
+      print end_table;
+    } # foreach my $affy
+
+      print br();
+      print start_table;
+      print TR({-colspan=>2},
+	       b("*Notes:"));
+
+      print TR(
+	       td("NP (Never Present):"),
+	       td("The frequency value is not significant."),
+	      );
+
+      print TR(
+	       td("PS (Present Sometimes):"),
+	       td("The frequency value is significant."),
+	      );
+
+      print TR(
+	       td("PA (Present Always):"),
+	       td("The frequency value is highly significant."),
+	      );
+    print end_table;
+
+      print p(em("For more details about  NP, PS and PA, see the corresponding",
+		 a({-href=>'http://athena.caltech.edu/~wen/userguide/Page/Affy/index.html'},
+		   "user guide page.")));
+  };
+
+} # end of sub routine
+
+sub print_affy_result  {
+  my ($segment_ref) = @_;
+  my @affy_objects;
+
+  foreach (@$segment_ref){
+    my @all_affy =  $_->features('microarray_aff');         # get affy
+    @affy_objects = map {$_->info} @all_affy;
+  }
+
+  # Print header
+  unless (@affy_objects) {
+    print blockquote({-class=>'databody'},
+		     font({-class=>'note'},
+			  'Either no expression map is known for this gene or it has not been entered into WormBase'));
+    return;
+  }
+  eval {
+    print p(
+	    b("Paper "),
+	    (":", $affy_objects[0]->Result->Reference->Brief_citation),
+	    (ObjectLink($affy_objects[0]->Result->Reference)),
+	    br(),
+	    b('Null Hypothesis:'),
+	    ('no variation in the frequency of the transcript across 
+               the 8 samples')
+	   );
+  
+  my %unique_genes;
+  foreach my $affy (@affy_objects)    # each affymetrix sequence
+    {
+      next if ($unique_genes{$affy}++);
+      print p(
+	      h3('Results: Microarray', $affy),
+	      b('Results:'),
+	      ('p-value=',$affy->Result->P_value),
+	      em({-align=>'RIGHT'}, "(where p=0.00 represents a certain significance and p >= ~0.5 represents random noise)")
+	     );
+
+      # Print results
+      print start_table({-class => 'resultsbody',-border=>1});
+      print TR({-class => 'resultstitle'},
+	       th('Condition'),
+	       th('Life Stage'),
+	       th('Presence'),
+	       th('Frequency (ppm)')
+	      );
+
+      #   print start_table();
+      my @affy_stage = $affy->Result;
+      foreach my $result (@affy_stage) {
+ 	my @life_stages;
+ 	foreach ($result->Condition->Life_stage)
+ 	  {	  push @life_stages,ObjectLink($_);	}
+	
+	print TR({-align=>'CENTER',-class=>'databody'},
+		 td({-align=>'LEFT'},ObjectLink($result->Condition)),
+		 td(join br(),@life_stages),
+		 td($result->Presence),
+		 td($result->Frequency),
+		);
+	
+      } # end of foreach $result 
+      print end_table;
+    } # foreach my $affy
+
+      print br();
+      print start_table;
+      print TR({-colspan=>2},
+	       b("*Notes:"));
+
+      print TR(
+	       td("NP (Never Present):"),
+	       td("The frequency value is not significant."),
+	      );
+
+      print TR(
+	       td("PS (Present Sometimes):"),
+	       td("The frequency value is significant."),
+	      );
+
+      print TR(
+	       td("PA (Present Always):"),
+	       td("The frequency value is highly significant."),
+	      );
+    print end_table;
+
+      print p(em("For more details about  NP, PS and PA, see the corresponding",
+		 a({-href=>'http://athena.caltech.edu/~wen/userguide/Page/Affy/index.html'},
+		   "user guide page.")));
+  };
+
+} # end of sub routine

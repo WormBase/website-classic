@@ -1,0 +1,82 @@
+A {text-decoration : none;
+  font-weight: bold;
+  }
+A.toc {text-decoration : none;
+  font-weight: bold;color: #4568B5;
+  }
+
+A.link {text-decoration : none;
+  font-weight: bold;
+}
+
+
+A.cell { text-decoration : none;
+	color: #4568B5;}
+
+		
+A.pedigree { text-decoration : none; color: #9E1141; }
+
+BODY              { background-color: #FFFFFF;
+	            font-style: normal;
+	            font-family: Arial,Geneva,  sans-serif; 
+	            font-size: 12pt;
+	            letter-spacing: normal;
+		    margin: 3em 3em 3em 3em;
+                  }
+		  
+H1                { color: #4568B5;
+	font-size: 24pt;
+	font-family: Geneva, Arial sans-serif; 
+                  }
+		  
+H2                { color: #FFFFFF;
+                    font-size: 20pt;
+                    font-family: Arial,Geneva,  sans-serif;
+		    background-color:#4568B5;
+		    padding:5pt;
+		   border: 1pt solid #4568B5;
+		    
+}
+		    
+H3                {color: #4568B5;
+	           font-weight: bold;
+	           font-size: 16pt;
+	           font-family:  Arial,Geneva, sans-serif;
+/* 		   background-color:#4568B5; */
+/* 		   padding:5pt; */
+/* 		   border: 1pt solid #4568B5; */
+	   	}
+		
+H4                {color: #4568B5;
+	           font-weight: bold;
+	           font-size: 14pt;
+	           font-family:  Arial,Geneva, sans-serif;
+/* 		   background-color:#4568B5; */
+/* 		   padding:5pt; */
+/* 		   border: 1pt solid #4568B5; */
+	   	}
+
+
+P { font-family: Arial,Geneva,  sans-serif;}
+
+
+		  
+P.boxed { color: black;
+	border-width: 1pt;
+          line-height: 1.4em;
+          font-family: Arial,Geneva,  sans-serif;
+          border-style: solid;
+          padding: 1em;
+          border-color: #4568B5;
+          background-color: white ;
+	  }
+	  
+P.fig { color: black;
+	border-width: 1pt;
+          line-height: 1.4em;
+          font-family: Arial,Geneva,  sans-serif;
+          border-style: solid;
+          padding: 1em;
+          border-color: #BD0000;
+          background-color: white ;
+	  }	  

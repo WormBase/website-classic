@@ -1,0 +1,322 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# file: person_name
+# C.elegans person report
+
+use strict;
+use lib '../lib';
+use vars '$DB';
+use Ace::Browser::AceSubs;
+use ElegansSubs qw(:DEFAULT PrintRefs StartCache EndCache);
+use CGI qw(:standard *table escape);
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+use constant LINEAGE => 'http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/person_lineage.cgi';
+
+# Users will not have any papers to confirm until Cecilia has attached them and notified
+# the authors.  Instead, let's just direct users to email Cecilia if they notice problems
+use constant CONFIRM => 'mailto:cecilia@minerva.caltech.edu';
+
+# Translate database tags into useful headers
+my %headers = (
+	       Publication           => 'Publications' . br . '(author confirmed)',
+	       Possible_publications => 'Possible publications' . br . '(not confirmed by author)',
+	       Worked_with           => 'Collaborated with',
+	      );
+
+# Final list of WBPersonXX hits
+my @people = fetch_people();
+my $title = (@people == 1) ? 'Person Report: ' . $people[0]->Standard_name : 
+  (@people == 0) ? 'Person Report' : 'Person Report: ' . param('name');
+PrintTop($people[0],'Person',$title);
+
+# If no people, try searching in author, then print an error
+if (param('name') && !@people) {
+  print p(font({-color=>'red'},
+ 	       "Sorry, WormBase has no record for " . param('name') . '.'));
+  # Try fetching authors instead
+  my @authors = fetch_authors();
+  if (@authors) {
+    print "Although less finely curated, the following Author objects were found:",
+      ul(map {li(ObjectLink($_))} @authors);
+  }
+}
+
+print_prompt((@people == 1) ? $people[0]->Standard_name : param('name'));
+if ($#people){ multiple_people(@people); }
+
+# Caching no longer required
+#if (@people) {
+#  my $cache_key = CGI->new->Vars;
+#  delete $cache_key->{class};  # irrelevant for this page
+#  $cache_key->{name} = $people[0];
+#  StartCache($cache_key) unless param('nocache');
+#}
+
+# Print out person report - sorting is unnecessary
+foreach (sort {$a->Last_name cmp $b->Last_name ||
+ 		 $a->First_name cmp $b->First_name
+ 	       } @people) {
+  print_report($_->fetch);
+}
+
+PrintBottom();
+exit;
+
+
+###############################################################################
+sub fetch_people {
+  my $input_name = param('name');
+  return unless $input_name;
+  $input_name    =~ s/,//g;
+  
+  # Search by WBPerson ID
+  if ($input_name =~ /WBPerson/i || $input_name =~ /\d+/) {
+    # Enable searches with just a number.
+    my $query = ($input_name =~ /WBPerson/i) ? $input_name : 'WBPerson' . $input_name;
+    @people = $DB->fetch(-class =>'person',
+			 -name  => $query,
+			 -fill  => 1,
+			);
+  } else {
+    # If we are linking in via a URL, another search or script has
+    # already pinpointed the appropriate individual. In these cases,
+    # let's make the query as specific as possible to avoid a needless
+    # "multiple hits" display. This isn't perfect since we are passing
+    # text and not a unique ID. Searches from the textfield, however,
+    # should be as general as possible.
+    
+    # Split the input and then construct an appropriate set of queries
+    my @person_name;
+    my @fields = split(/\s/,$input_name);
+    my @queries = join('* ',@fields);
+    unless (url_param('name')) {
+      push (@queries,join('* ',reverse @fields));
+    }
+    
+    foreach (@queries) {
+      push (@person_name, $DB->fetch(-class =>'person_name',
+				     -name  => $_,
+				     -fill  => 1));
+    }
+    
+    # Uniquify the people returned
+    my %seen;
+    push (@people, grep {!$seen{$_}++} map { $_->at('Name[2]') } @person_name);
+  }
+  return @people;
+}
+
+sub fetch_authors {
+  my $input_name = param('name');
+  return unless $input_name;
+  $input_name    =~ s/,//g;
+  # Split the input and then construct an appropriate set of queries
+  my @authors;
+  my @fields = split(/\s/,$input_name);
+  my @queries = join('* ',@fields);
+  unless (url_param('name')) {
+    push (@queries,join('* ',reverse @fields));
+  }
+  
+  foreach (@queries) {
+    push (@authors, $DB->fetch(-class =>'author',
+			       -name  => $_,
+			       -fill  => 1));
+  }
+  
+  # Uniquify the people returned
+  my %seen;
+  return (grep {!$seen{$_}++} @authors);
+}
+
+sub multiple_people {
+  my @people  = @_;
+  if ($#people > 100){
+    print p(font({-color=>'red'},"Your search retrieved ", $#people+1," hits. Please refine your search."));
+  } else {
+    print h3("Your search had", $#people+1,"hits.  Please choose one:") if @people;
+    print ol(li([
+		 map {
+		    a({-href=>Object2URL($_)},
+		      font({-color=>'red'},$_->class) . ': ' .
+		      $_->Standard_name .
+		      identify($_)
+		     )
+		  }
+		 sort { $a->Standard_name cmp $b->Standard_name } @people 
+		]));
+  }
+  
+  PrintBottom();
+  exit;
+}
+
+sub identify {
+  my $person = shift;
+  my %hash = map { $_ => $_->right } $person->Address;
+  return " ($hash{Institute}, $hash{Country}) " if defined $hash{Country} && defined $hash{Institute};
+  return " ($hash{Country}) " if defined $hash{Country};
+}
+
+
+sub print_prompt {
+  my $name = shift;
+  param(-name=>'name',-value=>$name);
+  print
+    start_form({-name=>'form',-action=>Url(url(-relative=>"/misc/person"))}),
+    p("Enter name:",textfield(-name=>'name'),
+      '  Please ',a({-href=>LINEAGE,-target=>'_blank'},
+		   'add your information'),
+      'to update our lineage of',i('C. elegans'),'scientists.'),
+    end_form;
+}
+
+
+sub print_report {
+  my $person = shift;
+  my $unique_link = $person->Standard_name ? $person->Standard_name : $person->Last_name;
+
+  print start_table({-border=>1,-width=>'80%'});
+  print TR(th({-colspan=>3,-class=>'searchtitle'},
+#	      a({-href=>"person_name?name=".$unique_link}, $person->Standard_name)));
+	      $person->Standard_name));
+
+  my @person_headers = $person->col;
+  for my $header(@person_headers) {
+    my $formatted = clean_header($header);
+    StartSection($formatted);  # header is name, laboratory, address, tracking etc
+
+    # Papers require a little more hands-on formatting
+    if ($header eq 'Publication') {
+      do_papers($person,$header);
+      next;
+    } else {
+      my @subheader = $header->col;  # IF IT IS FROM TRACKING ADD OLD
+      for my $subheader (@subheader) {
+	# $subheader->class eq 'tag' ? SubSection($subheader,$subheader->col) : SubSection('',$subheader);
+	do_subsection($person,$subheader);
+      }
+      SubSection('WormBase Identifier',$person) if ($header eq 'Name');
+    }
+    EndSection();
+  }
+  print end_table(),p();
+}
+
+# Special formatting for papers
+# Extract each subtag specifically - gets slow with lots of papers
+sub do_papers {
+  my ($person,$header)    = @_;
+  # Fetch all papers and meeting abstracts
+  #  my @pubs = eval { $header->Paper->col };
+  # Paper->Person will store a WB ID for papers that are author confirmed
+  my $query = 'find Paper Person = "' . $person . '"';
+  my @pubs = $DB->fetch(-query=>$query,-fill=>1);
+
+  # Used for linking to the confirm script
+  # Currently not used.
+  # $person =~ /WBPerson(\d*)/;
+  # my $no = $1;
+
+  my ($papers,$meetings,$seen) = classify_papers(@pubs);
+  SubSection('Publishes as',
+	     map { ObjectLink($_)}  eval { $header->Publishes_as->col });
+
+  SubSection('Papers',
+	     map { $_->Brief_citation . ' ' . ObjectLink($_)} @$papers);
+  SubSection('Meeting Abstracts',
+	     map { $_->Title . ' ' . ObjectLink($_)} @$meetings);
+  SubSection('Note',"If you have publications not listed here, please "
+	     . a({-href=>CONFIRM,-target=>'_blank'},' email us') .
+	     ' to update your information. We are currently curating papers published prior to 2002.');
+  EndSection;
+  
+  # Fetch papers possibly by this author and display them seperately
+  # Display of papers published under Possibly_publishes_as names
+  # is currently disabled because even if an individual had said that
+  # a paper was NOT authored by them, there was no way to remove it from
+  # this list.  2.18.2004
+  
+  # Instead, I'll just display a new Section listing possibly publishes as
+  if (my @possible = eval {$person->Possibly_publishes_as}) {
+    StartSection('Possibly publishes as');
+    SubSection('','Further less-curated information about this person may also be found in these Author entries:',
+	       join(', ',map {ObjectLink($_)} @possible));
+  }
+
+  if (0) {
+    my @possible_pubs;
+    foreach (eval {$person->Possibly_publishes_as}) {
+      my $query = 'find Paper Author="' . $_ . '"';
+      my @tmp = $DB->fetch(-query=>$query,-fill=>1);
+      push (@possible_pubs,grep{!defined $seen->{$_}} @tmp);
+    }
+    
+    if (eval {$person->Possibly_publishes_as}) {
+      my ($pos_papers,$pos_meetings,$seen_again) = classify_papers(@possible_pubs);
+      StartSection($headers{Possible_publications});
+      SubSection('Possibly publishes as',
+		 map { ObjectLink($_)}  eval { $header->Possibly_publishes_as->col });
+      SubSection('Papers',
+		 map { $_->Brief_citation . ' ' . ObjectLink($_)} @$pos_papers);
+      SubSection('Meeting Abstracts',
+		 map { $_->Title . ' ' . ObjectLink($_)} @$pos_meetings);
+      
+      SubSection('Note',"Are these papers correctly or incorrectly attributed to you? If so, please "
+		 . a({-href=>CONFIRM,-target=>'_blank'},' email us') .
+		 ' to confirm this information.');
+      EndSection;
+    }
+  }
+}
+
+sub classify_papers {
+  my @pubs = @_;
+  my (@papers,@meetings,%seen);
+  foreach (sort { $b->Year <=> $a->Year } @pubs) {
+    if ($_->Type eq 'MEETING_ABSTRACT') {
+      push (@meetings,$_);
+    } else {
+      push (@papers,$_);
+    }
+    $seen{$_}++;
+  }
+  return (\@papers,\@meetings,\%seen);
+}
+
+sub do_subsection {
+  my $person    = shift;
+  my $subheader = shift;
+
+  # Let's re-format some of the subsection headers
+  my $formatted_subheader = clean_header($subheader);
+  if ($subheader->class eq 'tag') {
+      $subheader->right->class eq 'Person' ? SubSection($formatted_subheader,map {
+	ObjectLink($_,$_->Standard_Name) . role($subheader,$person,$_)
+      } $subheader->col)
+	: SubSection($formatted_subheader,$subheader->col);
+    return;
+  } else {
+    SubSection('',$subheader);
+  }
+}
+
+sub role {
+  my ($subheader,$parent,$child) = @_;
+  my $role = $child->right or return;
+  return if lc $role eq 'unknown';
+  my $name = $subheader eq 'Supervised' ? $child->Last_name : $parent->Last_name;
+  #  return " ($role)" if $subheader eq 'Worked_with';
+  return ' ' if ($subheader eq 'Worked_with');
+  return " (during ${name}'s $role)";
+}
+
+
+sub clean_header {
+  my $header = shift;
+  my $formatted = (defined $headers{$header}) ? $headers{$header} : $header;
+  $formatted    =~ s/_/ /g;
+  return $formatted;
+}

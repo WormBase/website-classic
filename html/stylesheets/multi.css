@@ -1,0 +1,68 @@
+#container {   
+  font-family:arial,sans-serif;
+  width:60%;
+  margin-left:auto;
+  margin-right:auto; 
+}
+
+
+
+#container a { 
+  text-decoration:none;
+  color: #0000FF;
+}
+
+#container a.nochange:visited {
+  text-decoration: none; 
+  color: #0000FF;
+}
+
+
+#searchfield { 
+  text-align:center;
+  border-bottom:1px dotted #333333;
+  padding:25px 25px 25px 25px;
+  background:#CCCCCC;  
+}
+
+h3 { 
+  font-size:1.1em;
+}
+
+
+
+#details { 
+  margin-top:20px;
+  width:600px;
+  margin-left:auto;
+  margin-right:auto;
+  padding-left:20px;
+  background:#DDDDDD;
+  overflow:hidden;
+  z-index:99999999;
+}
+
+
+#details .label {
+  width:200px;
+  font-weight:bold;
+  text-align:left;
+  margin-right:50px;
+  float:right;
+}
+
+#details .count { 
+}
+
+
+#counts {
+	display:none;
+}
+
+
+
+
+/* Dynamic results table - only elements that are positive are shown */
+#overviewtable {
+  display:block;
+}

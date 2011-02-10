@@ -1,0 +1,6 @@
+/usr/local/wormbase/website-classic/cgi-perl/karyotype/lib/perl5/Bio/Graphics/Glyph/heat_map.pm
+/usr/local/wormbase/website-classic/cgi-perl/karyotype/lib/perl5/Bio/Graphics/Glyph/heat_map_ideogram.pm
+/usr/local/wormbase/website-classic/cgi-perl/karyotype/lib/perl5/Bio/Graphics/Glyph/ideogram.pm
+/usr/local/wormbase/website-classic/cgi-perl/karyotype/man/man3/Bio::Graphics::Glyph::heat_map.3pm
+/usr/local/wormbase/website-classic/cgi-perl/karyotype/man/man3/Bio::Graphics::Glyph::heat_map_ideogram.3pm
+/usr/local/wormbase/website-classic/cgi-perl/karyotype/man/man3/Bio::Graphics::Glyph::ideogram.3pm

@@ -1,0 +1,218 @@
+#!/usr/bin/perl -w
+# Randal Schwart'z GO browser
+# $Id: gotable,v 1.1.1.1 2010-01-25 15:36:05 tharris Exp $
+
+use strict;
+$|++;
+
+use Ace 1.51;
+use Ace::Browser::AceSubs qw(:DEFAULT !TypeSelector);
+use ElegansSubs;
+use CGI qw(:all escape);
+use CGI::Carp qw(fatalsToBrowser);
+
+$ENV{PATH} = "/usr/local/bin:/bin:/usr/bin";
+
+use lib "../lib";
+use MerlynGO;
+
+use Cache::FileCache;
+my $cache = Cache::FileCache->new
+  ({namespace => 'forestdump',
+    username => 'nobody',
+    default_expires_in => '10 minutes',
+    auto_purge_interval => '1 hour',
+   });
+
+# hack for a weird error that I was getting and didn't understand: LS
+OpenDatabase();
+
+PrintTop(undef,undef,undef,-Title=>'Gene Ontology Browser');
+print h1('Gene Ontology Browser');
+
+print start_form(-action => url(-relative => 1));
+print table({-width=>"100%",-cellpadding=>0,-cellspacing=>0},
+	    TR({-class=>'searchtitle'},td({-colspan=>2},'&nbsp;')),
+	    TR({-class=>'searchtitle'},
+	       td("GO accession or keyword:",
+		  textfield(-name => 'name', -size => 40),
+		  checkbox_group(-name => 'exact',
+				 -values => ['exact match'],
+				 -defaults => ['exact match'])
+		 ),
+	       td(submit(-name => 'show_term', -value => 'Show Term')),
+	       TR({-class=>'searchtitle'},td({-colspan=>2},'&nbsp;'))
+	      ));
+print end_form, hr;
+
+if (param('goto')) {
+  param('selected', my $selected = param('goto'));
+  Delete('goto');
+  Delete('opened');
+
+  print p("You selected node", escapeHTML($selected)."!");
+} elsif (param('name')) {
+  my $name = param('name');
+  Delete('name');
+  my $exact = param('exact');
+  Delete('exact');
+
+  Delete('opened');
+  Delete('selected');
+  param('selected', find_terms($exact ? $name : "*$name*"));
+}
+
+my %links;
+my %nodes;
+
+for my $list ([selected => param('selected')], [opened => param('opened')]) {
+  my ($tag) = shift @$list;
+  for my $name (@$list) {
+    $nodes{$name}{$tag}++;
+
+    # all parents back to root
+    my @parental = $name;
+    while (@parental) {
+      my $this = shift @parental;
+      for ([I => i_parents($this)], [C => c_parents($this)]) {
+	my $kind = shift @$_;
+	$links{$_}{$this} = $kind for @$_;
+	push @parental, @$_;
+      }
+    }
+
+    # all kids if opened
+
+    if ($tag eq "opened") {
+      for ([I => i_children($name)], [C => c_children($name)]) {
+	my $kind = shift @$_;
+	$links{$name}{$_} = $kind for @$_;
+      }
+    }
+  }
+}
+
+my $canonical = join "", "text based\n",
+  map(join(" ", $_, sort keys %{$nodes{$_}})."\n", sort keys %nodes),
+  map {
+    my $from = $_;
+    map {
+      my $to = $_;
+      my $kind = $links{$from}{$to};
+      "$from $to $kind\n"
+    } sort keys %{$links{$from}}
+  } sort keys %links;
+
+my $session = do {
+  require MD5;
+  MD5->hexhash($canonical);
+};
+
+BEGIN {
+  no strict 'refs';
+  my $base = "/images/menu-images/menu_";
+  for (
+       [I_P => "corner_plus"],
+       [I_M => "corner_minus"],
+       [I_O => "leaf"],
+       [I_T => "tee"],
+       [I_C => "corner"],
+       [I_B => "bar"],
+       [I_S => "blank"],
+      ) {
+    my $image = img({border => 0, src => "$base$_->[1].gif"});
+    *{$_->[0]} = sub () { $image };
+  }
+}
+
+if (defined(my $output = $cache->get($session))) {
+  ## we have a good output already, so reuse it
+  warn "reusing text $session"; # DEBUG
+  print $output;
+} else {
+  ## we must compute it from the pairs
+
+  my (@times) = (time,times);
+
+  ## print pre(escapeHTML($canonical));
+
+  $output = "";
+
+  ## my @items = [undef, map ['' => $_], root_names];
+  my @items = [undef, map ['' => $_], grep a_term($_), root_names];
+
+  ## set $root_level to 0 to show true tree, 1 to cut off top root
+  my $root_level = 1;
+
+  while (@items) {
+
+    unless (@{$items[-1]}) {	# empty coming back
+      pop @items;
+      next;
+    }
+
+    my $noderef = shift @{$items[-1]};
+    $noderef = shift @{$items[-1]} if my $first = not defined $noderef;
+    my ($kind, $node) = @$noderef;
+    my $last = not @{$items[-1]};
+    my $depth = $#items;
+
+#    my $cell = a({href => "http://brie2.cshl.org:8081/db/ontology/goterm?query=$node"}, a_term($node));
+    my $cell = ObjectLink($node,a_term($node),'GO_Term');
+    $cell = ($kind ? "[\L$kind] " : "").$cell." [$node]";
+
+    my $prefix = I_O;
+
+    if ($nodes{$node}{seen}++) {
+      $cell = i($cell);
+    } else {
+      if ($nodes{$node}{selected}) {
+	$cell = b($cell);
+      }
+
+      my @kids = sort keys %{$links{$node} || {}};
+      my @kid_kind = @{$links{$node}}{@kids};
+      my @has_kids = (i_children($node), c_children($node));
+
+      if ($nodes{$node}{opened}) {
+	my @o = param('opened');
+	my @n = grep $_ ne $node, @o;
+	Delete('opened');
+	param('opened', @n);
+	$prefix = a({href => self_url()}, I_M);
+	@o ? param('opened', @o) : Delete('opened');
+      } elsif (@has_kids > @kids) {
+	my @o = param('opened');
+	my @n = (@o, $node);
+	param('opened', @n);
+	$prefix = a({href => self_url()}, I_P);
+	@o ? param('opened', @o) : Delete('opened');
+      }
+      if (@kids) {
+	push @items, [undef, map [$kid_kind[$_] => $kids[$_]], 0..$#kids];
+      }
+    }
+
+    my @leftbars = map {
+      @$_ ? I_B : I_S
+    } @items[$root_level..$depth - 1];
+
+    my $adjustbar = $root_level > $depth ? "" : $last ? I_C : I_T;
+
+    $output .= join("",
+		    @leftbars,
+		    $adjustbar,
+		    $prefix,
+		    $cell,
+		    br,
+		    "\n");
+  }
+  print 0 ? pre(escapeHTML($output)) : $output;
+
+  ##DEBUG## $cache->set($session, $output);
+
+  @times = map { $_ - shift @times } time, times;
+  # warn "CPU used for new item: @times";	# debug
+}
+
+PrintBottom();

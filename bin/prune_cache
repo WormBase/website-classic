@@ -1,0 +1,115 @@
+#!/usr/bin/perl
+
+# This script cleans the wormbase cache of pages that may have been
+# incompletely cached (evidenced by absence of </html>).
+
+# Author: T. Harris
+# $Id: prune_cache,v 1.1.1.1 2010-01-25 15:39:10 tharris Exp $
+
+use strict;
+use constant CACHE => '/usr/local/wormbase/cache';
+
+## Production paths
+use constant LOGPATH => '/usr/local/wormbase/logs/';
+#use constant SAVEDIR => '/usr/local/wormbase/cache_prunings';
+use constant SAVEDIR => '/home/todd/cache_prunings';
+
+## Debugging paths
+#use constant LOGPATH => '';
+#use constant SAVEDIR => 'truncated_caches';
+
+# Save or delete offending pages
+# If SAVE = 0, the pages will be deleted.
+# If SAVE = 1, the pages will be moved into SAVEDIR
+use constant SAVE    => 1;
+use constant LOGNAME => 'cache_pruning.log';
+
+# Tags that mark the start and end of complete file
+use constant START   => "\\<html\\>";
+use constant CLOSE   => "</html>";
+
+my $with    = grep_for(START);
+my $without = grep_for(CLOSE);
+
+my $msg = scalar @$with . ' files in cache | ';
+
+if (scalar @$with != scalar @$without) { 
+  my $cleared = diff ($with,$without) if (scalar @$with != scalar @$without);
+  $msg .= (scalar @$with - scalar @$without)
+    . ' truncations found |'
+      . " $cleared truncations deleted";
+} else {
+  $msg .= "no truncations found";
+}
+
+log_msg($msg);
+
+
+# ======= subs ==========
+sub grep_for {
+  my $target = shift;
+  my $command = 'grep -r "' . $target . '" ' . CACHE;
+  print STDERR "Executing command: $command\n";
+  my @lines = `$command`;
+  print STDERR "Grepping complete...\n";
+  return \@lines;
+}
+
+sub diff {
+  my ($with,$without) = @_;
+  my %without = map { $_ => 1 } @$without;
+  my $cleared;
+
+  print STDERR "Determining diff...\n";
+  foreach (@$with) {
+    if (!defined $without{$_}) {
+      
+      # grep output: "binary file FILEPATH ...."
+      my @fields = split(/\s/);
+      my $file = $fields[2];
+      
+      # Move the offending file out of the cache or simply delete it.
+      my $result;
+      if (SAVE == 1) {
+	print STDERR "Moving duplicates...\n";
+	$result = save($file);
+      } else {
+	print STDERR "Deleting duplicates...\n";
+	$result = system("rm -f $file");
+      }
+      $cleared++ if ($result == 0);
+    }
+  }
+  return $cleared;
+}
+
+
+sub save {
+  my $file = shift;
+  # Fetch the creation date of the bogus cached page
+  my $mod        = (stat($file))[9];
+  my $mod_format = sprintf scalar localtime($mod);	
+  
+  # Get the name out of the path
+  $file =~ /.*\/(.*)$/;
+  my $name = $1;
+
+  my $new = $mod_format . "-$name";
+  $new =~ s/\s/_/g;
+   
+  # simple moves not working - quick fix...
+  #system("cp $file " . SAVEDIR . "/$new");
+  #my $result = system("rm -f $file");
+  my $result = system("mv -f $file " . SAVEDIR . "/$new");
+  return $result;
+}
+
+
+sub log_msg {
+  my $msg = shift;
+  my $date = `date`;
+  chomp $date;
+  open LOG,">>" . LOGPATH . LOGNAME;
+  print LOG "$date | $msg\n";
+  close LOG;
+}

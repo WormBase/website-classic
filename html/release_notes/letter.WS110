@@ -1,0 +1,209 @@
+New release of WormBase WS110, Wormpep110 and Wormrna110 Mon Sep 22 09:58:44 BST 2003
+
+
+WS110 was built by Chao-Kung Chen  
+======================================================================
+
+This directory includes:
+i)	database.WS110.*.tar.gz    -   compressed data for new release
+ii)	models.wrm.WS110           -   the latest database schema (also in above database files)
+iii)	CHROMOSOMES/subdir        -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)	WS110-WS109.dbcomp          -   log file reporting difference from last release
+v)	wormpep110.tar.gz          -   full Wormpep distribution corresponding to WS110
+vi)	wormrna110.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)	confirmed_genes.WS110.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+viii)	yk2orf.WS110.gz            -    Latest set of ORF connections to each Yuji Kohara EST clone
+ix)	gene_interpolated_map_positions.WS110.gz    - Interpolated map positions for each coding/RNA gene
+x)	clone_interpolated_map_positions.WS110.gz    - Interpolated map positions for each clone
+xi)	best_blastp_hits.WS110.gz    - for each C. elegans WormPep protein, lists Best blastp match to
+ 
+                                        human, fly, yeast, C. briggsae, and SwissProt & Trembl proteins.
+xii)	best_blastp_hits_brigprot.WS110.gz   - for each C. briggsae protein, lists Best blastp match to
+ 
+                                        human, fly, yeast, C. elegans, and SwissProt & Trembl proteins.
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS110
+------------------------------------
+brigdb : 2003-09-08 - updated
+camace : 2003-09-09 - updated
+citace : 2003-09-07 - updated
+cshace : 2003-09-04 - updated
+genace : 2003-09-16 - updated
+stlace : 2003-09-08 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS110       	WS109      	change
+----------------------------------------------
+a    	32367165	32367165	  +0
+c    	17780236	17780236	  +0
+g    	17757587	17757587	  +0
+t    	32368413	32368413	  +0
+n    	95      	95      	  +0
+-    	0       	0       	  +0
+
+Total	100273496	100273496	  +0
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 19936 CDS in autoace, 22168 when counting 2232 alternate splice forms.
+
+The 22168 sequences contain 9,672,725 base pairs in total.
+
+Modified entries             291
+Deleted entries               35
+New entries                   73
+Reappeared entries             2
+
+Net change  +40
+
+
+
+Status of entries: Confidence level of prediction
+-------------------------------------------------
+Confirmed              4589 (20.7%)
+Partially_confirmed    9040 (40.8%)
+Predicted              8527 (38.5%)
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2413 (10.9%)
+TrEMBL accessions     18085 (81.6%)
+TrEMBLnew accessions   1650 (7.4%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            22148 (100.0%)
+
+
+
+Locus <-> Sequence connections (cgc-approved)
+---------------------------------------------
+Entries with locus connection   4460
+
+
+GeneModel correction progress WS109 -> WS110
+-----------------------------------------
+Confirmed introns not is a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|      6  |  -1056  |
+St Louis 	|     40  |  -710  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|     30  |     1  |
+St Louis 	|     31  |     0  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+No synchronisation issues
+
+
+There are no gaps remaining in the genome sequence
+---------------
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+NOTE:
+-----
+
+This release (WS110) is the second frozen release followed WS100.
+It represents a freeze-of-data release and will remain on the Sanger ftp site 
+(ftp://ftp.sanger.ac.uk/pub/wormbase) for the foreseeable future.
+Also, it will be available from http://ws110.wormbase.org
+
+Bioinformaticians seeking to collaborate and share annotation data against the backdrop of a fixed
+genome sequence may consider working with this release.
+
+The next freeze will take place with the release of WS120, approximately in 20 weeks time
+
+Please address any queries to worm@sanger.ac.uk
+
+New Data:
+---------
+- New Briggsae protein set brigpep2
+
+- C.elegans BlastP/X results against brigpep2
+- C.briggsae BLASTP against C.elegans, human, fly, yeast, SWALL
+
+- Using latest BLAT binary and optimised BLAT BEST/OTHER output for 
+  C.elegans ESTs (and Marc Vidal OSTs)
+  C.elegans mRNAs
+  Other nematode ESTs
+  Non-Wormbase GenBank/EMBL C. elegans CDS sequence submissions
+
+
+New Fixes:
+----------
+
+The optimization of BLAT dataset improves identifying scoring best BLAT results for OSTs, ESTs, mRNAs, etc.
+
+Known Problems:
+--------------
+
+- Some SNP data and a few transcript objects were missing, and will be fixed     
+  in the next regular release.
+
+- Missing sequence features like SL2 and will be included in the next release
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+
+- tRNA predictions will be updated using latest tRNASCAN-SE-1.23 for WS112.
+
+- Ongoing optimization for validating evidences supporting gene models.
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

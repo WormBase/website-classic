@@ -1,0 +1,147 @@
+New release of acedb WS60, Wormpep70, and WormRNA2 10/12/2001
+=============================================================
+
+This directory includes:
+
+
+i)   database.WS60.*.tar.gz      - the compressed data for the new release
+
+ii)  models.wrm                  - the latest database schema (also included
+                                   in the above database files)
+
+iii) CHROMOSOMES/ subdirectory   - contains three files (DNA, GFF, and agp)
+                                   for each chromosome  
+
+iv)  pictures/ subdirectory      - contains assorted C. elegans images 
+
+v)   WS59-WS60.dbcomp            - log file reporting differences between 
+                                   WS59 and WS60 
+
+vi)  wormpep70.tar.gz            - full Wormpep distribution corresponding 
+                                   to WS60
+
+vii  wormrna2.tar.gz		 - latest WormRNA release containing 
+                                   non-coding RNAs in the genome
+
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1) Create a new directory to contain your copy of WormBase, 
+e.g. /users/keith/wormbase
+
+2) Unpack and untar all of the database.*.tar.gz files into 
+this directory. You will need approximately 2-3 Gb of disk space.  
+
+3) Obtain and install a suitable acedb binary for your system 
+(available from www.acedb.org).
+
+4) Use the acedb 'xace' program to open your database, e.g.
+type 'xace /users/keith/wormbase' at the command prompt.
+
+5) See the acedb website for more information about acedb and 
+using xace.
+
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Sequence composition:
+---------------------
+6 sequences >= 100,258,522 bp total
+
+  a 32,315,520    32 %
+  c 17,749,381    18 %
+  g 17,727,639    18 %
+  t 32,310,590    32 %
+  -    155,296     0 %
+  n         96     0 %
+
+
+
+Wormpep data set:
+-----------------
+
+There are 19,454 CDS in autoace, 20,354 when counting (900) alternate 
+splice_forms.  The 20,354 sequences contain 8,932,935 base pairs in
+total.
+
+ Modified entries      69
+ Deleted entries       23
+ New entries           64
+ Reappeared entries     2
+ ------------------------
+ Net Change          + 43
+
+
+
+
+GeneModel correction progress:
+------------------------------
+
+Number of confirmed introns not in a CDS gene model:
+
+           +----------+---------+
+           | Introns  | Change  |
+           +----------+---------+
+Cambrige   |     1190 |  +   62 |
+St Louis   |      958 |  -   32 |
+           +----------+---------+
+
+
+Members of known repeat families that overlap predicted exons:
+
+           +----------+---------+
+           | Repeats  | Change  |
+           +----------+---------+
+Cambrige   |       28 |  +   0  |
+St Louis   |        0 |  - 184  |  
+           +----------+---------+
+
+
+
+Synchronisation with GenBank/EMBL:
+----------------------------------
+
+No current problems with regard to sequence.  
+
+
+
+New data:
+---------
+
+Data from a Waba search of C. elegans genomic clones against the latest
+C. briggsae has been included.  Data provided by Marc Sohrmann at the
+Sanger Institute.
+
+
+Other changes:
+--------------
+
+WTP objects have been mapped back to their corresponding CDS object and predicted 
+gene objects now contain a 'Corresponding_WTP' tag where appropriate.
+
+More genes now have a 'Confirmed' status. 1,602 genes now have a 'Confirmed_by EST'
+tag to complement the 879 genes that are confirmed by a cDNA.
+
+New RNA tags added to all known non-coding RNA sequences.  This has led to an
+increase in our number of our non-coding RNA sequences and hence a new release
+of WormRNA (see wormrna2.tar.gz file in accompanying release).
+
+
+Proposed changes / forthcoming data:
+------------------------------------
+
+wublastx data (genomic clones searched against reference protein sets
+from yeast, worm, fly, human (as well as against a reduced set of 
+Trembl and Swissprot entries) is still being worked on (there are still
+some problems with the data).  Hopefully ready for WS61.
+
+
+
+

@@ -1,0 +1,81 @@
+body  { 
+	font-family:sans-serif; margin:50px
+} 
+
+img  { border:0 } 
+
+a:link  { 
+	text-decoration:none; color:#0000FF;
+	border:none
+}
+a:visited  { 
+	text-decoration:none; color:#AA0088;
+	border:none
+}
+a:hover  { 
+	text-decoration:underline; border:none
+}
+#content  { margin:20px } 
+
+div.header  { 
+	font-size:30px; font-weight:bold
+} 
+
+div.header2  { 
+	font-size:24px;
+	font-weight:bold;
+	margin-top:20px;
+	padding-bottom:5px;
+	border-bottom:2px solid gray
+} 
+
+div.header3  { 
+	font-size:20px;
+	padding-top:15px; 
+	padding-bottom:5px
+	} 
+
+div.description  { 
+	margin-left:50px; 
+	padding:10px;
+	line-height:30px
+} 
+
+div.specification  { 
+	margin-left:50px;
+    padding-bottom:10px;
+    font-size:12px;
+} 
+
+.mono  { 
+	font-family:monospace; font-size:13px;
+	align:top
+}
+
+th { text-align:left;}
+
+div.path {
+font-size:12pt;
+text-align:left;
+padding:10px;
+}
+
+span.species {
+font-style:italic;
+}
+
+span.contact {
+    margin:50px;
+    padding-top:2px;
+    font-size:12px;
+   font-style:italic;
+   border-top:1px solid gray;
+   }
+   
+.footer {
+    border-top:2px solid gray;
+}
+
+.small {
+    font-size:12px;
+    }

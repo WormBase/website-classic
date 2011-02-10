@@ -1,0 +1,40 @@
+#!/usr/bin/perl
+
+warn "loading wormbase perl definitions...";
+
+use lib 
+#  '/home/lstein/projects/Ace-perl',
+  '/usr/local/wormbase/lib',
+  '/usr/local/wormbase/cgi-perl/lib';
+
+#  '/usr/local/wormbase/extlib/lib/perl5/5.8.8',
+#  '/usr/local/wormbase/extlib/lib/perl5/site_perl';
+
+# Force extlib libraries to be evaluated LAST
+#BEGIN { push (@INC,
+#  '/usr/local/wormbase/extlib/lib/perl5/5.8.8',
+#  '/usr/local/wormbase/extlib/lib/perl5/site_perl');}
+       
+
+#use Apache::SizeLimit;  
+#use Apache::GTopLimit;
+use Carp;
+use Ace;
+use XML::Parser;
+use CGI qw(-no_xhtml);
+
+# Limit child process sizes using Apache::SizeLimit
+## sizes are in KB
+##$Apache::SizeLimit::MAX_PROCESS_SIZE  = 10000; # 10MB
+##$Apache::SizeLimit::MIN_SHARE_SIZE    = 1000;  # 1MB
+## Probably most efficient to just monitor unshared size....
+#$Apache::SizeLimit::MAX_UNSHARED_SIZE = 350000; # 350 MB
+#$Apache::SizeLimit::CHECK_EVERY_N_REQUESTS = 2;
+
+#Limit child process sizes using Apache::GTop
+# Control the life based on UnShared memory size
+# in KB, so this is ~300MB
+#$Apache::GTopLimit::MAX_PROCESS_UNSHARED_SIZE = 300000;
+#$Apache::GTopLimit::CHECK_EVERY_N_REQUESTS = 2;
+
+1;

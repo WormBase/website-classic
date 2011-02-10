@@ -1,0 +1,8 @@
+#!/bin/sh
+
+perl Makefile.PL \
+   APACHE_SRC=../apache_1.3.14/src \
+   DO_HTTPD=1 \
+   USE_APACI=1 \
+   PREP_HTTPD=1 \
+   EVERYTHING=1

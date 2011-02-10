@@ -1,0 +1,302 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# file: anatomy_browser
+# $Id: anatomy_browser,v 1.1.1.1 2010-01-25 15:35:59 tharris Exp $
+# Anatomy ontology browser utilizing CGI::Explorer
+# Slow, slow, slow...
+
+use strict;
+
+use lib '../lib';
+use CGI::Explorer;
+use CGI 2.42 qw(:standard *ul *table *TR *th *td *ul *ol escape);
+use Ace;
+use Ace::Browser::AceSubs qw(:DEFAULT !TypeSelector);
+use Ace::Browser::SearchSubs;
+use ElegansSubs;
+use Cache::FileCache;
+
+use vars qw($DB $CACHE $USE_CACHE);
+
+END {
+  undef $CACHE;
+  undef $USE_CACHE;
+}
+
+$CACHE = Cache::FileCache->new
+  ({namespace => 'AO_browser',
+    username => 'nobody',
+    default_expires_in => '24 hours',
+    auto_purge_interval => '1 hour',
+   });
+
+$USE_CACHE = 0;
+
+# print HTTP header & open the database
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+# Messy globals
+#my @roots = $DB->fetch(-query=>'find Anatomy_term !Parent',-fill=>1);
+my @nodes     = ();
+my %spawn    = ();
+my %nodes    = ();
+my %label    = ();
+my %mother   = ();
+my %children = ();
+my %l         = ();
+
+my %name_to_node;		# object cache - cannot be memoized
+my $timeout_interval = 60;	# constant
+my $timeout = time + $timeout_interval; # "flush the cache" sentinel
+
+my ($term,$class);
+if (param('name'))      { ($term,$class) = (join (' ',param('name')),'Anatomy_term'); }
+if (param('close_all')) { Delete('o'); Delete('c'); }
+
+PrintTop($term,'Anatomy Ontology',"Anatomy Ontology Search",
+	 '-Target' =>'_top',
+	 '-Class'  =>'search');
+
+display_search_form();
+
+if (param('name')) {
+  @nodes = find_term();
+} elsif (param('o') or param('c')) {
+  push @nodes,find_ace($_) foreach param('o');
+  push @nodes,find_ace($_) foreach param('c');
+} else {
+  # This is the root node
+  push @nodes,$DB->fetch(-query=>'find Anatomy_term !Parent',-fill=>1);
+  param(-name=>'c',-values=>@nodes);
+}
+
+
+unless(@nodes) {
+  print '<h3><font style="error">No match found</font></h3>';
+} else {
+  explore_nodes();
+  display_nodes();
+}
+
+PrintBottom();
+exit 1;
+
+
+###############################
+######### BEGIN SUBS ##########
+###############################
+sub display_search_form {
+  my $term = shift;
+  print table(
+	      TR({-class=>'searchtitle'},
+		 td("The Anatomy Ontology is a controlled vocabulary for cellular anatomy.",
+		    "Type in some text, such as",example('amphid neuron'),
+		    "or an AO accession number, such as",
+		    example("WBca:0004017"),
+		    '. Browse the ontology from top down by searching for',
+		    example('Anatomy Ontology'),'.'
+		   )
+		),
+	      TR({-class=>'searchbody'},
+		 td(
+		    start_form(-action=>url(-relative=>1)),
+		    table({-border=>0,-width=>'100%',-class=>'searchbody'},
+			  TR(td({-align=>'RIGHT'},'Search AO for:'),
+			     td(textfield(-size=>12,-name=>'name'),
+				checkbox_group(-name=>'exact',
+					       -values=>['exact match'],
+					       -defaults=>['exact match']),
+				submit(-name=>'show_term',-value=>'Show Term'),
+				submit(-name=>'close_all',-value=>'Close All'))),
+			  TR(
+			     td({-colspan=>2,-width=>400},
+				i('Click on + to open, - to collapse
+				levels. Click on term for more
+				information.')
+			       )
+			    )),
+		    end_form,
+		   )));
+}
+
+sub example {
+  my $query = shift;
+  my $url   = url;
+  my $q     = escape($query);
+  return a({-href=>"$url?query=$q"},$query);
+}
+
+
+sub explore_nodes {
+  my $first = 1;
+  foreach my $node (@nodes){
+    my $daughter = $node;
+    if ($first) {
+      $first = 0;
+      $mother{$node} = 1 if daughters($node,\%children);
+      $label{$node}  = label($node,\%l);
+      foreach my $gd (daughters($daughter,\%children)){
+	$mother{$gd} = 1 if daughters($gd,\%children);
+	$nodes{$gd} = $gd;
+	$label{$gd} = label($gd,\%l);
+      }
+    }
+
+    for (my $mother = $daughter->IS_A_p; $mother; $mother = $mother->PART_OF_p) {
+      $mother{$mother} = 1;
+      $label{$mother}   = label($mother,\%l);
+      $label{$daughter} = label($daughter,\%l);
+
+      $spawn{$mother}{$daughter}++;
+      $nodes{$mother}     = $mother;
+      $nodes{$daughter}   = $daughter;
+
+      #add the sisters
+      foreach my $sister (daughters($mother,\%children)){
+	$mother{$sister} = 1 if daughters($sister,\%children);
+	$nodes{$sister} = $sister;
+	$label{$sister} = label($sister,\%l);
+	$spawn{$mother}{$sister}++;
+      }
+
+      #and the granddaughters
+      foreach my $gd (daughters($daughter,\%children)){
+	$mother{$gd} = 1 if daughters($gd,\%children);
+	$nodes{$gd} = $gd;
+	$label{$gd} = label($gd,\%l);
+      }
+
+      $daughter = $mother;
+    }
+
+    if (param('name')) {
+    } else {
+      foreach my $d (daughters($node,\%children)){
+	$spawn{$node}{$d}++;
+	$nodes{$node} = $node;
+	$nodes{$d}    = $d;
+      }
+    }
+  }
+}
+
+sub display_nodes {
+  my @hilites = param('name') ? @nodes : () ;
+  my $menu = CGI::Explorer->new(-relate  => \%spawn,
+				# -nodes   => \%nodes,
+				-labels  => \%label,
+				-mothers => \%mother,
+				-open    => 'o',
+				-close   => 'c',
+				-search  => 'name',
+				-hilite  => \@hilites,
+			       );
+  Delete('show_term');
+  Delete('exact');
+  Delete('close_all');
+  $menu->draw;
+  Delete('name');
+}
+
+sub find_term {
+  my $name      = param('name');
+  my $exact     = param('exact') ? '' : '*';
+  my $close_all = param('close_all');
+  Delete('close_all');
+  Delete('name') if $close_all;
+  return [] unless $name;
+  my @terms = find_ace("$exact$name$exact");
+}
+
+sub find_ace {
+  my $name = shift;
+  my @terms;
+  if ($USE_CACHE) {
+    # Search by an anatomy term: WBca:1234567
+    if ($name =~ /^WBca:/) {
+      @terms = cache_one_or_many_names_at
+	("single_term",
+	 sub { $DB->fetch(-class=>'Anatomy_term',-name=>$name,-fill=>1)});
+      # ... or by a number
+    } elsif ($name =~ /^\s*?(\d+)\s*?/){
+      @terms = cache_one_or_many_names_at
+	("single_term",
+	 sub { $DB->fetch(-class=>'Anatomy_term',-name=>"\"WBca:$1\"",-fill=>1)});
+      # ... or using the Anatomy_term text
+    } else {
+      @terms = cache_one_or_many_names_at
+	("text_search",
+	 sub { $DB->fetch(-query=>"find Anatomy_term where Term = \"$name\"",-fill=>1)});
+    }
+  } else {
+    # Search by an anatomy term: WBca:1234567
+    if ($name =~ /^WBca:/) {
+      @terms = $DB->fetch(-class=>'Anatomy_term',-name=>$name,-fill=>1);
+      # ... or by a number
+    } elsif ($name =~ /^\s*?(\d+)\s*?/){
+      @terms = $DB->fetch(-class=>'Anatomy_term',-name=>"\"WBca:$1\"",-fill=>1);
+      # ... or using the Anatomy_term text
+    } else {
+      @terms = $DB->fetch(-query=>"find Anatomy_term where Term = \"$name\"",-fill=>1);
+    }
+  }
+  @terms;
+}
+
+sub label {
+  my ($term,%z) = @_;
+  $z{$term}   ||= $term->Term;
+  my $desc      = $z{$term};
+  my $label     = a({-href=>Object2URL($term),-onMouseOver=>"window.status='$term'"}, $desc);
+}
+
+sub daughters {
+  my $p        = shift;
+  my %c        = shift;
+
+  $c{$p}     ||= [$p->IS_A_c, $p->PART_OF_c];
+  @{$c{$p}};
+}
+
+
+
+
+
+
+# Caching subs
+sub cache_one_or_many_names_at {
+  my $cacheid = shift;		# prefix
+  my $coderef = shift;		# given names, returns 0..n nodes
+  ## warn "** cacheid = $cacheid, coderef = $coderef, rest = @_";
+  my $cached = $CACHE->get($cacheid);
+  if ($cached) {
+    ## warn "** cache hit at $cacheid\n";
+  } else {
+    ## warn "** cache miss at $cacheid\n";
+    $cached = [nodes_to_names($coderef->(@_))];
+    $CACHE->set($cacheid, $cached);
+  }
+  one_or_many(@$cached);
+}
+
+sub nodes_to_names {
+  map node_to_name($_), @_;
+}
+
+sub one_or_many {
+  wantarray ? @_ : $_[0];
+}
+
+sub node_to_name {
+  ($timeout, %name_to_node) = time + $timeout_interval if $timeout < time;
+  my $node = shift;
+  my $name = eval {$node->name} || $node;
+  $name_to_node{$name} = $node;
+  $name;
+}
+
+sub name_to_node {
+  ($timeout, %name_to_node) = time + $timeout_interval if $timeout < time;
+  my $name = shift;
+  $name_to_node{$name} ||= db->fetch(Anatomy_term => $name);
+}

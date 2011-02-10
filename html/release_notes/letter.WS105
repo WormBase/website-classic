@@ -1,0 +1,173 @@
+New release of WormBase WS105, Wormpep105 and Wormrna105 Fri Jul 11 12:31:21 BST 2003
+
+
+WS105 was built by Chao-Kung Chen (ck1@sanger.ac.uk)
+======================================================================
+
+This directory includes:
+i)	database.WS105.*.tar.gz    -   compressed data for new release
+ii)	models.wrm.WS105           -   the latest database schema (also in above database files)
+iii)	CHROMOSOMES/subdir        -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)	WS105-WS104.dbcomp          -   log file reporting difference from last release
+v)	wormpep105.tar.gz          -   full Wormpep distribution corresponding to WS105
+vi)	wormrna105.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)	confirmed_genes.WS105.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS105
+------------------------------------
+brigdb : 2003-06-14
+camace : 2003-06-30 - updated
+citace : 2003-06-27 - updated
+cshace : 2003-06-16 - updated
+genace : 2003-06-30 - updated
+stlace : 2003-06-14
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS105       	WS104      	change
+----------------------------------------------
+a    	32367166	32367166	  +0
+c    	17780238	17780238	  +0
+g    	17757588	17757588	  +0
+t    	32368415	32368415	  +0
+n    	95      	95      	  +0
+-    	0       	0       	  +0
+
+Total	100273502	100273502	  +0
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 19569 CDS in autoace, 21699 when counting 2126 alternate splice forms.
+
+The 21699 sequences contain  base pairs in total.
+
+Modified entries              28
+Deleted entries               36
+New entries                   23
+Reappeared entries             0
+
+Net change  -13The differnce between the total CDS's of this (21699) and the last build () does not equal the net change -13
+Please investigate! ! 
+
+
+
+
+Status of entries: Confidence level of prediction
+-------------------------------------------------
+Confirmed              4467 (20.6%)
+Partially_confirmed    8645 (39.9%)
+Predicted              8575 (39.5%)
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2376 (11.0%)
+TrEMBL accessions     18682 (86.1%)
+TrEMBLnew accessions    602 (2.8%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            21664 (99.9%)
+
+
+
+Locus <-> Sequence connections (cgc-approved)
+---------------------------------------------
+Entries with locus connection   4391
+
+
+GeneModel correction progress WS104 -> WS105
+-----------------------------------------
+Confirmed introns not is a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|   1212  |   -24  |
+St Louis 	|   1235  |     5  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|     25  |    -1  |
+St Louis 	|     28  |     0  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+No synchronisation issues
+
+
+There are no gaps remaining in the genome sequence
+---------------
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+New Data:
+---------
+Interpolated map positions for CDSes and Clone in two files:
+WS105_CDSes_interpolated_map.txt.gz
+WS105_Clones_interpolated_map.txt.gz
+
+You can download them from 
+ftp://ftp.sanger.ac.uk/pub/wormbase
+
+New Fixes:
+----------
+
+Known Problems:
+--------------
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

@@ -1,0 +1,271 @@
+#!/usr/bin/perl
+# Creator: T. Harris, 7.2004
+
+# A searchable glossary for terms and abbreviations used at WormBase.
+
+use strict;
+use lib '../lib';
+use Ace::Browser::AceSubs;
+use ElegansSubs;
+use CGI qw(:standard :form *div *table *center);
+use vars qw/@TERMS %DEFINED_LETTERS/;
+
+OpenDatabase;
+
+
+# Glossary entries should be of the following format:
+# { title => 'title of the entry',
+#   def   => 'definition',
+#   category   => 'generic category' [optional, see below]
+#   source  => source of the definition [optional]
+# }
+
+
+@TERMS = (
+	  # GENES
+	  { title => 'Confirmed gene',
+	    def => 'A WormBase gene prediction where every base of
+	    every exon has transcript support (EST, OST, or mRNA).
+	    These are often gene predictions whose structure has been
+	    modified to agree with the available transcript evidence.
+	    Note that the structure may still be incorrect, i.e. we
+	    may be missing an internal exon.  These are usually
+	    treated as our set of highest quality gene predictions.',
+	    source => a({-href=>Object2URL('WBPerson1971','Person')},'Keith Bradnam'),
+	  },
+
+	  { title => 'Partially confirmed gene',
+	    def => "A WormBase gene prediction where there is some
+	    transcript support (EST, OST, or mRNA), but not for every
+	    base of every exon.  These reflect genes where there may
+	    not be complete transcript data available (e.g. only 5'
+	    and 3' EST reads available) and/or where the current gene
+	    prediction needs further refinement.",
+	    source => a({-href=>Object2URL('WBPerson1971','Person')},'Keith Bradnam'),
+	  },
+
+	  { title => 'Predicted gene',
+	    def => 'A WormBase gene prediction where there is no
+	    available transcript data (EST, OST, or mRNA).  These may
+	    still represent perfectly valid genes and in most cases
+	    these gene predictions are supported by some other data
+	    (BLAST homology, RNAi phenotypes etc.)',
+	    source => a({-href=>Object2URL('WBPerson1971','Person')},'Keith Bradnam'),
+	  },
+
+	  # Expression profiles
+	  { title => 'Expression profile',
+	    def => 'An expression profile mountain represents a group of genes that are
+	    closely related in expression profile analysis. For more
+	    details see '
+	    . a({-href=>'http://cmgm.stanford.edu/~kimlab/topomap/c._elegans_topomap.htm'},'Kim
+	    et al. Science (2001)'),
+	    source => a({-href=>Object2URL('WBPerson1841','Person')},'Eimear Kenny'),
+	  },
+
+
+	  # KOGs
+	  { title => 'KOGs',
+	    def => "KOGs are a eukaryote-specific version of the
+	    Conserved Orthologous Groups originally devised by Roman
+	    Tatusov, Eugene Koonin and others (at NCBI) for microbial
+	    genomes.  KOGs are defined by a triangle of reciprocal
+	    best BlastP hits between domains of eukaryotic proteins
+	    from at least three highly divergent species (i.e., species that
+	    diverged no later than the Cambrian Era) such as
+	    C. elegans, D. melanogaster, and H. sapiens.  In addition,
+	    Tatusov et al. have defined TWOGs (groups defined by a
+	    pair of best BlastP hits, e.g., between C. elegans and
+	    D. melanogaster) which may represent incipient KOGs (which
+	    may become more obvious as more species have their genomes
+	    sequenced); they have also defined LSEs (lineage-specific
+	    expansions of paralogous proteins found solely in a single
+	    species such as C. elegans) and FOGs ('fuzzy' orthologous
+	    groups, such as zinc fingers, whose detailed relationships
+	    are difficult to ascertain). ",
+	    source => a({-href=>Object2URL('WBPaper00004505','paper')},'[cgc4505]'),
+	  },
+
+	  # RNAi
+	  { title => 'RNAi experiments (primary targets)',
+	    def =>
+	    'These entries represent RNAi probes that have been aligned
+	    to the genome using a combination of BLAST and BLAT
+	    programs and have sequence identity to the target location
+	    of at least 95% over a stretch of at least 100 nt. Probes
+	    that satisfy these criteria are almost certain to produce
+	    RNAi effect on overlapping genes and the corresponding
+	    locations are usually the primary genomic targets of an
+	    RNAi experiment. Note that it is possible for a probe to
+	    have multiple primary targets within the genome.',
+	    source => a({-href=>Object2URL('WBPerson22','Person')},'Igor Antoshechkin'),
+	  },
+	  {title => 'RNAi experiments (secondary targets)',
+	   def   => 
+	   'These entries represent RNAi probes that have been aligned
+	   to the genome using BLAST program and have sequence
+	   identity to the target location from 80 to 94.99% over a
+	   stretch of at least 200 nt. Probes that satisfy these
+	   criteria may or may not produce RNAi effect on overlapping
+	   genes and the corresponding locations represent possible
+	   secondary (unintended) genomic targets of an RNAi
+	   experiment.',
+	   source => a({-href=>Object2URL('WBPerson22','Person')},'Igor Antoshechkin'),
+	  },
+	  # Alleles
+	  { title => 'ES',
+	    def   => b('E') . 'ase of ' . b('S') . 'coring' . br 
+	    . 'A scale used to describe the relative ease of scoring of mutant phenotypes.'
+	    . ul(
+		 li('ES0 = impossible to score'),
+		 li('ES1 = very hard to score except by special means (such as enzyme assay or cell lineage analysis)'),
+		 li('ES2 = hard to score (may become easier with practice)'),
+		 li('ES3 = easy to score')),
+	    source => a({-href=>Object2URL('[cgc4071]','paper')},'C. elegans II, 1997, [cgc4071]'),
+	  },
+
+	  { title => 'ME',
+	    def   => 'Male ' . b('M') . 'ating ' . b('E') . 'fficiency' . br
+	    . 'A scale used to describe the efficiency of mutant males in genetic crosses.'
+	    . ul(
+		 li('ME0 = no successful mating'),
+		 li('ME1 = rare successful mating'),
+		 li('ME2 = poor mating'),
+		 li('ME3 = fair-to-excellent mating')),
+	    source => a({-href=>Object2URL('[cgc4071]','paper')},'C. elegans II, 1997, [cgc4071]'),
+	  },
+	  
+	  { title => 'OA',
+	    def => b('O') . 'ther ' . b('A') . 'lleles' . br
+	    . 'The number of additional alleles of a gene in
+	     addition to the canonical allele. Usually followed by a
+	     score, i.e. OA > 40 = greater than 40 other alleles.',
+	    source => a({-href=>Object2URL('[cgc4071]','paper')},'C. elegans II, 1997, [cgc4071]'),
+	  },
+	  { title => 'NA',
+	    def => b('N') . 'umber of ' . b('A') . 'lleles' . br
+	    . 'This is the total number of alleles for each gene and is
+	     usually followed by a score, i.e. NA1 indicates that only
+	     1 allele is known.',
+	    source => a({-href=>Object2URL('[cgc4071]','paper')},'C. elegans II, 1997, [cgc4071]'),
+	  },
+	 );
+
+
+PrintTop(undef,undef,'WormBase Glossary');
+print start_div({-class=>'container'});
+display_glossary();
+PrintBottom;
+exit;
+
+
+
+######################
+# subs
+######################
+
+sub display_glossary {
+  get_defined_letters();
+  # Suppress navigational display if we have linked from another page
+  unless (url_param('name') && url_param('options')) {
+    print start_div({-class=>'blue'});
+    print start_center();
+    print h3('Search or browse the glossary');
+    print_prompt();
+    print join(' - ',map { (defined ($DEFINED_LETTERS{$_})) ? a({-href=>url(-absolute=>1) . "#$_"},$_) 
+			     : span({-style=>'color:gray'},$_)
+			   } ('A'..'Z'));
+    print end_center();
+    print end_div;
+  }
+
+  if (param('name')) {
+    do_search();
+  } else {
+    list_view();
+  }
+  print end_div,end_div;
+}
+
+sub print_prompt {
+  print start_form,
+    p({-class=>'caption'},"Enter an abbreviation or term: ",
+      textfield(-name=>'name'),hidden('class'),
+      checkbox_group(-name=>'options',-values=>['terms','definitions','sources'],-default=>'terms'),
+      submit(-value=>'search'),
+      end_form);
+}
+
+sub get_defined_letters {
+  my %found;
+  foreach my $term (@TERMS) {
+    my $title = $term->{title};
+    $title =~ /^(.{1})/;
+    $DEFINED_LETTERS{uc $1}++;
+  }
+}
+
+sub list_view {
+  foreach my $letter ('A'..'Z') {
+    next unless $DEFINED_LETTERS{$letter};
+    my @found;
+    foreach my $term (@TERMS) {
+      my $title = $term->{title};
+      my $def   = $term->{def};
+      my $source = $term->{source};
+      $title =~ /^(.{1})/;
+      next unless ($1 =~ /$letter/i);
+      push @found,[$title,$def,$source];
+    }
+    next unless @found > 0;
+    print a({-name=>$letter},'');
+    print div({-class=>'category'},$letter);
+    display_found(@found);
+  }
+}
+
+
+sub do_search {
+  my @found;
+  my %options = map { $_ => 1 } param('options');
+  my $query = param('name');
+  foreach my $term (@TERMS) {
+    my %entry;
+    $entry{terms}       = $term->{title};
+    $entry{definitions} = $term->{def};
+    $entry{sources}     = $term->{source};
+    my $matches;
+    foreach (keys %options) {
+      my $current = $entry{$_};
+      # next unless ($current =~ /$query/i || $query =~ /$current/i);
+      next unless $current eq $query;
+      $matches++;
+    }
+    push @found,[$entry{terms},$entry{definitions},$entry{sources}] if $matches > 0;
+  }
+  if (@found == 0) {
+    print h2({-class=>'warning'},"Your search for $query returned no entries in the WormBase glossary");
+    return;
+  }
+
+  # Suppress message when linking in from another page
+  unless (url_param('name') && url_param('options')) {
+    print h2(qq/Your search for "$query" returned /,scalar (@found),(scalar @found == 1) ? ' entry.' : ' entries.');
+  }
+  display_found(@found);
+}
+
+sub display_found {
+  my @temp = @_;
+  my @found = sort {$a->[0] cmp $b->[0]} @temp;
+  return unless @found > 0;
+  print start_div({-class=>'pages'});
+  print start_table({-class=>'incontainer',-cellpadding=>10});
+  print map { TR({-class=>'pageentry'},
+		 td({-class=>'pagetitle'},$_->[0]),
+		 td({-class=>'pagedescription'},$_->[1]
+		    . (($_->[2]) ? br . 'Source: ' . $_->[2] : '')));
+	    } @found;
+  print end_table;
+  print end_div;
+}

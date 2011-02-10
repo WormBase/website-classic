@@ -1,0 +1,258 @@
+#!/usr/bin/perl
+
+use strict;
+use lib '../lib';
+
+use vars qw($DB $URL %EQUIV);
+
+use Ace 1.80;
+use CGI qw(:standard :html3 escape -no_xhtml);
+use CGI::Carp qw(fatalsToBrowser);
+use Ace::Browser::AceSubs qw(:DEFAULT Configuration ResolveUrl DoRedirect);
+use Ace::Browser::SearchSubs;
+use ElegansSubs;
+
+my $maxobj = param('asXML') ? '999999' : undef;
+my $classlist = Configuration->Simple;
+my @classlist = @{$classlist}[map {2*$_} (0..@$classlist/2-1)];  # keep keys, preserving the order
+
+my $JSCRIPT=<<END;
+function focussearch()  {
+         document.forms[0].query.focus();
+         return (false);
+
+}
+END
+
+my $search_class   = param('class');
+my $exact          = param('exact');
+my $offset         = AceSearchOffset();
+
+#thanks to lincoln for allowing whitespace to be escaped.
+my $search_pattern = param('query');
+$search_pattern =~ s/ /\\ /gs if $exact;
+
+
+# allow GO terms to be handled differently
+if ($search_class eq 'GO_term' && $search_pattern) {
+  my $pat = CGI->escape($search_pattern);
+  print redirect("/db/ontology/goterm?query=$pat");
+  exit 0;
+}
+
+# fetch database handle
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+my ($objs,$count);
+$count=0;
+if (defined $search_class) {
+  if (lc $search_class eq 'any' && $search_pattern) {
+    my $long  = param('Long');
+    ($objs,$count) = do_grep ($search_pattern,$offset,$long,$exact);
+  } elsif ($search_pattern) {
+    ($objs,$count) = do_search($search_class,$search_pattern,$offset);
+    if (!$count && !$exact && $search_pattern !~ /[*?]/) {
+      param(query=>qq(*$search_pattern*));
+      ($objs,$count) = do_search($search_class,qq(*$search_pattern*),$offset)
+    }
+
+  } elsif (lc $search_class ne 'any') {
+    ($objs,$count) = do_search($search_class,"*",$offset);
+  }
+}
+DoRedirect(@$objs) if $count==1 && !param('again');
+
+if(param('asXML')){
+	print header('text/xml');
+	print '<?xml version="1.0" standalone="yes" ?>',"\n";
+	print "<ACEDB>\n";
+	foreach my $obj (@$objs){
+		print $obj->asXML;
+	}
+	print "</ACEDB>\n";
+} else {
+
+	display_search_form(\@classlist,$classlist);
+	display_search($objs,$count,$offset,$search_class,$search_pattern) if defined $search_class;
+
+	DisplayInstructions('Search WormBase',
+			     'Select the type of object you are looking for and optionally, 
+	                      type in a name or a wildcard pattern, (? for any one character.
+	                      * for zero or more characters). ' .
+			     'If no name is entered, the search displays all objects of the selected type.',
+
+			     b('Anything').' performs a full text search of the entire database. ' ,
+			     'The '.b('Detailed Search').' option performs a more extensive search.');
+
+}
+
+#------- subs below ------#
+
+sub display_search_form {
+  my($classlist,$classes) = @_;
+  CGI::autoEscape(0);
+
+  AceSearchTable(
+    {action => '/modules.php?name=SearchBasic'},
+    'Search WormBase',
+    table(TR(
+      td('Search for:', 
+         popup_menu(-name=>'class',
+                    -Values=>$classlist,
+                    -Labels=>{@$classes},
+		    -default=>'Any'),
+	 textfield(-name=>'query',-size=>40)),
+      td(submit(-name=>'Search')),
+      td(
+	 table(
+	   TR(td(checkbox(-name=>'Long',-label=>'Detailed search'))),
+	   TR(td(checkbox(-name=>'exact',-label=>'Exact match'))),
+	   TR(td(checkbox(-name=>'asXML',-label=>'Results as XML'))),
+	 )
+      ), 
+    ))
+  );
+
+  CGI::autoEscape(1);
+}
+
+sub display_search {
+    my ($objs,$count,$offset,$class,$search_pattern) = @_;
+    my $label = $class eq 'Any' ? '' :$class;
+    my $title = $count > 0 ? p("$count $label object(s) match \"$search_pattern\".")
+	                   : p("No matching objects found for \"$search_pattern\".");
+    my @objects;
+    if ($count > 0) {
+      if ($class eq 'Any') {
+	@objects = map { a({-href=>Object2URL($_)},$_->class . ":&nbsp;$_") }
+	  sort { $a->class cmp $b->class } @$objs;
+      } elsif ($class eq 'Motif') {
+	@objects = map { a({-href=>Object2URL($_)},$_->Title . " ($_)") }
+	  sort { $a->class cmp $b->class } @$objs;
+      } else {
+	@objects = map { a({-href=>Object2URL($_)},"$_") } @$objs;
+      }
+    } else {
+      param('query' => param('query') . '*') unless param('query') =~ /\*$/;
+    }
+    AceResultsTable(\@objects,$count,$offset,$title);
+}
+
+sub do_grep {
+  my ($text,$offset,$long,$exact) = @_;
+  my $count;
+  my (@objs) = $DB->grep(-pattern=> $text,
+			 -count  => $maxobj || MAXOBJECTS,
+			 -offset => $offset,
+			 -total => \$count,
+			 -long  => $long,
+			 );
+  return unless @objs;
+  if ($exact) {
+    @objs = grep { lc($text) eq lc($_) } @objs ;
+    return(\@objs,scalar @objs);
+  }
+  return (\@objs,$count);
+}
+
+sub do_search {
+    my ($class,$pattern,$offset,$maxobjects) = @_;
+    return do_motif_search($pattern,$offset)    if $class =~ /^motif$/i;
+    return do_protein_search($pattern,$offset)  if $class =~ /^Wormpep$/i;
+    return do_sequence_search($pattern,$offset) if $class =~ /^Predicted_Gene$/i;
+
+    $pattern = "?$pattern" if lc($class) eq 'model' && $pattern !~ /^\?/;
+    my ($count,@objs);
+    @objs = $DB->fetch(	-class=>$class,
+			-pattern=>$pattern,
+		       	-count=>$maxobj || MAXOBJECTS,
+			-offset=>$offset,
+		       	-total=>\$count);
+    return (\@objs,$count) if @objs;
+
+    # last try. treat as accession number
+    return do_accession_search($class,$pattern,$offset);
+}
+
+sub do_accession_search {
+  my ($class,$pattern,$offset) = @_;
+  my @acc = $DB->fetch(-class=>'Accession_number',-pattern=>$pattern);
+  my $search_class = $class;
+  $search_class = 'Sequence' if $class =~ /^(Predicted_gene|Genome_sequence)$/;
+  my @objs;
+  push @objs,grep {$_->class eq $search_class} $_->Entry(2) foreach @acc;
+  my $count = @objs;
+  return (\@objs,$count);
+}
+
+sub do_sequence_search {
+  my ($pattern,$offset) = @_;
+  my ($count,@objs);
+
+  # first look for a PredictedGene
+  @objs = $DB->fetch(-class=>'Predicted_gene',-pattern=>$pattern,
+		     -count=>$maxobj || MAXOBJECTS,-offset=>$offset,
+		     -total=>\$count);
+  return (\@objs,$count) if @objs;
+
+  # now look for a protein
+  @objs = $DB->fetch(-query=>qq(find Protein IS "$pattern"; follow Corresponding_DNA),
+		     -count=>$maxobj || MAXOBJECTS,-offset=>$offset,
+		     -total=>\$count);
+  return (\@objs,$count) if @objs;
+
+  # now look for a locus
+  @objs = $DB->fetch(-query=>qq(find Locus IS "$pattern"; follow Genomic_sequence),
+		     -count=>$maxobj || MAXOBJECTS,-offset=>$offset,
+		     -total=>\$count);
+
+  return (\@objs,$count) if @objs;
+  do_accession_search('Sequence',$pattern,$offset);
+}
+
+sub do_protein_search {
+  my ($pattern,$offset) = @_;
+  my ($count,@objs);
+
+  # first look for a Protein
+  @objs = $DB->fetch(-class=>'WormPep',-pattern=>$pattern,
+		     -count=>$maxobj || MAXOBJECTS,-offset=>$offset,
+		     -total=>\$count);
+  return (\@objs,$count) if @objs;
+
+  # now look for a sequence
+  @objs = $DB->fetch(-query=>qq(find Predicted_gene IS "$pattern"; follow Corresponding_protein),
+		     -count=>$maxobj || MAXOBJECTS,-offset=>$offset,
+		     -total=>\$count);
+  return (\@objs,$count) if @objs;
+
+  # now look for a locus
+  @objs = $DB->fetch(-query=>qq(find Locus IS "$pattern"; follow Genomic_sequence; follow Corresponding_protein),
+		     -count=>$maxobj || MAXOBJECTS,-offset=>$offset,
+		     -total=>\$count);
+  return (\@objs,$count) if @objs;
+  do_accession_search('Protein',$pattern,$offset);
+}
+
+sub do_motif_search {
+  my ($pattern,$offset) = @_;
+  param('again'=>1);  # don't allow automatic jumping
+  # first look for the motif by ID, and then by title
+  my $accession = $pattern;
+  unless ($accession =~ /^\w+:/) { #already qualified
+    $accession = "*:$accession";
+  }
+  my $count;
+  my @motifs = $DB->fetch(-query=>qq(find Motif == "$pattern" AND Pep_homol),
+			  -count=>$maxobj || MAXOBJECTS,-offset=>$offset,
+			  -total=>\$count
+			 );
+  unless (@motifs) {
+    # try to search by title
+    @motifs = $DB->fetch(-query=>qq(find Motif Title == "*$pattern*" AND Pep_homol),
+			 -count=>$maxobj || MAXOBJECTS,-offset=>$offset,
+			 -total=>\$count);
+  }
+  return unless @motifs;
+  return (\@motifs,$count);
+}

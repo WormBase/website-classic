@@ -1,0 +1,157 @@
+#!/usr/bin/perl
+# file: geneapplet
+# -*- Mode: perl -*-
+# $Id: geneapplet,v 1.1.1.1 2010-01-25 15:36:09 tharris Exp $
+# launches jadex applet for displaying genetic maps
+
+use strict;
+use lib '../lib';
+use vars qw($ARCHIVE $HOST $PORT $JADEX_PATH $SNAPSHOT $DB $MAP $CLASS $NAME);
+
+use CGI 2.42 ':standard';
+use Ace::Browser::AceSubs;
+use ElegansSubs;
+
+# print HTTP header & open the database
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+$JADEX_PATH = Configuration->Jadex_path;
+$SNAPSHOT   = Configuration->Jadex_image;
+$PORT       = Configuration->Jadex_port;
+$HOST       = server_name();
+my $port    = server_port;
+$ARCHIVE    = "http://$HOST:${port}$JADEX_PATH";
+
+#### Get the object name
+
+my $obj = param("name");
+$NAME = $obj;
+my $cls = param("class");
+$CLASS = $cls;
+my $cls1 = lc($cls);
+
+PrintTop($obj,$cls1,"Interactive Genetic Map Viewer: $cls $obj");
+
+if ($cls1 eq 'locus') {   # This script is invoked by gene or locus
+  # find out what map we're on
+  if (my $locus = $DB->fetch(Locus=>$obj)) {
+    if (my $map = $locus->Map) {
+      $obj = $map;
+      $MAP = $map;
+      $cls1 = lc ($map->class);
+    }
+  }
+}
+
+else { # This script is invoked by map
+  $MAP = $NAME;
+  $NAME = "";
+  $CLASS = "";
+}
+
+if ($cls1 ne "map") {
+
+  #print start_html(),
+   print h2(font({-color=>'red'},strong("Sorry, $NAME cannot be displayed by this applet.")));
+  PrintBottom;
+  exit 0;
+}
+
+#print start_html("map $obj"),
+#print start_html("map $MAP");
+  print p('Note: You will need to install Java plug-in 1.2 or above to launch this applet.',
+    "You may wish to look at the",
+  a({-href=>$SNAPSHOT,-target=>'_new'},'screenshot'),'first.');
+
+my $agent = "HTTP_USER_AGENT";
+my $user = $ENV{$agent};
+#my $user = "Mozilla/4.73 [en] (X11; U; Linux 2.2.14-5.0smp i686";
+
+if (($user =~ /MSIE/) && ($user =~ /Win/) && !($user =~ /Windows 3.1/)) {
+  printIE();
+}
+elsif ($user =~ /Mozilla/) {
+  if (($user =~ /Win/) && !($user =~ /Win16/)) { printNSWin();}
+  elsif ($user =~ /Linux/) { printNSLinux(); }
+  elsif ($user =~ /Sun/) { printNSSun(); }
+}
+else { printOthers(); }
+
+PrintBottom();
+
+exit 0;
+
+##########################################################################
+
+########### printIE
+
+sub printIE {
+  #my $obj = shift;
+  print <<END;
+
+<OBJECT classid="clsid:8AD9C840-044E-11D1-B3E9-00805F499D93" WIDTH = 400 HEIGHT = 200  codebase="http://java.sun.com/products/plugin/1.3/jinstall-13-win32.cab#Version=1,3,0,0">
+<PARAM NAME = CODE VALUE = jadex.swing.GeneticMapApplet >
+<PARAM NAME = ARCHIVE VALUE = $ARCHIVE>
+<PARAM NAME="type" VALUE="application/x-java-applet;version=1.3">
+<PARAM NAME="scriptable" VALUE="false">
+<PARAM NAME = "aceobject" VALUE ="$MAP">
+<PARAM NAME = "host" VALUE = "$HOST">
+<PARAM NAME = "port" VALUE = "$PORT">
+<PARAM NAME = "obj_name" VALUE = "$NAME">
+<PARAM NAME = "obj_class" VALUE = "$CLASS">
+<h4>If you don't want to install Java plug-in, maybe you want to see this <a href="snapshot.gif">snapshot</a>.</h4>
+END
+
+}
+
+########## printNSWin
+
+sub printNSWin {
+  #my $obj = shift;
+
+  print <<END;
+
+<EMBED type="application/x-java-applet;version=1.3"  CODE = jadex.swing.GeneticMapApplet ARCHIVE = $ARCHIVE WIDTH = 400 HEIGHT = 200 aceobject = "$MAP"  obj_name = "$NAME" obj_class = "$CLASS" host = "$HOST" port = "$PORT" scriptable=false pluginspage="http://java.sun.com/j2se/1.3/jre/download-windows.html">
+
+END
+
+}
+
+
+######## printNSLinux
+
+sub printNSLinux {
+ # my $obj = shift;
+  
+  print <<END;  
+
+<EMBED type="application/x-java-applet;version=1.2.2"  CODE = jadex.swing.GeneticMapApplet ARCHIVE = $ARCHIVE WIDTH = 400 HEIGHT = 200 aceobject = "$MAP" obj_name = "$NAME" obj_class = "$CLASS" host = "$HOST" port = "$PORT" scriptable=false pluginspage="http://www.blackdown.org/java-linux/jdk1.2-status/plugin-status.html">
+
+END
+
+}
+
+############ printNSSun
+
+sub printNSSun {
+  #  my $obj = shift;
+
+  print <<END;
+
+<EMBED type="application/x-java-applet;version=1.2"  CODE = jadex.swing.GeneticMapApplet ARCHIVE = $ARCHIVE WIDTH = 400 HEIGHT = 200 aceobject = "$MAP"  obj_name = "$NAME" obj_class = "$CLASS" host = "$HOST" port = "$PORT" scriptable=false pluginspage="http://www.sun.com/software/solaris/netscape/jpis/">
+
+END
+
+}
+
+########## printOthers: all other OS
+
+sub printOthers {
+  print <<END;
+
+  Sorry, try to find your <a href=http://java.sun.com/products/plugin/1.2/download/all.html>Java plug-in</a> by yourself.
+
+END
+}
+
+####### END ##########################

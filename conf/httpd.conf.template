@@ -1,0 +1,218 @@
+# ------------------------------------------------------------
+#            WORMBASE HTTPD CONFIGURATION FILE
+# ------------------------------------------------------------
+# $Id: httpd.conf.template,v 1.1.1.1 2010-01-25 15:46:10 tharris Exp $
+#
+
+PerlRequire /usr/local/wormbase/conf/perl.startup
+# Uncomment to turn on site-wide -w
+#PerlWarn On
+
+# Set this to the name of your machine
+# It should NOT be www.wormbase.org!
+ServerName your.machine.org
+
+# Please keep this variable set to webmaster@wormbase.org
+# unless you would like to answer copious help desk emails.
+ServerAdmin webmaster@wormbase.org
+
+# The location of your wormbase files
+DocumentRoot /usr/local/wormbase/html
+
+# The format of the logs
+LogFormat "%h %l %u %t \"%r\" %s %b" common
+LogFormat "%h %l %u %t %{Referer}i \"%{User-Agent}i\" \"%r\" %s %b" combined_format
+LogFormat "witheld %l %u %t \"%r\" %s %b" anonymous
+
+ErrorLog     /usr/local/wormbase/logs/error_log
+#CustomLog    /usr/local/wormbase/logs/access_log common
+CustomLog    /usr/local/wormbase/logs/access_log combined_format
+
+# Replace your.machine.org with the hostname of your server
+Redirect /perl/ace/elegans/ http://your.machine.org/db/
+Redirect /cb/gbrowse        http://your.machine.org/db/seq/gbrowse?source=briggsae
+
+<Location /das>
+     SetHandler None
+     ForceType  application/x-das
+     Action application/x-das /cgi-bin/das2.cgi
+</Location>
+
+<Location /genome>
+     SetHandler None
+     ForceType  application/x-genome-dumper
+     Action application/x-genome-dumper /db/searches/standard_urls
+</Location>
+
+<Location /proteome>
+     SetHandler None
+     ForceType  application/x-proteome-dumper
+     Action application/x-proteome-dumper /db/searches/standard_urls
+</Location>
+
+<Location /transcriptome>
+     SetHandler None
+     ForceType  application/x-transcriptome-dumper
+     Action application/x-transcriptome-dumper /db/searches/standard_urls
+</Location>
+
+<Location /laboratories>
+     SetHandler None
+     ForceType application/x-laboratories-dumper
+     Action application/x-laboratories-dumper /db/searches/dump_laboratories
+</Location>
+
+<Location /version>
+     SetHandler None
+     ForceType application/x-version-dumper
+     Action application/x-version-dumper /db/gmod/version
+</Location>
+
+<Location /db/das/protected>
+	AuthName "Protected DAS DSN"
+	AuthType Basic
+	AuthUserFile /usr/local/wormbase/conf/htpasswd
+	require user testuser
+</Location>
+
+#<Location /db/das/elegans>
+#	AuthName "Elegans DAS DSN"
+#	AuthType Basic
+#	AuthUserFile /usr/local/wormbase/conf/htpasswd
+#	require	user wormbase
+#</Location>
+
+# Mirrors will not have access to the following entries
+# <Directory /usr/local/wormbase/cgi-perl/private>
+#    SetHandler     perl-script
+#    PerlHandler    Apache::Registry
+#    AuthType       Basic
+#    AuthName       "WormBase Administrative Archive"
+#    AuthUserFile   /usr/local/wormbase/conf/htpasswd
+#    Require        valid-user
+# </Directory>
+#<Directory /usr/local/wormbase/html/stats>
+#    AuthType       Basic
+#    AuthName       "WormBase Release Statistics"
+#    AuthUserFile   /usr/local/wormbase/conf/htpasswd
+#    Require        valid-user
+#</Directory>
+#
+#<Directory /usr/local/wormbase/html/mailarch/wormbase-dev>
+#	AuthName "Restricted mailing list archives for WormBase developers"
+#	AuthType Basic
+#	AuthUserFile /usr/local/wormbase/conf/htpasswd
+#	require	user wormbase
+#</Directory>
+#
+#<Directory /usr/local/wormbase/html/mailarch/wormbase-help>
+#	AuthName "WormBase-help mailing list archives. Log in using wormbase as the username and password."
+#	AuthType Basic
+#	AuthUserFile /usr/local/wormbase/conf/htpasswd-open
+#	require	user wormbase
+#</Directory>
+#
+#<Directory /usr/local/wormbase/html/mailarch/wormbase-models>
+#        AuthName "WormBase-models mailing list archives. Log in using wormbase as the username and password."
+#        AuthType Basic
+#        AuthUserFile /usr/local/wormbase/conf/htpasswd-open
+#        require user wormbase
+#</Directory> 
+#
+#<Directory /usr/local/wormbase/html/mailarch/wormbase-cvs>
+#	AuthName "Restricted mailing list archives for WormBase developers"
+#	AuthType Basic
+#	AuthUserFile /usr/local/wormbase/conf/htpasswd
+#	require	user wormbase
+#</Directory>
+#
+#<Directory /usr/local/wormbase/html/mailarch/wormbook-dev>
+#        AuthName "Restricted mailing list archives for WormBook developers"
+#        AuthType Basic
+#        AuthUserFile /usr/local/wormbase/conf/htpasswd
+#        require user wormbook
+#</Directory>
+
+<Directory /usr/local/wormbase/html>
+   PerlSetVar     AceBrowserConf /usr/local/wormbase/conf/elegans.pm
+   PerlSetVar     AceBrowserRoot /db
+   SetHandler	  perl-script
+   PerlHandler    Apache::AddWormbaseBanner
+   AllowOverride  FileInfo Indexes Limit Options
+</Directory>
+
+<Location /proxy>
+   PerlSetVar     AceBrowserConf /usr/local/wormbase/conf/elegans.pm
+   PerlSetVar     AceBrowserRoot /db
+   SetHandler	  perl-script
+   PerlHandler    Apache::ProxyWormAtlas
+</Location>
+
+<Location /soap>
+  SetHandler perl-script
+  PerlHandler Apache::SOAP
+  PerlSetVar dispatch_to "NameDB"
+</Location>
+
+ScriptAlias /cgi-bin/                       /usr/local/wormbase/cgi-bin/
+Alias /db/                                  /usr/local/wormbase/cgi-perl/
+Alias /cb/                                  /usr/local/wormbase/cgi-perl/private/
+Alias /wormbase/                     	    /usr/local/wormbase/html/
+Alias /ace_images/elegans/external/movies/  /usr/local/ftp/pub/wormbase/datasets/RNAi/Ahringer_movies/
+Alias /ace_images/elegans/external/         /usr/local/acedb/elegans/pictures/
+Alias /ace_images                           /var/tmp/ace_images
+
+ErrorDocument 404 /db/misc/not_found
+
+<Location /atlas>
+  Options +ExecCGI
+  DirectoryIndex atlas.html index.html
+</Location>
+
+<Location ~ "/atlas/.+\.cgi$">
+	SetHandler cgi-script
+</Location>
+
+<Location /db/>
+   SetHandler  	  perl-script
+   PerlHandler    Apache::Registry
+   PerlSetVar     AceBrowserConf /usr/local/wormbase/conf/elegans.pm
+   PerlSetVar     AceBrowserRoot /db
+   PerlSetVar     GBrowseConf  /usr/local/wormbase/conf/gbrowse.conf
+   PerlSetVar     DasConfigFile  /usr/local/wormbase/conf/das.conf
+   PerlSendHeader Off
+   Options	  +ExecCGI
+   Order allow,deny
+   allow from all
+</Location>
+
+<Location /cb/>
+   SetHandler  	  perl-script
+   PerlHandler    Apache::Registry
+   PerlSetVar     AceBrowserConf /usr/local/wormbase/conf/elegans.pm
+   PerlSetVar     AceBrowserRoot /db
+   PerlSetVar     GBrowseConf  /usr/local/wormbase/conf/gbrowse.cb.conf
+   PerlSendHeader Off
+   Options	  +ExecCGI
+   Authname "Briggsae Analysis Group"
+   AuthType Basic
+   AuthUserFile /usr/local/wormbase/conf/htpasswd
+   AuthGroupFile /usr/local/wormbase/conf/htgroup
+   require group briggsae
+</Location>
+
+<Location /server-info>
+   SetHandler server-info
+</Location>
+
+<Location /db/entry>
+  AuthName "WormBase"
+  AuthType Basic
+  AuthUserFile /usr/local/wormbase/conf/wormbase.passwd
+  order deny,allow
+  allow from all
+  require user wormbase
+</Location>
+
+######################################################################
+

@@ -1,0 +1,110 @@
+#!/usr/bin/perl
+# Author: T. Harris, 7.2004
+
+# This script parses the release stats file at /usr/local/wormbase/html/stats/RELEASE
+# generating an index page of stats
+
+use strict;
+use Ace::Browser::AceSubs;
+use lib '..';
+use ElegansSubs;
+use CGI qw(:standard :form *div *table *center *TR);
+
+use constant RELEASES => '/usr/local/wormbase/html/stats/RELEASES';
+
+OpenDatabase;
+
+PrintTop(undef,undef,'WormBase Release And Access Statistics');
+print h3("Access statistics are only available to WormBase curators and developers.");
+
+my $releases = parse_file();
+print start_div({-class=>'container'});
+print start_div({-class=>'blue'});
+print div({-class=>'category'},'Statistics by year');
+print start_table({-class=>'incontainer',-cellpadding=>10});
+print TR({-class=>'pageentry'},
+	 td(a({-href=>'/stats/total/'},'All Years')),
+	 td(a({-href=>'/stats/2005-cumulative/'},'2005-to-date')),
+	 td(a({-href=>'/stats/2004/'},'2004')),
+	 td(a({-href=>'/stats/2003/'},'2003')),
+	 td(a({-href=>'/stats/2002/'},'2002')),
+	 td(a({-href=>'/stats/2001/'},'2001')));
+print end_table;
+
+#print start_table({-class=>'incontainer',-cellpadding=>10});
+#print TR({-class=>'pageentry'},
+#	 td(a({-href=>'/stats/total/'},'All Years'))),
+#  TR({-class=>'pageentry'},
+#     td(a({-href=>'/stats/2004-cumulative/'},'2004-to-date'))),
+#  TR({-class=>'pageentry'},td(a({-href=>'/stats/2003/'},'2003'))),
+#  TR({-class=>'pageentry'},td(a({-href=>'/stats/2002/'},'2002'))),
+#  TR({-class=>'pageentry'},td(a({-href=>'/stats/2001/'},'2001')));
+#print end_table;
+
+
+# Available tags
+#RELEASE=WS135
+#SANGER_RELEASE=11.11.2004
+#BUILT_BY=Paul Davis
+#ON_SCHEDULE=YES
+#DEV.WORMBASE.ORG=11.12.2004
+#DEV_UPDATED_BY=T. Harris
+#WWW.WORMBASE.ORG=
+#LIVE_UPDATED_BY=T. Harris
+#STATS=yes
+print div({-class=>'category'},'Statistics by release');
+print start_table({-class=>'incontainer',-cellpadding=>10});
+
+my @headers = ('Release','released','dev.wormbase.org','www.wormbase.org','stats');
+print TR(th(\@headers));
+foreach my $entry (@$releases) {
+  my $built_by = $entry->{BUILT_BY};
+  $built_by = ($built_by = /\?/) ? '' : $built_by;
+  print start_TR({-class=>'pageentry'}),
+    td({-class=>'pagetitle'},$entry->{RELEASE}),
+      td($entry->{SANGER_RELEASE},br,i($entry->{BUILT_BY})),
+	td($entry->{'DEV.WORMBASE.ORG'},br,i($entry->{DEV_UPDATED_BY})),
+	  td($entry->{'WWW.WORMBASE.ORG'},br,i($entry->{LIVE_UPDATED_BY}));
+  if (my $stats = $entry->{STATS}) {
+    print td({-width=>'20%'},
+a({-href=>"/stats/" . $entry->{RELEASE} . '/'},'access stats'),
+	     #	     br,
+	     #	     a({-href=>"/stats/" . $entry->{RELEASE} . '/gene_stats-summary.txt'},'gene summary'),br,
+	     #	     a({-href=>"/stats/" . $entry->{RELEASE} . '/gene_stats-most_popular.html'},'most popular genes')
+	    );
+  } else {
+    print td("&nbsp;");
+  }
+  print end_TR;
+}
+print end_table;
+
+
+
+
+
+#    print map { TR({-class=>'pageentry'},
+#		   td({-class=>'pagetitle'},a({-href=>$_->{url}},$_->{title})),
+#		   td({-class=>'pagedescription'},$_->{desc})) } @{$PAGES->{$category}};
+#    print end_table;
+#}
+
+print end_div,end_div;
+PrintBottom;
+
+
+sub parse_file {
+  open IN,RELEASES or die "couldn't read the releases file: $!";
+  $/ = "==\n";
+  my @releases;
+  while (<IN>) {
+    my @lines = split("\n");
+    my %entry;
+    foreach (@lines) {
+      my ($tag,$data) = split("=");
+      $entry{$tag} = $data;
+    }
+    push @releases,\%entry;
+  }
+  return \@releases;
+}

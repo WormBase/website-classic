@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+# not found document
+
+use lib '../lib';
+use Ace::Browser::AceSubs qw(:DEFAULT Style);
+use ElegansSubs qw(:DEFAULT Banner Footer);
+use CGI qw(:standard);
+use CGI::Carp;
+
+# Clear the memory cache when an internal server error occurs.
+# (paranoia)
+Ace->memory_cache_clear();
+warn "Internal server error: memory cache is cleared\n";
+
+my $referer = referer() || '/';
+my $path = path_info();
+print header(),
+      start_html(-title=>'Server Error',
+                 -style=>Style());
+print Banner();
+
+print '<h1>WormBase Server Error</h1>';
+print p("We apologize, but a server error has just occurred.  This is not your fault, and we would appreciate",
+	"your informing us of this error.  Please visit the",a({-href=>'/db/misc/feedback'},"Feedback 
+Page"),
+	"to tell us the time and nature of the error, or return to the",a({-href=>'/'},'WormBase home page'),'.');
+
+print Footer();

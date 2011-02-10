@@ -1,0 +1,195 @@
+New release of WormBase WS116, Wormpep116 and Wormrna116 Tue Dec 23 09:55:56 GMT 2003
+
+
+WS116 was built by Keith
+======================================================================
+
+This directory includes:
+i)    database.WS116.*.tar.gz                   - compressed data for new release
+ii)   models.wrm.WS116                          - the latest database schema (also in above database files)
+iii)  CHROMOSOMES/subdir                        - contains 3 files (DNA, GFF & AGP per chromosome)
+iv)   WS116-WS115.dbcomp                        - log file reporting difference from last release
+v)    wormpep116.tar.gz                         - full Wormpep distribution corresponding to WS116
+vi)   wormrna116.tar.gz                         - WormRNA release containing non-coding RNA's in the genome
+vii)  confirmed_genes.WS116.gz                  - DNA sequences of all genes confirmed by EST &/or cDNA
+viii) yk2orf.WS116.gz                           - Latest set of ORF connections to each Yuji Kohara EST clone
+ix)   gene_interpolated_map_positions.WS116.gz  - Interpolated map positions for each coding/RNA gene
+x)    clone_interpolated_map_positions.WS116.gz - Interpolated map positions for each clone
+xi)   best_blastp_hits.WS116.gz                 - for each C. elegans WormPep protein, lists Best blastp match to 
+                                                human, fly, yeast, C. briggsae, and SwissProt & Trembl proteins.
+xii)  best_blastp_hits_brigprot.WS116.gz        - for each C. briggsae protein, lists Best blastp match to
+                                                human, fly, yeast, C. elegans, and SwissProt & Trembl proteins.
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS116
+------------------------------------
+brigdb : 2003-12-02 - updated
+camace : 2003-12-03 - updated
+citace : 2003-12-01 - updated
+cshace : 2003-11-26 - updated
+genace : 2003-12-16 - updated
+stlace : 2003-12-02 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS116       	WS115      	change
+----------------------------------------------
+a    	32368607	32368607	  +0
+c    	17780992	17780992	  +0
+g    	17758424	17758424	  +0
+t    	32369797	32369797	  +0
+n    	95      	95      	  +0
+-    	0       	0       	  +0
+
+Total	100277915	100277915	  +0
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 19889 CDS in autoace, 22227 when counting 2338 alternate splice forms.
+
+The 22227 sequences contain 9,725,601 base pairs in total.
+
+Modified entries               0
+Deleted entries                8
+New entries                    8
+Reappeared entries             0
+
+Net change  +0
+
+
+
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              4663 (21.0%)	Every base has transcription evidence (mRNA, EST etc )
+Partially_confirmed   12160 (54.7%)	Some but not all bases are covered by transcript evidence
+Predicted              5404 (24.3%)	No transcriptional evidence at all
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2432 (10.9%)
+TrEMBL accessions     18583 (83.6%)
+TrEMBLnew accessions   1153 (5.2%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            22168 (99.7%)
+
+
+
+Locus <-> Sequence connections (cgc-approved)
+---------------------------------------------
+Entries with locus connection   4727
+
+
+GeneModel correction progress WS115 -> WS116
+-----------------------------------------
+Confirmed introns not is a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|    432  |    26  |
+St Louis 	|    301  |    80  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|      0  |     0  |
+St Louis 	|     36  |     0  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+No synchronisation issues
+
+
+There are no gaps remaining in the genome sequence
+--------------------------------------------------
+
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+
+New Data:
+---------
+
+The new ?CDS class is implemented in this release. All protein-coding gene predictions
+are now ?CDS objects and not ?Sequence objects. This has many ramifications for the
+wording of tags in the ACEDB models and how you can query the database. For more 
+information please mail wormbase-help@wormbase.org
+
+Ab initio gene predictions using the 1998 version of Genefinder (Green et al) have been 
+included in WS116. These ?CDS objects have the method "Genefinder".
+
+WS116 contains ?CDS objects which relate to old versions of the predicted gene set (i.e.
+deprecated versions). This set is not yet complete with reference to the wormpep protein
+history file. All history objects have the nomenclature <clone>.<alphanumeric>:wp<int>
+where the wp version is the last wormpep version in which this prediction existed, e.g.
+B0344.2:wp93 represents the prediction (last found in wormpep93) for the gene B0344.2
+
+The operon set has been updated in line with the latest data from Tom Blumenthal.
+
+New Fixes:
+----------
+
+
+Known Problems:
+--------------
+
+Some problems from the move from ?Sequence to ?CDS objects may still be in WS116.
+
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+
+
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

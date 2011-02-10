@@ -1,0 +1,159 @@
+New Release of acedb WS87, Wormpep87 and Wormrna87 Wed Sep 25 13:31:54 BST 2002
+
+======================================================================
+
+This directory includes:
+
+i)	database.WS87.*.tar.gz     -   compressed data for new release
+
+ii)	models.wrm.WS87           -   the latest database schema (also in above database files)
+
+iii)	CHROMOSOMES/subdir         -   contains 3 files (DNA, GFF & AGP per chromosome)
+
+iv)	WS87-WS86.dbcomp    -   log file reporting difference from last release
+
+v)	wormpep87.tar.gz           -   full Wormpep distribution corresponding to WS87
+
+vi)	wormrna87.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+
+vii)	confirmed_genes.WS87.gz  -   DNA sequences of all genes confirmed by EST &/or cDNA
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS87
+------------------------------------
+brigdb : 2002-09-13 - updated
+camace : 2002-09-16 - updated
+citace : 2002-09-13 - updated
+cshace : 2002-08-28
+genace : 2002-09-16 - updated
+stlace : 2002-09-13 - updated
+
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS87       	WS86      	change
+----------------------------------------------
+a    	32352971	32352971	  +0
+c    	17772485	17772485	  +0
+g    	17750022	17750022	  +0
+t    	32354695	32354695	  +0
+n    	95      	95      	  +0
+-    	2000    	2000    	  +0
+
+Total	100232268	100232268	  +0
+
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 19483 CDS in autoace, 20881 when counting 1398 alternate splice forms.
+
+The 20881 sequences contain 9,238,759 base pairs in total.
+
+Modified entries               8
+Deleted entries                7
+New entries                   10
+Reappeared entries             0
+
+Net change  +3
+
+
+GeneModel correction progress WS86 -> WS87
+-----------------------------------------
+
+Confirmed introns not is a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|   1545  |   -21  |
+St Louis 	|    411  |    -1  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|     26  |     0  |
+St Louis 	|    181  |     0  |
+		+---------+--------+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+CHROMOSOME_III	sequence AF040644
+----------------------------------------------------------------
+
+
+Remaining gaps:
+---------------
+For more info mail worm@sanger.ac.uk
+
+# Gap on Chromosome III is covered by a 950Kb SseI fragment 
+
+III     1005794 1028769 37      F       AC087078.1      1       22976   +
+III     1028770 1029769 38      N       1000
+III     1029770 1055632 39      F       AC092690.1      1       25863   +
+
+# Gap on Chromosome X is covered by YAC clones in production at St Louis
+
+X       1       2649    1       F       AL031272.2      1       2649    +
+X       2650    3649    2       N       1000
+X       3650    14860   3       F       AC087735.3      1       11211   +
+
+
+New Data:
+---------
+
+New Fixes:
+----------
+
+
+Known Problems:
+--------------
+
+
+Other Changes:
+--------------
+As mentioned in the release notes for WS87, this build was the first to follow the rearranged protocol.
+This means that all new proteins have been included in the WUBLAST analysis.
+
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+We are planning to remove the EMBLace data (all EMBL: objects ) from the database.  They will be replaced by accession ID objects that contain the same ino and  the EMBL record as LongText.
+Eg EMBL:AA545854 will be replaced by AA545854 .
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

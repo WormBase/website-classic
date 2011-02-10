@@ -1,0 +1,31 @@
+<!ELEMENT gmod_standard_urls (mod,species+) >
+<!ELEMENT mod (name,description,primary_species,mod_url,file_root,install_path,admin_contact,supported_datasets) >
+<!ELEMENT name (#PCDATA) >
+<!ELEMENT description (#PCDATA) >
+<!ELEMENT primary_species (#PCDATA) >
+<!ELEMENT mod_url (#PCDATA)>
+<!-- full path where .tar.gz files are stored on your system -->
+<!ELEMENT file_root (#PCDATA)>
+<!-- full path to where the standard URL files are installed on your webserver -->
+<!ELEMENT install_path (#PCDATA)>
+<!ELEMENT admin_contact (#PCDATA) >
+<!-- which datasets does the MOD support? -->
+<!-- all are optional; leaving any out will prevent a link from being displayed -->
+<!ELEMENT supported_datasets (dna,mrna,ncrna,protein,feature) -->
+<!ELEMENT dna (#PCDATA) >
+<!ELEMENT mrna (#PCDATA) >
+<!ELEMENT ncrna (#PCDATA) >
+<!ELEMENT protein (#PCDATA) >
+<!ELEMENT feature (#PCDATA) >
+<!-- Each available species -->
+<!ELEMENT species (binomial_name, short_name, species_description, release+)>
+<!ELEMENT binomial_name (#PCDATA) >
+<!ELEMENT short_name (#PCDATA) >
+<!ELEMENT species_description (#PCDATA) >
+<!-- Each release -->
+<!ELEMENT release (version,release_date?,available,notes?) >
+<!ELEMENT version (#PCDATA) >
+<!ELEMENT release_date (#PCDATA) >
+<!-- Is the dataset still available?  Set this to "no" if not -->
+<!ELEMENT available (#PCDATA) >
+<!ELEMENT notes (#PCDATA) >

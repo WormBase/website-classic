@@ -1,0 +1,127 @@
+#!/usr/bin/perl
+
+use strict;
+use lib '../lib';
+use vars qw($cluster);
+use ElegansSubs qw(:DEFAULT GetEvidence Bestname format_references);
+use Ace::Browser::AceSubs qw(:DEFAULT Toggle);
+use CGI qw(:standard *table);
+use WormBase;
+
+use constant MAX_MATCHES => 10;
+
+END {
+  undef $cluster;
+};
+
+$cluster = OpenPageGetObject({Expression_cluster=>'Expression_cluster'});
+StartCache();
+
+if ($cluster) {
+  StartDataTable();
+  StartSection('Details');
+  SubSection('Cluster'      => $cluster);
+  SubSection('Description'  => $cluster->Description);
+  SubSection('Algorithm'    => $cluster->Algorithm);
+  SubSection('Remark'       => GetEvidence(-obj=>$cluster->Remark || '',-dont_link=>1));
+  SubSection('References',format_references(-references=>[$cluster->Reference],
+					    -format         => 'long',
+					    -pubmed_link    => 'image',
+					    -suppress_years => 'true'));
+  EndSection();
+
+  StartSection('Clustered data');
+  my @data = $cluster->Microarray_results;
+  if (@data) {
+      if ($data[0]->right) {
+         display_three_col('Microarray_results',$cluster->Microarray_results);
+      } else {
+         display_two_col('Microarray_results',$cluster->Microarray_results);
+      }
+  }
+  display_two_col('SAGE_results',
+		  $cluster->SAGE_tag) if $cluster->SAGE_tag;
+
+  print end_table();
+
+}
+
+ClosePage();
+
+exit 0;
+
+
+sub display_two_col {
+  my ($tag,@data) = @_;
+  my $key = $tag;
+  $key =~ s/_/ /g;
+
+  my ($href,$show) = Toggle("show_$tag",
+			    "$key",scalar @data,1,1,MAX_MATCHES);
+  print start_table({-width=>'50%',-border=>1});
+  print TR(
+	   th({-class=>'datatitle',-align=>'LEFT',-colspan=>2},$href)
+	  );
+  if ($show) {
+    print TR(
+	     th({-class=>'datatitle',-align=>'LEFT'},"$key"),
+	     th({-class=>'datatitle',-align=>'LEFT'},'Gene')
+	    );
+    for my $entry (@data) {
+      my ($result,$gene) = make_link($entry);
+      print TR(
+	       td({-class=>'databody'},$result),
+	       td({-class=>'databody'},$gene)
+	      );
+    }
+  }
+  print end_table;
+}
+
+sub display_three_col {
+  my ($tag,@data) = @_;
+  my $key = $tag;
+  $key =~ s/_/ /g;
+  
+  my ($href,$show) = Toggle("show_$tag",
+			    "$key",scalar @data,1,1,MAX_MATCHES);
+  print start_table({-width=>'70%',-border=>1});
+  print TR(
+	   th({-class=>'datatitle',-align=>'LEFT',-colspan=>3},$href)
+	  );
+  if ($show) {
+      print TR(
+	       th({-class=>'datatitle',-align=>'LEFT'},"$key"),
+	       th({-class=>'datatitle',-align=>'LEFT'},'Gene'),
+	       th({-class=>'datatitle',-align=>'LEFT'},'Score')
+	      );
+    for my $entry (@data) {
+      my ($result,$gene) = make_link($entry);
+      my ($score) = $entry->right;
+      $score ||= 'n/a';
+      print TR(
+	       td({-class=>'databody'},$result),
+	       td({-class=>'databody'},$gene),
+	       td({-class=>'databody'},$score),
+	      );
+    }
+  }
+  print end_table;
+}
+
+sub make_link {
+  my ($object) = shift;
+  my $gene = $object->Gene;
+  my $bestname = Bestname($gene) if $gene;
+  my $linked_gene;
+  my $molecular_id = $gene->Molecular_name if $gene;
+  $molecular_id =~ s/[a-z]{1}$//;
+  if ($bestname && $bestname eq $molecular_id) {
+    $linked_gene = ObjectLink($gene,$bestname);
+  } elsif ($bestname) {
+    $linked_gene = ObjectLink($gene,"$molecular_id ($bestname)");
+  } else {
+    $linked_gene = '';
+  }
+  return (ObjectLink($object),$linked_gene);
+}

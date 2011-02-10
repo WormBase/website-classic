@@ -1,0 +1,36 @@
+#!/usr/bin/perl
+
+# generic xml display
+# should work with any data model
+
+use lib '../lib';
+
+use strict;
+use vars qw($DB);
+
+use Ace 1.65;
+use CGI 2.42 qw/:standard :html3 escape/;
+use CGI::Carp qw/fatalsToBrowser/;
+use Ace::Browser::AceSubs;
+
+my $name  = param('name');
+my $class = param('class');
+
+AceError(<<END) unless $name && $class;
+Call this script with URL parameters of
+<VAR>name</VAR> and <VAR>class,</VAR> where
+"name" and "class" correspond to the name and class of the
+Ace object of interest.
+END
+
+# fetch database handle
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+my $iterator = $DB->fetch_many(-class=>$class,
+			       -name=> $name, 
+			       -fill=>"true") || AceError("Unknown object: name=$name, class=$class.");
+
+print header('text/plain');
+while (my $obj = $iterator->next) {
+  print $obj->asString;
+  print "\n";
+}

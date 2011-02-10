@@ -1,0 +1,92 @@
+#!/usr/bin/perl
+
+use strict;
+use lib '../lib';
+
+our $DB;
+our $WORMBASE;
+
+use CGI qw(:standard);
+use Ace::Browser::AceSubs qw(:DEFAULT AceRedirect);
+use ElegansSubs qw(:DEFAULT :locus PrintLongDescription
+  Best_BLAST_Table StartCache EndCache GetEvidence
+  GetInterpolatedPosition OverlappingOST OverlappingPCR OverlappingSAGE
+  FetchGene Bestname generate_reactome_table DisplayMoreLink
+  LinkToGlossary format_references GetEvidenceNew ID2Species Species2URL
+  GenerateWikiLink
+  is_new days_since_update
+  filter_references
+  filter_and_display_references
+  build_citation
+  is_NOT_phene
+  parse_year
+
+);
+use WormBase;
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$DB->class('Ace::Object::Wormbase');
+$WORMBASE = WormBase->new($DB);
+
+#$DB->timestamps(1);
+
+my $mode       = param('mode');
+my $gene       = param('gene');
+my $interactor = param('interactor');
+my $type       = param('type');
+my $papers     = param('papers');
+
+if ($mode eq 'count') {
+    my $gene           = $DB->fetch(Gene => $gene);
+    my $gene_best_name = Bestname($gene);
+
+    my @papers;
+    my %papers = map { $_ => 1 } split(',', $papers);
+    foreach my $paper (keys %papers) {
+        my $paper = $DB->fetch(Paper => $paper);
+        push @papers, $paper;
+    }
+
+    my %papers_seen;
+    my @records;
+    foreach my $paper (@papers) {
+        ($paper) = $paper->Merged_into if $paper->Merged_into;
+        next if $papers_seen{$paper};
+        $papers_seen{$paper}++;
+
+        my $record =
+          ObjectLink($paper,
+            $paper->Author . ' (' . parse_year($paper->Year) . ')');
+        $record ||= 'n/a';
+
+        push @records, $record;
+    }
+
+    if ($type =~ /^(Y1H|Y2H)\((bait|target)\)/) {
+        $type = "$1; $gene_best_name as $2";
+    }
+
+    my $info =
+        qq[<b>$gene_best_name & $interactor interaction ($type)</b><br/><br/>]
+      . qq[<b>Papers</b>: ]
+      . join('; ', @records);
+
+    print $info;
+}
+
+elsif ($mode eq 'gene') {
+    my $gene           = $DB->fetch(Gene => $gene);
+    my $gene_best_name = Bestname($gene);
+
+    my $concise_description = $gene->Concise_description || 'n/a';
+
+    my $info = qq[<b>$gene_best_name:</b> ] . qq[$concise_description];
+
+    print $info;
+}
+
+elsif ($mode eq 'type') {
+    my $info = qq[<b>Interaction type:</b> $type];
+
+    print $info;
+}

@@ -1,0 +1,5 @@
+The following scripts are deprecated:
+
+package_databases.pl     See wormbase-admin/update_scripts/package_databases.pl
+create_software_release.pl See wormbase-admin/update_scripts/package_databases.pl
+

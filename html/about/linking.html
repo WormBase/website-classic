@@ -1,0 +1,601 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html> <head>
+<title>Linking to WormBase</title>
+</head>
+
+<body>
+
+<table width="100%">
+  <tr align="LEFT">
+    <th  align="LEFT"><a href="#html">[Linking to HTML]</a></th>
+    <th  align="LEFT"><a href="#images">[Linking Genome Images]</a></th>
+    <th  align="LEFT"><a href="#aceperl">[Mining WormBase with AcePerl]</a></th>
+</tr>
+
+  <tr>
+    <th align="LEFT"><a href="#text">[Linking to Text]</a></th>
+    <th  align="LEFT"><a href="#map">[Linking Genetic Maps]</a></th>
+    <th  align="LEFT"><a href="#gffdb">[Mining WormBase with MySQL &amp; PostgreSQL]</a></th>
+  </tr>
+
+  <tr align="LEFT">
+    <th  align="LEFT"><a href="#xml">[Linking to XML]</a></th>
+    <th  align="LEFT"><a href="#pmap">[Linking the Cosmid Physical Map]</a></th>
+    <th  align="LEFT"><a href="#public_access_db">[Public Access AcePerl Databases]</a></th>
+</tr>
+
+  <tr>
+    <th  align="LEFT"><a href="#acedb">[Linking to ACeDB Dumps]</a></th>
+    <th>&nbsp;</th>
+    <th  align="LEFT"><a href="#object_classes">[Common WormBase Object Classes]</a></th>
+  </tr>
+
+</tr>
+</table>
+
+
+<h1>Linking and Mining WormBase</h1>
+
+<p>
+
+It is easy to link to WormBase, or to extract information from it for
+data mining purposes.  You can link to HTML pages, text-only dumps,
+and XML pages.
+
+</p>
+
+
+<hr>
+
+<h3>Naming Conventions</h3>
+<p>
+
+All objects in WormBase have a <b>name</b> and a <b>class</b>.  The
+name is a unique identifier which is usually, but not invariably, a
+human-readable name.  The class describes the type of the object, such
+as "Sequence" or "Protein.
+
+</p>
+
+<p>
+For example, the cell ADAR has a name of "ADAR" and a class of "Cell".
+</p>
+
+<p> For historical reasons, the classes of objects are not always what
+you expect.  While the class of a predicted gene such as ZK154.1 is
+"Predicted_gene", as you might expect, it is less obvious that the
+named gene zyg-1 has a class of "Locus".  The <a
+href="#link_rules">table at the bottom of this page</a> lists some of
+the common classes.
+
+</p>
+
+<p>
+
+If you are not sure, you can learn the name and class of a particular
+WormBase object by performing a search for the object.  Once you find
+and display it, look at the URL at the top of the page.  The URL will
+contain the arguments <b>name=</b> and <b>class=</b>.  These are the
+name and class of the object.
+
+</p>
+
+<hr>
+
+<h3><a name="html">Linking to an HTML Page</a></h3>
+
+<p>
+
+To link to a WormBase web page describing the object, create a link to
+<tt>http://www.wormbase.org/db/get?name=X;class=Y</tt>, where X
+and Y are replaced with the name and class of the object you wish to
+retrieve.  For example:
+
+  <pre>
+  &lt;a href="http://www.wormbase.org/db/get?name=F59E12.2;class=Predicted_Gene"&gt;F59E12.2&lt;/a&gt;<br>
+  <a href="http://www.wormbase.org/db/get?name=F59E12.2;class=Predicted_Gene">(try it)</a>
+  </pre>
+
+<hr>
+
+<h3><a name="xml">Linking to XML</a></h3>
+
+<p>
+
+To link to an XML dump of the object, create a link to
+<code>http://www.wormbase.org/db/misc/xml?name=X;class=Y</code>, where
+X and Y are again replaced with the object name and class.  For
+example:
+
+  <pre>
+  &lt;a href="http://www.wormbase.org/db/misc/xml?name=WBGene00006988;class=Gene"&gt;WBGene00006988&lt;/a&gt;<br>
+  <a href="http://www.wormbase.org/db/misc/xml?name=WBGene00006988;class=Gene">(try it)</a>
+  </pre>
+
+<hr>
+
+<h3><a name="text">Linking to Text</a></h3>
+
+<p>
+
+To link to a text-only representation of the object, create a link to
+<code>http://www.wormbase.org/db/misc/text?name=X;class=Y</code>,
+where X and Y are again replaced with the object name and class.  For
+example:
+
+  <pre>
+  &lt;a href="http://www.wormbase.org/db/misc/text?name=WBGene00006988;class=Gene"&gt;WBGene00006988&lt;/a&gt;<br>
+  <a href="http://www.wormbase.org/db/misc/text?name=WBGene00006988;class=Gene">(try it)</a>
+  </pre>
+
+<hr>
+
+<h3><a name="pmap">Linking to a Physical Map</a></h3>
+
+<p>
+
+To link to an image of the <i>C. elegans</i> physical map and you know
+the contig name, create a link to
+<code>http://www.wormbase.org/db/misc/epic?name=X;class=Map</code>,
+where X is replaced with the contig of interest. To link to a
+particular clone on the map, link to:
+<code>http://www.wormbase.org/db/misc/epic?name=X;class=Clone</code>,
+where X is replaced with the name of the clone.  For example:
+
+  <pre>
+  &lt;a href="http://www.wormbase.org/db/misc/epic?name=F59E12;class=Clone"&gt;F59E12&lt;/a&gt;<br>
+  <a href="http://www.wormbase.org/db/misc/epic?name=F59E12;class=Clone">(try it)</a>
+  </pre>
+
+<hr>
+
+
+<h3><a name="images">Linking to the Genome</a></h3>
+
+<p>
+
+Create a URL like this one:
+
+<pre>
+&lt;a href="http://www.wormbase.org/db/seq/gbrowse?source=wormbase;name=F59E12.2"&gt;F59E12.2&gt;<br>
+<a href="http://www.wormbase.org/db/seq/gbrowse?source=wormbase;name=F59E12.2">(try it)</a>  
+</pre>
+
+<p>
+
+The "name=" argument can be filled with almost any landmark, including
+predicted gene names, locus names, cosmid names, and chromosome names.
+You can also combine a landmark specify a range such as
+<b>II:1000..20000</b>.  This means to show chromosome II from
+positions 1000 to 20,000, inclusive.
+
+<hr>
+
+<h3><a name="images">Linking to an Image of the Genome</a></h3>
+
+<p>
+
+You can create an inline image of a portion of the genome using a URL like this one:
+
+<blockquote><pre>
+&lt;img src="http://www.wormbase.org/db/seq/gbrowse_img?source=wormbase;name=mec-3;width=650"&gt;
+</pre></blockquote>
+
+<p>
+
+This will produce the following 650-pixel wide image:
+
+<img src="http://www.wormbase.org/db/seq/gbrowse_img?source=wormbase;name=mec-3;width=650">
+
+<p>
+
+There are many more options.  You can turn on tracks, add your own
+tracks, and much more.  See <a href="/db/seq/gbrowse_img">the
+gbrowse_img help page</a> for details.
+
+<hr>
+
+<h3><a name="map">Linking to Genetic Maps</a></h3>
+
+<p>
+
+Create a link like this one:
+
+<pre>
+&lt;a href="http://www.wormbase.org/db/misc/epic?class=Map;name=III"&gt;III&gt;<br>
+<a href="http://www.wormbase.org/db/misc/epic?class=Map;name=III">(try it)</a>  
+</pre>
+
+<p>
+
+To link to a region of the map defined by a centimorgan interval, add the map_start and map_stop arguments:
+
+<pre>
+&lt;a href="http://www.wormbase.org/db/misc/epic?class=Map;name=III;map_start=3;map_stop=4"&gt;III:3..4&gt;<br>
+<a href="http://www.wormbase.org/db/misc/epic?class=Map;name=III;map_start=3;map_stop=4">(try it)</a>  
+</pre>
+
+
+<hr>
+
+<h3><a name="acedb">Linking to Acedb Format</a></h3>
+
+<p>
+
+To link to an ACEDB representation of the object suitable for loading
+into a local ACeDB database, create a link to
+<code>http://www.wormbase.org/db/misc/acedb?name=X;class=Y</code>,
+where X and Y are again replaced with the object name and class.  For
+example:
+
+  <pre>
+  &lt;a href="http://www.wormbase.org/db/misc/acedb?name=F59E12.2;class=Predicted_Gene"&gt;F59E12.2&lt;/a&gt;<br>
+  <a href="http://www.wormbase.org/db/misc/acedb?name=F59E12.2;class=Predicted_Gene">(try it)</a>
+  </pre>
+
+<hr>
+
+<h3>Fetching Multiple Objects</h3>
+
+<p>
+
+You can fetch multiple objects by using wild cards in the name, where
+"*" replaces any character, and "?" replaces a single character.  For
+example, to retrieve all RME cells in XML format, use:
+
+  <pre>
+  &lt;a href="http://www.wormbase.org/db/misc/xml?name=RME*;class=Cell"&gt;All Cells&lt;/a&gt;<br>
+  <a href="http://www.wormbase.org/db/misc/xml?name=RME*;class=Cell">(try it)</a>
+  </pre>
+
+<hr>
+
+<h3>Learning More about the Data Model</h3>
+
+<p>
+
+The data model for any WormBase object can be viewed by choosing the
+"Schema" menu item from the yellow navigation bar at the top of any
+object display page.  You can search for particular data models using
+the simple search on the front page, and selecting "Model" as the type
+of object you are searching for.
+
+<p>
+
+WormBase uses ACEDB data models.  Their format is described in detail
+at <a href="http://www.acedb.org">acedb.org</a>.
+
+<hr>
+
+<h2><a name="mining">Mining WormBase with AcePerl and Bio::DB::GFF</a></h2>
+
+<h3><a name="aceperl">Accessing the Database Directly Via AcePerl</a></h3>
+
+<p>
+
+WormBase can be queried from the command line using AcePerl.  This
+allows you to write sophisticated Perl scripts to mine WormBase.  For
+details, see the <a href="http://stein.cshl.org/AcePerl/">AcePerl
+pages</a> for information on downloading, installing and using this
+software.
+
+
+<hr>
+
+<h3><a name="public_access_db">Public Access AcePerl Servers</a></h3>
+
+<p>
+Network access to the <cite>C. elegans</cite> database is available at 
+the following site:
+</p>
+
+<p>
+<table border=0>
+  <tr class="searchtitle"><th>Location</th><th>Host</th><th>Port</th></tr>
+  <tr class="searchbody" ><td>Cold Spring Harbor Laboratory</td>
+      <th>aceserver.cshl.org</th>
+      <th>2005</th>
+    </tr>
+</table>
+</p>
+
+<p>
+
+Be aware that you will be sharing this server with other people.  If
+it seems slow, it may be because others are using it.  Wait a while
+and try again.
+
+</p>
+
+<hr>
+
+<h3><a name="gffdb">Mining WormBase with MySQL &amp; PostgreSQL</a></h3>
+
+<p>
+
+The <a href="http://www.bioperl.org">BioPerl library</a> provides a
+simple relational schema and database access layer for querying
+genomic features.  This is the access method of choice to use for
+mining WormBase for:
+
+<p>
+
+<ol>
+  <li>Spliced and unspliced genes.
+  <li>UTRs, upstream regions or introns.
+  <li>Searching for annotations that overlap one another, for example, finding
+      all genes that are in an intron of another gene.
+  <li>Comparing syntenic regions of the <i>C. elegans</i> and <i>C. briggsae</i> genomes.
+</ol>
+
+<p>
+
+You will need to install your own local database.  Currently WormBase
+does not provide world access to the MySQL database of genome features
+(although this may change in the future).  You must:
+
+<p>
+
+<ol>
+  <li>Install <a href="http://www.bioperl.org">BioPerl</a> and either
+      <a href="http://www.mysql.com">MySQL</a> or <a
+      href="http://www.postgresql.org">PostgreSQL</a>.
+  <li>Read the manual pages on <a href="http://doc.bioperl.org/releases/bioperl-1.2/Bio/DB/GFF.html">Bio::DB::GFF</a>.
+      This describes the API for loading and querying the database.
+  <li>Download the following flat files that describe the <i>C. elegans</i> and
+      <i>C. briggsae</i> genomes:
+      <dl>
+	<dt><a href="ftp://ftp.wormbase.org/pub/wormbase/genomes/elegans/genome_feature_tables/GFF2/">elegansWSXXXX.gff.gz</a>
+	<dd>GFF-format descriptions of sequence annotations on <i>C. elegans</i>.  The
+	    elegansWSXXXX.gff.gz file contains complete annotations for WormBase release XXXX,
+	    where XXXX is the current release number.
+	    Other files in this directory contain the same information sorted by chromosome.
+	<dt><a href="ftp://ftp.wormbase.org/pub/wormbase/acedb/current_release/CHROMOSOMES/">CHROMOSOME_*.dna.gz</a>
+	<dd>Fasta-format files of <i>C. elegans</i> chromosome DNA.
+	<dt><a href="ftp://ftp.wormbase.org/pub/wormbase/acedb/current_release/CHROMOSOME/unpacked/">EST_Elegans.dna.gz</a>
+	<dd>Fasta-format files of <i>C. elegans</i> ESTs and cDNAs.
+	<dt><a href="ftp://ftp.wormbase.org/pub/wormbase/genome/briggsae/genome_feature_tables/GFF2/">briggsae_25.gff.gz</a>
+	<dd>GFF-format descriptions of sequence annotations on the <i>C. briggsae</i> genome.
+	<dt><a href="ftp://ftp.wormbase.org/pub/wormbase/genomes/briggsae/sequences/dna/">briggsae_25.fa.gz</a>
+	<dd>Fasta-format file of <i>C. briggsae</i> genomic contigs.
+      </dl>
+</ol>
+
+<p>
+
+After downloading the <i>C. elegans</i> FASTA files, you should
+combine them into a single file to facilitate loading.  This is most
+easily done like this:
+
+<blockquote><pre>
+ % gunzip -c CHROMOSOME_*.dna.gz EST_Elegans.dna.gz &gt; CElegans.fa
+</pre></blockquote>
+
+<p>
+
+You do not have to do this with <i>C. briggsae</i>, because its DNA
+data is already combined into one file.
+
+<p>
+
+Once these are downloaded, create appropriately-named databases using the
+MySQL or PostgreSQL administrators' tools.  You may create separate
+databases for each of the genomes (recommended) or put them together
+in the same database.  Assuming that you have created two MySQL
+databases, one named "elegans" and the other named "briggsae", you
+will use the bulk_load_gff.pl tool to load them from the downloaded
+files:
+
+<blockquote><pre>
+ % bulk_load_gff.pl -c -d elegans  -fasta CElegans.fa elegansWSXXXX.gff.gz
+ % bulk_load_gff.pl -c -d briggsae -fasta briggsae_25.fa.gz briggsae_25.gff.gz
+</pre></blockquote>
+
+<p>
+
+The bulk_load_gff.pl program comes with BioPerl.  Look for it in the
+subdirectory scripts/Bio-DB-GFF.
+
+<p>
+
+If you are using PostgreSQL, you should use the script "load_gff.pl",
+which works, but is very slow, or "pg_bulk_load_gff.pl," which is fast
+and optimized for PostgreSQL.  They both have the same command-line
+syntax.
+
+<p>
+
+Once you've got the database loaded, you can write scripts to mine the
+data.  For example, this script will find all named (3-letter) genes
+that are contained within the intron of another named or predicted
+gene and print out 100 bp upstream from their 5' end:
+
+<blockquote>
+<pre>
+#!/usr/bin/perl
+
+# find 3-letter named genes that are contained within the intron of another gene
+use strict;
+use Bio::DB::GFF;
+
+my $db = Bio::DB::GFF-&gt;new('elegans');
+my $intron_stream = $db-&gt;get_seq_stream('intron:curated');
+while (my $intron = $intron_stream-&gt;next_feature) {
+  my @contained_genes = $intron-&gt;contained_features('gene:curated') or next;
+  for my $gene (@contained_genes) {
+    my $upstream = $gene-&gt;subseq(-99,0);  # 100 bp upstream - position 0 is 1 bp to left of translational start
+    print $gene-&gt;name,"\t",$upstream->dna,"\n";
+  }
+}
+</pre>
+</blockquote>
+
+<p>
+
+The output starts like this:
+
+<blockquote>
+<pre>
+fkh-6	acctccgtcttcacagttccgagaccccgccctcactcttagcttctgcataatccgttgtctcatttgacaccccctaccataaaaaaatacaataatc
+kin-31	aaaaaaaaatcgattttatcaaaaaacaatttatttcacatttttgtataactgacactcgtcagaattgtaaaaaccattaatttcatcgttgcattaa
+...
+</pre>
+</blockquote>
+
+<p>
+
+To fetch all gene models and print their coding regions and UTRs, use
+the following script:
+
+<pre>
+#!/usr/bin/perl
+
+use strict;
+use Bio::DB::GFF;
+
+my $db  = Bio::DB::GFF-&gt;new(-dsn         =&gt; 'elegans',
+			    -aggregators =&gt; 'gene_model{coding_exon,5_UTR,3_UTR/CDS}');
+
+my $gene_stream = $db-&gt;get_seq_stream('gene_model:curated');
+
+while (my $gene = $gene_stream-&gt;next_seq) {
+  print $gene-&gt;name,"\n";
+  for my $part ($gene-&gt;get_SeqFeatures) {
+    print "\t",join("\t",$part-&gt;method,$part-&gt;start,$part-&gt;end),"\n";
+  }
+  print "\n";
+}
+</pre>
+
+<p>
+
+This will produce output like:
+
+<pre>
+2L52.1
+	coding_exon	II	1867	1911	1
+	coding_exon	II	2506	2694	1
+	coding_exon	II	2738	2888	1
+	coding_exon	II	2931	3036	1
+	coding_exon	II	3406	3552	1
+	coding_exon	II	3802	3984	1
+	coding_exon	II	4201	4663	1
+
+2RSSE.1
+	5_UTR	II	15268097	15268367	1
+	coding_exon	II	15268368	15268441	1
+	coding_exon	II	15269346	15269681	1
+	coding_exon	II	15269747	15269918	1
+	coding_exon	II	15270683	15270860	1
+	coding_exon	II	15272930	15273201	1
+</pre>
+
+<p>
+
+See the documentation for the BioPerl Bio::DB::GFF class for details.
+Note the use of the aggregator
+"gene_model{coding_exon,5_UTR,3_UTR/CDS}", which says to aggregate
+parts of type coding_exon, 5_UTR, 3_UTR and CDS into a single feature
+of type "gene_model."
+
+<hr>
+
+<h2><a name="object_classes">Common Object Classes</a></h2>
+
+<p>
+
+The following table lists common WormBase classes.
+
+<p>
+<table border=1>
+
+  <tr  class="datatitle">
+    <th>Object</th>
+    <th>Name</th>
+    <th>Class</th>
+    <th>Notes</th>
+  </tr>
+
+  <tr class="databody">
+    <th>A Predicted Gene</th>
+    <td>A cosmid dot name, such as F59E12.2</td>
+    <th>Predicted_Gene</th>
+    <td>A class name of "Sequence" is also recognized.</td>
+  </tr>
+
+  <tr>
+    <th>A Named Gene</th>
+    <td>A three letter name, such as zyg-1</td>
+    <th>Locus</th>
+    <td>&nbsp;</td>
+  </tr>
+  
+  <tr class="databody">
+    <th>A Genbank Accession Number (protein or nucleotide)</th>
+    <td>The accession number</td>
+    <th>Accession_Number</th>
+    <td>This will retrieve an Accession_Number object, which is a list
+	of WormBase names that correspond to that accession number.</td>
+ </tr>
+  
+  <tr>
+    <th>A Protein</th>
+    <td>A wormpep accession number, proceeded by "WP:", as in WP:CE28571</td>
+    <th>Protein</th>
+    <td>&nbsp;</td>
+   </tr>
+
+  <tr class="databody">
+    <th>A Clone</th>
+    <td>The cosmid or YAC name, for example F59E12</td>
+    <th>Clone</th>
+    <td>&nbsp;</td>
+  </tr>
+
+  <tr>
+    <th>Genomic Sequence</th>
+    <td>The cosmid or YAC name from which the sequence was made, for example F59E12</td>
+    <th>Genomic_Sequence</th>
+    <td>A class name of "Sequence" is also recognized.</td>
+  </tr>
+
+  <tr class="databody">
+    <th>A GenePair</th>
+    <td>The Research Genetics name, preceded by the prefix "sjj_" (for
+	Steve Jones, who designed the pairs).  For example, sjj_F59E12.2.</td>
+    <th>PCR_Product</th>
+    <td>&nbsp;</td>
+  </tr>
+  
+  <tr>
+    <th>A Cell</th>
+    <td>A cell name, such as ADAR; notice that paired cells, such as
+	ADAR and ADAL are treated separately</td>
+    <th>Cell</th>
+    <td>&nbsp;</td>
+  </tr>
+
+  <tr class="databody">
+    <th>A Protein Family</th>
+    <td>The accession number, proceeded by the database name.
+	Examples include the Interpro family INTERPRO:IPR000039, the
+	Prosite motif PS:PS00041, and the PFAM family PFAM:PF00352</td>
+    <th>Motif</th>
+    <td>&nbsp;</td>
+  </tr>
+
+  <tr>
+    <th>An RNAi Experiment</th>
+    <td>The accession number of the experiment.  This is typically the name
+	of the overlapping gene preceded by the laboratory prefix.  For example,
+	an RNAi experiment that covers gene F59E12.2 and was performed in Julie
+	Ahringer's lab (JA), will have the name JA:59E12.2</td>
+    <th>RNAi</th>
+    <td>&nbsp;</td>
+  </tr>
+</table>
+</p>
+
+
+<hr>
+</body> </html>

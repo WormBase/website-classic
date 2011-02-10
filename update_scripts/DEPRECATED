@@ -1,0 +1,15 @@
+The following scripts are deprecated, either having been replaced
+by scripts provided by Bio::GMOD or migrated to the new "wormbase-admin"
+CVS module.  Please do not work on these scripts! Edit the 
+replacements as noted below.
+
+
+Scripts prefaced with gmod_ are provided by Bio::GMOD. Others
+are found in wormbase-admin/update_scripts unless otherwise noted.
+
+script					replaced by
+-------------------------------------------------------------------------------
+updte_cshl_mirror.pl                    gmod_update_installation-wormbase.pl
+update_live_and_satellite_servers.pl    gmod_update_installation-wormbase.pl
+update_wormbase.pl                      ./update_wormbase-dev.pl
+notify.pl				send_release_notification.pl

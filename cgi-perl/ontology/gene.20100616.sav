@@ -1,0 +1,867 @@
+#!/usr/bin/perl
+# file: ontology/gene
+# This multifaceted script is a search,
+# summary display, and detailed view of given terms
+
+use strict;
+use Ace::Browser::AceSubs qw(:DEFAULT);
+use Ace::Browser::SearchSubs;
+use lib '../lib';
+use ElegansSubs qw(:DEFAULT GetEvidence GetEvidenceNew
+		   FetchGene MultipleChoices DisplayMoreLink
+		   StartCache Bestname build_citation
+		   DisplayGeneOntologySearch
+		   );
+use CGI qw(:standard *table *TR *iframe);
+use WormBase;
+use vars qw/$DB $WORMBASE $GENE $BESTNAME $TERMS $NAME $CLASS $COUNT $FLAG $AO_TERM/;
+use constant DISPLAY_LIMIT      => 10;
+use constant ITEM_DISPLAY_LIMIT => 100; # This is for total number of entries retrieved
+use constant BROWSER            => '/db/ontology/browse';
+
+# require 'OntologySubs.pl';
+require develSubs;
+
+END {
+  undef $GENE;
+  undef $BESTNAME;
+  undef $GENE;
+  undef $TERMS;
+  undef $NAME;
+  undef $CLASS;
+  undef $COUNT;
+  undef $FLAG;
+}
+
+
+
+$DB       = OpenDatabase();
+our $version = $DB->version;
+
+$WORMBASE = WormBase->new($DB);
+
+$NAME  = param('name') || param('query');
+$CLASS = param('class');
+my $offset            = AceSearchOffset();
+($TERMS,$COUNT,$FLAG) = get_term($offset) if $NAME;
+
+my $gene_obj = $DB->fetch('Gene','WBGene00006763');
+
+StartCache();
+
+if (param('details') && $TERMS) {
+  PrintTop($TERMS->[0],'GO_term',"Gene Ontology Summary for term: " . $TERMS->[0]);
+  print_expanded_view($TERMS->[0]);
+} elsif ($TERMS && $CLASS =~ /Gene/i) {
+  # A per-gene summary of terms
+  PrintTop($GENE,'GO_term',"Gene Ontology Summary for gene: $BESTNAME");
+  print_summary();
+  #print start_table();
+  #StartSection('Anatomy Ontology Associations via Expression');
+  print_ao_annotations($GENE,'ont_gene');
+  #print "\<h1\>Duck\<\/h1\>\n";
+  #print end_table();
+  #print "\<h1\>Duck\<\/h1\>\n";
+} elsif (eval { @$TERMS == 1 }) {
+  # A per-term detailed view
+  PrintTop($TERMS->[0],'GO_term',"Gene Ontology Summary for term: " . $TERMS->[0]);
+  print_detail($TERMS->[0]);
+} elsif (eval { @$TERMS }) {
+  my $display_limit = param('display_limit') || ITEM_DISPLAY_LIMIT;
+  if (eval { @$TERMS > $display_limit }) {
+    PrintTop('','GO_term',"Gene Ontology Search: $NAME");
+    display_search($TERMS,$COUNT,$offset,$NAME);
+  } else {
+    PrintTop('','GO_term',"Gene Ontology Summary: $NAME");
+    print_summary();
+  }
+} else {
+  PrintTop('','GO_term',"Gene Ontology Search");
+}
+print hr;
+print b('Search Gene Ontology System');
+
+DisplayGeneOntologySearch() unless param('details');
+
+print "<hr>";
+print "<br><b>Search all Ontologies</b>";
+print_search_form();
+
+PrintWarning() if ($NAME && !$TERMS);
+PrintBottom();
+
+exit 0;
+
+########## Begin subs ##########
+
+sub get_term {
+  my $offset = shift;
+  my @prelim_results;
+  my $from_class;
+  # Here, we do targetted searches based on the tags that GO_terms can be attached to.
+  # This is a bit backwards but faster than parsing all GO terms
+  if ($NAME =~ /^GO:/) {
+      # Try some targetted searches first
+      @prelim_results = $DB->fetch(GO_term => $NAME);
+      return [$prelim_results[0]] if @prelim_results == 1;
+      $from_class = 'go_term' if @prelim_results;
+  }  elsif ($CLASS eq 'Gene') {
+      ($GENE,$BESTNAME) = FetchGene($DB,$NAME);
+      return unless $GENE;
+      # We need to fetch GO_terms from the corresponding_CDS as well as genes.
+      @prelim_results = map { $_->GO_term } $GENE->Corresponding_CDS;
+      push (@prelim_results,$GENE->GO_term);
+      $from_class = 'Gene' if @prelim_results;
+  } else {
+      # Try finding by gene or gene_name (assume scalar context)
+      $NAME =~ s/\*/GO:/;
+      if (my ($name_new) = $DB->fetch(Gene_name => $NAME)) {
+	  $GENE = $name_new->Public_name_for;
+      }
+      
+      $GENE = $DB->fetch(Gene => $NAME) unless $GENE;
+      if ($GENE) {
+	  $BESTNAME = Bestname($GENE);
+	  $from_class = 'Gene';
+	  # We need to fetch GO_terms from the corresponding_CDS as well as genes.
+	  @prelim_results = map { $_->GO_term } $GENE->Corresponding_CDS;
+	  push (@prelim_results,$GENE->GO_term);
+      }
+
+      unless (@prelim_results) {
+	  my @terms = $DB->aql(qq{select a from a in class GO_term where (a->Definition like "*$NAME*") or (a->Term like "*$NAME*")});
+	  my %seen;
+	  @prelim_results = grep { !$seen{$_}++ } map {@$_} @terms;
+	  $from_class = 'definition' if @prelim_results;
+      }
+      
+      unless (@prelim_results) {
+	  my @terms = $DB->aql(qq{select a from a in class Motif where a->Title like "*$NAME*"});
+	  my %seen;
+	  @prelim_results = grep {!$seen{$_}++ } map {$_->GO_term} map { @$_} @terms;
+	  $from_class = 'motif' if @prelim_results;
+      }
+      
+      unless (@prelim_results) {
+	  # Fall through to a full database grep.
+	  my @objs = $DB->grep(-pattern=>$NAME);
+	  @prelim_results = grep {$_->class eq 'GO_term'} @objs;
+      }
+  }
+
+  my @filtered_by_aspects;
+  
+  # Limit first to those terms only part of a specific aspect
+  # Are all three aspects selected? Just short circuit without evaluating
+  # KLUDGE!  If linking in via a URL, default to searhing all aspects;
+  my @aspects = param('aspect');
+  if (@aspects == 3 || @aspects == 0) {
+      push @filtered_by_aspects,@prelim_results;
+  } else {
+      foreach my $aspect (@aspects) {
+	  $aspect =~ s/ /_/;
+	  push @filtered_by_aspects,grep {$_->Type eq $aspect} @prelim_results;
+      }
+  }
+  
+  my @filtered_by_limits;
+  if (my @limit = param('limit_to')) {
+      foreach my $filter (@limit) {
+	  push @filtered_by_limits,grep {$_->$filter} @filtered_by_aspects;
+      }
+  }
+
+  @prelim_results = (@filtered_by_limits) ? @filtered_by_limits : @filtered_by_aspects;
+
+  my $count          = @prelim_results;
+  my $max            = $offset+MAXOBJECTS-1;
+  $max               = $count-1 if $max > $count;
+  my @subset         = @prelim_results[$offset..$max];
+  return (\@subset,$count,$from_class);
+}
+
+sub get_term_old {
+  my $offset = shift;
+  my @results;
+
+  # Here, we do targetted searches based on the tags that GO_terms can be attached to.
+  # This is a bit backwards but faster than parsing all GO terms
+  if ($CLASS =~ /Gene/i) {
+    ($GENE,$BESTNAME) = FetchGene($DB,$NAME);
+    return unless $GENE;
+
+    # We need to fetch GO_terms from the corresponding_CDS as well as genes.
+    @results = map { $_->GO_term } $GENE->Corresponding_CDS;
+    push (@results,$GENE->GO_term);
+  } elsif ($CLASS =~ /go_term/i) {
+    @results = $DB->fetch(GO_term => $NAME);
+    return [$results[0]] if @results == 1;
+  } elsif ($CLASS =~ /definition/i) {
+    # Why does this query return an array of arrays?
+    my @terms = $DB->aql(qq{select a from a in class GO_term where (a->Definition like "*$NAME*") or (a->Term like "*$NAME*")});
+    @results = map {@$_} @terms;
+  } elsif ($CLASS eq 'motif') {
+    my @terms = $DB->aql(qq{select a from a in class Motif where a->Title like "*$NAME*"});
+    my %seen;
+    @results = grep {!$seen{$_}++ } map {$_->GO_term} map { @$_} @terms;
+  } elsif ($CLASS =~ /phenotype/) {
+    my @terms = $DB->aql(qq{select a from a in class Phenotype where a->Description like "*$NAME*" and exists a->GO_term});
+    my %seen;
+    @results = grep {!$seen{$_}++ } map {$_->GO_term} map { @$_} @terms;
+  } elsif ($CLASS =~ /anatomy/) {
+
+  } elsif ($CLASS =~ /cell/) {
+
+  } elsif ($CLASS =~ /homology/) {
+
+  } elsif ($CLASS =~ /pseuodgene/) {
+
+  } elsif ($CLASS =~ /reference/) {
+
+  } elsif ($CLASS =~ /transcript/) {
+
+  } elsif ($CLASS =~ /anything/i) {
+    # Fall through to a full database grep.
+    my @objs = $DB->grep(-pattern=>$NAME);
+    @results = grep {$_->class eq 'GO_term'} @objs;
+  } else {}
+
+  my @filtered;
+  if (my @limit = param('limit_to')) {
+    foreach my $filter (@limit) {
+      push @filtered,grep {$_->$filter} @results;
+    }
+  }
+  @results = @filtered if @filtered;
+
+  my $count          = @results;
+  my $max            = $offset+MAXOBJECTS-1;
+  $max               = $count-1 if $max > $count;
+  my @subset         = @results[$offset..$max];
+  return (\@subset,$count);
+}
+
+
+sub print_detail {
+  my $term = shift;
+  StartDataTable();
+  StartSection('Details');
+  SubSection('ID' => $term);
+  SubSection('Term'        => $term->Term);
+  SubSection('Definition'  => $term->Definition);
+  SubSection('Type'        => $term->Type);
+  #  SubSection('Remark'      => GetEvidence(-obj=>$phenotype->Remark || '',-dont_link=>1));
+  # SubSection('','Explore the ' . a({-href=>Object2URL($term->name,'go_dag')},'full Gene Ontology tree'));
+  EndSection();
+  
+	StartSection('Ontology Browser');
+	my ($frame,$end_frame) = print_ontology($term);
+	  SubSection('',$frame,$end_frame);
+	  EndSection();
+print "<a name=asc>";
+
+  my @genes = uniquify_genes_and_cds($term);
+  display_genes_and_cds(\@genes,undef,$term) if @genes;
+
+#  foreach my $db_class (qw/Gene CDS Sequence Transcript Pseudogene Motif Phenotype
+#			Anatomy_term Homology_group Expr_pattern Cell Reference /) {
+  foreach my $db_class (qw/Sequence Transcript Pseudogene Motif Phenotype
+			Anatomy_term Homology_group Expr_pattern Cell Reference/) {
+    display_tag($db_class,$term);
+  }
+# 
+
+my $orthology_data_dir = "/usr/local/wormbase/databases/$version/orthology/";
+my %go_id2omim_ids = build_hash($orthology_data_dir."go_id2omim_ids.txt");
+my %omim2disease_name = build_hash($orthology_data_dir."omim_id2disease_name.txt");
+my $go_id = $term->name;
+# print "$go_id<br>";
+my $omim_id_line = $go_id2omim_ids{$go_id};
+# print "$omim_id_line";
+if($omim_id_line){
+	StartSection('Related Human Diseases');
+
+		my @omim_ids = split /\|/,$omim_id_line;
+		# print start_table();
+		print TR({},
+			th({-align=>'center',-width => '60%',-class=>'databody'},'Disease'),
+			th({-align=>'center',-width => '40%',-class=>'databody'},'Links')
+		);
+			
+		## clean up disease name
+		my %disease_list;
+		foreach my $omim_id (@omim_ids){
+			
+			my $disease_name = $omim2disease_name{$omim_id};
+			
+			$disease_name =~ s/[{*]//g;
+			$disease_name =~ s/[}*]//g;
+			$disease_name =~ s/\[*//g;
+			$disease_name =~ s/\]*//g;
+			
+			$disease_list{$omim_id} = $disease_name;			
+		}
+		
+		my @sorted_omim_ids = sort {$disease_list{$a} cmp $disease_list{$b} } keys %disease_list;
+		my $id_count = @sorted_omim_ids;
+		foreach my $omim_id (@sorted_omim_ids[0 .. 9]){
+			if($omim_id){
+				my $url = "/db/orthology/disease?call=".$omim_id;
+				my $disease_page_link = a({-href=>$url},$omim_id);
+				my $omim_url = "http://www.ncbi.nlm.nih.gov/entrez/dispomim.cgi?id=".$omim_id;
+				my $omim_link = a({-href=>$omim_url},$omim_id);
+				my $link_list = "Go to OMIM (".$omim_link.") | Disease Page (".$disease_page_link.")";
+				print TR({},
+					td({-align=>'left',-width => '50%',-class=>'databody'},$disease_list{$omim_id}),
+					td({-align=>'center',-width => '50%',-class=>'databody'},$link_list)
+				);
+			}
+			else{
+				next;
+			}
+		}
+		
+		# print end_table;
+		if($id_count > 10){
+			my $disease_list_url = "/db/orthology/disease?related=".$go_id;
+			my $disease_list_link = a({-href=>$disease_list_url},"Go to full list.");
+			print TR({},
+				td({-align=>'left',-class=>'databody',-colspan=>2},"<hr>There are a total of $id_count diseases in associated this gene. $disease_list_link")
+				);
+		}
+		
+	EndSection();	
+}
+
+	
+  EndDataTable();
+}
+	
+
+sub print_expanded_view {
+  my $term = shift;
+  print h3('Displaying all ' . param('details') . " annotations for $term");
+  print start_form(),button(-onClick=>'window.close()',-label=>'Close Window'),end_form();
+  StartDataTable();
+
+  if (param('details') eq 'Gene' || param('details') eq 'CDS') {
+    my @genes = uniquify_genes_and_cds($term);
+    display_genes_and_cds(\@genes,'show all',$term) if @genes;
+  } else {
+    display_tag(param('details'),$term,'show all');
+  }
+  EndDataTable();
+}
+
+
+sub uniquify_genes_and_cds {
+  my $term = shift;
+  my %mol;
+  my %cgc;
+
+  my $tag = param('details');
+  my @objs = $term->$tag if $tag;
+  push (@objs,$term->Gene,$term->CDS) unless @objs;
+
+  foreach my $obj (@objs) {
+      my ($gene,$key);
+      # We need to key searches by CDS in order to display them all
+      # The main display creates a hybrid list of genes and CDSs.
+      if (param('details')) {
+	  if ($obj->class eq 'CDS') {
+	      $gene = $obj->Gene;
+	      $key  = $obj;
+	  } else {
+	      $gene = $obj;
+	      $key  = $gene;
+	  }
+      } else {
+	  $gene = ($obj->class eq 'CDS') ? $obj->Gene : $obj;
+	  $key  = $gene;
+      }
+      # Ignore CDSs without associated genes
+      next unless $gene;
+      next if (defined $cgc{$key} || defined $mol{$key});
+
+      if ($gene->CGC_name) {
+	  $cgc{$key} = [$obj,$gene,$gene->CGC_name];
+      } else {
+	  $mol{$key} = [$obj,$gene,$gene->Sequence_name];
+      }
+  }
+
+  my @sorted = sort {$cgc{$a}->[2] cmp $cgc{$b}->[2] } keys %cgc;
+  push @sorted,sort {$mol{$a}->[2] cmp $mol{$b}->[2] } keys %mol;
+
+  my @genes;
+  foreach (@sorted) {
+      my ($obj,$gene,$junk) = eval { @{$cgc{$_}} };
+      ($obj,$gene,$junk) = eval { @{$mol{$_}} } unless $gene;
+      # UGH!  Return a list of CDSs instead.
+      if (param('details') eq 'CDS') {
+	  push @genes,$obj;
+      } else {
+	  push @genes,$DB->fetch(Gene=>$gene);
+      }
+  }
+  return @genes;
+}
+
+sub display_genes_and_cds {
+  my ($objs,$show_all,$term) = @_;
+  my $header = param('details') ? param('details') . 's' : 'Genes/CDSs';
+
+  StartSection("Annotations: $header");
+  my $link;
+  if (!$show_all && @$objs > DISPLAY_LIMIT) {
+    my $link_text = scalar @$objs . " Genes found; " . DISPLAY_LIMIT . " displayed; view all";
+    $link = DisplayMoreLink(\@$objs,'Gene',undef,$link_text,1);
+    my $limit = DISPLAY_LIMIT - 1;
+    @$objs = @$objs[0..$limit];
+  }
+  my $text = start_table() . TR(th('CGC'),th('Sequence'),th('Gene ID'),th('Description'),th('Evidence'));
+  foreach (@$objs) {
+      my ($gene,$sequence);
+      if ($_->class eq 'CDS') {
+	  $gene = $_->Gene;
+	  $sequence = a({-href=>Object2URL($_,'Sequence')},$_);
+      } else {
+	  $gene = $_;
+	  $sequence = $gene->Sequence_name || '-';
+      }
+      
+      # In order to display evidence, I actually need to visit each gene or CDS object,
+      # fetch all GO_terms and find the one which corresponds to the current one
+      my $evidence;
+      foreach ($gene->GO_term) {
+	  if ($_ eq $term) {
+	      ($evidence) = $_->right . 
+		  ((eval { $_->right->right->right} ne '') ?
+		   ': '. join(br,GetEvidenceNew(-object=>$_->right,-format => 'inline'))
+		   : '');
+	      last;
+	  }
+      }   
+      
+      my $description = substr($gene->Concise_description || $gene->Provisional_description,0,50);
+      $text .= TR(
+		  td($gene->CGC_name),
+		  td($sequence),
+		  td(ObjectLink($gene)),
+		  td($description),
+		  td($evidence),
+		  );
+  }
+  $text .= end_table;
+  $text .= $link if $link;
+  SubSection('',i("This Gene Ontology term has been assigned to the following $header."
+		  . br
+		  . caveat_emptor()),
+	     $text);
+  EndSection();
+}
+
+sub caveat_emptor {
+  return <<END;
+Note: These associations are specific for the current term and do not
+include those attached to descendant terms. All assocations --
+including those drawn from child terms -- can be extracted from the
+browser above.
+END
+}
+
+
+
+sub display_tag {
+  my ($db_class,$term,$show_all) = @_;
+#  my $url = url(-absolute=>1,-query=>1);
+	my @data;
+	eval {@data = $term->$db_class;};
+
+  if (@data) {
+    StartSection("Annotations: $db_class");
+    my $link;
+    if (!$show_all && @data > DISPLAY_LIMIT) {
+      my $link_text = scalar @data . " $db_class" . 's found; ' . DISPLAY_LIMIT . " displayed; view all";
+      $link = DisplayMoreLink(\@data,$db_class,undef,$link_text,1);
+      @data = @data[0..9];
+    }
+    my $text = start_table() . TR(th($db_class),th('Description'),th('Evidence'));
+    foreach (sort { $a cmp $b } @data) {
+
+
+      # In order to display evidence, I actually need to visit each gene or CDS object,
+      # fetch all GO_terms and find the one which corresponds to the current one
+      my $evidence;
+      foreach ($_->GO_term) {
+	  if ($_ eq $term) {
+	      ($evidence) = $_->right . 
+		  ((eval { $_->right->right->right} ne '') ?
+		   ': '. join(br,GetEvidenceNew(-object=>$_->right,-format => 'inline'))
+		   : '');
+	      last;
+	  }
+      }   
+      $text .= start_TR();
+      
+      if ($db_class =~ /CDS/i) {
+	  $text .= 
+	      td(ObjectLink($_))
+	      . td($_->DB_remark
+		   || eval {$_->Gene->Concise_description}
+		   || eval {$_->Gene->Provisional_description} );
+      } elsif ($db_class =~ /Gene/i) {
+	  $text .= td(ObjectLink($_))
+	      . td($_->Public_name );
+      } elsif ($db_class =~ /Motif/i) {
+	  $text .= td(ObjectLink($_))
+	      . td($_->Title);
+      } elsif ($db_class =~ /Phenotype/i) {
+	  $text .= td(ObjectLink($_))
+	      . td($_->Description);
+      } else {
+	  $text .= td(ObjectLink($_))
+	  . td('');
+      }
+      $text .= td($evidence);
+      $text .= end_TR();
+    }
+    $text .= end_table;
+    $text .= $link if $link;
+    SubSection('',i("This Gene Ontology term has been assigned to the following $db_class" . 's:'
+	       . br
+	       . caveat_emptor()),
+	       $text);
+    EndSection();
+  }
+}
+
+
+
+# Tabularized output from a search
+sub print_summary {
+
+    my (%ontology,%seen);
+    # Aggregate terms by their type
+    foreach (@$TERMS) {
+	next if $seen{$_}++;
+	my ($code,$evi) = go_evidence_code($_);
+	my $link = a({-href=>Configuration->Go_evidence},$code);
+
+	# 2005.04.27 - No longer using expanded GO codes (complicates display when many annotations are listed)
+	my $evidence = ($code) ? Configuration->Go_codes->{$code}.' ('.$link.') '.$evi : '';
+
+	# my $evidence = "($link) $evi";
+	push @{$ontology{$_->Type || 'unclassified'}},[$_,$evidence,$code]; # Some terms are not associated with GO categories
+    }
+
+  foreach my $category ('Biological_process','Cellular_component','Molecular_function','unclassified') {
+    next if ($category eq 'unclassified' && !$ontology{$category});  # Temporary cruft. Blech.
+    my @items;
+    # Sort the items of the given category by name and GO code
+    if ($ontology{$category}) {
+      @items = sort {Configuration->Go_sort->{$a->[2]} cmp Configuration->Go_sort->{$b->[2]}
+		       ||
+			 $a->[0]->Term cmp $b->[0]->Term} @{$ontology{$category}};
+    }
+    next unless @items;
+
+    my $title = $category;
+    $title =~ s/_/ /g;
+    my $table = start_table({-border=>0,-width=>'100%'});
+    $table .= TR(th({-align=>'left',-class=>'databody',-colspan=>3},$title));
+    if ($FLAG eq 'Gene') {
+      $table .= TR({-align=>'left',-class=>'databody'},th('Term'),th('Definition'),th('Evidence'));
+    } else {
+      $table .= TR({-align=>'left',-class=>'databody'},th('Term'),th('Definition'),th('Annotations'));
+    }
+
+    my @tags = qw/Gene CDS Transcript Pseudogene Cell Expr_pattern Homology_group Anatomy_term/;
+
+    foreach (@items){
+      my ($object,$evidence,$code) = @$_;
+      my $url = url(-absolute=>1) . "?name=$object";
+      my $definition = $object->Definition;
+      my @terms      = $object->Term;
+
+      if ($FLAG eq 'Gene') {
+	$table .= TR(td({-align=>'left',-class=>'databody',-width=>'30%'},
+			join(br,map { a({href=>Object2URL($object)},"$_ ($object)") } @terms)),
+		     td({-align=>'left',-class=>'databody',-width=>'40%'},$definition),
+		     td({-align=>'left',-class=>'databody',-width=>'30%'},$evidence));
+      } else {
+	$table .= start_TR();
+	$table .= td({-align=>'left',-class=>'databody',-width=>'30%'},
+		     join(br,map { a({href=>Object2URL($object)},"$_ ($object)") } @terms));
+	$table .= td({-align=>'left',-class=>'databody',-width=>'40%'},$definition);
+	my $text;
+	foreach (@tags) {
+	  if (my @data = $object->$_) {
+	    $text .= DisplayMoreLink(\@data,$_,undef,scalar @data . " $_(s) annotated",1,$url) . br;
+	  }
+	}
+	$table .= td({-align=>'left',-class=>'databody',-width=>'30%'},$text),end_TR;
+      }
+      }
+    $table .= end_table;
+    print $table,br;
+  }
+}
+
+sub go_evidence_code {
+  my $term = shift;
+  my ($abbrev)   = $term->right;
+  my @evidence = $term->right->col if $term->right;
+  my $evidence = '';
+  for my $ev (@evidence) {
+    next unless $ev =~ /evidence$/;
+    (my $desc = $ev) =~ s/_evidence$//;
+    my @supporting_data = $ev->col;
+    $evidence .= ($evidence ? ' and ' : '') . "via $desc ".join '; ',
+      map {
+	if ($_->class eq 'Paper') {  # a paper
+	  ObjectLink($_,build_citation(-paper=>$_,-format=>'short'));
+	} elsif ($_->class eq 'Text' && $ev =~ /Protein/) {  # a protein
+	  a({-href=>sprintf(Configuration->Protein_links->{NCBI},$_),-target=>'_blank'},$_);
+	} else {
+	  ObjectLink($_);
+	}
+      } @supporting_data;
+  }
+  return ($abbrev, 'via InterPro') if $abbrev eq 'IEA';
+  return ($abbrev, $evidence) if $abbrev;
+  # return ("IEA", "via InterPro"); off for now (WS142)
+}
+
+
+
+
+sub display_search {
+  my ($objs,$count,$offset,$pattern) = @_;
+  my $title = $count > 0 ?
+    p(strong($count),"objects contain the keywords \"$pattern\"")
+      : p({-class=>'error'},'No matching database objects found');
+
+  my @objects = map { ObjectLink($_,$_->Term . " ($_)") } sort {$a->Term cmp $b->Term} 
+    grep {defined($_)} @$objs;  # the defined() fixes some sort of bug I was too lazy to track- LS
+  print a({-name=>'searchagain'},'&nbsp;'); 
+  AceResultsTable(\@objects,$count,$offset,$title);
+} # end sub display_search
+
+
+#### cut and pasted onto ontology/gene, ontology/anatomy/ and misc/phenotype as kludge around 
+### troubles with the use *.pm file commands
+
+sub build_hash{
+	my ($file_name) = @_;
+	open FILE, "<./$file_name" or die "Cannot open the file: $file_name\n";
+	my %hash;
+	foreach my $line (<FILE>) {
+		chomp ($line);
+		my ($key, $value) = split '=>',$line;
+		$hash{$key} = $value;
+	}
+	return %hash;
+}
+
+
+sub print_ontology {
+
+my ($object) = @_;
+my $object_id = $object->name;
+my %ontology2ace = (
+		'GO_term' => 'go',
+		'Phenotype' => 'po',
+		'Anatomy_term' => 'ao');
+my $class = $ontology2ace{$object->class};
+# my $scr = '/db/ontology/browse_tree?query='.$object_id.';query_type=term_id;ontology='.$class.';details=on;children=on;expand=1';
+my $scr = '/db/ontology/tree_lister?name='.$object_id;
+my $frame = div({-class => 'white'},iframe({-name => 'browser', 
+											-src=> $scr, 
+											-width => 950, 
+											-height => 300}));
+my $end_frame = "\<\/iframe\>";
+
+return ($frame,$end_frame);
+
+}
+
+sub print_search_form {
+    
+    #my $cgi = shift @_;
+    
+    print startform(-method=>'GET', 
+			  -action=>'search');   
+
+    print "<br><hr><br>Search for term, phrase, or term ID that \&nbsp\;\&nbsp;";
+    my %string_choices = (#'before'=>'Starts with', 
+			  #'after'=>'Followed by', 
+			  'middle'=>'Contains',
+			  'stand_alone'=>'Stands Alone'
+			  );
+
+    print popup_menu(-name=>'string_modifications', 
+			   -values=>[
+				     #'before',
+				     #'after',
+				     'middle',
+				     'stand_alone'], 
+			   -default=>'middle', 
+			   -labels=>\%string_choices);
+ 
+    
+    print "<br><br>\n";
+
+    print textfield(-name=>'query', 
+			  -size=>50, 
+			  -maxlength=>80);
+    
+    print "<br><br>In the following ontologies\:<br><br>\n";
+
+    my %ontologies = ('biological_process'=>'GO: Biological Process',
+                      'cellular_component'=>'GO: Cellular Component',
+                      'molecular_function'=>'GO: Molecular Function',
+		      'anatomy'=>'Anatomy',
+		      'phenotype'=>'Phenotype'
+		      );
+
+    print scrolling_list(-name=>'ontologies', 
+			       -values=>['biological_process','cellular_component','molecular_function','anatomy','phenotype'], 
+			       -default=>['biological_process','cellular_component','molecular_function'], 
+			       -multiple=>'true', -labels=>\%ontologies);
+	print "<br><br>";
+
+    print checkbox(-name=>'with_annotations_only', 
+			 #-checked=>'checked', 
+			 -value=>'ON', 
+			 -label=>'Return Only Terms with Annotations');
+
+    print "<br><br>Sort Annotations \&nbsp\;\&nbsp\;";
+    
+    my %sorting_choices = ('alpha'=>'Alphabetically',
+			   'annotation_count'=>'By number of annotations'
+			   );
+
+    print popup_menu(-name=>'sort',
+                           -values=>[
+                                     'alpha',
+                                     'annotation_count'],
+                           -default=>'alpha',
+		       -labels=>\%sorting_choices);
+
+    print "<br><br>";
+
+    print "Include the following areas in the search\:<br><br>\n";
+
+
+ my %filter_choices = ('d'=>'definition',
+			   's'=>'synonyms'
+			   );
+
+    print scrolling_list(-name=>'filters',
+                           -values=>[
+                                     'd',
+                                     's'],
+						   -default=>[
+						         'd',
+                                 's'],
+		      				-multiple=>'true',
+		      				-labels=>\%filter_choices);
+
+    print "<br><br>\n";
+
+    print submit('Submit');
+    print "\&nbsp\;\&nbsp\;";
+    print defaults('  Reset  ');
+
+	print endform;
+}
+
+
+sub print_search_form_old {
+
+    print startform(-method=>'GET', 
+		    -action=>'search');   
+
+    print br . hr . br
+	. "Search for term, phrase, or term ID that \&nbsp\;\&nbsp;";
+    
+    my %string_choices = (#'before'=>'Starts with', 
+			  #'after'=>'Followed by', 
+			  'middle'=>'Contains',
+			  'stand_alone'=>'Stands Alone'
+			  );
+    
+    print popup_menu(-name=>'string_modifications', 
+		     -values=>[
+			       #'before',
+			       #'after',
+			       'middle',
+			       'stand_alone'], 
+		     -default=>'stand_alone', 
+		     -labels=>\%string_choices);
+    
+    
+    print "<br><br>\n";
+
+    print textfield(-name=>'query', 
+		    -size=>50, 
+		    -maxlength=>80);
+    
+    print "<br><br>In the following ontologies\:<br><br>\n";
+    
+    my %ontologies = ('biological_process'=>'GO: Biological Process',
+                      'cellular_component'=>'GO: Cellular Component',
+                      'molecular_function'=>'GO: Molecular Function',
+		      'anatomy'=>'Anatomy',
+		      'phenotype'=>'Phenotype'
+		      );
+    
+    print scrolling_list(-name=>'ontologies', 
+			 -values=>['biological_process','cellular_component','molecular_function','anatomy','phenotype'], 
+			 -default=>['biological_process','cellular_component','molecular_function'], 
+			 -multiple=>'true', -labels=>\%ontologies);
+    
+    print "<br><br>Include the following areas in the search\:<br><br>\n";
+    
+
+    my %filter_choices = ('d'=>'definition',
+			  's'=>'synonyms'
+			  );
+    
+    print scrolling_list(-name=>'filters',
+			 -values=>[
+				   'd',
+				   's'],
+			 -multiple=>'true',
+			 -labels=>\%filter_choices);
+    
+    print "<br><br>\n";
+    
+    print checkbox(-name=>'with_annotations_only', 
+		   -checked=>'checked', 
+		   -value=>'ON', 
+		   -label=>'Return Only Terms with Annotations');
+    
+    print "<br><br>Sort Annotations \&nbsp\;\&nbsp\;";
+    
+    my %sorting_choices = ('alpha'=>'Alphabetically',
+			   'annotation_count'=>'By number of annotations'
+			   );
+    
+    print popup_menu(-name=>'sort',
+		     -values=>[
+			       'alpha',
+			       'annotation_count'],
+		     -default=>'alpha',
+		     -labels=>\%sorting_choices);
+    
+    print "<br><br>";
+    print submit('Submit');
+    print "\&nbsp\;\&nbsp\;";
+    print defaults('  Reset  ');
+    
+    print endform;
+}
+
+

@@ -1,0 +1,255 @@
+New release of WormBase WS174, Wormpep174 and Wormrna174 Fri Apr 13 11:04:50 BST 2007
+
+
+WS174 was built by Gary Williams
+======================================================================
+
+This directory includes:
+i)   database.WS174.*.tar.gz    -   compressed data for new release
+ii)  models.wrm.WS174           -   the latest database schema (also in above database files)
+iii) CHROMOSOMES/subdir         -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)  WS174-WS173.dbcomp         -   log file reporting difference from last release
+v)   wormpep174.tar.gz          -   full Wormpep distribution corresponding to WS174
+vi)   wormrna174.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)  confirmed_genes.WS174.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+viii) cDNA2orf.WS174.gz           -   Latest set of ORF connections to each cDNA (EST, OST, mRNA)
+ix)   gene_interpolated_map_positions.WS174.gz    - Interpolated map positions for each coding/RNA gene
+x)    clone_interpolated_map_positions.WS174.gz   - Interpolated map positions for each clone
+xi)   best_blastp_hits.WS174.gz  - for each C. elegans WormPep protein, lists Best blastp match to
+                            human, fly, yeast, C. briggsae, and SwissProt & TrEMBL proteins.
+xii)  best_blastp_hits_brigprot.WS174.gz   - for each C. briggsae protein, lists Best blastp match to
+                                     human, fly, yeast, C. elegans, and SwissProt & TrEMBL proteins.
+xiii) geneIDs.WS174.gz   - list of all current gene identifiers with CGC & molecular names (when known)
+xiv)  PCR_product2gene.WS174.gz   - Mappings between PCR products and overlapping Genes
+
+
+Release notes on the web:
+-------------------------
+http://www.wormbase.org/wiki/index.php/Release_notes
+
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS174       	WS173      	change
+----------------------------------------------
+a    	32365889	32365889	  +0
+c    	17779856	17779856	  +0
+g    	17756016	17756016	  +0
+t    	32365689	32365689	  +0
+n    	0       	0       	  +0
+
+Total	100267450	100267450	  +0
+
+
+Chromosomal Changes:
+--------------------
+There are no changes to the chromosome sequences in this release.
+
+
+Gene data set (Live C.elegans genes 24036)
+------------------------------------------
+Molecular_info              22345 (93%)
+Concise_description          4524 (18.8%)
+Reference                    6981 (29%)
+CGC_approved Gene name       9116 (37.9%)
+RNAi_result                 19859 (82.6%)
+Microarray_results          19140 (79.6%)
+SAGE_transcript             20044 (83.4%)
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 20101 CDS in autoace, 23258 when counting 3157 alternate splice forms.
+
+The 23258 sequences contain 10,212,175 base pairs in total.
+
+Modified entries              26
+Deleted entries                8
+New entries                    6
+Reappeared entries             2
+
+Net change  +0
+
+
+
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              7848 (33.7%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed   10802 (46.4%)	Some, but not all exon bases are covered by transcript evidence
+Predicted              4608 (19.8%)	No transcriptional evidence at all
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+UniProtKB/Swiss-Prot accessions   3512 (15.1%)
+UniProtKB/TrEMBL accessions     19384 (83.3%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            22869 (98.3%)
+
+
+
+Gene <-> CDS,Transcript,Pseudogene connections (cgc-approved)
+---------------------------------------------
+Entries with CGC-approved Gene name   7476
+
+
+GeneModel correction progress WS173 -> WS174
+-----------------------------------------
+Confirmed introns not in a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|    186  |     2  |
+St Louis 	|    215  |     0  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Repeats | Change |
+		+---------+--------+
+Cambridge	|      6  |     0  |
+St Louis 	|      6  |     0  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+No synchronisation issues
+
+
+There are no gaps remaining in the genome sequence
+---------------
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+
+New Data:
+---------
+
+The following databases were updated for BLAST:
+
+trembl release 35
+swissprot release 52
+yeast
+
+
+
+Genome sequence updates:
+-----------------------
+
+None.
+
+New Fixes:
+----------
+
+None.
+
+Known Problems:
+---------------
+
+
+Other Changes:
+--------------
+
+Many Poly-A tails were masked in EST and mRNA sequences.  New Poly-A
+Site and Poly-A Signal sequence Features were defined based on the
+alignment of these sequences to the genome:
+
+- 3530 new (1931 site, 1599 signal sequence) Features were defined.
+
+- 641 old Poly-A Features (490 site, 151 signal) with no supporting
+  Sequence evidence were removed (changed to Method="history").
+
+
+
+
+Proposed Changes / Forthcoming Data:
+-------------------------------------
+
+We are working with the authors of this paper:
+
+Ruby J et al. Cell. 2006 Dec 15;127(6):1193-207.  "Large-scale
+sequencing reveals 21U-RNAs and additional microRNAs and endogenous
+siRNAs in C. elegans."
+
+http://www.wormbase.org/db/misc/paper?name=WBPaper00028915;class=Paper
+
+to refine and annotate circa 4500 new elegans RNA genes.
+
+<A third class of nematode small RNAs, called 21U-RNAs, was
+discovered. 21U-RNAs are precisely 21 nucleotides long, begin with a
+uridine 5''-monophosphate but are diverse in their remaining 20
+nucleotides, and appear modified at their 3''-terminal
+ribose. 21U-RNAs originate from more than 5700 genomic loci dispersed
+in two broad regions of chromosome IV-primarily between protein-coding
+genes or within their introns. These loci share a large upstream motif
+that enables accurate prediction of additional 21U-RNAs. The motif is
+conserved in other nematodes, presumably because of its importance for
+producing these diverse, autonomously expressed, small RNAs
+(dasRNAs).>
+
+
+Forthcoming model changes:
+
+Added tags to ?Person and ?Paper to enable recording of negative
+connections ie Mr X did NOT contribue to this paper.
+
+Added Map_evidence to ?Transgene so that the paper that mapping data
+is taken from can be attributed
+
+Added a tags to ?Expr_pattern and ?Expression_cluster to handle
+Localizome data Note: ?Interaction class update already committed
+
+
+Model Changes:
+------------------------------------
+
+Added DB_info line to ?Gene
+
+Replaced ?Y2H with a more generic ?YH class which contains Y2H and Y1H
+data.
+
+Added Anatomy_function class to allow the connection between
+?Anatomy_term, ?Phenotype (proxy of biological function), and ?Gene
+and still give some information about the experiment itself. Name
+shall be "WBbtf0001"
+
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

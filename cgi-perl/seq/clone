@@ -1,0 +1,331 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# file: gene
+# C. elegans clone report
+
+use strict;
+use lib '../lib';
+use Ace 1.51;
+use Ace::Browser::AceSubs qw(:DEFAULT AceMultipleChoices);
+use ElegansSubs qw(:DEFAULT :sequence :biblio GBrowseLink GetInterpolatedPosition);
+use CGI 2.42 qw/:standard :html3 escape *table *blockquote :imagemap/;
+use Bio::Graphics::Browser;
+use Bio::Graphics::Browser::Markup;
+use WormBase;
+use vars qw($DB $DBGFF $PmapGFF @PMAP_SEGMENTS @GMAP_SEGMENTS $WORMBASE);
+
+END {
+  undef @PMAP_SEGMENTS;
+  undef @GMAP_SEGMENTS;
+  undef $WORMBASE;
+}
+
+# print HTTP header & open the database
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$WORMBASE = WormBase->new($DB);
+
+my ($clone_name, $clone);
+if ($clone_name = param('name')) {
+  $clone = get_clone($clone_name);
+}
+
+#open C. elegans sequence database
+$DBGFF = OpenGFFDB($DB,'c_elegans') || AceError("Couldn't open GFF database.");
+$PmapGFF = OpenGFFDB ($DB,'c_elegans_pmap') || AceError ("couldn't open GFF database");
+
+
+@PMAP_SEGMENTS = pmap_segments($clone);
+@GMAP_SEGMENTS = genomic_segments($clone);
+
+PrintTop($clone);
+PrintWarning($clone_name) if $clone_name && !$clone;
+print_prompt();
+print_report($clone) if $clone;
+PrintBottom();
+
+# exit 0;
+
+############################## the segment fetcher #########################
+#from gene page
+sub pmap_segments {
+  my ($clone) = @_;
+  if ($clone) {
+    my ($seg) = $PmapGFF->segment(Sequence=>$clone);
+    return $seg;
+  }
+}
+
+sub genomic_segments {
+    my ($clone) = @_;
+    if ($clone) {
+	my ($seg) = $DBGFF->segment(-class=>'region',-name=>$clone);
+	return $seg;
+    }
+}
+
+#from gene page
+sub physical_picture {
+  my $segment = $PMAP_SEGMENTS[0];
+  return unless $segment;
+
+  my $absref   = $segment->abs_ref;
+  my $absstart = $segment->abs_start;
+  my $absend   = $segment->abs_end;
+  ($absstart,$absend) = ($absend,$absstart) if $absstart>$absend;
+  my $length = $segment->length;
+  # add another 10*length to left and right
+  my $start = int($absstart);
+  my $stop  = int($absend);
+
+  #for some reason, the following two lines don't work properly, 
+  #$new_segment is null, so I used the original segment for now
+  #my $db = $segment->factory;
+#   my ($new_segment) = $PmapGFF->segment(-name=>$absref,
+#                                       -class=>'Sequence',
+#                                       -start=>$start,
+#                                       -stop=>$stop);
+#   $new_segment ||= $segment; 
+   my $type = "t=YAC;t=COS;t=BAC;t=FOS;t=PMD;t=CTG;t=OTH"; 
+   return InlineImage($type,'c_elegans_pmap',$segment->ref);
+}
+
+
+#from gene page
+sub genomic_picture {
+  my ($segment) = $GMAP_SEGMENTS[0];
+  return unless $segment;
+
+  my $absref   = $segment->abs_ref;
+  my $absstart = $segment->abs_start;
+  my $absend   = $segment->abs_end;
+  ($absstart,$absend) = ($absend,$absstart) if $absstart>$absend;
+  my $length = $segment->length;
+  # add another 10*length to left and right
+  my $start = int($absstart);
+  my $stop  = int($absend);
+
+  #for some reaon, the following two lines don't work properly, 
+  #$new_segment is null, so I used the original segment for now
+  my $db = $segment->factory;
+  
+#  my ($new_segment) = $DBGFF->segment({-name=>'name',
+#				   -class=>'Sequence',
+#				   -start=>$start,
+#				   -stop=>$stop});
+
+  my $type = "t=NG;t=CG;t=CLO;t=LINK;t=CANONICAL"; 
+  return InlineImage($type,'c_elegans',$absref,$start,$stop);
+
+#   my $img = $G_BROWSER->render_panels({segment=>$segment, #$new_segment,
+# 				       options => {ESTB => 2},
+# 				       tracks => [
+# 						  'NG',
+# 						  'CG',
+# 						  'CLO', 
+# 						  'LINK',
+# 						  'CANONICAL', 
+# 						  ],
+# 					   title  => "Genomic segment: $absref:$absstart..$absend",
+# 					   do_map  => 0,
+# 					   drag_n_drop => 0,
+# 					   });
+#   $img =~ s/border="0"/border="1"/;
+#   $img =~ s/detailed view/browse region/g;
+#   $img =~ s/usemap=\S+//;
+#   #return a({-href=> HunterUrl($absref,$start,$stop)},$img);
+# 
+#   # Now using squid...
+#   # Append the full URL so that tmp images are appropriately referenced
+#   # It should be possible to do this in Bio::Graphics.  Unfortunately, specifying the
+#   # protocol, host, and port in the conf file does not work (tries to create a tmp 
+#   # directory using those values)
+#   # Disgusting hack that has to wait for rearch to be cleaned up
+#   #my $host = CGI->url(-base=>1);
+#   #$img =~ s/\/ace_images/$host\/ace_images/g;
+#   return a({-href=>"/db/seq/gbrowse/wormbase?name=$absref:$absstart..$absend"}, $img);
+}
+
+
+sub get_clone {
+  my $c = shift;
+  my ($clone) = $DB->fetch(Clone => $c);
+  return $clone if $clone;
+
+  # No clone name.  Maybe a sequence?
+  # Iterate upward until we have a sequence associated
+  # with a clone.
+  my $sequence = $DB->fetch(Sequence => $c);
+  while ($sequence) {
+      my $clone = $sequence->Clone(1);
+      return $clone if $clone;
+      $sequence = $sequence->Source(1);
+  }
+
+  # Still no success.  Maybe a gene?
+  # This is a risky business.  See if there's an associated
+  # clone in the gene record.
+  my $gene = $DB->fetch(Gene => $c);
+  return unless $gene;
+  my @clones = $gene->Positive_clone;
+  return unless @clones;
+
+  AceMultipleChoices($c, 'clone' => \@clones);
+  exit 0;
+}
+
+sub print_prompt {
+  $WORMBASE->print_prompt(-message  => 'Specify a clone, fosmid, or YAC such as',
+			  -class    => 'Clone',
+			  -examples => [ {'no_message' => 'C01G5'},
+					 {'no_message' => 'Y43A10'},
+					 {'no_message' => 'cm01a9'},
+				       ]);
+}
+
+sub print_report {
+    my $clone = shift;
+    StartDataTable;
+    StartSection('Description');
+    print_description ($clone);
+
+    if ($clone->Positive || $clone->Negative || $clone->Gridded) {
+      StartSection('Screening Data');
+      print_screening ($clone);
+    }
+
+    if ($clone->Expr_pattern) {
+      StartSection('Expression Pattern');
+      PrintExpressionPattern($clone);
+    }
+
+    #StartSection('Map');
+    #print_map($clone);
+
+    StartSection('Physical Map');
+    SubSection('',physical_picture());
+
+    StartSection('Genomic Map');
+    SubSection('',genomic_picture());
+
+    StartSection('Bibliography');
+    print_biblio_info ($clone);
+    EndDataTable;
+}
+
+sub print_description {
+  my $clone = shift;
+  
+  SubSection('Clone type' =>$clone->get('Type',1));
+  
+  my @sequence = $clone->Sequence;
+  SubSection('Corresponding sequence(s)',join('; ' ,
+					      map { 
+						  a({-href=>Object2URL($_)},$_) } @sequence))
+      if @sequence;
+  
+#  my $link = GBrowseLink($sequence);
+  SubSection('Genomic Location(s)',join(br,map { GBrowseLink($_) } @sequence)) if @sequence;
+
+  foreach my $sequence (@sequence) {
+      my $chrom = $sequence->get(Interpolated_map_position=>1);
+      my $map   = $sequence->get(Interpolated_map_position=>2);
+      if ($chrom && $map) {
+	  SubSection('Interpolated Genetic Map Position',ObjectLink($chrom) . ':' . $map);
+      }
+  }
+  
+  # measured length of the clone, if available
+  SubSection('Measured length (kb)',$clone->Gel_length(1))
+    if $clone->Gel_length;
+  
+  # chromosome of the clone, if available
+  my (@map) = $clone->Map;
+  if (!@map && $clone->get('Pmap')) {
+	push(@map,$clone->Pmap->Map);
+    }
+    SubSection('Assigned to Maps',@map) if @map;
+
+    # map tag name to tag node, interesting....
+    my %status = map { $_ => $_ } $clone->Sequence_status;
+    if (%status) {
+      my $status;
+      $status = i('Submitted to EMBL/Genbank (Acc #',
+		  a({-href=>Configuration->Entrez . $status{Accession_number}->right},
+		    $status{Accession_number}->right),')')
+	if $status{Accession_number};
+      $status ||= b('Finished') if $status{Finished};
+      $status ||= b('Shotgun')  if $status{Shotgun};
+      SubSection('Sequencing Status'=>$status);
+    }
+
+    my @canonical = $clone->Canonical_for;
+    SubSection('Canonical for',@canonical) if @canonical;
+
+    my @canonical_parent = ($clone->Approximate_Match_to,
+			    $clone->Exact_Match_to,
+			    $clone->Funny_Match_to);
+
+    SubSection('Refer to canonical clone',@canonical_parent) if @canonical_parent;
+}
+
+sub print_map {
+  my $clone = shift;
+  my ($url,undef,$boxes) = AceImage($clone);
+  my $imagemap = make_imagemap($boxes);
+  SubSection('Contig' => $clone->PMap);
+  SubSection('Gel' => $clone->Gel_Number);
+  SubSection('Bands' => join ' ',$clone->Bands->row) if $clone->Bands;
+  SubSection(''=>a({-href=>"/db/misc/epic?name=$clone;class=Clone"},
+  		   img({-src=>$url,-border=>0,-usemap=>'#theMap'}))
+   	     ,$imagemap
+  	    );
+}
+
+sub make_imagemap {
+  my $boxes = shift;
+  my $map = '';
+  for my $box (@$boxes) {
+    next if $box->{class} eq 'System';
+    next if $box->{class} eq 'BUTTON';
+    my $href = Object2URL($box->{name},$box->{class});
+    my $coords = join(',',@{$box->{coordinates}});
+    $map .= qq(<area shape='rect' coords='$coords' href='$href'>\n);
+  }
+  return qq(<map name='theMap'>$map</map>\n);
+}
+
+
+sub print_screening {
+    my $clone = shift;
+    return unless $clone->Positive || $clone->Negative || $clone->Gridded;
+    my %weaks = map {$_=>1} $clone->Pos_probe_weak;
+
+    SubSection('Screened positive for',
+	       map { 
+		 a({-href=>Object2URL($_)},
+		   ($_->class eq 'Gene' ? $_->Public_name . " ($_) " : $_ )) .
+		   ($weaks{$_} ? i(' (weak)') : '').
+		     ($_->right ? i(' ['.a({-href=>Object2URL($_->right)},$_->right).']')
+		      :'')
+		   } $clone->Positive(2)
+	      );
+
+    SubSection('Screened negative for',
+	       map {  a({-href=>Object2URL($_)},
+			($_->class eq 'Gene' ? $_->Public_name . " ($_) " : $_ )
+		      )
+		    } $clone->Negative(2)
+	      );
+
+    SubSection('Gridded on',
+		      map { 
+			  a({-href=>Object2URL($_)},$_)
+			  } $clone->Gridded
+	      );
+}
+
+sub print_biblio_info {
+  my $gene = shift;
+  my @refs = $gene->Reference;
+  PrintRefs($gene,\@refs);
+}

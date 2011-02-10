@@ -1,0 +1,9 @@
+This version of e-PCR has been modified slightly from the version
+distributed by Greg Shuler.  Some bugs have been fixed to make it
+compile under GNU/Linux with recent versions of gcc, and buffering has
+been turned off so that the results can be displayed on the web as
+they come out.
+
+Lincoln Stein
+April 8, 2002
+

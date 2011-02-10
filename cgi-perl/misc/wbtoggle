@@ -1,0 +1,15 @@
+#!/usr/bin/perl -w
+use strict;
+use lib '../lib';
+use CGI::Toggle;
+use ElegansSubs;
+
+PrintTop(undef,'Toggle Demo','Toggle Demo');
+
+my $contents = "<p><img src=/images/expression/assembled/Expr945.png></p>";
+
+print toggle_section({on=>1}, 'id123','Click to Toggle', $contents);
+
+PrintBottom();
+
+

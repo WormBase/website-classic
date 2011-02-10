@@ -1,0 +1,70 @@
+This directory contains temporary patches applied to either
+the GFF or acedb databases to facilitate features on the
+WormBase website.
+
+Todd Harris, November 2004
+
+
+gmap_to_pmap/
+   Starting with WS134, I began calculating interpolated
+   physical map positions for genetic intervals in order to
+   display them on the genome browser.
+
+briggsae_gene_objects/ DEPRECATED WITH RELEASE OF WS133
+   Temporary C. briggsae acedb gene objects and gff entries.  
+
+snp_interpolated_map_positions/  DEPRECATED WITH WS152 (FINALLY!)
+   Starting with WS133, calculated the interpolated genetic 
+   map positions of all SNPs.
+
+
+motifs/
+   Scripts that determine genomic coordinates of protein
+   motifs for display on the genome browser.
+
+
+GeneMarkHMM/
+   GeneMarkHMM.gff contains a concatened list of all chromosomes.
+   This is a one-off gene prediction that needs to be loaded with
+   each release.  Note: I had to post-process the chromsomome
+   files because the  group field was broken for every entry..
+
+	Included:
+	 - fixing group field
+	 - purging CHROMOSOME_
+	 - flipping start/stop of - strand features
+
+
+Sheldon McKay, February 9, 2006
+
+The gff files containing SNP/RFLP polymorphisms and BAC end reads were lifted
+to the new CB3 assembly as follows:
+
+1) Remove suffixes from BAC names in the original GFF file so that end reads
+   can be paired from an aggregator.  
+
+   $ zcat briggsae_BAC_END.gff.gz  | perl -pe 's/(Sequence:\S+)\.\S+/$1\"/' >cb25.briggsae_patch.gff
+
+2) Append the SNP/RFLP GFF to the patch file
+  
+   $ zcat 2006-06-14-briggsae_snps.gff.gz >> cb25.briggsae_patch.gff
+   
+
+3) Redo the supercontig GFF from AGP to include strand info
+
+  $ scripts/agp2gff.pl contig component cb25_agp/cb25.agp8_Sep05.agp >>cb25.briggsae_patch.gff
+  $ gzip cb25.briggsae_patch.gff
+
+4) lift the patch file to cb3 coordinates
+
+  $ zcat cb25.briggsae_patch.gff.gz | scripts/lift_cb25_2_cb3.pl  >cb3.briggsae_patch.gff
+  $ gzip cb3.briggsae_patch.gff
+
+5) remove the patched features from the briggsae databases (where applicable)
+
+6) load the databases (briggsae_CB25_022007 and briggsae_WS170).
+
+7) move the CB3 patch file to the FTP site (/usr/local/ftp/pub/wormbase/genomes/briggsae/genome_feature_tables/GFF2/supplementary.gff.gz)
+   
+  
+   

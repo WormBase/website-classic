@@ -1,0 +1,180 @@
+New release of WormBase WS136, Wormpep136 and Wormrna136 Fri Dec  3 16:07:46 GMT 2004
+
+
+WS136 was built by Anthony
+======================================================================
+
+This directory includes:
+i)	database.WS136.*.tar.gz    -   compressed data for new release
+ii)	models.wrm.WS136           -   the latest database schema (also in above database files)
+iii)	CHROMOSOMES/subdir         -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)	WS136-WS135.dbcomp         -   log file reporting difference from last release
+v)	wormpep136.tar.gz          -   full Wormpep distribution corresponding to WS136
+vi)	wormrna136.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)	confirmed_genes.WS136.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+viii)	cDNA2orf.WS136.gz            -   Latest set of ORF connections to each cDNA (EST, OST, mRNA)
+ix)	gene_interpolated_map_positions.WS136.gz    - Interpolated map positions for each coding/RNA gene
+x)	clone_interpolated_map_positions.WS136.gz   - Interpolated map positions for each clone
+xi)	best_blastp_hits.WS136.gz  - for each C. elegans WormPep protein, lists Best blastp match to
+                            human, fly, yeast, C. briggsae, and SwissProt & TrEMBL proteins.
+xii)	best_blastp_hits_brigprot.WS136.gz   - for each C. briggsae protein, lists Best blastp match to
+                                     human, fly, yeast, C. elegans, and SwissProt & TrEMBL proteins.
+xiii)	geneIDs.WS136.gz   - list of all current gene identifiers with CGC & molecular names (when known)
+xiv)	PCR_product2gene.WS136.gz   - Mappings between PCR products and overlapping Genes
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS136
+------------------------------------
+brigdb : 2004-03-12
+camace : 2004-11-16 - updated
+citace : 2004-11-12 - updated
+cshace : 2004-10-14
+genace : 2004-11-16 - updated
+stlace : 2004-11-11 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS136       	WS135      	change
+----------------------------------------------
+a    	32368573	32368573	  +0
+c    	17781252	17781252	  +0
+g    	17758265	17758265	  +0
+t    	32369957	32369957	  +0
+n    	0       	0       	  +0
+-    	0       	0       	  +0
+
+Total	100278047	100278047	  +0
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 19727 CDS in autoace, 22368 when counting 2641 alternate splice forms.
+
+The 22368 sequences contain 9,922,374 base pairs in total.
+
+Modified entries              42
+Deleted entries               25
+New entries                   48
+Reappeared entries             7
+
+Net change  +30
+
+
+
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              6261 (28.0%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed   11465 (51.3%)	Some, but not all exon bases are covered by transcript evidence
+Predicted              4642 (20.8%)	No transcriptional evidence at all
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2790 (12.5%)
+TrEMBL accessions     19371 (86.6%)
+TrEMBLnew accessions      0 (0.0%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            22247 (99.5%)
+
+
+
+Gene <-> CDS,Transcript,Pseudogene connections (cgc-approved)
+---------------------------------------------
+Entries with CGC-approved Gene name   5478
+
+
+GeneModel correction progress WS135 -> WS136
+-----------------------------------------
+Confirmed introns not in a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|    370  |     0  |
+St Louis 	|     42  |    -4  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Repeats | Change |
+		+---------+--------+
+Cambridge	|    588  |     2  |
+St Louis 	|    777  |    16  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+No synchronisation issues
+
+
+There are no gaps remaining in the genome sequence
+---------------
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+
+New Data:
+---------
+BLASTP of C.elegans and C.briggsae protein sets against updated IPI_human proteins.
+
+Update of alleles from the C.elegans Knockout Consortium
+
+
+New Fixes:
+----------
+
+
+Known Problems:
+--------------
+BLASTX data from WS135 has been reused in this release due to technical problems re-running this.
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

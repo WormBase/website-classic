@@ -1,0 +1,10 @@
+#!/usr/bin/perl
+
+use CGI qw/:standard/;
+use CGI::Cookie;
+
+%cookies = fetch CGI::Cookie;
+
+foreach (keys %cookies) {
+	print "$_ $cookies{$_}",br;
+        }

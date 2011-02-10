@@ -1,0 +1,72 @@
+#!/usr/bin/perl -w
+# Jack Chen, Mar 2002
+
+use CGI ':standard';
+use lib '../lib';
+use strict;
+use File::stat;
+use CGI qw/:standard :html3 escape Map area *dl *blockquote *ul/;
+use CGI::Carp qw/fatalsToBrowser/;
+use Ace 1.51;
+use Ace::Sequence;
+use Ace::Browser::AceSubs qw(:DEFAULT Toggle !TypeSelector);
+use Ace::Browser::AceSubs;
+use vars qw($DB @NEURONS);
+
+END {
+  undef @NEURONS;
+}
+
+print CGI::header ('text/plain');
+
+# START ACE AND QUERY IF THERE IS PEDIGREE INFO
+$DB = OpenDatabase() || AceError ("Couldn't open database"); 
+my $query = qq(query find cell Neurodata AND cell_type ="JW-Designated Neuron");
+#just for testing
+#my $query = qq(query find cell Neurodata);
+@NEURONS = $DB->fetch(-query => $query, -fill=>1); 
+
+#print join "\n", @NEURONS;
+
+####testing...
+
+my ($briefid, $total_neurons, $total_connects, $m);
+$m = 1;
+
+print "All 302 neurons in Adult Hermaphrodite C. elegans\n\n";
+print "Number\t", "Name\t", "Neurons Connected\t", "Total connections\t", "Comments\t"; 
+print "\n";
+	
+for my $each_neuron (@NEURONS) {
+	# get value for Brief_ID
+	$briefid = $each_neuron->get ('Brief_id'=>1);
+	
+	# get value for total number of neurons connected
+	my @con_neurons = $each_neuron->Neurodata;
+	$total_neurons = scalar(@con_neurons);
+
+	# get value for total number of connections 
+	# (how matter if its gap junction, or synapses)
+	$total_connects = 0;
+		
+	foreach my $totalN (@con_neurons){
+		my @con_types = $totalN->col;
+
+		foreach my $con_type(@con_types){
+			my @connectionNumbers = $totalN->at($con_type)->col(2);
+			
+			foreach my $connectionNumber(@connectionNumbers){
+				$total_connects += $connectionNumber;
+			}
+		}
+	}	
+	
+	# assign default values
+	$briefid  	= "--" unless $briefid;
+	$total_connects = "--" unless $total_connects;
+	$total_neurons	= "--" unless $total_neurons;
+
+	print $m, "\t", $each_neuron, "\t", $total_neurons, "\t\t\t", $total_connects, "\t\t\t", $briefid, "\t"; 
+	print "\n";
+	$m++;
+}

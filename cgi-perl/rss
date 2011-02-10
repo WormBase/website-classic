@@ -1,0 +1,40 @@
+#!/usr/bin/perl
+
+# Map a URL to the appropriate file.
+# If the file doesn't exist, create it.
+
+use strict;
+use Ace::Browser::AceSubs;
+use ElegansSubs qw/:DEFAULT/;
+use CGI qw/:standard/;
+use lib '/usr/local/wormbase/website-classic/cgi-perl/lib/RSS';
+use ObjectHistory;
+use vars qw/$class $name $file/;
+
+use constant RSS_ROOT => '/usr/local/wormbase/website-classic/html/rss';
+
+$class  = param('class');
+$name   = param('name');
+
+$file = RSS_ROOT . "/$class/$name.rss";
+if (-e $file) {
+    # Serve up the file in question (mod_rewrite)?
+    redirect("/rss/$class/$name.rss");
+    exit;
+} else {
+    exit unless $class && $name;
+
+    my $db = OpenDatabase() || AceError("Couldn't open database.");
+    
+    # Turn on the timestamps - we need this in order to check for updates!
+    $db->timestamps(1);
+    
+    my $object = $db->fetch(-class => $class,
+			    -name  => $name,
+			    -fill  => 1);
+    
+    my $history = ObjectHistory->new($object,$db->version);
+    $history->build_static_feed();        
+    $db->timestamps(0);
+    redirect("/rss/$class/$object.rss");
+}

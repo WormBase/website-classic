@@ -1,0 +1,940 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# Anatomy ontology browser
+# Author: T. Harris
+
+# Fix display of number of descendents  (Will Ancestor and Descendent work?)
+# linking out to other objects... (table at bottom)
+
+
+# There is lots of cruft related to:
+#    - suppressing display of single trees
+#    - displaying titles for single trees
+
+use strict;
+
+use CGI qw(:standard *table *TR *th *td *ul *ol escape *iframe);
+use Ace;
+use Ace::Browser::AceSubs qw(:DEFAULT Toggle);
+use Ace::Browser::SearchSubs;
+use ElegansSubs qw/:DEFAULT Bestname GetEvidence FetchAnatomyTerm/;
+use Cache::FileCache;
+use vars qw/$CACHE $BRANCHES %BRANCHES $query %CODES $DB/;
+use MerlynAO;
+
+require OntoSubs;
+
+END {
+  undef $CACHE;
+  undef $BRANCHES;
+  undef %BRANCHES;
+  undef $query;
+}
+
+
+use constant BROWSER            => '/db/ontology/browse';
+use constant MAX_MATCHES         => 10;
+use constant PEDIGREE            => '/db/searches/pedigree?name=';
+use constant DEBUG               => 0;
+use constant VERBOSE_DEBUG       => 0;
+use constant SUPPRESS_EMPTY_DAGS => 0;  # Placeholder - currently using suppress_empty_dags as url_param
+use constant OVERLAYS => (
+                           'WBbt:0004017' => 'cell',
+                           'WBbt:0003681' => 'pharynx',
+                           'WBbt:0005772' => 'intestine',
+                           'WBbt:0005736' => 'excretory',
+                           'WBbt:0005812' => 'excretory',
+                           'WBbt:0005175' => 'gonads',
+                           'WBbt:0005319' => 'spermatheca',
+                           'WBbt:0006760' => 'uterus',
+                           'WBbt:0006749' => 'nervering',
+                           'WBbt:0005753' => 'seamcells',
+                           'WBbt:0005733' => 'hypodermis',
+                           'WBbt:0004697' => 'hmc',
+                           'WBbt:0005798' => 'analsphincter',
+                           'WBbt:0005773' => 'rectum',
+                           'WBbt:0004292' => 'analdepressor',
+                           'WBbt:0006748' => 'vulva',
+                           'WBbt:0006751' => 'headneuron',
+                           'WBbt:0003675' => 'bodymuscle',
+                           'WBbt:0005813' => 'bodymuscle',
+                           'WBbt:0006759' => 'tailneuron',
+                           'WBbt:0005300' => 'ventralcordneuron',
+                           'WBbt:0004849' => 'vulvalmuscle',
+                           'WBbt:0004850' => 'vulvalmuscle',
+                           'WBbt:0004853' => 'vulvalmuscle',
+                           'WBbt:0004854' => 'vulvalmuscle',
+                           'WBbt:0005821' => 'vulvalmuscle',
+                           'WBbt:0005829' => 'ventralcordneuron',
+                           'WBbt:0003888' => 'amphidneuron',
+                           'WBbt:0003887' => 'amphidneuron',
+                           'WBbt:0005394' => 'amphidneuron',
+                           'WBbt:0005431' => 'phasmidneuron',
+                           'WBbt:0005427' => 'phasmidneuron',
+                           'WBbt:0005425' => 'phasmidneuron',
+                           'WBbt:0006755' => 'phasmidneuron',
+                           'WBbt:0006753' => 'phasmidneuron',
+                           'WBbt:0006750' => 'dorsalnervecord',
+                           'WBbt:0005342' => 'uterinemuscle',
+                           'WBbt:0005364' => 'rectum',
+                           'WBbt:0005799' => 'rectum',
+                           'WBbt:0005800' => 'rectum',
+                           'WBbt:0005828' => 'gonads',
+                           'WBbt:0004506' => 'gonads',
+                           'WBbt:0006768' => 'vulva',
+                           'WBbt:0006764' => 'vulva',
+                           'WBbt:0006762' => 'vulva',
+                           'WBbt:0004607' => 'ventralcordneuron',
+                           'WBbt:0005735' => 'neuron',
+                           'WBbt:0003679' => 'neuron',
+                           'WBbt:0006761' => 'head',
+                           'WBbt:0005739' => 'head',
+                           'WBbt:0005741' => 'tail',
+                           'WBbt:0003833' => 'intestinalmuscle',
+                           'WBbt:0004757' => 'hsn',
+                           'WBbt:0005751' => 'coelomocyte',
+                           'WBbt:0006797' => 'gonads',
+                           'WBbt:0004947' => 'can',
+                           'WBbt:0003832' => 'avm',
+                           'WBbt:0003811' => 'bdu',
+                           'WBbt:0005278' => 'ventralcordneuron',
+                           'WBbt:0005793' => 'arcadecell',
+                           'WBbt:0005107' => 'labialsensillum',
+                           'WBbt:0005777' => 'excretoryduct'
+			  );
+
+
+
+# Turning off the SINGLE_TREE option will cause all the branches to be printed separately
+# This is useful primarily for debugging to see the origins of different branches
+# Please note that all development has proceeded towards a single tree.  I am unsure if
+# displaying distinct branches still works...
+use constant SINGLE_TREE         => 1;
+
+#my $cache_key = CGI->new->Vars;
+#delete $cache_key->{class};  # irrelevant for this page
+#$cache_key->{name} = param('name');
+#StartCache($cache_key) unless param('nocache');
+
+$CACHE = Cache::FileCache->new
+  ({namespace => 'AOterm',
+    username => 'nobody',
+    default_expires_in => '4 weeks',
+    auto_purge_interval => '1 hour',
+    #  auto_purge_on_get => 1,
+   });
+
+# This hash defines relationships of the different branches
+# in the AO, as well as supplying a descriptive header
+# This could, clearly, be handled in a more generic/programmatic sense.
+$BRANCHES = { main          => { instance_parents   => 'IS_A_p',
+				 component_parents  => 'PART_OF_p',
+				 instance_children  => 'PART_OF_c',
+				 component_children => 'IS_A_c',
+				 header             => 'Primary Ontology',
+				 label              => 'O',
+			       },
+
+	      descendent    => { instance_parents  => 'DESCENDENT_OF_p',
+				 instance_children => 'DESCENDENT_OF_c',
+				 header            => 'Lineage',
+				 label             => 'D',
+			       },
+
+	      hermaphrodite => { instance_parents  => 'DESC_IN_HERM_p',
+				 instance_children => 'DESC_IN_HERM_c',
+				 header            => 'Lineage in hermaphrodite',
+				 label             => 'H',
+			       },
+
+	      male          => { instance_parents  => 'DESC_IN_MALE_p',
+				 instance_children => 'DESC_IN_MALE_c',
+				 header            => 'Lineage in male',
+				 label             => 'M',
+			       },
+
+	      develops      => { instance_parents  => 'DEVELOPS_FROM_p',
+				 instance_children => 'DEVELOPS_FROM_c',
+				 header            => 'Develops from',
+				 label             => 'DEV',
+			       },
+       };
+
+%CODES = ( Biological_process => 'BP',
+	   Cellular_component => 'CC',
+	   Molecular_function => 'MF'
+	 );
+
+$DB = OpenDatabase || AceError("Couldn't open database.");
+
+$query = param('name');
+if ($query =~ /(WB\w+:?\d+)/) {  # autocomplete hint
+  $query = $1;
+}
+if ($query) {
+    my $offset         = AceSearchOffset();
+    my ($objs,$count)  = do_search($offset);
+
+  if ($count == 1) {
+    my $name = $objs->[0]->Term || $objs->[0]->Synonym;
+    PrintTop($objs->[0],'AO_term',"Summary for Anatomy Ontology Term: $name ($objs->[0])");
+  } elsif ($count > 1) {
+      PrintTop($query,'AO_term','Anatomy Ontology Search: Multiple Results for "' . $query . '"');
+  } else {
+      PrintTop($query,'AO_term','No results found');
+  }
+
+#  display_search_form();
+print "<a href=#full_search>[Search All Ontologies]</a>";
+  display_search($objs,$count,$offset) if $count > 1;
+  if ($count == 1) {
+    display_term($objs->[0]) if $count == 1;
+  }
+
+} else {
+  PrintTop(undef,'AO_term','Anatomy Ontology Search');
+  #display_search_form();
+}
+
+#print "<b>Search all ontologies:</b>";
+
+my $cgi = new CGI;
+print "<a name=full_search>";
+print_search_form($cgi, 'anatomy');
+PrintBottom();
+exit;
+
+#####################################
+############################ end main
+#####################################
+
+sub display_search_form {
+  print table(
+	      TR({-class=>'searchtitle'},
+		 td("The Anatomy Ontology is a controlled vocabulary for cellular anatomy.",
+		    'Type in some text, such as',example('GABAergic neuron') .
+		    ', a cell name, such as',example('WBbt:0004488','M1') . 
+		    ', or an AO accession number, such as',example('WBbt:0005451') . ' to run a <b>specialized search of the Anatomy Ontology</b>.',
+		    ' Browse the ontology from the top down by searching for ' .
+		    example('Anatomy Ontology') . '.')),
+	      TR({-class=>'searchbody'},
+		 td(
+		    start_form,
+		    table({-class=>'searchbody'},
+			  TR(
+			     td("Search text or Anatomy accession number: "),
+			     td(textfield(-name=>'name',-size=>40,-default=>$query)),
+			     td(submit(-label=>'Search'))
+			    ),
+			 ),
+		    end_form
+		   )
+		)
+	     );
+}
+
+sub example {
+  my ($query,$target) = @_;
+  my $url   = url(-absolute=>1);
+  my $q     = escape($query);
+  return a({-href=>"$url?name=$q"},$target) if ($target);
+  return a({-href=>"$url?name=$q"},$query);
+}
+
+sub display_search {
+    my ($objs,$count,$offset) = @_;
+    my $title = $count > 0 ? 
+      p(strong($count),"objects contain the keywords \"$query\"")
+	: p({-class=>'error'},'No matching database objects found');
+
+    my @objects = map { ObjectLink($_,$_->Term . " ($_)") } sort {$a->Term cmp $b->Term} @$objs;
+    print a({-name=>'searchagain'},'&nbsp;');
+    AceResultsTable(\@objects,$count,$offset,$title);
+}
+
+sub display_term {
+  my $term = shift;
+
+  print start_table({-border=>1,-width=>'100%'});
+
+  StartSection('Identification');
+  
+  if ($term->Term) {
+      my ($term_evi) = GetEvidence(-obj=>$term->Term,-dont_link=>1,-dont_tag=>1);
+      SubSection('Term',$term->Term . ($term_evi ? " ($term; $term_evi)" : " ($term)").check_if_cell($term));
+  } else {
+      # Assume that this is a deprecated term                                                                                                                 
+      SubSection('Term',$term,
+                 i('This Anatomy Ontology term has been deprecated and is no longer in use.'));
+  }
+
+  SubSection('Definition',GetEvidence(-obj=>$term->Definition,-dont_link=>1)) if $term->Definition;
+  SubSection('Synonym(s)',join(br,map {  # Possibly a list of terms                                                                                           
+      GetEvidence(-obj=>$_,-dont_link=>1) } $term->Synonym)) if $term->Synonym;
+  SubSection('Remarks',join(br,map {GetEvidence(-obj=>$_,-dont_link=>1)} $term->Remark)) if $term->Remark;
+  SubSection('Anatomy',img({-src => "/db/gene/expression?draw=1;thumb=400;term=$term"})) if has_overlay($term);
+	# if($term->URL){
+	# 		my $wormbook_link = $term->URL; 
+	# 		print "\<br\>\<a \'HREF=$wormbook_link\'\>See more information from WormBook\<\/a\>\<br\>";
+	# 		}
+  my @db_link; 
+  foreach my $database($term->Database){
+      my @right_col_data;
+      @right_col_data = eval{$database->col(2);};
+      push @db_link , join(",&nbsp;",map {  a({-href=>sprintf($database->URL_constructor,$_)}, $database ) }  @right_col_data);
+  }  
+  SubSection('External Resources',join(br,@db_link)) if(@db_link);	
+	
+	my $ao_term = $term->Term;
+
+    my $wm_url = $term->URL;  
+
+
+###REMOVE THIS PART WHEN WE GET TO WS208!!!!!!!#######################
+    my $version_num = $DB->version;
+    $version_num =~ s/^WS//;
+    if($version_num < 208) {
+      if($wm_url =~ /neurons.*$/i) {
+        $wm_url =~ s/neurons.*$/neurons\/Individual\%20Neurons\/${ao_term}frameset\.html/ix; 
+      }else {
+        $wm_url =~ s/atlas\.org/atlas\.org\/ver1/ix;
+      }
+    }
+#####END OF SECTION TO BE REMOVED IN WS208###########################
+
+
+	SubSection('Worm Atlas', a({href=>$wm_url},"reference information on $ao_term")) if $term->URL; ## figure this out
+
+	SubSection('Transgene' ,Tableize([map{$_->Transgene} grep {/marker/i&& defined $_->Transgene} $term->Expr_pattern],0,10)) if ($term->Expr_pattern) ;
+  EndSection;
+
+
+	StartSection('Ontology Browser');
+	#my ($frame,$end_frame) = print_ontology2($term);
+	my ($frame,$end_frame) = print_ontology($term);
+	SubSection('',$frame,$end_frame);
+	EndSection();
+print "<a name=asc>";
+	if ($term->Link_diagram){
+  StartSection('Term Diagram');
+	my $link_diagram = $term->Link_diagram;
+	my $path = Configuration->Neuron_diagrams;
+	print p({-align=>'CENTER'}, img({-src=>"$path/$link_diagram"}));
+	#print "<pre>$link_diagram</pre>\n";
+	EndSection;
+
+	# my $diagram = 
+	#   print p();
+	#   
+}
+
+  # NB - finally putting into effect, 6/2005 at the IWM!
+  # NB, 12/2003
+  # The cellular ontology is not really used in WormBase yet
+  # but the model calls for Expr_pattern and Reference attributes.
+  # When this data is added, this code segment will find and display
+  # these attributes for each term. Disabled for now.
+  if (0) {
+      my %priority = (Expr_pattern => 1, GO_term => 2, Reference => 3);
+      my $attributes = a_association($term);
+      if (keys %$attributes > 1) {
+	  print start_table({-width=>'100%'});
+	  print TR(th({-class=>'datatitle',-colspan=>2},
+		      "The following WormBase object(s) refer to this term"));
+	  for my $attr (sort {($priority{$a}||99) <=> ($priority{$b}||99)} 
+			grep {!/Index|Descendent/} keys %$attributes) {
+	      next unless ref $attributes->{$attr};
+	      print_matches($attr,keys %{$attributes->{$attr}});
+	  }
+	  print end_table;
+      } else {
+	  print table({-width=>'100%'},
+		      TR(th({-class=>'datatitle',-align=>'left',-colspan=>2},
+			    "This term is not used in WormBase outside of the Anatomy Ontology."))
+		      );
+      }
+  }
+  
+  # This is similar to the code above, except that we only display
+  # assocations from the different expression pattern objects
+  # themselves.
+  if (1) {
+    my @tags = qw/Expr_pattern GO_term Reference Anatomy_function Anatomy_function_not Expression_cluster/;
+    StartSection('Associations');
+#    SubSection('',start_table({-width=>'100%'}));
+    foreach (@tags) {
+	next unless $term->$_;
+	my @data = $term->$_;
+	print_matches_direct($_,@data);
+    }
+	SubSection('',);
+	# SubSection('Test', 'This is a test.');
+   EndSection;
+}
+
+
+#eval{  
+#    StartSection('Child');
+#       SubSection ('test',,);
+#       EndSection;
+#   }
+  print end_table,br;
+  
+   
+    
+    print start_table({-width=>'100%',-cellpadding=>3,-cellspacing=>0});
+    # print TR({-class=>'searchtitle'},th('Derivation(s)'));
+    print start_TR({-class=>'searchbody'}),start_td;
+    
+    # print_tree($term,'main');
+    
+      # unless (SINGLE_TREE) {
+      #           print_tree($term,'descendent');
+      #           print_tree($term,'hermaphrodite');
+      #           print_tree($term,'male');
+      #           print_tree($term,'develops');
+      #       }
+      #       
+      # print p(i('[c] = component, [i] = instance, [D] = descendent, [H] = hermaphrodite lineage, [M] = male lineage, [DEV] = develops from'));
+      
+      print end_td,end_TR;
+      print end_table;
+    }
+  
+# Display legacy information for this term under the "Legacy" tag
+sub legacy {
+    my $term = shift;    
+}    
+
+sub print_matches {
+    my $attr = shift;
+  my %attr2key = ( Expr_pattern => 'Expression pattern',
+		   GO_term       => 'Gene ontology term',
+		   Paper         => 'Literature');
+
+  my $key = $attr2key{$attr};
+  my $header = 0;
+  my ($href,$show) = Toggle("show_$attr","$key associations",scalar @_,1,1,MAX_MATCHES);
+  print TR(
+	   th({-class=>'datatitle',-align=>'LEFT',-colspan=>5},$href)
+	  );
+  if ($show) {
+    for my $gene (@_) {
+      my $link = make_link(split($;,$gene));
+      print TR(
+	       th({-class=>'datatitle',-align=>'LEFT'},
+		  '&nbsp;'
+		  #		  $header++ ? '&nbsp;' : "$key associations"
+		 ),
+	       td({-class=>'databody'},$link)
+	      );
+    }
+  }
+}
+
+sub print_matches_direct {
+  my ($attr,@data) = @_;
+  my %attr2key = ( Expr_pattern => 'Expression pattern',
+		   GO_term       => 'Gene ontology term',
+		   Paper         => 'Literature',
+		Anatomy_function => 'Function',
+		Anatomy_function_not => 'Not a Function for Term',
+		Expression_cluster => 'Expression Cluster'
+		);
+			 
+  my $key = $attr2key{$attr};
+  my $header = 0;
+  my ($href,$show) = Toggle("show_$attr","$key associations",scalar @data,1,1,MAX_MATCHES);
+  print start_table({-width=>'100%'});
+  print TR(
+	   th({-class=>'datatitle',-align=>'LEFT',-colspan=>5},$href)
+	  );
+  if ($show) {
+    for my $entry (@data) {
+      # The values of these fields are somewhat different depending on
+      # the tag being displayed
+      my ($association,$target,$desc,$evidence) = make_link($entry);  ## modify to display Function
+      print TR(
+	       td({-class=>'datatitle',-align=>'LEFT',-width=>'2%'},
+		  '&nbsp;'
+		 ),
+	       td({-class=>'databody'},$association),
+	       td({-class=>'databody'},$target),
+	       td({-class=>'databody'},$desc),
+	       td({-class=>'databody'},$evidence));
+    }
+  }
+  print end_table;
+  if ($attr eq 'GO_term') {
+    print i('BP = Biological process; CC = cellular component ; MF = Molecular function');
+  }
+}
+
+
+sub print_tree {
+  my ($term,$category) = @_;
+  my ($instance_tag,$component_tag) = fetch_tags($category);
+
+  my @paths;
+  if (SINGLE_TREE) {
+    @paths = get_paths($term,$category);
+  } else {
+    foreach (qw/main descendent hermaphrodite male develops/) {
+      push (@paths,get_paths($term,$_));
+    }
+  }
+
+  print "total paths: ",scalar @paths,br if DEBUG;
+
+  # Suppress the display of emtpy DAGs
+  # Does it have no component or instance parents?
+  # It might be a root node.
+  # I can't suppress the display of empty DAGs until I've traversed them...
+  # Fetch out the first term of paths
+  my $top_term = $paths[0]->[0]->[0];
+  if ($top_term eq $term) {
+    if ((($instance_tag  && $top_term->$instance_tag eq '') ||
+	 ($component_tag && $top_term->component_tag eq ''))
+	&& $top_term->IS_A_c eq '' ) {
+      return if param('suppress_empty_dags');
+      return if SUPPRESS_EMPTY_DAGS;  # Placeholder
+      
+      unless (SINGLE_TREE) {
+	my $desc = a_term($top_term);
+      	# Display a header for the current category:
+      	print uc(h3($BRANCHES->{$category}->{header}));
+      	print "There are no entries for $desc ($top_term) in " . '"' . $BRANCHES->{$category}->{header} .'".',br;
+      }
+    }
+  }
+  
+  # Display a header for the current category:
+  print uc(h3($BRANCHES->{$category}->{header})) unless (SINGLE_TREE);
+  
+  # Recursively sort paths so like paths are grouped in the display
+  my @sorted = sort all_paths @paths;
+  my %seen_it;
+  for my $path (@sorted) {
+    my $skip;
+    my $count;
+    for my $c (@$path) {
+      $count++;
+      my ($component,$type) = @$c;
+      print "path: ",$component,'-',$type if DEBUG;
+      print start_ul();
+
+      # Some components appear at multiple places in the DAG.
+      # This is not fool proof but should work most of the time!
+      # If I've reached a component of the path that I've seen before,
+      # and that occurs at the same place as the current position
+      # start skipping so I don't print redundant parts of the path.
+      if ($seen_it{$component}) {
+	next if ($seen_it{$component} == $count) && !$skip && !DEBUG;
+      } else {
+	# Add it to the seen it hash
+	$seen_it{$component} = $count;
+      }
+      next unless $component;
+      $skip++;  # Keep the skip flag going...
+
+
+      # Instead of displaying the total number of associations,
+      # we will display the number of descendents
+      # NOT WORKING!
+      # my $children = total_descendents($term);
+
+      # First set up the base link
+      my $link = ($component eq $term)
+	? "$type " . a_term($component) . " ($component)"
+	  : object_link($component,'Anatomy_term',"$type " . a_term($component) . " ($component) ");
+
+      # Append links to cell and pedigree if this is a cell
+      $link .= check_if_cell($component) if $component;
+      print li($link);
+    }
+
+    if (SINGLE_TREE) {
+      fetch_children($term,'main');
+      fetch_children($term,'descendent');
+      fetch_children($term,'hermaphrodite');
+      fetch_children($term,'male');
+      fetch_children($term,'develops');
+    }
+    #    else {
+    #      # Process sequentially so that I can link to a cell if needed....
+    #      my @instance_children = instance_children($term,$instance_tag) if ($instance_tag);
+    #      print start_ul if (@instance_children);
+    #      foreach my $child (@instance_children) {
+    #	my $link = object_link($child,'Anatomy_term',"[i] " . a_term($child) . " ($child)");
+    #	
+    #	# Append links to cell and pedigree if this is a cell
+    #	$link .= check_if_cell($child);
+    #	print li($link);
+    #	# print li(object_link($child,'Anatomy_term',"[i] " . a_term($child) . " ($child)")
+    #	# . ' #'.(total_descendents($child)||0));
+    #      }
+    #  print end_ul if (@instance_children);
+      
+    #  my @component_children = component_children($term,$component_tag) if ($component_tag);
+    #  print start_ul if (@component_children);
+    #  foreach my $child (@component_children) {
+    #	my $link = object_link($child,'Anatomy_term',"[c] " . a_term($child) . " ($child)");
+    # Append links to cell and pedigree if this is a cell
+    #	$link .= check_if_cell($child);
+    #	print li($link);
+    #	#  print li(object_link($child,'Anatomy_term',"[c] " . a_term($child) . " ($child)") 
+    #	#	       # . ' #'.(total_descendents($child)||0));
+    #	#	 );
+    #      }
+    #      print end_ul if (@component_children);
+    #    }
+    print scalar(end_ul()."\n") x @$path;
+  }
+}
+
+# Sort the multidimensional array of arrays.  Wow.
+sub all_paths {
+  warn "Sorting paths\n" if VERBOSE_DEBUG;
+  my $min = (scalar @$a >= scalar @$b) ? scalar @$b : scalar @$a;
+  for (my $i=0;$i<= $min;$i++) {
+    warn "$i $a $b",eval{a_term($a->[$i]->[0])},"-",eval{a_term($b->[$i]->[0])},"\n" if VERBOSE_DEBUG;
+    next if (eval{a_term($a->[$i]->[0])} eq eval{a_term($b->[$i]->[0])});
+    warn "doing cmp...\n" if VERBOSE_DEBUG;
+    my $value = eval{a_term($a->[$i]->[0])} cmp eval{a_term($b->[$i]->[0])};
+    warn "value $value\n" if VERBOSE_DEBUG;
+    return $value;
+    warn "already returned?\n" if VERBOSE_DEBUG;
+  }
+}
+
+sub fetch_children {
+  print "fetching_children\n" if DEBUG;
+  my ($term,$category) = @_;
+  my ($instance_tag,$component_tag) = fetch_tags($category);
+  
+  # Instance children
+  # Process sequentially so that I can link to a cell if needed....
+  my @instance_children = instance_children($term,$instance_tag) if ($instance_tag);
+  print start_ul if (@instance_children);
+  foreach my $child (@instance_children) {
+    my $label = fetch_label($category,'instance');
+    $label = ($label eq 'O') ? 'i' : $label; # Fudge until we decide how to label these branches
+    my $link = object_link($child,'Anatomy_term',"[$label] " . a_term($child) . " ($child)");
+    
+    # Append links to cell and pedigree if this is a cell
+    $link .= check_if_cell($child);
+    print li($link);
+    # print li(object_link($child,'Anatomy_term',"[i] " . a_term($child) . " ($child)")
+    # . ' #'.(total_descendents($child)||0));
+  }
+  print end_ul if (@instance_children);
+  
+  # Component children
+  my @component_children = component_children($term,$component_tag) if ($component_tag);
+  print start_ul if (@component_children);
+  foreach my $child (@component_children) {
+    my $label = fetch_label($category,'component');
+    $label = ($label eq 'O') ? 'c' : $label; # Fudge until we decide how to label these branches
+    my $link = object_link($child,'Anatomy_term',"[$label] " . a_term($child) . " ($child)");
+    # Append links to cell and pedigree if this is a cell
+    $link .= check_if_cell($child) if $child;
+    print li($link);
+    #  print li(object_link($child,'Anatomy_term',"[c] " . a_term($child) . " ($child)") 
+    #	       # . ' #'.(total_descendents($child)||0));
+    #	 );
+  }
+  print end_ul if (@component_children);
+}
+
+
+sub check_if_cell {
+  my $component = shift;
+  my $cell = isa_cell(a_term($component));
+  my $link;
+  if ($cell) {
+    #    my $lineage_name = $component->Remark;
+    #    $lineage_name =~ s/\sname//g;
+    #    $link = " ($lineage_name) ";
+    $link .= ' [view: ' . object_link($cell,'Cell','cell details') .' | ';
+    $link .=  a({-href=>PEDIGREE . "$cell"},"pedigree") . ']';
+  }
+  return $link;
+}
+
+
+sub object_link {
+  my ($name,$class,$title) = @_;
+  my $url     = Object2URL($name,$class);
+  $title ||= $name;
+  return a({-href=>$url},$title);
+}
+
+sub fetch_tags {
+  my ($category,$relationship) = @_;
+  # Fetch the appropriate component and instance categories
+  # for the current DAG
+  # Parent/child instance component really only applies to main
+  $relationship ||= 'children';
+  my $instance  = $BRANCHES->{$category}->{'instance_' .  $relationship};
+  my $component = $BRANCHES->{$category}->{'component_' . $relationship};
+
+  # Fetch the appropriate instance and component for non-main DAGs
+  $instance  ||= $BRANCHES->{$category}->{instance};
+  $component ||= $BRANCHES->{$category}->{component};
+  # print "tags: ",join('-',$instance,$component,$category),br if DEBUG;
+  return ($instance,$component);
+}
+
+sub fetch_label {
+  my ($category,$relationship) = @_;
+  return $BRANCHES->{$category}->{label};
+}
+
+
+# Climb up the tree until I find roots (ie no parents)
+sub get_paths {
+  my ($term,$category) = @_;
+
+  # Fetch all possible parental relationships for the current node.
+  my (@components,@instances);
+  my $components = {};
+  my $instances  = {};
+  if (SINGLE_TREE) {
+    foreach (qw/main descendent hermaphrodite male develops/) {
+      my ($instance_tag,$component_tag) = fetch_tags($_,'parents');
+
+      # Save the origin so I can label the relationships properly
+      my @int  = instance_parents($term,$instance_tag)   if ($instance_tag);
+      my @comp = component_parents($term,$component_tag) if ($component_tag);
+      push (@{$instances->{$_}},@int)   if @int;
+      push (@{$components->{$_}},@comp) if @comp;
+      
+      print $_,br if VERBOSE_DEBUG;
+      print "   ---$term components: ",join('-',@components),br if VERBOSE_DEBUG;
+      print "   ---$term instances:  ",join('-',@instances),br  if VERBOSE_DEBUG;
+    }
+  } else {
+    my ($instance_tag,$component_tag) = fetch_tags($category,'parents');
+    @components = component_parents($term,$component_tag) if ($component_tag);
+    @instances  = instance_parents($term,$instance_tag)   if ($instance_tag);
+  }
+  
+  #  my ($instance_tag,$component_tag) = fetch_tags($category,'parents');
+  #  my @components = component_parents($term,$component_tag) if ($component_tag);
+  #  my @instances  = instance_parents($term,$instance_tag)   if ($instance_tag);
+  
+  # Short circuit call back unless I've retrieved some items
+  return [[$term,'']] unless scalar keys %$components > 0 || scalar keys %$instances > 0;
+
+  my @result;
+  for my $category (keys %$components) {
+    foreach my $parent (@{$components->{$category}}) {
+      my @paths = get_paths($parent,$category);
+      my $label = fetch_label($category,'component');
+
+      # The logic is bizarre here. Please read:
+      # Since we are crawling up the tree the relationship is reversed.
+      # So although the hash is called components, in reality
+      # these should be labelled as instances.  Really just a misnomer in variable
+      # naming.
+      $label = ($label eq 'O') ? 'i' : $label; # Fudge until we decide how to label these branches
+      #push @result,[@$_,[$term,'[c]']] foreach @paths;
+      push @result,[@$_,[$term,"[$label]"]] foreach @paths;
+    }
+  }
+
+  for my $category (keys %$instances) {
+    foreach my $parent (@{$instances->{$category}}) {
+      my @paths = get_paths($parent,$category);
+      my $label = fetch_label($category,'instance');
+      # (See above)
+      $label = ($label eq 'O') ? 'c' : $label; # Fudge until we decide how to label these branches
+      #push @result,[@$_,[$term,'[i]']] foreach @paths;
+      push @result,[@$_,[$term,"[$label]"]] foreach @paths;
+    }
+  }
+  @result;
+}
+
+
+# Climb up the tree until I find roots (ie no parents)
+sub get_paths_hash {
+  my ($term,$category) = @_;
+
+  # Fetch all possible parental relationships for the current node.
+  my (@components,@instances);
+  if (SINGLE_TREE) {
+    foreach (qw/main descendent hermaphrodite male develops/) {
+      my ($instance_tag,$component_tag) = fetch_tags($_,'parents');
+      push (@components,component_parents($term,$component_tag)) if ($component_tag);
+      push (@instances,instance_parents($term,$instance_tag))    if ($instance_tag);
+      
+      print $_,br if VERBOSE_DEBUG;
+      print "   ---$term components: ",join('-',@components),br if VERBOSE_DEBUG;
+      print "   ---$term instances:  ",join('-',@instances),br  if VERBOSE_DEBUG;
+    }
+  } else {
+    my ($instance_tag,$component_tag) = fetch_tags($category,'parents');
+    @components = component_parents($term,$component_tag) if ($component_tag);
+    @instances  = instance_parents($term,$instance_tag)   if ($instance_tag);
+  }
+  
+  #  my ($instance_tag,$component_tag) = fetch_tags($category,'parents');
+  #  my @components = component_parents($term,$component_tag) if ($component_tag);
+  #  my @instances  = instance_parents($term,$instance_tag)   if ($instance_tag);
+  
+  return [[$term,'']] unless @components || @instances;
+
+  my @result;
+  for my $parent (@components) {
+    my @paths = get_paths($parent,$category);
+    push @result,[@$_,[$term,'[c]']] foreach @paths;
+  }
+
+  for my $parent (@instances) {
+    my @paths = get_paths($parent,$category);
+    push @result,[@$_,[$term,'[i]']] foreach @paths;
+  }
+  @result;
+}
+
+sub make_link_old {
+  my ($class,$name) = @_;
+  my $db = OpenDatabase || AceError("Couldn't open database.");
+  my $a  = $db->fetch($class=>$name) or return;
+  my $description = $a;
+  my $gene      = Bestname(eval {$a->Gene});
+  my $title     = eval {$a->Title};
+  my $id        = eval {$a->Brief_identification};
+  $description .= i(" $gene") if $gene;
+  $description .= ' '.$id if $id;
+  $description .= ' '.$title if $title;
+  ObjectLink ($a,$description);
+}
+
+sub make_link {
+  my ($object) = shift;
+  if ($object->class eq 'Expr_pattern') {
+    my $gene = eval { $object->Gene};
+    my $bestname = Bestname($gene) if $gene;
+    my $pattern = substr($object->Pattern,0,75);
+    $pattern .= '...' if length($object->Pattern) > 75;
+    my $evidence;
+    return (ObjectLink($object),ObjectLink($gene,$bestname),$pattern,$evidence);
+  } elsif ($object->class eq 'GO_term') {
+    my $term = $object->Term;
+    my $type = $object->Type;
+    my $ao_code = $object->right;
+    my (@evidence) = GetEvidence(-obj=>$ao_code,-dont_link=>1);
+    my $evidence = join(';',@evidence);
+    return (ObjectLink($object),$CODES{$type},$term,$evidence);
+  }
+#### new code for function
+	elsif ($object->class eq 'Anatomy_function'){
+		my $phenotype = $object->Phenotype;
+		my $phenotype_name = $phenotype->Primary_name;
+		my $gene = eval{$object->Gene;};
+		if ($gene) {
+		
+			my $gene_name = $gene->CGC_name;  ## $gene_name = eval {}; ;
+			
+			if(!($gene_name)){
+				
+				$gene_name = $gene->Sequence_name;
+			}
+			my $gene_url = "../gene/gene?Class=Gene;name=" . $gene;
+			my $gene_link = a({-href=>$gene_url},$gene_name);
+			
+			$phenotype_name =~ s/_/ /g;
+			my $gene = $object->Gene;
+			return (b("Gene\: ") . $gene_link,b("Phenotype\: ") . $phenotype_name, b("via Anatomy function\: ") . ObjectLink($object), "");
+		}
+		
+		
+	}
+	elsif ($object->class eq 'Expression_cluster'){
+		my $description = substr($object->Description,0,65);
+		$description .= '...' if length($object->Description) > 65;
+		return (ObjectLink($object),$description,"","");
+	}
+}
+
+#sub count_associations {
+#  my $term = shift;
+#  return $CACHED_COUNTS{"$term"} if exists $CACHED_COUNTS{"$term"};
+#  my @associations = $term->db->fetch(-query=>"find GO_term \"$term\"; follow Descendent; follow Sequence");
+#  my $association_count = @associations || 0;
+#  return $CACHED_COUNTS{"$term"} = "#$association_count";
+#}
+
+sub has_overlay {
+  my $term = shift;
+  my %overlay = OVERLAYS;
+  return 1 if $overlay{$term};
+  return 0;
+}
+
+
+sub do_search {
+  my ($offset) = @_;
+  my $db = OpenDatabase || AceError("Couldn't open database.");
+  my @anat_terms;
+  # ?Anatomy_term should be in the form of WBbt:1234567
+  if ($query =~ /^WBbt:/) {
+    @anat_terms = $db->fetch(Anatomy_term => $query);
+  } elsif (my @anat_names = $db->fetch(Anatomy_name => $query)) {
+    @anat_terms = map { $_->Name_for_anatomy_term || $_->Synonym_for_anatomy_term } @anat_names;
+  } else {
+    # Finally try generically searching the Anatomy_term class
+    # First try searching terms via an ace query, then fetching objects for each result individually
+    # There has GOT to be a better way.
+    my $clean = $query;
+    $clean =~ s/^\*//;
+    $clean =~ s/\*$//;
+    my $ace_query = 'select a,a->Term from a in class Anatomy_term where a->Term like "*' . $clean . '*"';
+    my @tmp = $db->aql($ace_query);
+    my @objs = map { $db->fetch(Anatomy_term=>$_->[0]) } @tmp;
+    
+    # do a full database grep
+    push(@objs,$db->grep(-pattern=>$query,-long=>1)) unless (@objs);
+    my %seen;
+    @anat_terms = grep {!$seen{$_}++} grep {$_->class eq 'Anatomy_term'} @objs;
+  }
+
+  my $count   = @anat_terms;
+  my $max     = $offset+MAXOBJECTS-1;
+  $max        = $count-1 if $max > $count;
+  my @subset  = @anat_terms[$offset..$max];
+  return (\@subset,$count);
+}
+
+
+#### cut and pasted onto ontology/gene, ontology/anatomy/ and misc/phenotype as kludge around 
+### troubles with the use *.pm file commands
+
+sub print_ontology {
+
+my ($object) = @_;
+my $object_id = $object->name;
+my %ontology2ace = (
+		'GO_term' => 'go',
+		'Phenotype' => 'po',
+		'Anatomy_term' => 'ao');
+my $class = $ontology2ace{$object->class};
+# my $scr = '/db/ontology/browse_tree?query='.$object_id.';query_type=term_id;ontology='.$class.';details=on;children=on;expand=1';
+my $scr = '/db/ontology/tree_lister?name='.$object_id;
+my $frame = div({-class => 'white'},iframe({-name => 'browser', 
+											-src=> $scr, 
+											-width => 950, 
+											-height => 300}));
+my $end_frame = "\<\/iframe\>";
+
+return ($frame,$end_frame);
+
+}
+
+
+
+
+
+###### end cut and paste #####

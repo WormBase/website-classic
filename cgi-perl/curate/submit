@@ -1,0 +1,222 @@
+#!/usr/bin/perl
+
+use lib '../lib';
+use CGI qw(:standard *table *TR *td *div);
+use Tie::Hash;
+use strict;
+use Ace::Browser::AceSubs;
+use ElegansSubs;
+
+use constant CALTECH => 'http://tazendra.caltech.edu';
+
+# Changes
+# Removed links to individual curators.  All your bases are belong to us.
+# Removed individual sections of forms
+
+
+# Seperate categories culled from the original form
+#             ['New Large Scale Datasets'           , ['pws@caltech.edu'],['Paul Sternberg']],
+#             ['Wormbase User\'s Guide'             , ['wen@athena.caltech.edu'], ['Wen Chen']],
+#	     ['User Interface Suggestions'         , ['harris@cshl.edu'],['Todd Harris']],
+#             ['Complaints and Suggestions'         , ['pws@caltech.edu'], ['Paul Sternberg']],
+#             ['Physical Map'                       , ['help@wormbase.org'], ['WormBase Consortium']],
+#             ['Sequence/Gene Structures'           , ['worm@sanger.ac.uk'], ['Sequence Consortium']],
+#             ['Sequence Analysis'                  , ['rd@sanger.ac.uk'], ['Richard Durbin']],
+#             ['Anatomy'                            , ['raymond@caltech.edu'], ['Raymond Lee']],
+#             ['Cell Function'                      , ['raymond@caltech.edu'], ['Raymond Lee']],
+#             ['Pictures of Cells'                  , ['raymond@caltech.edu'], ['Raymond Lee']],
+#             ['Nomenclature'                       , ['wen@athena.caltech.edu'], ['Wen Chen']],
+#             ['Gene Interaction'                   , ['emsch@its.caltech.edu'], ['Erich Schwarz']],
+#             ['Gene Ontology (GO) Terms'           , ['emsch@its.caltech.edu'], ['Erich Schwarz']],
+#             ['New/Altered Locus Data'             , ['help@wormbase.org'],['WormBase Curators']],
+#             ['Transgenes'                         , ['wen@athena.caltech.edu'], ['Wen Chen']],
+#             ['New/Altered Locus Data'             , ['help@wormbase.org'],['WormBase Curators']],
+#             ['Cell Nomenclature'                  , ['wen@athena.caltech.edu'], ['Wen Chen']],
+#             ['Literature Citations'               , ['help@wormbase.org'], ['WormBase Consortium']],
+#             ['SNP Map Data/Sequence/Verification' , ['worm@sanger.ac.uk'], ['Sequence Consortium']],
+#             ['Gene Synonyms'                      , ['cgc@wormbase.org'], ['CGC']],
+#             ['Request New Laboratory Designation' , ['cgc@wormbase.org'], ['CGC']],
+#             ['CGC'                                , ['stier@biosci.cbs.umn.edu'], ['Theresa Stiernagle']],
+
+
+
+my @automated_forms = (
+             ['section', 'General'],
+
+             ['Addresses of Authors'               , ['/~azurebrd/cgi-bin/forms/person.cgi']],
+
+	     ['Updating contact information'       , ['/~azurebrd/cgi-bin/forms/person.cgi']],
+	     ['Updating intellectual lineage information',['/~azurebrd/cgi-bin/forms/person_lineage.cgi']],
+
+
+
+             ['section', 'Sequence and Gene Structure'],
+
+
+             ['section', 'Proteome/WormPep'],
+
+
+             ['Gene/Sequence Links'                , ['/~azurebrd/cgi-bin/forms/gene_name.cgi']],
+
+
+             ['section', 'Gene Function'],
+             ['Gene Expression and Regulation'     , ['/cgi-bin/forms/expr_pattern.cgi']],
+             ['RNAi'                               , ['/cgi-bin/igor/rnaitools/rnai_submission']],
+             ['Transgenes'                         , ['/~azurebrd/cgi-bin/forms/transgene.cgi']],
+
+
+
+             ['section', 'Genes'],
+             ['Gene/Sequence Links'                , ['/~azurebrd/cgi-bin/forms/gene_name.cgi']],
+
+             ['section', 'Genetic Map Data'],
+  	     ['Allele data'			   , ['/~azurebrd/cgi-bin/forms/allele.cgi']], 
+             ['Breakpoint Data'                    , ['/~azurebrd/cgi-bin/forms/breakpoint.cgi']],
+             ['Deletion/Duplication Data'          , ['/~azurebrd/cgi-bin/forms/df_dp.cgi']],
+             ['Multipoint Cross Data'              , ['/~azurebrd/cgi-bin/forms/multi_pt.cgi']],
+             ['Two-point Cross Data'               , ['/~azurebrd/cgi-bin/forms/2_pt_data.cgi']],
+             ['New/Altered Rearrangement Data'     , ['/~azurebrd/cgi-bin/forms/rearrangement.cgi']],
+
+             ['Gene/Sequence Links'                , ['/~azurebrd/cgi-bin/forms/gene_name.cgi']],
+
+             ['section', 'Nomenclature'],
+             ['New Gene Class Name Proposal'       , ['/~azurebrd/cgi-bin/forms/gene_name.cgi']],
+
+            );
+
+
+
+# This section lists contacts for external projects with which WormBase collaborates with or links to.
+my @resources = 
+  (
+   ['Strain requests/CGC'   , ['stier@biosci.cbs.umn.edu'], ['Theresa Stiernagle']],
+  );
+
+my @collaborators =
+  (
+   ['Transcriptome Project' , ['mieg@ncbi.nlm.nih.gov'], ['Jean Thierry-Mieg']],
+  );
+
+
+#  Reactome
+#  Phenobank
+#  RNAiDB
+#  ORFeome
+#  Transcriptome
+#  KO consortiums
+
+# Maybe a list of curators
+my @links = ();
+
+
+generate_display();
+
+
+sub generate_display {
+  OpenDatabase();
+  PrintTop(undef,undef,'Submit your data to WormBase');
+  print div({-class=>'container'},
+#	    h2('Submit your data to WormBase'),
+
+	    p(qq{WormBase offers multiple options for submitting
+	    your data. We can also provide assistance in formatting and processing
+	    for easy incorporation into WormBase.
+	    By submitting your data to WormBase, you help to ensure its long-term
+            availability as well as place it within a rich, highly cross-referenced context.
+}));
+
+  print start_div({-id=>'narrowcontainer'});
+
+  print 
+    h3('Online forms'),
+      div({-class=>'block'},
+	  qq{Online submission of data greatly helps us integrate data
+	into WormBase using automatic verification and enforcing
+	standardization of formats and names. We encourage users to submit their data via our <a href="/db/curate/online_forms">online forms</a> of common data types. Doing so ensures that we capture all the data we need thus facilitating prompt inclusion of your data into WormBase.});
+  
+  print h3('Email the WormBase Team'),
+    div({-class=>'block'},
+	qq{Not sure which form to use? Too busy?  Send us an email using <a href="/db/misc/feedback">this web form</a> or to},
+	
+	div({-class=>'point'},a({-href=>"mailto:submit\@wormbase.org"},'submit@wormbase.org')),
+	
+	b("Rest assured, we'll see your email!"),br,
+	
+	qq{ Emails sent to this address are delivered to the entire
+	WormBase development team. We'll triage your query and respond
+	promptly.});
+
+  print h3('Email a curator or developer directly'),
+    
+    div({-class=>'block'},'Have a specific question, comment, or complaint?  Would you
+    like your comment to remain in confidence?  Feel free to
+    contact one of our <a href="/wiki/index.php/WormBase_Consortium">curators or developers</a> directly.');
+  
+  #  print_forms_by_section();
+#  print_forms_flat();
+  print end_div();
+  PrintBottom();
+}
+
+
+
+
+sub print_forms_flat {
+  print h3('Standardized forms');
+  print start_table({-class=>'resultsbody'});
+  my $in = 0;
+  foreach (@automated_forms){
+    if ($_->[0] eq 'section') {
+      #      print '</table><br>';
+      #      print '<table width="100%" class="resultsbody">';
+      #      print "<tr><td colspan=2 class=\"resultstitle\"><b>$_->[1]</b></td></tr>";
+      #      $in = 1;
+      next;
+    }
+
+    # it is an email address
+    if (@{$_->[1]}[0] =~ /\@/) {
+      my $href = join ',', @{$_->[1]};
+      my $alink = $_->[0] . " (email ". join(", ", @{$_->[2]}) . ')';
+
+      print TR(td(a({-href=>"mailto:$href?subject=Wormbase online form RE: $_->[0]"},$alink)));
+    } else {
+      # it is a URL
+      my $alink = $_->[0];
+      print TR(td(a({-href=>@{$_->[1]}[0]},$alink)));
+    }
+  }
+  print end_table();
+}
+
+
+
+sub print_forms_by_section {
+  print '<table class="resultsbody">';
+  my $in = 0;
+  foreach (@automated_forms){
+    if ($_->[0] eq 'section') {
+      print '</table><br>';
+      print '<table width="100%" class="resultsbody">';
+      print "<tr><td colspan=2 class=\"resultstitle\"><b>$_->[1]</b></td></tr>";
+      $in = 1;
+      next;
+    }
+    my $alink;
+    
+    print "<tr><td width='50%'>$_->[0]</td><td>";
+    
+    #it is a URL
+    unless (@{$_->[1]}[0] =~ /\@/) { $alink = ('Fill out online form'); print a({-href=>@{$_->[1]}[0]},$alink);}
+    #is is an Email address
+    else {
+      my $href = join ',', @{$_->[1]};
+      $alink = "Email ". join ", ", @{$_->[2]};
+      
+      print a({-href=>"mailto:$href?subject=Wormbase online form RE: $_->[0]"},$alink);
+    }
+    
+    print '</td></tr>';
+  }
+  print '</table>';
+}

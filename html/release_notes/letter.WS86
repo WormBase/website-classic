@@ -1,0 +1,195 @@
+New Release of acedb WS86, Wormpep86 and Wormrna86 Fri Sep  6 13:26:51 BST 2002
+
+======================================================================
+
+This directory includes:
+
+i)	database.WS86.*.tar.gz     -   compressed data for new release
+
+ii)	models.wrm.WS86           -   the latest database schema (also in above database files)
+
+iii)	CHROMOSOMES/subdir         -   contains 3 files (DNA, GFF & AGP per chromosome)
+
+iv)	WS86-WS85.dbcomp    -   log file reporting difference from last release
+
+v)	wormpep86.tar.gz           -   full Wormpep distribution corresponding to WS86
+
+vi)	wormrna86.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+
+vii)	confirmed_genes.WS86.gz  -   DNA sequences of all genes confirmed by EST &/or cDNA
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS86
+------------------------------------
+brigdb : 2002-08-30 - updated
+camace : 2002-09-02 - updated
+citace : 2002-08-30 - updated
+cshace : 2002-08-28 - updated
+genace : 2002-09-02 - updated
+stlace : 2002-08-30 - updated
+
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS86       	WS85      	change
+----------------------------------------------
+a    	32352971	32344742	+8229
+c    	17772485	17767680	+4805
+g    	17750022	17745321	+4701
+t    	32354695	32346297	+8398
+n    	95      	95      	  +0
+-    	2000    	62800   	-60800
+
+Total	100232268	100266935	-34667
+
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 19486 CDS in autoace, 20878 when counting 1392 alternate splice forms.
+
+The 20878 sequences contain 9,233,930 base pairs in total.
+
+Modified entries              45
+Deleted entries               18
+New entries                   52
+Reappeared entries             0
+
+Net change  +34
+
+
+GeneModel correction progress WS85 -> WS86
+-----------------------------------------
+
+Confirmed introns not is a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|   1566  |   -50  |
+St Louis 	|    412  |   -51  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|     26  |    -3  |
+St Louis 	|    181  |     0  |
+		+---------+--------+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+CHROMOSOME_II	sequence AF016683
+CHROMOSOME_II	sequence AF016683
+CHROMOSOME_II	sequence U23175
+CHROMOSOME_II	sequence U23175
+CHROMOSOME_IV	sequence AC006701
+CHROMOSOME_IV	sequence AC025724
+CHROMOSOME_IV	sequence AC025724
+CHROMOSOME_IV	sequence AF125445
+CHROMOSOME_IV	sequence AF125445
+CHROMOSOME_IV	sequence AF038618
+----------------------------------------------------------------
+
+
+Remaining gaps:
+---------------
+For more info mail worm@sanger.ac.uk
+
+# Gap on Chromosome III is covered by a 950Kb SseI fragment 
+
+III     1005794 1028769 37      F       AC087078.1      1       22976   +
+III     1028770 1029769 38      N       1000
+III     1029770 1055632 39      F       AC092690.1      1       25863   +
+
+# Gap on Chromosome X is covered by YAC clones in production at St Louis
+
+X       1       2649    1       F       AL031272.2      1       2649    +
+X       2650    3649    2       N       1000
+X       3650    14860   3       F       AC087735.3      1       11211   +
+
+
+New Data:
+---------
+
+New yeast and fly protein data sets were used in the WUBLAST analysis.  Both datasets
+now contain expanded information, concerning SGD and FLYBASE database accessions
+and identifiers, and fly/yeast gene names where known.
+
+Protein database identifiers are now searchable in the database, i.e. you can now
+search for the Swissprot protein from the WormBase front page using either the 
+accession "Q17606" or the ID "RL24_CAEEL".
+
+Two gaps were closed by St. Louis for chromosome X (see above for details of remaining
+gaps).  The new clones covering the gaps at the start of this chromosome are Y15D9A and 
+Y108F1.
+
+As a result of a new script by Chao-Kung Chen, we now systematically extract gene
+name information from EMBL and use this to update our database.  In this release 
+nearly a 1000 gene names have updated/new information based on this new approach. 
+This approach allows us to make new connections between a locus name and the
+corresponding sequence name.  This work is ongoing and will see many non-CGC-approved
+gene names added as 'Other names' to the correct CGC gene name, thus making it
+easier to find your gene of interest.
+
+
+New Fixes:
+----------
+
+
+Known Problems:
+--------------
+The new clones that filled the two gaps on chromosome X do not yet have any accession 
+numbers and therefore these are missing from the agp files.  Should be fixed by
+next release.
+
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+We propose to change our build schedule for the next release.  WS87 will be finished
+in three weeks time rather than two.  This extra week will enable to undergo a fundamental
+change in how we organise our database build procedure.  The net result of this will be
+that all BLAST homologies in the database will be current and up to date.  We currently
+have a slight discrepancy where the Wormpep database used for BLAST analysis corresponds
+to the last build of the database.  I.e. WS86 used protein info from Wormpep 85.
+
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

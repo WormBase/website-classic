@@ -1,0 +1,87 @@
+#!/usr/bin/perl -w
+# $Id: session,v 1.1.1.1 2010-01-25 15:36:03 tharris Exp $
+# Sheldon McKay mckays@cshl.edu
+# This script handles AJAX requests for state data
+
+use strict;
+use CGI 'param', 'url';
+use CGI::Session;
+use Ace::Browser::AceSubs;
+use Digest::MD5 'md5_hex';
+
+use constant DEBUG => 0;
+
+
+print STDERR "session call: ", url(-query_string=>1), "\n" if DEBUG;
+
+# location of session file
+my $session_cache = Configuration()->Session || '/usr/local/wormbase/html/session';
+
+# load the session object.  There should be a cookie if we have seen it
+# before
+my $session = new CGI::Session(undef,undef,{Directory=>$session_cache});
+$session or die CGI::Session->error;
+my $session_id = $session->id;
+$session->expire('+1M');
+
+print STDERR "SESSION ID: $session_id\n" if DEBUG;;
+
+print $session->header();
+ 
+# this is the unique hash key corresponding to the calling
+# script/page URL
+my $caller = md5_hex(param('URL')||'/');
+
+# this is a hash that contains all config data for
+# the calling script/page
+my $config = $session->param($caller) || {};
+
+# print the session ID and exit if there is
+# nothing further to do.
+if (!(grep {$_ ne 'URL'} param()) || param() == 0) {
+  print $session_id, "\n";
+  exit;
+}
+
+# Update the config hash as required
+my $update;
+for my $p (param()) {
+  # strange param name from prototype.js
+  $p =~ s/\[\]$//;
+
+  next if $p eq 'CGISESSID' || $p eq 'URL';
+
+  my @values = param($p);
+
+  if ($p eq 'query') {
+    # query a param
+    for my $v (@values) {
+      if  ($v eq 'all') { print 'All'; exit;} 
+      my @yes = @{$config->{$v}} if $config->{$v};
+      print "$v @yes\n" if @yes;
+      print STDERR "$v @yes\n" if @yes && DEBUG;
+      print STDERR "$v NO RESULT\n" if DEBUG && !@yes;
+    }
+  }
+  elsif ($p eq 'delete') {
+    # delete a param
+    for my $v (@values) {
+      delete $config->{$v};
+      print "deleted  $v\n";
+      print STDERR "deleted  $v\n" if DEBUG;
+    }
+  }
+  else {
+    # update a param
+    $config->{$p} = \@values;
+    print "updated $p @values\n";
+    print STDERR "updated $p @values\n" if DEBUG;
+  }
+}
+
+# Store the data
+$session->param($caller => $config);
+print STDERR Dumper $config if DEBUG;
+
+
+exit 0;

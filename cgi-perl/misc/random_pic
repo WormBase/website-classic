@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+
+use strict;
+use CGI qw(header);
+my $url      = $ENV{PATH_INFO};
+my $physical = $ENV{PATH_TRANSLATED};
+
+opendir D,$physical or die "Couldn't open directory $physical: $!";
+my @PICS = map {"$physical/$_"} grep {/\.(gif|jpe?g)$/i} readdir(D);
+closedir D;
+
+my $lucky_one = $PICS[rand @PICS];
+my $type = $lucky_one =~ /\.gif$/i ? 'image/gif'
+                                   : $lucky_one =~ /\.jpe?g$/i ? 'image/jpeg'
+                                                             : 'image/gif';
+
+print header($type);
+exit 0 unless $ENV{REQUEST_METHOD} eq 'GET';
+
+open P,$lucky_one or die "Couldn't open file $lucky_one: $!";
+my $buffer;
+print $buffer while read(P,$buffer,2048);
+close P;

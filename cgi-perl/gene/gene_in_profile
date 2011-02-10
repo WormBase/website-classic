@@ -1,0 +1,71 @@
+#!/usr/bin/perl
+
+use strict;
+use GD;
+use CGI qw(header param);
+
+use vars '$MOUNTAINS';
+use constant SRC => 'expr_map';
+use constant SIZE => 300;
+use constant SMALL_SIZE => 100;
+$MOUNTAINS ||= read_mountains();
+
+my $x = param('x');
+my $y = param('y');
+my $radius = param('r') || 4;
+
+my @X = (-201.947006,154.319000);
+my @Y = (-252.731995,170.431000);
+
+my $size = param('small') ? SMALL_SIZE : SIZE;
+
+my $scale_x = $size/($X[1]-$X[0]);
+my $scale_y = $size/($Y[1]-$Y[0]);
+
+my $cx = ($x - $X[0]) * $scale_x;
+my $cy = $size - ($y - $Y[0]) * $scale_y;
+my $im;
+my $path = param('small') ? SRC . "_small" : SRC;
+
+if (GD::Image->can('newFromPng')) {
+  $im = GD::Image->newFromPng("$path.png") or die "Can't open $path.png: $!";
+} else {
+  open (S,"$path.gif") or die "Can't open $path.gif: $!";
+  $im = GD::Image->newFromGif(\*S) or die;
+  close S;
+}
+
+my $white = $im->colorAllocate(255,255,255);
+my $black  = $im->colorAllocate(0,0,0);
+my $cyan   = $im->colorAllocate(0,139,139);
+my $blue   = $im->colorAllocate(0,0,255);
+
+foreach (keys %$MOUNTAINS) {
+  next unless /^\d+$/;
+  my ($x,$y) = @{$MOUNTAINS->{$_}}{'x_av','y_av'};
+  my $cx = ($x - $X[0]) * $scale_x;
+  my $cy = $size - ($y - $Y[0]) * $scale_y;
+  triangle($im,$cx+12,$cy,$_,$cyan);
+}
+
+$im->arc($cx,$cy,$radius*2,$radius*2,0,360,$blue);
+
+if ($im->can('png')) {
+  print header('image/png');
+  print $im->png;
+} else {
+  print header('image/gif');
+  print $im->gif;
+
+}
+
+sub read_mountains {
+  my $m = do './mountains_coords.txt';
+  return $m;
+}
+
+sub triangle{ 
+  my ($gd, $x, $y, $label,$color)    = @_; 
+  my $r = 4;
+  $gd->string(gdSmallFont,$x-(length $label * gdSmallFont->width)/2,$y-(gdSmallFont->height/2),$label,$color);
+} 

@@ -1,0 +1,28 @@
+#!/usr/bin/perl
+
+use strict;
+use lib '../lib';
+
+use Ace 1.80;
+use CGI qw(:standard :html3 escape -no_xhtml *table *TR *td);
+use CGI qw(:standard );
+use CGI::Carp qw(fatalsToBrowser);
+use Ace::Browser::AceSubs qw(:DEFAULT Configuration ResolveUrl AceRedirect DoRedirect);
+use Ace::Browser::SearchSubs;
+use ElegansSubs qw/:DEFAULT FetchPeople DisplayInstructions !TypeSelector FetchGene/;
+
+
+my $cgi = CGI->new;
+
+print $cgi->header;
+
+print "Testing CGI::escape<br><br>";
+
+my $param = "TEST PARAM";
+
+print "$param<br>";
+print "CGI::escape "  . CGI::escape($param) . "<br>";
+print "CGI->escape "  . CGI->escape($param) . "<br>";
+print "\$cgi->escape " . $cgi->escape($param) . "<br>";
+
+print "End of test<br><br>";

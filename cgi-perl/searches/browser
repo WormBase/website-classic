@@ -1,0 +1,84 @@
+#!/usr/bin/perl
+
+use strict;
+use vars qw($DB);
+
+use lib '../lib';
+
+use Ace 1.51;
+use CGI::Carp qw/fatalsToBrowser/;
+use CGI 2.42 qw/:standard :html3 escape/;
+use Ace::Browser::AceSubs qw(:DEFAULT ResolveUrl DoRedirect);
+use Ace::Browser::SearchSubs;
+use ElegansSubs;
+
+my $search_class   = param('class');
+my $search_pattern = param('query');
+my $offset         = AceSearchOffset();
+
+# fetch database handle
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+# here's where the search happens
+my ($objs,$count);
+$search_pattern ||= '*';
+($objs,$count) = do_search($search_class,$search_pattern || '*',$offset) if $search_class;
+DoRedirect(@$objs) if $count==1;
+
+PrintTop(undef,undef,'AceDB Search',
+	  '-Target' =>'_top',
+	  '-Class' =>'search',
+	  '-onLoad' => 'focussearch()');
+
+DisplayInstructions('Class Browser',
+		     'Select an object class and (optionally) type in a name or wildcard (*,?) pattern.',
+                     'Leave the name blank to see all objects in the class.',
+		     'The "Model" class will allow you to browse the database schema.',
+		     'NOTE: This database is a '.b('working prototype').'; its contents are not '.
+		     'curated to the same standard as the final WormBase product will be.'
+		    );
+display_search($objs,$count,$offset,$search_class,$search_pattern) if defined $search_class;
+display_search_form();  
+PrintBottom;
+
+sub display_search_form {
+  my @classlist = $DB->classes;
+  AceSearchTable('Wormbase Class Browser',
+		 table({-align=>'CENTER'},
+		       TR({-valign=>'MIDDLE'},
+			  td(
+			     td({-class=>'large',
+				 -rowspan=>2},
+				popup_menu(-name=>'class',
+					   -Values=>\@classlist,
+					  ),
+				'Search pattern (optional):',textfield(-name=>'query',
+								       -size=>'10',
+								      ),
+				submit(-label=>'Search ACE'),
+			       ),
+			    ),
+			 ),
+		      ),
+		),
+
+}
+
+sub do_search {
+  my ($class,$pattern,$offset) = @_;
+  my $count;
+  my (@objs) = $DB->fetch(-class=>$class,-pattern=>$pattern,
+			  -count=>MAXOBJECTS,-offset=>$offset,
+			  -total=>\$count);
+  return unless @objs;
+  return (\@objs,$count);
+}
+
+sub display_search {
+  my ($objs,$count,$offset,$class,$pattern) = @_;
+  my $title;
+  $title = $count > 0 ? p(strong($count),"objects of type",strong($class),"contain pattern",strong($pattern))
+                      : p({-class=>'error'},'No matching objects found');
+  my @objects = map { a({-href=>Object2URL($_)},"$_") } @$objs;
+  AceResultsTable(\@objects,$count,$offset,$title);
+}

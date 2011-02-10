@@ -1,0 +1,394 @@
+#!/usr/bin/perl
+# Igor's microarray_results script, circa 11.2003
+# Edited and initiated into the WB core by TWH, 12.2003.
+# The spirit remains the same, but the path is quite different
+
+use strict;
+use lib '../lib';
+use vars qw($DB $MR_OBJ $EXPERIMENT @CONDITIONS @EXP_TAGS $name $WORMBASE %HEADERS_SEEN %KEY2HEADER);
+use ElegansSubs qw(:DEFAULT !TypeSelector OverlappingGenes MicroarrayPapers parse_year);
+use Ace::Browser::AceSubs qw/OpenDatabase Url ObjectLink Object2URL/;
+use CGI qw(:standard *table *TR *th *td *center);
+use WormBase;
+
+END {
+  undef $MR_OBJ;
+  undef $EXPERIMENT;
+  undef @CONDITIONS;
+  undef @EXP_TAGS;
+  undef $name;
+  undef $WORMBASE;
+  undef %HEADERS_SEEN;
+};
+
+# This script conditionally builds table headers based on the types of
+# data returned. These are lists of tags that we will try to fetch
+# based on the current microarray experiment we are examining
+@CONDITIONS = (qw/Sample Life_stage Strain Genotype Temperature Remark Treatment/);
+@EXP_TAGS = (qw/
+		A_vs_B_log_ratio A_vs_B_SD Frequency Number_of_experiments Confidence.P_value
+		Confidence.Presence Confidence.Confidence_level Expression_cluster Remark/);
+
+# This hash translates fetched tags into something a little more
+# legible for the column header. If not listed, the tag itself will be
+# used as column header (underscores removed).
+%HEADERS_SEEN;
+%KEY2HEADER = (
+	       # Experiment specific-data
+	       A_vs_B_log_ratio      => 'log(A/B)',
+	       A_vs_B_SD             => 'Std Dev',
+	       'Confidence.P_value'  => 'P value',
+	       'Confidence.Presence' => 'Presence*',
+	       'Confidence.Confidence_level' => 'CL',
+	       'Number_of_experiments' => 'Number of experiments',
+	       'Frequency'             => 'Frequency (PPM)',
+	      );
+
+
+$name    = param('name');
+$DB      = OpenDatabase() || AceError("Couldn't open database.");
+$MR_OBJ  = $DB->fetch(-class=>'Microarray_results',-name=>$name) if ($name);
+
+# Maybe the user is searching by a microarray experiment
+# from the in-page search form
+# This is partially redundant with the code below (contained in print_experiment_details)
+if ($name && !$MR_OBJ) {
+  $EXPERIMENT = $DB->fetch(-class=>'Microarray_experiment',-name=>$name || param('experiment'));
+}
+
+if ($MR_OBJ) {
+  PrintTop($MR_OBJ,'Microarray_results');
+} else {
+  PrintTop($EXPERIMENT,'Microarray_experiment');
+}
+
+  print div({style=>'width:50%;background-color:#CCCCFF;margin-left:auto;margin-right:auto;padding:5px;border:2px solid blue;margin-bottom:20px'},
+		   h3("SPELL Microarray Resource now available"),    
+    p('Interested users may also wish to try the C. elegans <a href="http://spell.caltech.edu:3000/search/">SPELL microarray resource</a> which provides much greater sophistication in query and display of microarray data.'),
+	    p('For details, please see <a href="http://www.wormbase.org/wiki/index.php/SPELL">documentation</a> on the <a href="http://www.wormbase.org/org/wiki">WormBase Wiki</a>.'));
+
+
+
+$WORMBASE = WormBase->new($DB);
+$WORMBASE->print_prompt(-message  => 'Type in a microarray experiment ID such as',
+			-class    => 'Microarray_results',
+			-examples => ['Aff_2L52.A']) unless (param('details'));
+
+if (param('details') || $EXPERIMENT) {
+  print start_table({-border=>1});  
+  print_experiment_details($EXPERIMENT,$MR_OBJ);
+} elsif ($MR_OBJ) {
+  print start_table({-border=>1}); 
+  summary();
+  display_papers()  if !param('reference');
+}
+results()         if (param('reference') && param('name'));
+ClosePage();
+
+############################
+#        BEGIN SUBS        #
+############################
+
+# Display details on individual experiments
+sub print_experiment_details {
+  my ($experiment,$obj) = @_;
+#  if (!$experiment && $obj) {
+#       $experiment = $obj->Microarray;
+#  }
+  return unless $experiment;
+
+  StartSection('Details');
+  SubSection('Experiment ID',$experiment);
+  SubSection('Microarray',$experiment->Microarray);
+  # Samples
+  SubSection('Sample A',$experiment->Sample_A);
+  SubSection('Sample B',$experiment->Sample_B);
+  SubSection('Microarray Sample',$experiment->Microarray_sample);
+
+  SubSection('Reference',join('; ',map { a({-href=>Object2URL($_)},($_->Author || '') . ' (' . $_->Publication_date . '). '
+					   . $_->Title) } $experiment->Reference));
+  SubSection('Remark',$experiment->Remark);
+
+  EndSection();
+
+  # Follow condition objects...
+  my $condition = $experiment->Microarray_sample || $experiment->Sample_A || $experiment->Sample_B;
+  if ($condition) {
+    StartSection('Conditions');
+    my @tags = $condition->tags;
+    foreach ($condition->tags) {
+      if ($_ eq 'Relationship') {
+	SubSection('Timing: contains',$condition->Contains);
+	SubSection('Timing: contained in',$condition->Contained_in);
+	SubSection('Timing: precedes',$condition->Precedes);
+	SubSection('Timing: follows',$condition->Follows);
+      } elsif ($_ eq 'Reference') {
+      } else {
+	SubSection(clean($_),$_->col);
+      }
+    }
+    EndSection();
+  }
+
+  print end_table;
+  ClosePage();
+  exit;
+}
+
+
+sub clean {
+  my $tag = shift;
+  $tag =~ s/_/ /g;
+  return $tag;
+}
+
+sub summary {
+  StartDataTable;
+  # Fetch overlapping genes if this is an affymetrix set.
+  my @genes   = ($MR_OBJ->CDS) ? map {$_->Gene} $MR_OBJ->CDS : 
+      map { $_->Gene} map { $DB->fetch(-query=>qq{find Gene $_}) } OverlappingGenes($MR_OBJ->Oligo_set);
+  StartSection('Overview');
+  my $gene  = $MR_OBJ->Gene;
+  my $locus = $gene->CGC_name if $gene;
+  SubSection('Locus',ObjectLink($locus->CGC_name_for,$locus)) if $locus;
+  SubSection('Predicted Gene(s)',join(', ',map { a({-href=>Object2URL($_)},$_->Molecular_name || $_->CGC_name) } @genes)) if (@genes);
+  SubSection('Transcript',join(', ',map { ObjectLink($_) } $MR_OBJ->Transcript)) if ($MR_OBJ->Transcript );
+  SubSection('PCR product(s)',join(', ',map { ObjectLink($_) } $MR_OBJ->PCR_product)) if ($MR_OBJ->PCR_product );
+  SubSection('Oligo Set',join(', ',map { ObjectLink($_) } $MR_OBJ->Oligo_set)) if ($MR_OBJ->Oligo_set );
+  SubSection('Microarray',join(', ',map { ObjectLink($_) } $MR_OBJ->Microarray)) if ($MR_OBJ->Microarray );
+  SubSection('Remark',join(', ',$MR_OBJ->Remark)) if ($MR_OBJ->Remark );
+}
+
+sub results {
+  my $paper = param('reference');
+  my $paper_obj = fetch_papers($paper);
+  StartSection('Reference');
+  SubSection('Title',$paper_obj->Title . ' ' . ObjectLink($paper_obj));
+  SubSection('Authors',join(', ',map { ObjectLink($_) } $paper_obj->Author)  . '.');
+  SubSection('Year',join(', ',parse_year($paper_obj->Publication_date)));
+  SubSection('Journal',join(', ',$paper_obj->Journal));
+  EndSection;
+
+  # Hill et al. Uncomment the following to display the Hill paper null hypothesis
+  #if ($paper_obj->Title eq 'Genomic analysis of gene expression in C. elegans.') {
+  #  StartSection('Null Hypothesis');
+  #  print 'no variation in the frequency of the transcript across the 8 samples';
+  #}
+  EndDataTable;
+ 
+  my $query     = "find microarray_experiment reference = \"$paper\"";
+  my @experiments = $DB->fetch(-query=>$query,-fill=>1);
+  my @results = map { fetch_data($_) } @experiments;
+
+  # Conditionally print column headers
+  print p;
+  StartDataTable;
+  print start_TR(),th({-class=>'searchtitle'},'Experiment');
+  # Headers are based on tags that were succesful in returning data
+  # They may be one of <$tag>, or <$tag> suffixed with _A or _B
+  # As it turns out, these tag types are semi-exclusive of each other
+  # Print them out in the specified order
+  my @types = ('','_A','_B');
+  foreach my $suffix (@types) {
+    foreach (@CONDITIONS) {
+      my $index = $_ . $suffix;
+      if (defined $HEADERS_SEEN{$index}) {
+	$index =~ s/_/ /g;
+	print th({-class=>'searchtitle'},$index);
+      }
+    }
+  }
+  
+  # Print out the secondary, experiment specific-headers
+  foreach (@EXP_TAGS) {
+    print th({-class=>'searchtitle'},$KEY2HEADER{$_} || $_) if (defined $HEADERS_SEEN{$_});
+  }
+
+  if (!@experiments || !@results) {
+    none_found('No microarray experiments reported in this paper.');
+    return;
+  }
+
+  # Treating all returned values as arrays
+  foreach my $this (@results) {
+    my @cells;
+    # Experiment details will be displayed in a new window
+    my $url = self_url();
+    my $url = url();
+    my $experiment = $this->{experiment};
+    $experiment =~ s/\[/%5B/;
+    $experiment =~ s/\]/%5D/;
+#    push @cells,a({-href=>"$url;experiment=" . $experiment . ';details=1'},$this->{experiment});
+    push @cells,ObjectLink($experiment);
+    foreach my $suffix (@types) {
+      foreach my $col (@CONDITIONS) {
+	my $index = $col . $suffix;
+	next if (!defined $HEADERS_SEEN{$index});
+	# Although this header may have been seen for one record in the batch,
+	# not all experiments will have this.
+	my @contents = eval { @{$this->{$index}} };
+	my @linked;
+	if ($index =~ /Temperature|Genotype|Remark|Treatment|Expression_cluster|Sample/) {
+	  @linked = (@contents) ? join(', ',@contents) : '&nbsp;';
+	} else {
+	  @linked = (@contents) ? join(', ',map { ObjectLink($_) } @contents) : '&nbsp;';
+	}
+	push (@cells,@linked);
+      }
+    }
+
+    foreach my $index (@EXP_TAGS) {
+      next if (!defined $HEADERS_SEEN{$index});
+      # Although this header may have been seen for one record in the batch,
+      # not all experiments will have this.
+      my @contents = eval { @{$this->{$index}} };
+      if (@contents) {
+	push (@cells,@contents
+	      ?
+	      join(', ',($index=~ /Remark|Frequency|Value|Presence|P_value|Temperature|A_vs_B|experiments|level/)
+		   ? @contents
+		   : map { ObjectLink($_) }@contents )
+	      : '&nbsp');
+      } else {
+	push (@cells,'');
+      }
+    }
+    print TR({-class=>'databody'},td(\@cells));
+  }
+  EndDataTable;
+  
+  # Display papers that have related experiments
+  my @papers = MicroarrayPapers($MR_OBJ);
+  # If only 1 paper is returned, it's the same as that being displayed
+  if (@papers > 1) {
+    print p;
+    StartDataTable;
+    StartSection('Related experiments appear in:');
+    print  TR(th({-class=>'datatitle'},['Publication','Microarray Experiments']));
+    foreach (@papers) {
+      # Lots of overhead here just to exclude the current paper from the list
+      next if ($_ eq $paper_obj);
+      print TR({-class=>'databody'},td([a({-href=>Object2URL($_)},eval { $_->Brief_citation}),link_back($_)]));
+    }
+    EndDataTable;
+  }
+
+  print_notes() if defined($HEADERS_SEEN{'Confidence.Presence'});
+}
+
+sub print_notes {
+  print br;
+  print table(
+	TR({-colspan=>2},
+	   b("*Notes:")),
+	TR(td("NP (Never Present):"),
+	   td("The frequency value is not significant.")),
+	TR(td("PS (Present Sometimes):"),
+	   td("The frequency value is significant.")),
+	TR(td("PA (Present Always):"),
+	   td("The frequency value is highly significant.")));
+  print p(em("For more details about  NP, PS and PA, see the corresponding",
+	     a({-href=>'http://www.its.caltech.edu/~wormbase/userguide/Page/Affy/index.html'},
+	       "user guide page.")));
+}
+
+sub display_papers {
+  my @papers = MicroarrayPapers($MR_OBJ);
+  my @rows;
+  foreach (@papers) {
+      next if $_ eq ''; # Kludge - retrieving some empty paper objects;
+    push @rows,[a({-href=>Object2URL($_)},eval { $_->Brief_citation }),link_back($_)];
+  }
+
+  return unless @rows;
+  StartSection('Referenced In');
+  print  TR(th({-class=>'datatitle'},['Publication','Microarray Experiments']));
+  foreach (@rows) {
+    print TR({-class=>'databody'},td($_));
+  }
+  EndDataTable;
+}
+
+# Generate a link back to the microarray script referencing a given paper
+sub link_back {
+  my $paper = shift;
+  return unless $paper;
+  # How many results are listed...This is DB query overkill
+  #my $query     = "find microarray_experiment reference = \"$paper\"";
+  #my @total = $DB->fetch(-query=>$query);
+
+  my @total = $paper->Microarray_experiment;
+
+  my $target = '/db/microarray/results?name=';
+  # duh, escaping...
+  $paper =~ s/\[/%5B/;
+  $paper =~ s/\]/%5D/;
+  my $link = a({-href=>$target . $MR_OBJ . ";reference=$paper"},@total == 1 ? '1 condition' : scalar @total . ' conditions');
+  return $link;
+}
+
+sub fetch_papers {
+  my $paper = shift;
+  my $obj = $DB->fetch(-class=>'Paper',-name=>$paper);
+  none_found("No $paper object found") if (!$obj);
+  return $obj;
+}
+
+sub fetch_data {
+  my $exp  = shift;
+  my $data = {};
+  $data->{experiment} = $exp;
+  $data->{ref}     = eval { $exp->Reference }; #####  if $_->Reference;
+  $data->{exp_rem} = [ $exp->Remark ] if $exp->Remark;
+
+  # These tags are attached to the overall microarray experiment
+  my @tmp_tags = qw/Confidence.P_value Confidence.Presence Confidence.Confidence_level Expression_cluster Remark/;
+  foreach my $tag (@tmp_tags) {
+    my @fetched = $MR_OBJ->at("Results.$exp.$tag");
+    $HEADERS_SEEN{$tag}++ if (@fetched);
+    $data->{$tag} = \@fetched if (@fetched);
+  }
+
+  # The following data is attached to each specific experiment
+  my @mr_tags = qw/A_vs_B_log_ratio A_vs_B_SD Frequency Number_of_experiments/;
+  my @tmp = $MR_OBJ->at("Results.$exp");
+  if (@tmp) {
+    foreach my $tag (@mr_tags) {
+      my @results = eval { $tmp[0]->$tag->fetch  };
+      $data->{$tag} = \@results if (@results);
+      $HEADERS_SEEN{$tag}++ if (@results);
+    }
+  }
+
+  # Microarray conditions
+  # Some are structured as 
+  #      Experiment->Microarry_sample->Sample, others
+  #   as Experiment->Sample->Sample
+  # Fetch all in array context for easier display processing
+  my @suffixes = ('','_A','_B');
+  foreach my $suffix (@suffixes) {
+    my $query = ($suffix eq '') ? 'Microarray_sample' : 'Sample' . $suffix;
+    
+    # Fetch the samples of the experiment;
+    if (my $sample_id = $exp->$query) {
+      my $sample_tag = ($suffix eq '') ? 'Sample' : $query;
+      $data->{$sample_tag} = [ $sample_id ]; # Treat as array ref for consistent processing
+      $HEADERS_SEEN{$sample_tag}++ if ($sample_id);
+      foreach my $tag (@CONDITIONS) {
+	next if ($tag eq 'Sample');    # Already accounted for above
+	my $key = $tag . $suffix;
+	#my @results = $exp->$sample_tag->$tag;
+	my @results = $sample_id->$tag;
+	$data->{$key} = \@results;
+	$HEADERS_SEEN{$key}++ if (@results);
+      }
+    }
+  }
+  return $data;
+}
+
+sub none_found {
+  print TR({-class=>'databody'},td(shift));
+  return;
+}
+

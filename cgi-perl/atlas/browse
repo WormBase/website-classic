@@ -1,0 +1,172 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# file: sw/browse
+
+use strict;
+use lib '../lib';
+use GD;
+use Ace;
+use Ace::Browser::AceSubs;
+use ElegansSubs;
+use CGI qw(:standard);
+
+use vars qw($MASTER_IMAGE @MAP);
+
+# recover our configuration information
+my $cartoon      = Configuration->Sw_cartoon;
+my $map_path     = Configuration->Sw_map;
+my $cartoon_path = url2path($cartoon);
+
+# the parameter "pos.x" contains the current horizontal position
+my $pos   = param('pos.x');
+my $image = make_image($cartoon_path);
+my $map   = make_map($map_path,($image->getBounds)[0]);
+$pos      = adjust_position($image,$pos);
+
+# this gets called if the "draw" argument is set
+if (param('draw')) {
+  my $mimetype = $image->can('gif') ? 'image/gif' : 'image/png';
+  print header($mimetype);
+  scribble($image,$pos);
+  print $image->can('gif') ? $image->gif : $image->png;
+  exit 0;
+}
+
+OpenDatabase();
+
+# this gets called if the "draw" argument is not set
+PrintTop(undef,undef,'Slidable Worm');
+DisplayInstructions('Prototype','This software prototype does not have EMs to cover the entire worm, so some sections are displayed in inappropriate locations. We will move this display to the main WormBase pages when the EM set is complete.  Please feel free to comment on the interface and to make suggestions for future functionality.');
+print_navigation_image();
+print hr;
+print_micrograph($map,$pos);
+PrintBottom();
+
+sub make_image {
+  my $path = shift;
+  unless ($MASTER_IMAGE) {
+    if (GD::Image->can('newFromGif') && $path =~ /\.gif$/) {
+      open (F,$path) or die "Can't open $path: $!";
+      $MASTER_IMAGE = GD::Image->newFromGif(\*F);
+      close F;
+    } elsif ($path =~ /\.png$/) {
+      $MASTER_IMAGE = GD::Image->newFromPng($path);
+    } elsif ($path =~ /\.je?pg$/) {
+      $MASTER_IMAGE = GD::Image->newFromJpeg($path);
+    } else {
+      die "Don't know how to create a GD::image from $path";
+    }
+    $MASTER_IMAGE or die "Failed to create a GD::Image from $path";
+  }
+  return $MASTER_IMAGE->clone;  # return a copy please
+}
+
+
+sub make_map {
+  my $path  = shift;
+  my $width = shift;
+  unless (@MAP) {
+    open (F,$path) or die "Can't open map file $path: $!";
+    while (<F>) {
+      chomp;
+      my ($image,$pixels) = split /\s+/;
+      $MAP[$pixels] = $image;
+    }
+    close F;
+
+    # do an interpolation to fill in missing areas
+    my $previous;
+    for (my $i=0;$i<$width;$i++) {
+
+      if ($MAP[$i]) {  # found one; fill in missing
+	my $pivot = defined($previous) ? int(($previous+$i)/2) : -1;
+	$MAP[$_] = $MAP[$previous] for ($previous+1 .. $pivot);
+	$MAP[$_] = $MAP[$i]  	   for ($pivot+1..$i-1);
+	$previous = $i;
+      }
+
+    }
+
+    $MAP[$_] = $MAP[$previous] for ($previous+1..$width);
+
+  }
+
+  return \@MAP;
+}
+
+sub adjust_position {
+  my $image = shift;
+  my $pos   = shift;
+  my($width,$height) = $image->getBounds;
+  return int($width/2) unless defined $pos;
+  return 0      if $pos < 0;
+  return $width if $pos > $width;
+  return $pos;
+}
+
+sub scribble {
+  my ($image,$pos) = @_;
+  my($width,$height) = $image->getBounds;
+
+  my $top    = +13;
+  my $bottom = $height-13;
+
+  my $white  = $image->colorClosest(255,255,255);
+  my $black  = $image->colorClosest(0,0,0);
+  my $yellow = $image->colorAllocate(255,255,0);
+  my $blue   = $image->colorAllocate(0,140,250);
+
+  my $poly1 = GD::Polygon->new;
+  $poly1->addPt(0,0);
+  $poly1->addPt(-5,-10);
+  $poly1->addPt(5,-10);
+
+  my $poly2 = GD::Polygon->new;
+  $poly2->addPt(0,0);
+  $poly2->addPt(-5,10);
+  $poly2->addPt(5,10);
+
+  $poly1->offset($pos,$top);
+  $poly2->offset($pos,$bottom);
+
+  $image->filledPolygon($poly1,$yellow);
+  $image->polygon($poly1,$black);
+
+  $image->filledPolygon($poly2,$yellow);
+  $image->polygon($poly2,$black);
+
+  $image->line($pos,$top+1,$pos,$bottom-1,$blue);
+}
+
+sub url2path {
+  my $url = shift;
+  my $r = Apache->request;
+  my $subr = $r->lookup_uri($url) or die "Can't look up path for $url";
+  return $subr->filename;
+}
+
+sub print_navigation_image {
+  param(draw=>1);
+  my $self = url(-relative=>1,-query=>1);
+
+  print div({-align=>'CENTER'},
+	  start_form(),
+	  image_button(-name  =>  'pos',
+		       -src   =>  $self),
+	  end_form()
+	 );
+}
+
+sub print_micrograph {
+  my ($map,$pos) = @_;
+  my $image = $map->[$pos];
+  $image .= ".jpg" unless $image=~/\.jpg$/;
+  (my $thumbnail = $image) =~ s/\.jpg$/_thumb.jpg/;
+  my $url   = Configuration->Sw_images . "/" . $thumbnail;
+  my $link  = Configuration->Sw_images . "/" . $image;
+  print p({-align=>'CENTER'},
+	  a({-href=>$link,-target=>"_blank"},
+	    img({-src=>$url,-alt=>"section $pos",-border=>0})
+	   )
+	 );
+}

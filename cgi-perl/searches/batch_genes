@@ -1,0 +1,1626 @@
+#!/usr/bin/perl
+# filename: batch_genes
+# Author: T. Harris
+
+# Derived from my infamous info_dump, batch_genes aims to
+# more easily and powerfully enable data dumps for batches of genes.
+
+# In particular, it uses a more flexible layout so that it
+# is easier to add new features.
+
+#### NEW FEATURES
+# User should be able to enter:
+# 1. three letter locus names (Gene_name)
+# 2. molecular IDs
+# 3. accession numbers
+
+# Passing a "test=1" parameter in the URL will automatically populate
+# the form with some test selections
+
+use CGI qw/:standard :Pretty *table *TR *td *center center *ul pre/;
+use CGI::Carp qw/fatalsToBrowser/;
+use Ace;
+use Ace::Browser::AceSubs;
+use Ace::Sequence;
+use Time::Format;
+use Date::Manip;
+
+#use Data::Dumper;
+
+use lib '../';
+use ElegansSubs qw(:DEFAULT FetchGene Bestname format_reference);
+use WormBase::FetchData;
+use strict;
+
+use vars qw($DB);
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+my $formatting = Formatting->new();
+my $data       = Data->new();
+
+# Were genes passed in from elsewhere?
+# Let's give the users a chance to select the info they want
+draw_form()    if (param('retrieve') || param('test'));
+display_help() if param('help');
+
+# Else script is being called by itself or for the first time
+process_request() if (param);
+draw_form();
+
+sub draw_form {
+  my $msg = shift;
+  PrintTop(undef,undef,undef, '-Title' => 'Batch Genes / Gene Summaries');
+
+  print h1("Batch Genes");
+  print p({-class=>'error'},$msg);
+
+  print p('This page facilitates the batch retrieval of information
+  for a given set of genes, CDSes, proteins, or transcripts.  This is
+  useful for cross-comparing important parameters in a concise
+  table-formatted display. Tab-delimited text file output is also
+  available for post-processing.');
+
+  print  p('Type or paste in a list of genes, separated by ' . b('return') . '. You may use genetic loci (unc-26), '
+	   . 'gene IDs (R13A5.9), '
+	   . 'protein IDs (WP:CE00072), '
+	   . ' or CDS IDs (JC8.10a). '
+	   . ' The * wildcard is also accepted: '
+	   . cite('unc*'),' will list all unc genes,'
+	   . cite(' T20G5*'),' will list all genes on T20G5.');
+
+  my $help = a({-href=>url(-absolute=>1) . '?help=1',-target=>'_blank'},"help");
+  print "Please see the $help page for additional information.";
+  
+  # Prefabricated queries in drop down menu
+  my %prefab = ('seqs_plain' =>
+		'Spliced, unspliced, and translated sequences of your set',
+		'genetic'          => 'List all genetically-defined genes',
+		'cloned'           => 'List all genetically-defined genes that have been cloned',
+		'confirmed'        => 'List all confirmed genes',
+		'elegans_rna'      => 'List all C. elegans RNA genes',
+		'briggsae_rna'     => 'List all C. briggsae RNA genes',
+		'elegans_pseudo'   => 'List all C. elegans pseudogenes',
+		'briggsae_pseudo'  => 'List all C. briggsae pseudogenes',
+		'cgc'        => 'List all genes with CGC names',
+		'partial'    => 'List all partially confirmed genes',
+		'predicted'  => 'List all predicted genes',
+		'briggsae_genes'   => 'List all C. briggsae genes',
+	       );
+  my @labels = qw/genetic cloned cgc confirmed partial predicted elegans_rna briggsae_rna 
+    elegans_pseudo briggsae_pseudo briggsae_genes/;
+  
+  # Checkboxes
+  if (1) {
+    print start_form,
+      start_table({-width=>'100%',-cellpadding=>0,-cellspacing=>1});
+    print TR(
+	     th({-class=>'searchtitle',-rowspan=>3,-rowspan=>3},'Genes, Loci, or Proteins'),
+	     th({-class=>'searchtitle',-colspan=>4},'Prefabricated Queries'));
+    print TR(
+	     td({-class=>'searchtitle',-colspan=>3,-align=>'center'},
+		popup_menu(-name=>'prefab',
+			   -values=>\@labels,
+			   -labels=>\%prefab,
+			   -linebreak=>'true',
+			   -default=>'')),
+	     td({-align=>'center',-class=>'searchtitle'},
+		submit(-name=>'prefab_submit',
+		       -value=>'Submit Prefab Query')));
+    
+    # Print out the build your own options...
+    # Use genes passed in from elsewhere as the default
+    print TR({-class=>'searchtitle'},th({-colspan=>4},'Build Your Own'));
+    
+    # This litle shortcut is for debugging...
+    if (url_param('test')) {
+      param(-name=>'queries',-values=>[qw/CE00072 CE00096 WP:CE00098 WP:CE00111 unc* ric-1 JC8.10a/]);
+    }
+    print TR(td({-class=>'searchtitle',
+		 -rowspan=>6,
+		 -align=>'center',
+		 -width=>'25%'},
+		textarea(-name=>'queries',
+			 -cols=>25,
+			 -rows=>20,
+			 -default=>join("\n",param('retrieve')))));
+
+    # Turn some checkboxes on by default
+    my %defaults = (external_db => 'on',
+		    wormbase_db  => 'on',
+		    gene         => 'off',
+		    protein      => 'off',
+		    phenotype    => 'off',
+		    reagents     => 'off',
+		    seq          => 'off');
+
+    # Printing two x two for now...
+    my $count = 1;
+    foreach my $class ($formatting->classes) {
+	  $count++;
+      print start_TR() if ($count % 2 == 0);
+      my @defaults = $formatting->components($class) if ($defaults{$class} eq 'on');
+      print th({-class=>'searchtitle'},
+	       $formatting->label($class),
+	       td({-class=>'searchbody'},
+		  checkbox_group(-name=>$class,
+				 -values=>[$formatting->components($class)],
+				 -default=>\@defaults,
+				 -linebreak=>'true')));
+      print end_TR if ($count % 2 != 0);
+    }
+    print TR(td({-class=>'searchtitle'},'&nbsp;'),
+	     th({-class=>'databody',-colspan=>3},'Format'),
+	     td({-class=>'databody'},
+		radio_group(-name=>'format',
+			    -values=>['HTML','Plain Text','Save To File'],
+			    -default=>'HTML',
+			    -linebreak=>'true')));
+    print TR({-class=>'searchtitle'},
+	     td({-align=>'right',
+		 -colspan=>5},
+		reset(-name=>'Reset'),
+		submit(-name=>'submit',
+		       -value=>'Submit Query')));
+  }
+  
+  # Multple scrolling windows
+  # Note - switching back to this layout may neccesitate changes in the
+  # datatypes strucutre, sort order, etc
+  if (0) {
+    print start_form,
+      start_table({-width=>'100%',-cellpadding=>0,-cellspacing=>1});
+    print TR(
+	     th({-class=>'searchtitle',-colspan=>2,-rowspan=>3},'Genes, Loci, or Proteins'),
+	     th({-class=>'searchtitle',-colspan=>3},'Prefabricated Queries'));
+    print TR(
+	     td({-class=>'searchtitle',-colspan=>2,-align=>'center'},
+		popup_menu(-name=>'prefab',
+			   -values=>\@labels,
+			   -labels=>\%prefab,
+			   -linebreak=>'true',
+			   -default=>'')),
+	     td({-align=>'center',-class=>'searchtitle'},
+		submit(-name=>'prefab_submit',
+		       -value=>'Submit Prefab Query')));
+    
+    # Print out the build your own options...
+    # Use genes passed in from elsewhere as the default
+    print TR({-class=>'searchtitle'},th({-colspan=>3},'Build Your Own'));
+    # This litle shortcut is for debugging...
+    if (url_param('test')) {
+      param(-name=>'queries',-values=>[qw/CE00072 CE00096 WP:CE00098 WP:CE00111 unc* ric-1 JC8.10a/]);
+    }
+    print TR(td({-class=>'searchtitle',
+		 -rowspan=>5,
+		 -colspan=>2,
+		 -align=>'center',
+		 -width=>'25%'},
+		textarea(-name=>'queries',
+			 -cols=>25,
+			 -rows=>20,
+			 -default=>join("\n",param('retrieve')))));
+
+    print start_TR();
+    foreach my $class ($formatting->classes) {
+      print th({-class=>'searchtitle'},
+	       $formatting->label($class));
+    }
+    print start_TR();
+    foreach my $class ($formatting->classes) {
+      ##    my @defaults = @{$params->{$class}} if ($defaults{$class} eq 'on');
+      # Manual sorting
+      #      my @options = sort {$a cmp $b } $formatting->sort_order($class);
+      my @options = $formatting->components($class);
+      print td({-class=>'searchbody'},
+	       # Independent scrolling lists
+	       scrolling_list(-name=>$class,
+			      -values   =>\@options,
+			      ##			    -default=>\@defaults,
+			      -size     => 10,   #scalar @options,
+			      -multiple =>1,
+			      -width    =>30));
+    }
+    print end_TR();
+    print TR(td({-class=>'searchtitle',-colspan=>1},"&nbsp;"),
+	     th({-class=>'databody'},'Format'),
+	     td({-class=>'databody'},
+		radio_group(-name=>'format',
+			    -values=>['HTML','Plain Text','Save To File'],
+			    -default=>'HTML',
+			    -linebreak=>'true')));
+    print TR({-class=>'searchtitle'},
+	     td({-align=>'right',
+		 -colspan=>5},
+		reset(-name=>'Reset'),
+		submit(-name=>'submit',
+		       -value=>'Submit Query')));
+  }
+
+  # A single scrolling window
+  if (0) {
+    print start_TR();
+    print td({-class=>'searchbody',-colspan=>3},
+	     scrolling_list(-name=>'datatypes',
+			    -values=>$formatting->datatypes,
+			    #			     -default=>\@defaults,
+			    -size=>25,
+			    -multiple=>1,
+			    -width=>30));
+    print end_TR;
+  }
+
+  print end_form,end_table();
+  PrintBottom;
+  exit;
+}
+
+sub display_help {
+  PrintTop(undef,undef,undef, '-Title' => 'Batch Genes / Gene Summaries Help Page');
+  print start_form(),button(-onClick=>'window.close()',-label=>'Close Window'),end_form();
+  print h2('Batch Genes Help Page');
+  print h3('Description');
+
+  print ('The <a
+  href="http://www.wormbase.org/db/searches/batch_genes">Batch
+  Genes</a> page simplifies the retrieval of information from batches
+  of genes or proteins en massse. It includes a number of useful
+  prefabricated queries as well as the option to select specific types
+  of information to retrieve.');
+
+  print h3('Usage');
+
+  print p("To use the Batch Genes tool, simply enter a list of items in
+  the text box on the left, select the items you wish to retrieve,
+  select an output format, and click submit.  You may enter
+  three-letter locus names (<i>unc-26</i>), gene IDs (JC8.10), CDS or
+  transcript IDs (JC8.10a), or protein IDs (WP:CE29459).");
+  
+  print p('Note that depending on the type of item entered, different results
+  are possible.  For example, selecting the coding sequence (CDS)
+  option and entering a gene (JC8.10) will return all corresponding
+  CDSes associated with that gene.  Entering a protein ID will return
+  only the single CDS associated with the protein.');
+
+  print h3('Available Formats');
+
+  print p('The Batch Genes page can generate either HTML output or
+  plain text. In HTML output, items retrieved will be linked back into
+  the database where more detailed information can be found.  Text
+  output is tab-delimited so that it can easily be imported into a
+  spread-sheet.  Note that many options can return lists of multiple
+  items.  In these instances, text output will have keep each option
+  in a single cell but seperate items by semicolons. The "Save to
+  File" option will prompt you for a file name and location to save
+  the output locally.');
+
+  print p('Please note that sequences are returned in standard FASTA
+  format in the "Plain Text" option. Sets of data containing sequences
+  will be unsuitable for import into a spreadsheet because of line
+  breaks contained in the FASTA format.  If you would like to export
+  sequences along with other data, select the "Save To File" option.
+  This will flatten sequences so that they may be correctly imported
+  into a spreadsheet.');
+
+  print h3('Prefabricated Queries');
+
+  print p("These preformulated queries make it easy to retrieve
+  commonly requested gene sets. They can be returned in HTML or plain text.");
+  print center(table({-width=>'90%',-border=>1},
+		     TR({-class=>'datatitle'},td({-width=>'50%'},'Query'),td('Description')),
+		     TR({-class=>'databody'},
+			td('List all genetically-defined genes'),
+			td('This query returns all genes that have an associated three-letter locus name.')),
+		     TR({-class=>'databody'},
+			td('List all genetically-defined genes that have been cloned'),
+			td('This query returns all genes that have
+			both an associated three-letter locus name and
+			molecular information.')),
+		     TR({-class=>'databody'},
+			td('List all genes with CGC names'),
+			td('All genes with associated three-letter
+			locus names that have been approved by the CGC
+			will be returned by this query.')),
+		     TR({-class=>'databody'},
+			td('List all confirmed genes'),
+			td('This query returns all genes that have
+			cDNA or EST confirmation of every exon.')),
+		     TR({-class=>'databody'},
+			td('List all partially confirmed genes'),
+			td('This query will list all genes that have
+			matching cDNAs but have partial cDNA/EST
+			confirmation of some exons')),
+		     TR({-class=>'databody'},
+			td('List all predicted genes'),
+			td('This query will list all genes that lack
+			matching cDNAs. Important to note is that
+			these genes may have other experimental
+			evidence, such as a non-WT RNAi result.')),
+		     TR({-class=>'databody'},
+			td('List all C. elegans RNA genes'),
+			td('This query returns all C. elegans genes annotated as
+			RNA genes. This include ncRNA, tRNA, and
+			miRNAs.')),
+		     TR({-class=>'databody'},
+			td('List all C. briggsae RNA genes'),
+			td('This query returns all C. briggsae genes annotated as
+			RNA genes.')),
+		     TR({-class=>'databody'},
+			td('List all C. elegans pseudogenes'),
+			td('This query returns all C. elegans genes thought to be
+			pseudogenes. An active area of research, this
+			data set changes often.')),
+		     TR({-class=>'databody'},
+			td('List all C. briggsae pseudogenes'),
+			td('This query returns all C. briggsae genes thought to be
+			pseudogenes.')),
+		     TR({-class=>'databody'},
+			td('List all C. briggsae genes'),
+			td('This query recovers all C. briggsae genes.'))));
+
+  print h3("Available fields (listed alphabetically)");
+  print center(table({-width=>'90%',-border=>1},
+		     TR({-class=>'datatitle'},td({-width=>'25%'},'Option'),td('Description')),
+		     TR({-class=>'databody'},td('Alleles'),
+			td('Fetch all alleles associated with a given gene')),
+		     TR({-class=>'databody'},td('Alleles, total number of'),
+			td('For genes with an associated locus, this
+			option will return the total number of
+			alleles')),
+		     TR({-class=>'databody'},td('Allele, reference'),
+			td('This option returns the reference allele
+			for genetically-defined genes. The reference
+			allele is typically the first allele isolated,
+			but may also be the allele which most clearly
+			exhibits the mutant phenotype.')),
+		     TR({-class=>'databody'},td('Antibody'),
+			td('If provided with a protein, this option
+			will list known antibodies generated against
+			that protein.  If provided with a gene, this
+			option will return all antibodies generated
+			against the protein products of the gene.')),
+		     TR({-class=>'databody'},td('Brief identification'),
+			td('A brief description outlining the annotated function of the gene.')),
+		     TR({-class=>'databody'},td('Concise description'),
+			td('A curated, concise description of gene function.')),
+		     TR({-class=>'databody'},td('CDS'),
+			td('Coding sequence. Selecting CDS will return
+			a list of coding sequence IDs.  These IDs have
+			the format of cosmid.xx.  If the primary
+			search object is a gene or transcript, this
+			will return all coding sequences associated
+			with those objects. If the primary search
+			object is a protein, this will return the its
+			corresponding CDS.')),
+		     TR({-class=>'databody'},td('EuGenes'),
+			td(a({-href=>""},'EuGenes'),' is a database of
+			eukaryotic gene function maintained at Indiana
+			University. Selecting this option will
+			retrieve the corresponding EuGenes ID for
+			WormBase genes.  If the primary search object
+			is a gene, this may return multiple items,
+			corresponding to alternative transcripts. With
+			the HTML option selected, this provides a
+			direct link to EuGenes.')),
+		     TR({-class=>'databody'},td('Expression data'),
+			td('Selecting this option will display a
+			partial set of the expression data for the
+			gene available at WormBase. This may include
+			data from multiple experiments and
+			sources.')),
+		     TR({-class=>'databody'},td('GenBank'),
+			td('Selecting this option will return the
+			corresponding NCBI GenBank ID for the gene or
+			protein. If provided with an alternatively
+			spliced gene, multiple GenBank IDs may be
+			returned.')),
+		     TR({-class=>'databody'},td('Gene (public name)'),
+			td('The common name for a gene.  For genes
+			with associated loci, this will be the three
+			letter locus name. For predicted genes, this
+			will be the cosmid.## name.')),
+		     TR({-class=>'databody'},td('Gene ontology terms'),
+			td('Selecting this option will return all gene
+			ontology terms associated with the gene or
+			protein.  This field may have multiple entries
+			corresponding to the three tiers of gene
+			ontology: biological process, cellular
+			component, and molecular function.')),
+		     TR({-class=>'databody'},td('GenPep'),
+			td('If selected, this option will return the
+			external NCBI <a
+			href="http://www.ncbi.nlm.nih.gov/entrez/">GenPep
+			Entrez</a> ID for the corresponding WormBase
+			gene. Alternatively spliced genes may have
+			more than one associated GenPep ID')),
+		     TR({-class=>'databody'},td('Intronerator'),
+			td('If selected, this option will return the
+			external <a
+			href="http://www.cse.ucsc.edu/~kent/intronerator/index.html">Intronerator</a>
+			ID. The Intronerator is a genome browsing tool
+			with particular emphasis on the role of
+			alternative splicing.')),
+		     TR({-class=>'databody'},td('Laboratory'),
+			td('Laboratory of origin for the item.')),
+		     TR({-class=>'databody'},td('Locus (canonical)'),
+			td('This option will return the canonical three-letter
+			locus name for a gene, if one exists.')),
+		     TR({-class=>'databody'},td('Ortholog (C. briggsae)'),
+			td('This option will return a C. briggsae
+			ortholog for the given gene, if
+			known. Ortholog pairs are determined using a
+			best reciprocal match blast algorithm')),
+		     TR({-class=>'databody'},td('Other locus names'),
+			td('For genes with an associated locus, this
+			option will return other names by which the
+			locus is known.')),
+		     TR({-class=>'databody'},td('Phenotype'),
+			td('This option returns curated summaries and
+			observation of genetic phenotypes for
+			genetically defined genes')),
+		     TR({-class=>'databody'},td('Position, genetic map'),
+			td('The experimentally determined genetic map position. If not
+			available, the interpolated genetic map
+			position will be displayed.')),
+		     TR({-class=>'databody'},td('Position, physical map'),
+			td('The absolute position of the gene on the physical map (when known).')),
+		     TR({-class=>'databody'},td('Prominent motifs'),
+			td('This option will return prominent protein
+			motifs gleaned from literature curation and
+			inferred from electronic annotation.')),
+		     TR({-class=>'databody'},td('Protein'),
+			td('The WormBase protein ID.  Multiple entries
+			may be returned for alternatively spliced
+			genes.')),
+		     TR({-class=>'databody'},td('Remarks'),
+			td('This option returns miscellaneous remarks
+			concerning the current record.  These may be
+			gleaned from personal communication, limited
+			scale electronic annotation, or be generated
+			during curation.')),
+		     TR({-class=>'databody'},td('RNAi'),
+			td('RNAi results and phenotypes. Multiple
+			results may be associated with any given
+			gene.')),
+		     TR({-class=>'databody'},td('Species'),
+			td('The species of origin of the gene, protein, or CDS.')),
+		     TR({-class=>'databody'},td('Spliced DNA'),
+			td('The full length spliced DNA. If the
+			primary search object is a gene, multiple
+			items may be returned if the gene has known
+			splice variants.')),
+		     TR({-class=>'databody'},td('Spliced length'),
+			td('The length of each associated spliced transcript.')),
+		     TR({-class=>'databody'},td('Status'),
+			td('This option will display the current
+			status of the object. This will be one of
+			"live" for current genes, or "historical" for
+			genes that have been retired because of
+			merging with other genes or having been shown
+			to be pseudogenes')),
+		     TR({-class=>'databody'},td('Strains'),
+			td('For genes with associated loci, this
+			optional will return strains known to carry
+			the mutation.')),
+		     TR({-class=>'databody'},td('Status'),
+			td('The current status of the item. This may
+			be one of "live" to indicate that the item is
+			current, or "history", an item that has been
+			retired during the curation process.')),
+		     TR({-class=>'databody'},td('Subcellular localization'),
+			td('The subcellular localization, when known.')),
+		     TR({-class=>'databody'},td('SwissProt'),
+			td('If selected, this option will return the
+			external SwissProt <a
+			href="http://srs.ebi.ac.uk/srsbin/cgi-bin/wgetz?-page+srsq2+-noSession">SwissProt
+			SRS</a> ID for the corresponding WormBase
+			protein. Alternatively spliced genes may have
+			more than one associated SwissProt ID')),
+		     TR({-class=>'databody'},td('Transcript'),
+			td('The corresponding transcript(s) associated
+			with the gene. If the initial query is a
+			protein, this will return the immediate
+			transcript responsible for generating the
+			protein.')),
+		     TR({-class=>'databody'},td('Transgene, drives'),
+			td('"Transgene, drives" will list constructs
+			that use the promoter of the gene of interest
+			to express another protein.  This is typically
+			used to induce ectopic expression of a gene.')),
+		     TR({-class=>'databody'},td('Transgene, product'),
+			td('Transgene products comprised of the
+			promoter and various segments of the CDS.')),
+		     TR({-class=>'databody'},td('Transgene, rescued by'),
+			td('A transgene that rescues the mutant phenotype.')),
+		     TR({-class=>'databody'},td('Translation'),
+			td('The full length protein translation. If
+			the primary search object is a gene, multiple
+			items may be returned if the gene has known
+			splice variants.')),
+		     TR({-class=>'databody'},td('Translation length'),
+			td('The length of each associated translated spliced transcript.')),
+		     TR({-class=>'databody'},td('Transcript'),
+			td('The full length mRNA, encompassing all
+			splice variants. Selecting this option will
+			return transcript IDs.  If the primary search
+			object is a gene, CDS, or transcript, this
+			will return all tanscripts associated with
+			these objects.  If the primary search object
+			is a protein, this will return the
+			corresponding transcript')),
+		     TR({-class=>'databody'},td('Unspliced DNA'),
+			td('The full length unspliced DNA. If the
+			primary search object is a gene, multiple
+			items may be returned if the gene has known
+			splice variants.')),
+		     TR({-class=>'databody'},td('Unspliced length'),
+			td('The length of each associated unspliced transcript.')),
+		     TR({-class=>'databody'},td('WB Gene ID'),
+			td('The internal WormBase identifier for the gene.')),
+		     TR({-class=>'databody'},td('WB Wormpep ID'),
+			td('This option returns the WormBase identifier for the
+			protein. If the primary search object is a
+			gene or transcript, this option may return
+			multiple items.')),
+		     TR({-class=>'databody'},td('WormPD'),
+			td("This option returns the external ID to
+			Incyte's C. elegans database. Formerly
+			Proteome, this is now a subscription-based
+			service."))));
+  exit;
+}
+
+sub process_request {
+  # Which categories contain selected data?
+  foreach my $class ($formatting->classes) {
+    my @selected = param($class);
+    $data->tally_selected_categories($class,\@selected) unless (!param($class));
+  }
+
+  # Start the page and print out some appropriate information...
+  begin_html_output() if (param('format') eq 'HTML' && !param('prefab_submit'));
+  begin_file_output() if (param('format') eq 'Save To File');
+  begin_text_output() if (param('format') eq 'Plain Text');
+
+  # Run the prefab queries
+  process_prefabs() if (param('prefab_submit'));
+
+  # No prefabs? Let's make sure some genes were provided.
+  draw_form('Please provide a list of genes or loci.') if (!param('queries'));
+  my @input = split (/\s+/,param('queries'));
+
+  # First, check for wildcards...
+  my @final_list = map { (/\*$/) ? expand_wildcards($_) : $_ } @input;
+
+  foreach my $input (@final_list) {
+    next if ($input eq ''); # skip blank lines  
+    determine_class($input);
+    if ($data->current_obj) {
+		gather_info();
+    	print_data_html() if (param('format') eq 'HTML');
+    	print_data_text() if (param('format') eq 'Plain Text' || param('format') eq 'Save To File');
+		}
+  }
+
+  if (param('format') eq 'HTML') {
+    print end_table;
+    if (my @missing = $data->retrieve_missing) {
+      print hr,
+	h2('No information was available for the following items'),
+	  p(join(br,@missing));
+    }
+    PrintBottom;
+  }
+
+  my @selected;
+  foreach my $class ($formatting->classes) {
+    push (@selected,$data->selected_categories($class));
+  }
+  log_query(\@input,\@selected);
+  exit;
+}
+
+sub process_prefabs {
+  my (@processed,$msg,%seen);
+
+  # DONE
+  if (param('prefab') eq 'genetic') {
+    $msg = 'Genetically-defined genes';
+    my @tmp = $DB->fetch(-query=>qq(find Gene where Allele AND (Species="C*elegans")),-fill=>1);
+    @processed = map { format_genes($_) } @tmp;
+  }
+
+  # DONE
+  if (param('prefab') eq 'cloned') {
+    $msg = 'Genetically-defined genes that have been cloned';
+    my @tmp = $DB->fetch(-query=>qq(find Gene where Allele AND Corresponding_CDS AND (Species="C*elegans")),-fill=>1);
+    @processed = map { format_genes($_) } @tmp;
+  }
+
+  # DONE
+  if (param('prefab') eq 'cgc') {
+    $msg = 'Genes with CGC-approved names';
+    my @tmp = grep {!$seen{$_}++ } $DB->fetch(-query=>qq(find Gene CGC_name),-fill=>1);
+    @processed = map { format_genes($_) } @tmp;
+  }
+
+  # DONE
+  if (param('prefab') eq 'confirmed') {
+    $msg = 'Confirmed genes';
+    my @tmp = grep {!$seen{$_}++} $DB->fetch(-query=>qq(find CDS where (Prediction_status="Confirmed"); follow Gene));
+    @processed = map { format_genes($_) } @tmp;
+  }
+
+  # DONE
+  if (param('prefab') eq 'partial') {
+    $msg = 'Partially confirmed genes';
+    my @tmp = grep {!$seen{$_}++} $DB->fetch(-query=>qq(find CDS where (Prediction_status="Partially_confirmed"); Matching_cDNA; follow Gene));
+    @processed = map { format_genes($_) } @tmp;
+  }
+
+  # DONE
+  if (param('prefab') eq 'predicted') {
+    $msg = 'Predicted genes';
+    my @tmp = grep {!$seen{$_}++} $DB->fetch(-query=>qq(find CDS where !Matching_cDNA; follow Gene));
+    @processed = map { format_genes($_) } @tmp;
+  }
+
+  # DONE
+  if (param('prefab') eq 'elegans_rna') {
+    $msg = 'RNA genes';
+    my @tmp = grep {!$seen{$_}++} $DB->fetch(-query=>qq(find elegans_RNA_genes; follow Gene));
+    @processed = map { format_genes($_) } @tmp;
+  }
+
+  if (param('prefab') eq 'briggsae_rna') {
+    $msg = 'RNA genes';
+    my @tmp = grep {!$seen{$_}++} $DB->fetch(-query=>qq(find briggsae_RNA_genes; follow Gene));
+    @processed = map { format_genes($_) } @tmp;
+  }
+
+  # DONE
+  if (param('prefab') eq 'elegans_pseudo') {
+    $msg = 'C. elegans Pseudogenes';
+    my @tmp = $DB->fetch(-query=>qq(find elegans_Pseudogenes));
+    @processed = map { format_genes($_) } @tmp;
+  }
+
+  # DONE
+  if (param('prefab') eq 'briggsae_pseudo') {
+    $msg = 'C. elegans Pseudogenes';
+    my @tmp = $DB->fetch(-query=>qq(find briggsae_Pseudogenes));
+    @processed = map { format_genes($_) } @tmp;
+  }
+
+  # DOES THIS WORK?
+  if (param('prefab') eq 'briggsae_genes') {
+    $msg = 'Caenorhabditis briggsae genes';
+    my @tmp = $DB->fetch(-query=>qq(find Gene where (Species="C*briggsae")));
+    @processed = map { format_genes($_) } @tmp;
+  }
+
+
+  if (param('format') eq 'HTML') {
+    my $count = 0;
+    my $hilite;
+    PrintTop(undef,undef,'Batch Genes - Results');
+    print start_table({-width=>'100%',-cellpadding=>1,-cellspacing=>1,-border=>0});
+    print TR(th({-colspan=>8,-class=>'datatitle'},"$msg: " . scalar @processed));
+    foreach (@processed) {
+      $count++;
+      if ($count == 1) {
+	$hilite = $hilite eq 'searchbodyalt' ? 'searchbody' : 'searchbodyalt';
+	print start_TR({-class=>$hilite});
+      }
+      #    print td(a({-href=>Object2URL($_)},$_));
+      print td($_);
+      print end_TR() if ($count == 8);
+      $count = 0 if ($count eq 8);
+    }
+    print end_table;
+    PrintBottom;
+  } else {
+    foreach (@processed) {
+      print $_,"\n";
+    }
+  }
+  exit;
+}
+
+sub format_genes {
+  my $gene = shift;
+  if (param('format') eq 'HTML') {
+    return (a({-href=>Object2URL($gene)},$gene->Public_name 
+	      . (($gene->Molecular_name) ? ' (' . $gene->Molecular_name . ')' : '')));
+  } else {
+    return ($gene->Public_name . (($gene->Molecular_name) ? ' (' . $gene->Molecular_name . ')' : ''));
+  }
+}
+
+
+sub expand_wildcards {
+  my $input = shift;
+  my @results;
+
+  # This should be more robust - ignoring the history objects in the
+  # CDS class, as well as presenting a single entry for genes with
+  # splice variants.
+  push (@results,$DB->fetch(Gene_name => $input));
+  return @results;
+}
+
+# User should be able to enter:
+# 1. three letter locus names (Gene_name)
+# 2. molecular IDs
+# 3. wormpep IDs
+# 4. accession numbers
+sub determine_class {
+  my $input = shift;
+  $data->add_query($input);
+
+  # What is the class of the base object searched for?
+  # This will impact how data is fetched.
+  # For example, searching for a gene will end
+  # up displaying ALL associated CDSes and Transcripts.
+  # Searching for a protein will only display the corresponding CDS
+
+  my ($object,$gene,$protein,$bestname);
+  # Most specific to least
+  # 1. Is this a Protein?
+  $object   = $DB->fetch(Protein=>$input);
+  
+  # 2. How about a CDS?
+  $object ||= $DB->fetch(CDS=>$input);
+
+  # 3. A Transcript?
+  $object ||= $DB->fetch(Transcript=>$input);
+
+  # 4. Is this a gene or locus?
+  # (suppressing the MultipleChoice subroutine displays)
+  ($object,$bestname) = FetchGene($DB,$input,1) unless $object;
+  $data->missing($input) unless ($object);
+  $data->add_object($object);
+  return;
+}
+
+
+sub begin_file_output {
+  print header(-attachment => 'wormbase_batch_genes.txt',
+	       -type       => 'application/octet-stream');
+}
+
+sub begin_html_output {
+  PrintTop(undef,undef,'Batch Information Retrieval - Results');
+  print start_table({-width=>'100%',-cellpadding=>1,-cellspacing=>1,-border=>1});
+  print start_TR({-class=>'datatitle'});
+  print th({-rowspan=>2},'INPUT');
+  # Print out a row of the appropriate headers...
+  foreach my $class ($formatting->classes) {
+    my @selected = $data->selected_categories($class);
+    print th({-colspan=>scalar @selected},
+	     $formatting->label($class))
+      if (@selected);
+  }
+  print end_TR;
+  
+  print start_TR({-class=>'datatitle'});
+  # Print out the column types for each section that user requested
+  foreach my $class ($formatting->classes) {
+    my %selected = map { $_ => 1 } $data->selected_categories($class);
+    # Alpabetic sorting
+    my @columns = $formatting->components($class);
+    ## Manual sorting
+    ##    my @columns = $formatting->sort_order($class);
+    my @sorted;
+    foreach (@columns) {
+      push (@sorted,$_) if defined $selected{$_};
+    }
+    print th(\@sorted) if @sorted;
+  }
+  print end_TR;
+  return;
+}
+
+sub begin_text_output {
+  print header('text/plain');
+  return if (param('prefab_submit'));
+  foreach my $class ($formatting->classes) {
+    # See which options the user requested
+    my %selected = map { $_ => 1 } $data->selected_categories($class);
+    # Alpabetic sorting
+    my @columns = $formatting->components($class);
+    ## Manual sorting
+    ##    my @columns = $formatting->sort_order($class);
+    foreach my $selection (@columns) {
+      next unless defined $selected{$selection};
+      print $selection,"\t";
+    }
+  }
+  print "\n";
+  return;
+}
+
+
+
+sub gather_info {
+  # Each instantiation of the FetchData class will track some basic
+  # information, too. This makes repeated accessions to the gene, cds,
+  # protein, etc classes faster.
+
+  # When this goes out of scope, will the object die?
+  my $accessor = WormBase::FetchData->new($DB);
+
+  # Visit each of the standard classes
+  foreach my $class ($formatting->classes) {
+    # Retrieve each of the options the user has selected
+    foreach my $selected ($data->selected_categories($class)) {
+      my $coderef = $formatting->coderef($selected);
+      my $tag     = $formatting->tag($selected);
+      next unless $coderef;
+      my $result;
+
+      # If a tag is provided, this is a simple fetch not requiring
+      # any additional processing. These use the generic fetch_from_* subroutines
+      if ($tag) {
+	$result = $accessor->$coderef($data->current_obj,$tag);
+      } else {
+	$result = $accessor->$coderef($data->current_obj);
+      }
+      $data->store_result($selected,$result);
+    }
+  }
+  return;
+}
+
+sub print_data_html {
+  my @row;
+  push (@row,$data->current);
+  # Visit each of the main classes, to control the order of their presentation
+  foreach my $class ($formatting->classes) {
+    # See which options the user requested
+    my %selected = map { $_ => 1 } $data->selected_categories($class);
+    # Alpabetic sorting
+    my @columns = $formatting->components($class);
+    ## Manual sorting
+    ##    my @columns = $formatting->sort_order($class);
+    foreach my $selection (@columns) {
+      next unless defined $selected{$selection};
+      my $linkref = $formatting->linkref($selection);
+      # Others can use a generic object link sub...
+      $linkref ||= 'no_link';
+      my @data = $formatting->$linkref($data->return_data($selection));
+      push (@row,(@data) ? join(br,@data) : 'n/a');
+    }
+  }
+  print TR({-class=>$formatting->alternate_hilite,-valign=>'TOP',align=>'LEFT'},td(\@row));
+}
+
+
+sub print_data_text {
+  my $seperator = (param('format') eq 'Save To File') ? "\t" : "       ";
+  # Print out a descriptor line showing the column IDs
+  my @sorted;
+  my $non_seq_categories;
+  foreach my $class ($formatting->classes) {
+    my %selected = map { $_ => 1 } $data->selected_categories($class);
+    # Alpabetic sorting
+    my @columns = $formatting->components($class);
+    ## Manual sorting
+    ##    my @columns = $formatting->sort_order($class);
+    foreach (@columns) {
+      push (@sorted,$_) if defined $selected{$_};
+      $non_seq_categories++ if ($class ne 'seq' && defined $selected{$_});
+    }
+  }
+  print join(@sorted,$seperator),"\n";
+
+  # Don't bother printing the input if only dumping sequences
+  print $data->current,$seperator if ($non_seq_categories);
+
+  # Visit each of the main classes, to control the order of their presentation
+  foreach my $class ($formatting->classes) {
+    # See which options the user requested
+    my %selected = map { $_ => 1 } $data->selected_categories($class);
+    # Alpabetic sorting
+    my @columns = $formatting->components($class);
+    ## Manual sorting
+    ##    my @columns = $formatting->sort_order($class);
+    foreach my $selection (@columns) {
+      next unless defined $selected{$selection};
+      my $results = $data->return_data($selection);
+
+      # Print sequences in standard FASTA format for the text output 
+      # regardless of what else is present. Spreadsheet output will still be flat
+      if ($selection =~ /spliced|unspliced|translation/i) {
+      	my $type = ($selection =~ /spliced|unspliced/i) ? 'dna' : 'protein';
+	my @dna = $formatting->format_sequence($results,$data->current,$type);
+
+      	# Join for spreadsheets if there are non-seq categories present...
+	($non_seq_categories) ? print join(";",@dna) : print join("\n",@dna);
+      } else {
+	# foreach (@$results) {
+	  if (eval { $results->[0] =~ /ARRAY/ }) {   # some of the data structures contained nested arrays
+	    foreach my $inner (@$results) { # to represent multi-tiered data (ie expression, GO) that have
+	      # both IDs and descriptive terms
+	      print "[" . join('-',@$inner) . "]";
+	    }
+	  } else {
+	    print join(";",@$results);
+	  }
+	}
+      #      }
+      print $seperator;
+    }
+  }
+}
+
+
+sub log_query {
+  my ($query_terms,$categories) = @_;
+  open OUT,">>/usr/local/wormbase/logs/queries/batch_genes.log" or return;
+  my $timestamp = timestamp();
+  my $remote_addr = $ENV{REMOTE_ADDR};
+  print OUT "[$timestamp]\n";
+  print OUT "REMOTE_ADDR=$remote_addr\n";
+  print OUT 'QUERY_TERMS=' . join("\t",@$query_terms) . "\n";
+  print OUT 'CATEGORY=' . join("\t",@$categories) . "\n";
+  print OUT "=\n";
+  close OUT;
+}
+
+sub timestamp {
+    my $time = time();
+    return time_format('dd/Mon/yyyy:hh:mm:ss tz', $time);
+}
+
+
+
+1;
+
+
+
+
+# A simple package for storing and retrieving data. 
+package Data;
+
+use strict;
+use vars qw/$TMPNAM/;
+
+
+# In the interests of memory consumption, Data stores only a single
+# object at a time. This means post-processing like sorting on
+# returned columns is not possible.  To store ALL objects keyed by the
+# object itself, pass a single boolean to new().
+sub new {
+  my ($self,$structure) = @_;
+  my $this = bless {},$self;
+  $this->{store_all_objects} = 1 if $structure;
+  return $this;
+}
+
+# Determine which categories have data slected by the user, ignoring those that have none.
+sub tally_selected_categories {
+  my ($self,$class,$selected) = @_;
+  push (@{$self->{selected_categories}->{$class}},@$selected);
+}
+
+sub selected_categories {
+  my ($self,$class) = @_;
+  my @categories = eval { @{$self->{selected_categories}->{$class}} };
+  return @categories;
+}
+
+sub add_query {
+  my ($self,$input) = @_;
+  $self->{results}->{$input} = {};
+  $self->{current} = $input;   # the query we are currently iterating over
+}
+
+# This will be the principle object, typically it should be of the Gene class.
+sub add_object {
+  my ($self,$obj) = @_;
+  if ($self->store_all_objects) {
+    $self->{results}->{$self->current}->{object} = $obj;
+  } else {
+    $self->{results}->{object} = $obj;
+  }
+  $self->{current_obj} = $obj;
+}
+
+sub store_result {
+  my ($self,$class,$result) = @_;
+  if ($self->store_all_objects) {
+    $self->{results}->{$self->current}->{$class} = $result;
+  } else {
+    $self->{results}->{$class} = $result;
+  }
+}
+
+# save items for which no info was returned
+sub missing {
+  my ($self,$item) = @_;
+  push (@{$self->{missing}},$item);
+}
+
+# Accessors
+sub current     { return shift->{current}; }
+sub current_obj { return shift->{current_obj}; }
+sub return_data {
+  my ($self,$category) = @_;
+  if ($self->store_all_objects) {
+    return $self->{results}->{$self->current}->{$category};
+  } else {
+    return $self->{results}->{$category};
+  }
+}	
+sub store_all_objects { return shift->{store_all_data}; }
+sub retrieve_missing { return eval { @{shift->{missing}}; } }
+
+1;
+
+
+# Global formatting control
+package Formatting;
+
+use strict;
+use Ace;
+use Ace::Browser::AceSubs;
+use CGI qw/:standard/;
+
+sub new {
+  my $self = shift;
+  my $this = bless {},$self;
+
+  # Classes:
+  # Top-level, grouped data types
+  # This will probably have to be discarded as more and more features are added
+  # to the script (each of these data types will also become a hash key)
+  $this->{classes} = [qw/external_db gene wormbase_db phenotype protein reagents general seq expression placeholder/];
+  
+  # Translate top level categories into nice headers
+  $this->{labels} = ({ 'external_db' => 'External Database IDs',
+		       'wormbase_db' => 'WormBase IDs',
+		       'gene'        => 'Gene',
+		       'phenotype'   => 'Phenotype',
+		       'protein'     => 'Protein',
+		       'general'     => 'General',
+		       'seq'         => 'Sequence',
+		       'reagents'    => 'Reagents',
+  		       'expression'  => 'Expression',
+  		       'placeholder' => '&nbsp;',			   
+		     });
+
+  # Establish the initial hilite color
+  $this->{hilite} = 'searchbody';
+
+  # Available data types
+  # Position in table corresponds with its position in output
+  # Each entry should point to a hash ref containing
+  # Label: self-explanatory
+  # coderef: subroutine code ref that details how to fetch the data
+  # linkref: subroutine for linking rules (optional)
+  # group:   currently not in use, but provided if we want to seperate data into different types
+
+  # (Optional)
+  # Link coderefs - data is either not_linked (not listed in hash), 
+  # linked using generic Object2URL sub (value is generic),
+  # or requires its own special parameters (has its own sub)
+
+  $this->{datatypes} = {			
+			'Alleles'                   => {coderef => 'fetch_from_gene',
+							tag     => 'Allele',
+							linkref => 'generic_object_link',
+							group   => 'gene',},
+			'Alleles, total number of'  => {coderef => 'fetch_total_alleles',
+							group   => 'gene',},
+			'Allele, reference'         => {coderef => 'fetch_from_gene',
+							tag     => 'Reference_Allele',
+							linkref => 'generic_object_link',
+							group   => 'gene',},
+			'Antibody'                  => {coderef => 'fetch_from_gene',
+							tag     => 'Antibody',
+							linkref => 'generic_object_link',
+							group   => 'reagents',},
+			'Brief identification'      => {coderef => 'fetch_from_cds',
+							tag     => 'Brief_identification',
+							group   => 'general',},
+			'CDS'                       => {coderef => 'fetch_cds',
+							linkref => 'generic_object_link',
+							group   => 'gene',},
+			'Concise description'       => {coderef => 'fetch_from_gene',
+							tag     => 'Concise_description',
+							group   => 'general',},
+			'EuGenes'                   => {coderef => 'fetch_eugenes',
+							linkref => 'link_eugenes',
+							group   => 'external_db',},
+# 			'Expression data'           => {coderef => 'fetch_expression',
+# 							linkref => 'link_expression',
+# 							group   => 'expression',},
+			'Expression patterns'   => {coderef => 'fetch_expr_pattern',
+							linkref => 'link_expr_pattern',
+							group   => 'expression',},
+			'Gene ontology terms'       => {coderef => 'fetch_go',
+							linkref => 'link_go',
+							group   => 'general',},
+			'GenBank'                   => {coderef => 'fetch_genbank',
+							linkref => 'link_genbank',
+							group   => 'external_db',},
+			'GenPep'                    => {coderef => 'fetch_genpep',
+							linkref => 'link_genpep',
+							group   => 'external_db',},
+			'Gene (public name)'        => {coderef => 'fetch_from_gene',
+							tag     => 'Public_name',
+							linkref => 'link_gene_name',
+							group   => 'gene',},
+			'Intronerator'              => {coderef => 'fetch_from_gene',
+							tag     => 'Sequence_name',
+							linkref => 'link_intronerator',
+							group   => 'external_db',},
+			'Laboratory'                => {coderef => 'fetch_from_gene',
+							tag     => 'Laboratory',
+							linkref => 'generic_object_link',
+							group   => 'general',},
+			'Locus (canonical)'         => {coderef => 'fetch_from_gene',
+							tag     => 'CGC_name',
+							linkref => 'link_gene_name',
+							group   => 'gene',},
+			'Ortholog (C. briggsae)'    => {coderef => 'fetch_from_gene',
+							tag     => 'Ortholog',
+							linkref => 'link_gene',
+							group   => 'gene'},
+			'Microarray Probes'         => {coderef => 'fetch_oligo_set',
+							linkref => 'link_oligo_set',
+							group   => 'reagents',},
+			'NCBI KOGs'                 => {coderef => 'fetch_homology_group',
+							linkref => 'link_homology_group',
+							group   => 'protein',},
+			'Other locus names'         => {coderef => 'fetch_from_gene',
+							tag     => 'Other_name',
+							linkref => 'link_gene_name',
+							group   => 'gene',},
+			'Papers (long)'         => {coderef => 'fetch_paper',
+							linkref => 'link_paper_long',
+							group   => 'general',},
+			'Papers (short)'        => {coderef => 'fetch_paper',
+							linkref => 'link_paper_short',
+							group   => 'general',},
+			'Protein'                   => {coderef => 'fetch_protein',
+							linkref => 'generic_object_link',
+							group   => 'protein',},
+			'Position, physical map'    => {coderef => 'fetch_pmap',
+							group   => 'gene',},
+			'Position, genetic map'     => {coderef => 'fetch_gmap',
+							group   => 'gene',},
+			'Phenotype'                 => {coderef => 'fetch_from_gene',
+							tag     => 'Phenotype',
+							group   => 'phenotype',},
+			'Prominent motifs'          => {coderef => 'fetch_motifs',
+							group   => 'protein',},
+			'Remarks'                   => {coderef => 'fetch_from_cds',
+							tag     => 'DB_remark',
+							group   => 'general',},
+			'RNAi'                      => {coderef => 'fetch_rnai',
+							linkref => 'link_rnai',
+							group   => 'phenotype',},
+			'Spliced DNA'               => {coderef => 'fetch_spliced_dna',
+							linkref => 'format_sequence',
+							group   => 'seq',},
+			'Spliced length'            => {coderef => 'fetch_spliced_dna',
+							linkref => 'link_sequence_length',
+							group   => 'seq',},
+			'Species'                   => {coderef => 'fetch_from_gene',
+							tag     => 'Species',
+							linkref => 'generic_object_link',
+							group   => 'general',},
+			'Status'                    => {coderef => 'fetch_status',
+							group   => 'general',},
+			'Strains'                   => {coderef => 'fetch_from_gene',
+							tag     => 'Strain',
+							linkref => 'generic_object_link',
+							group   => 'reagents',},
+			'Subcellular localization'  => {coderef => 'fetch_subcellular_localization',
+							group   => 'phenotype',},
+			'SwissProt'                 => {coderef => 'fetch_swissprot',
+							linkref => 'link_swissprot',
+							group   => 'external_db',},
+			'Transcript'                => {coderef => 'fetch_transcript',
+							linkref => 'generic_object_link',
+							group   => 'gene',},
+			'Transgene, drives'         => {coderef => 'fetch_from_gene',
+							tag     => 'Drives_transgene',
+							linkref => 'generic_object_link',
+							group   => 'reagents',},	
+			'Transgene, product'        => {coderef => 'fetch_from_gene',
+							tag     => 'Transgene_product',
+							linkref => 'generic_object_link',
+							group   => 'reagents',},
+			'Transgene, rescued by'     => {coderef => 'fetch_from_gene',
+							tag     => 'Rescued_by_Transgene',
+							linkref => 'generic_object_link',
+							group   => 'reagents',},
+			'Translation'               => {coderef => 'fetch_protein_seq',
+							linkref => 'format_protein',
+							group   => 'seq',},
+			'Translation length'        => {coderef => 'fetch_protein_seq',
+							linkref => 'link_protein_length',
+							group   => 'seq',},
+			'Unspliced DNA'             => {coderef => 'fetch_unspliced_dna',
+							linkref => 'format_sequence',
+							group   => 'seq',},
+			'Unspliced length'          => {coderef => 'fetch_unspliced_dna',
+							linkref => 'link_sequence_length',
+							group   => 'seq',},
+			'WB Gene ID'                => {coderef => 'fetch_gene',
+							linkref => 'generic_object_link',
+							group   => 'wormbase_db',},
+			'WB Wormpep ID'             => {coderef => 'fetch_protein',
+							linkref => 'generic_object_link',
+							group   => 'wormbase_db',},
+			'WormPD'                    => {coderef => 'fetch_wormpd',
+							linkref => 'link_wormpd',
+							group   => 'external_db',},
+		       };
+						     return $this;
+}
+
+sub sort_order {
+  my ($self,$class) = @_;
+  my $order = 
+    ({
+      'db'    => ['WB Gene ID','WB Wormpep ID','GenPep','GenBank','SwissProt','Intronerator',
+		  'EuGenes','WormPD'],
+      'gene'  => ['Gene (public name)','Locus',
+		  'Other locus names','CDS','Transcript',
+		  'Protein',
+		  'Ortholog (C. briggsae)',
+		  'Genetic map position','Physical map position',
+		  'Reference allele',
+		  'Alleles','Number of alleles','Strains','Phenotype','RNAi',
+		  'Brief identification','Concise description',
+		  'Remarks','Prominent motifs','Antibody','Drives transgene',
+		  'Gene ontology terms','Expression data','Subcellular localization','Species','Status'],
+      'seq'   => ['Translation','Translation length','Spliced DNA','Unspliced DNA',
+		  'Spliced length','Unspliced length'],
+     });
+  return @{$order->{$class}};
+}
+
+
+sub alternate_hilite {
+  my $self = shift;
+  my $hilite = $self->{hilite};
+  $self->{hilite} = ($hilite eq 'searchbodyalt') ? 'searchbody' : 'searchbodyalt';
+  return $hilite;
+}
+
+
+# Accessors
+sub classes { return @{shift->{classes}}; }
+sub label {
+  my ($self,$class) = @_;
+  return $self->{labels}->{$class};
+}
+
+# return all the components of the current class
+sub components {
+  my ($self,$class) = @_;
+  my @components = sort {$a cmp $b } grep {$self->{datatypes}->{$_}->{group} eq $class} @{$self->datatypes};
+  return @components;
+}
+
+sub coderef {
+  my ($self,$datatype) = @_;
+  return $self->{datatypes}->{$datatype}->{coderef};
+}
+
+sub tag {
+  my ($self,$datatype) = @_;
+  return $self->{datatypes}->{$datatype}->{tag};
+}
+
+sub linkref {
+  my ($self,$datatype) = @_;
+  return $self->{datatypes}->{$datatype}->{linkref};
+}
+
+sub datatypes {
+  my $self = shift;
+  my @datatypes = keys %{$self->{datatypes}};
+  return \@datatypes;
+}
+
+
+sub generic_object_link {
+  my ($self,$data) = @_;
+  return if ($data->[0] eq 'n/a');
+  my @linked;
+  foreach (@$data) {
+    push (@linked,ObjectLink($_));
+  }
+  return @linked;
+}
+
+sub link_genbank {
+  my ($self,$data) = @_;
+  return if ($data->[0] eq 'n/a');
+  my @linked;
+  foreach (@$data) {
+    push (@linked,a({-href=>Configuration->Entrez . $_},$_));
+  }
+  return @linked;
+}
+
+sub link_eugenes {
+  my ($self,$data) = @_;
+  return if ($data->[0] eq 'n/a');
+  my @linked;
+  foreach (@$data) {
+    my $meow = Configuration->Meow_predicted;
+    push (@linked,a({-href=>$meow . $_},$_));
+  }
+  return @linked;
+}
+
+sub link_wormpd {
+  my ($self,$data) = @_;
+  return if ($data->[0] eq 'n/a');
+  my @linked;
+  foreach (@$data) {
+    push (@linked,a({-href=>Configuration->Proteome . "$_.html",-target=>'proteome'},$_));
+  }
+  return @linked;
+}
+
+sub link_intronerator {
+  my ($self,$data) = @_;
+  return if ($data->[0] eq 'n/a');
+  my @linked;
+  foreach (@$data) {
+    my $intronerator = Configuration->Intronerator;
+    push (@linked,a({-href=>$intronerator . $_},$_));
+  }
+  return @linked;
+}
+
+
+sub link_genpep {
+  my ($self,$data) = @_;
+  return if ($data->[0] eq 'n/a');
+  my @linked;
+  foreach (@$data) {
+    my $entrez = Configuration->Entrezp;
+    push (@linked,a({-href=>$entrez . $_},$_));
+  }
+  return @linked;
+}
+
+
+sub link_swissprot {
+  my ($self,$data) = @_;
+  return if ($data->[0] eq 'n/a');
+  my @linked;
+  foreach (@$data) {
+    my $link = $_=~ /SWALL:(.*)/ ? $1 : '';
+    push (@linked,a({-href=>sprintf(Configuration->Srs,$link)},$_));
+  }
+  return @linked;
+}
+
+sub link_paper_short {
+  my ($self,$data) = @_;
+  my @linked;
+  foreach (@$data) {
+    push (@linked,a({-href=>Object2URL($_)},"[$_]"));
+  }
+  return @linked;
+}
+
+sub link_paper_long {
+  my ($self,$data) = @_;
+  my @linked;
+  foreach (@$data) {
+    my $link = "[$_] " . $_->Title . ' (' . $_->Year .')';
+	push(@linked, a({-href=>Object2URL($_)},"$link"));
+  }
+  return @linked;
+}
+
+sub link_expr_pattern {
+  my ($self,$data) = @_;
+  my @linked;
+  foreach (@$data) {
+    my $pattern = $_->Pattern;
+	
+	my @cell = $_->Cell;
+	my @cell_group = $_->Cell_group;
+	my @life_stage = $_->Life_stage;
+	my @anatomy_term = $_->Anatomy_term; @anatomy_term = map { a({-href=>Object2URL($_)},"$_") } @anatomy_term;
+	my @go_term = $_->GO_term; @go_term = map { a({-href=>Object2URL($_)},"$_") } @go_term;
+	my @subcellular_localization = $_->Subcellular_localization;
+	
+	my $info;
+	$info .= '<b><i>Pattern</i></b>: '.$pattern.'<br>' if $pattern;
+	$info .= '<b><i>Cell</i></b>: '.join(', ', @cell).'<br>' if @cell;
+	$info .= '<b><i>Cell_group</i></b>: '.join(', ', @cell_group).'<br>' if @cell_group;
+	$info .= '<b><i>Life_stage</i></b>: '.join(', ', @life_stage).'<br>' if @life_stage;
+	$info .= '<b><i>Anatomy_term</i></b>: '.join(', ', @anatomy_term).'<br>' if @anatomy_term;	
+	$info .= '<b><i>GO_term</i></b>: '.join(', ', @go_term).'<br>' if @go_term;
+	$info .= '<b><i>Subcellular_localization</i></b>: '.join(', ', @subcellular_localization).'<br>' if @subcellular_localization;
+		
+	push(@linked, a({-href=>Object2URL($_)},"<b>$_</b><br>").$info);
+  }
+  return @linked;
+}
+
+sub link_homology_group {
+  my ($self,$data) = @_;
+  my @linked;
+  foreach (@$data) {
+    my $link = "[$_] " . $_->Title;
+	push(@linked, a({-href=>Object2URL($_)},"$link"));
+  }
+  return @linked;
+}
+
+sub link_oligo_set {
+  my ($self,$data) = @_;
+  my @linked;
+  foreach (@$data) {
+    my $remark = $_->Remark;
+	my $source;
+	if ($remark =~ /affymetrix/i) { $source = '[Affymetrix]'; }
+	elsif ($remark =~ /GSC/) { $source = '[GSC]'; }
+	
+	my $link = "$_ $source";
+	push(@linked, a({-href=>Object2URL($_)},"$link"));
+  }
+  return @linked;
+}
+
+
+# Link directly to the gene class instead of to the non-informative gene name class
+sub link_gene_name {
+  my ($self,$data) = @_;
+  return if ($data->[0] eq 'n/a');
+  my @linked;
+  foreach (@$data) {
+    push (@linked,a({-href=>Object2URL($_->Public_name_for || $_->Other_name_for,'Gene')},$_));
+  }
+  return @linked;
+}
+
+# Link gene objects, using a human readable name
+sub link_gene {
+  my ($self,$data) = @_;
+  return if ($data->[0] eq 'n/a');
+  my @linked;
+  foreach (@$data) {
+    push (@linked,a({-href=>Object2URL($_)},$_->Public_name));
+  }
+  return @linked;
+}
+
+sub no_link {
+  my ($self,$data) = @_;
+  return @$data if (eval {@$data});
+  return;   # Have to return true to pull in the generic 'n/a' for no data.
+}
+
+
+sub link_go {
+  my ($self,$data) = @_;
+  return if ($data->[0] eq 'n/a');
+  my @linked;
+  foreach (@$data) {
+    my ($type,$term,$curation,$id) = @$_;
+    my $linked = ObjectLink($id);
+    push (@linked,"<b>$type</b>: $term ($linked) - <i>$curation</i>");
+  }
+  return @linked;
+}
+
+sub link_rnai {
+  my ($self,$data) = @_;
+  return if ($data->[0] eq 'n/a');
+  my @linked;
+  foreach (@$data) {
+    my ($exp,$pi,$phene) = @$_;
+    push (@linked,"$phene: " . (($pi) ? ObjectLink($pi) : '') . ' (' . ObjectLink($exp) . ')');
+  }
+  return @linked;
+}
+
+
+# sub link_expression {
+#   my ($self,$data) = @_;
+#   return if ($data->[0] eq 'n/a');
+#   my @linked;
+#   foreach (@$data) {
+#     my ($exp,$pattern,$expression_of) = @$_;
+#     push (@linked,"$pattern [" . ObjectLink($exp) . "; Expression of $expression_of]");
+#   }
+#   return @linked;
+# }
+
+# Include the initial query in the FASTA header (only for plain text)
+sub format_sequence {
+  my ($self,$data,$query,$seq_type) = @_;
+  return if ($data->[0] eq 'n/a');
+  my @formatted;
+  foreach (@$data) {
+    my ($name,$description,$seq) = @$_;
+    my $type;
+    if ($description =~ /spliced|unspliced/i) {
+       $type = 'bp'
+     } elsif ($description =~ /translation/) {
+       $type = 'aa';
+     } else {
+       $type = 'bp';
+     }
+
+    my $fasta;
+    if ($type eq 'bp') {
+      $fasta = $self->to_fasta((($query) ? "$query; " : '') . "$name ($description - " . length($seq)
+			       . "$type)",$seq);
+    } else {
+      $fasta = $seq;
+    }
+    if (param('format') eq 'HTML') {
+      push(@formatted,pre({-class=>'dna'},$fasta));
+    } else {
+      push (@formatted,$fasta);
+    }
+  }
+  return @formatted;
+}
+
+sub to_fasta {
+  my ($self,$name,$sequence) = @_;
+  my @markup;
+  push (@markup,">$name");
+  for (my $i=0; $i < length $sequence; $i += 50) {
+    push (@markup,substr($sequence,$i,50));
+  }
+  my $format;
+  # Print out flattened strings for the "Save To File" option
+  if (param('format') eq 'Save To File') {
+    $format = join('',@markup);
+  } else {
+    $format = join("\n",@markup);
+  }
+  return $format;
+}
+
+sub format_protein {
+  my ($self,$data) = @_;
+  return if ($data->[0] eq 'n/a');
+  my @formatted;
+  foreach (@$data) {
+    my ($name,$description,$seq) = @$_;
+    push(@formatted,pre({-class=>'dna'},$seq));
+  }
+  return @formatted;
+}
+
+sub link_protein_length {
+  my ($self,$data) = @_;
+  my @data = $self->link_sequence_length($data,'is_protein');
+  return @data;
+}
+
+sub link_sequence_length {
+  my ($self,$data,$is_protein) = @_;
+  return if ($data->[0] eq 'n/a');
+  my @formatted;
+  foreach (@$data) {
+    my ($name,$desc,$seq) = @$_;
+    my @lines = split("\n",$seq);
+    shift @lines if $lines[0] =~ /^>/;
+    my $purged = join('',@lines);
+    push(@formatted,ObjectLink($name) . ": " . length($purged) . ($is_protein ? ' aa' : ' bp'));
+  }
+  return @formatted;
+}
+
+
+1;

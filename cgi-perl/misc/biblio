@@ -1,0 +1,311 @@
+#!/usr/bin/perl
+##############################################################
+# REIMPLEMENTATION:                                          #
+#    THIS SCRIPT IS NOW FROZEN! (v1.23)                      #
+#       Please do not make edits to it.                      #
+#       Frozen by: tharris on 03.04.2008                     #   
+#
+#     v1.24 - added sortability by year
+#  
+##############################################################
+
+# -*- Mode: perl -*-
+# file: biblio
+# C. elegans biblio report
+
+use lib '../lib';
+use strict;
+use Ace 1.51;
+use Ace::Browser::AceSubs qw(:DEFAULT ResolveUrl);
+use ElegansSubs qw(:DEFAULT FetchGene Bestname ParseHash filter_references GenerateWormBookLinks build_citation);
+use WormBase;
+use CGI qw/:standard :html3 escape/;
+use vars qw/$DB $name $class $object $category %abstract $references %bib_patterns/;
+
+END {
+  undef $name;
+  undef $class;
+  undef $object;
+  undef $category;
+  undef %abstract;
+  undef $references;
+}
+
+use constant IMAGES => 'true';
+
+%bib_patterns = %{Configuration()->Bibliography_patterns};
+
+# print HTTP header & open the database
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+$name       = param('name');
+$category   = param('category');
+$class      = param('class');
+%abstract  = map {$_=>1} param('abstract');
+($references,$class,$object) = get_references($name,$class) if $name;
+param('class'=>$class) if $class;
+
+# We may have already fetched an object if this is a Gene (remember: need to do lookup in Gene_name)    
+($object) = $DB->fetch($class => $name) if $class and $name && !$object;
+if ($object) {
+  $class ||= $object->class;
+  my $title = 'Bibliography';
+  if ($class eq 'Person') {
+    $title .= " (Person: " . ($object->Standard_name || $object->Full_name) . ")";
+  } else {
+    $title .= ($object->class eq 'Gene') ? " ($class: " . Bestname($object) . ')' : " ($class: $name)";
+  }
+  PrintTop($object,$class,$title);
+} else {
+  PrintTop(undef,undef,'Bibliography Report');
+}
+
+not_found() if $name && !@$references;
+print_prompt();
+print_report($references,\%abstract) if eval {@$references};
+PrintBottom;
+
+exit 0;
+
+END {
+  undef $object;
+  undef $references;
+  undef %abstract;
+}
+
+sub not_found {
+  print p(font({-color => 'red'},
+	       "No bibliographic references for \"$name\" found."));
+}
+
+sub get_references {
+  my @references = ();
+  if ($class) {
+    # Keywords are treated specially because of Ace query language
+    # deficiencies (bugs?)
+    my $follow = $class =~ /keyword/i ?
+      'Quoted_in'
+	:
+	  ($class =~ /author/i || $class =~ /person/i) ? 'Paper' : 'Reference';
+    @references = $DB->find(-query=>qq{$class IS "$name" ; >$follow},
+			    -fill=>1);
+    @references = grep ($_->class eq 'Paper',@references) if $class =~  /keyword/i;
+    return (\@references,$class) if @references;
+  }
+
+  @references = $DB->find(-query=>qq{Person IS "$name" ; >Paper});
+  return (\@references,'Person') if @references;
+
+  # no type given.  Try fetching as a gene
+  my ($gene,$best) = FetchGene($DB,$name);
+  if ($gene) {
+    my @references = eval { $gene->Reference };
+    return (\@references,'Gene',$best) if (@references);
+  }
+
+  # not a locus, try an author name
+  @references = $DB->find(-query=>qq{Author IS "$name" ; >Paper},
+			  -fill=>1);
+  return (\@references,'Author') if @references;
+
+  # not an author, try a Person_name
+  my @temp = $DB->find(-query=>qq{find Person_name "$name"},-fill=>1);
+  @references = map { $_->Paper} map {$_->Full_name_of || $_->Standard_name_of || $_->Last_name_of || $_->Other_name_of } @temp if @temp;
+  return (\@references,'Person') if @references;
+
+  @references = $DB->find(-query=>qq{Clone IS "$name" ; >Reference},
+			  -fill=>1);
+  return (\@references,'Clone') if @references;
+
+  # if we get here, we're stuck
+  return (\@references,'');
+}
+
+sub print_prompt {
+  print start_form({-name=>'form1',-action=>Url(url(-relative=>1))}),
+        p(b("Enter a search term (gene, author or clone): "),
+	  textfield(-name=>'name', size=>'10'),
+	  hidden(-name=>'pattern'),
+	  hidden(-name=>'class'),
+	  popup_menu(-name=>'category',
+		     -values=>[sort keys %bib_patterns],
+		     -labels=>\%bib_patterns,
+		     -onChange=>'document.form1.submit()')
+	 ),
+         end_form;
+}
+
+sub print_report {
+  my $color;
+  my $table_color;
+  $color=0;
+  print '<table width="100%" border=0>';
+  my ($refs,$abstract) = @_;
+  
+  my @refs;
+  if ($category) {
+      @refs = filter_references($refs,$category);
+  } else {
+      @refs = @$refs;
+  }
+
+
+  # Sort by year, then alphabetically by author.  Create intermediate
+  # hashes in order to speed up large sorts.
+  my (%year,%author,%month,%day);
+  foreach (@refs) { 
+    my ($yr) = $_->Publication_date; # note array context
+    # some older references encode the publication year in the name
+#     $yr =~ /.*(\d\d\d\d)\s.*/;
+    $yr =~ /(\d\d\d\d)(-(\d\d)(-(\d\d))?)?/;
+    $yr = $1;
+    my $mo = $3;
+    my $day = $5;
+
+    $yr ||= 'unknown';
+    $mo ||= 'unknown';
+    $day ||= 'unknown';
+    $year{$_} = "$yr";
+    $month{$_} = "$mo";
+    $day{$_} = "$day";
+    ($author{$_}) = $_->Author;  # note array context
+  }
+  
+  my @items;
+  $object ||= param('name');
+  my $url = url(-absolute=>1,-path_info=>1) . "?name=" . escape($object) . 
+      "&category=" . escape(param('category'));
+  $url .= '&class=' . escape(param('class')) if param('class');
+  foreach (sort { ($year{$b} <=> $year{$a}) ||  ($month{$b} <=> $month{$a}) ||  ($day{$b} <=> $day{$a}) || ($author{$a} cmp $author{$b})
+		  } @refs) {
+ 
+      my $ref = build_citation(-paper  => $_,
+			       -object => $object,
+			       -include_images => IMAGES,
+			       -include_externals => 1,
+			       -format => 'long'
+			       );
+      my $title = $_->Title;
+      my ($abs)     = $_->Abstract;
+
+      my ($link,$linktext);
+      if ($abstract->{$abs}) {
+	  my $abstext = $DB->fetch(LongText=>$abs);
+	  if ($abstext) {
+	      my $text = $abstext->right;
+	      $text = rewrap(\$text);
+	      my @abs = map { "abstract=$_" } grep($abstext ne $_,keys %{$abstract });
+	      # eliminate the abstract from the list of abstracts in the URL
+	      $link = $url;
+	      $link .= '&' . join('&',@abs) if @abs;
+	      $linktext = font({-color=>'red'},"hide abstract");
+	      $ref .= a({-href=>"$link#$_"},
+			img({-src=>'/ico/triangle_down.gif',-alt=>'^',
+			     -height=>6,-width=>11,-border=>0}),
+			$linktext).br;
+	      # $ref .= blockquote({-class=>'abstract'},font({-size=>-1},$text));
+	      $ref .= table(
+			    {-border=>'0', width=>'554', -cellpadding=>0, -cellspacing=>0, -align=>'center'},
+			    TR(
+			       td(
+				  img({-src=>'/images/abstract_angle1.gif'}),
+				  ),
+			       td(font({-size=>-1},
+				       img({-src=>'/images/abstract_top.gif'}),
+				       ),
+				  ),
+			       td(
+				  img({-src=>'/images/abstract_angle2.gif'}),
+				  ),
+			       ),
+			    TR(
+			       td({-background=>'/images/abstract_angle3.gif'},
+				  '&nbsp;',
+				  ),
+			       td({-background=>'/images/abstract_background.gif'},		 
+				  font({-size=>-1},
+				       br,
+				       font({-size=>-1, -color=>'#993300'},b($title)). $text,
+				       ),
+				  ),
+			       td({-background=>'/images/abstract_angle4.gif'},
+				  '&nbsp;',
+				  ),
+			       ),
+			    TR(
+			       td(img({-src=>'/images/abstract_angle5.gif'}),
+				  ),
+			       td(font({-size=>-1},
+				       img({-src=>'/images/abstract_end.gif'}),
+				       ),
+				  ),
+			       td(
+				  img({-src=>'/images/abstract_angle6.gif'}),
+				  ),
+			       ),
+			    )
+	      }
+      } elsif ($abs) {
+	  $link = $url;
+	  $link .= '&' . join('&',map { "abstract=$_" } (keys %{$abstract },$abs));
+	  $linktext = "show abstract";
+	  $ref .= a({-href=>"$link#$_"},
+		    img({-src=>'/ico/triangle_right.gif',-alt=>'>',
+			 -height=>11,-width=>6,-border=>0}),
+		    $linktext);
+      } else {
+	  $ref .= span({-class=>'note'},"(no abstract available)");
+      }
+#print $color;
+      if (($color%2)==0){
+	  $table_color = '<td bgcolor="#ecf5ff">';
+      }else{
+	  $table_color = '<td>';
+      }
+      push (@items,'<tr>'.$table_color . p($ref) . '</td></tr>');
+      $color++;
+  }
+  print @items;
+#  print ol(li(\@items));
+  print '</table>';  
+}
+
+
+
+
+
+sub rewrap {
+  my $text = shift;
+  $$text=~s/^\n+//gs;
+  $$text=~s/\n+$//gs;
+  my @para = ();
+  my $para = '';
+  foreach (split "\n",$$text) {
+    $para .= "$_ ";
+    if (length($_) < 50 && /[.!?\"]$/) {
+      push(@para,$para);
+      undef $para;
+    }
+  }
+  push(@para,p($para)) if $para;
+  return p(\@para);
+}
+
+sub get_keywords {
+    my $keyword = shift;
+    my $key = $DB->fetch(-class=>'Keyword',
+			 -name=>$keyword,
+			 -fill=>1);
+    return unless $key;
+    my @papers = grep($_->class eq 'Paper',$key->get('Quoted_in'));
+    foreach (@papers) { $_->fetch->right; }  # force a fill
+    return \@papers;
+}
+
+
+
+sub ParsePaperHash {
+    my ($obj,$hash) = @_;
+    print $hash->col;
+    
+}

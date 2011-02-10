@@ -1,0 +1,267 @@
+#!/usr/bin/perl
+# Creator: T. Harris, 7.2004
+
+# This script serves two purposes:
+# 1. Create an index of datamining scripts using metadata in scripts themselves
+# 2. Format example scripts into pretty HTML
+
+# Example scripts should be of the following format
+
+
+use strict;
+use Ace::Browser::AceSubs;
+use ElegansSubs;
+use Pod::Html;
+use CGI qw(:standard :form *div *table *center);
+
+use constant EXAMPLES => '../../html/data_mining/examples_gff';
+
+OpenDatabase;
+
+PrintTop(undef,undef,'WormBase: Datamining Examples');
+parse_script() if param('script');
+PrintBottom;
+
+######################
+# subs
+######################
+# Strip out the metadata prior to formatting
+#sub parse_script_podhtml {
+#  my $script = url_param('script');
+#  open IN,EXAMPLES . "/$script" or warn "couldn't";
+#  my (@metadata,$metadata_flag);
+#  my @lines;
+#  my (@block,$within_pod,$within_code);
+#  while (<IN>) {
+#
+#    # Collecting metadata
+#    if (/\=end\smetadata/) {
+#      undef $metadata_flag;
+#      next;
+#    }
+#
+#    if (/\=begin\smetadata/ || $metadata_flag) {
+#      # I should print formatting here
+#      $metadata_flag++;
+#      push (@metadata,$_);
+#      next;
+#    }
+#
+#    # Slurp up the pod
+#    if (/\=pod/) {
+#      if ($within_code) {
+#	push (@block,$_);
+#	undef $within_code;
+#	push (@lines,\@block);
+#	@block = ();
+#      }
+#      push (@block,'pod','',$_);  # Identifier, blank line
+#      $within_pod++;
+#      next;
+#    }
+#
+#    # If this is the end of a pod section,
+#    # Lets assume that the end of pod is also the start of code
+#    if (/\=cut/) {
+#      if ($within_pod) {
+#	push (@block,$_,'');
+#	push (@lines,\@block);
+#	undef $within_pod;
+#      }
+#      push (@block,'code');
+#      $within_code++;
+#      next;
+#    }
+#    
+#    if ($within_pod || $within_code) {
+#      push (@block,$_);
+#    }
+#  }
+#  
+#  foreach my $block (@lines) {
+#    my $type = shift @$block;
+#    my $joined = join('',@$block);
+#    if ($type eq 'pod') {
+#      my $string = pod2html(|$joined);
+#      print $string;
+#    }
+#
+#    foreach my $line (@$block) {
+#      # Is this pod or code?
+#      print $line,br;
+#    }
+#  }
+#  print_metadata(@metadata);
+#}
+
+
+
+sub parse_script {
+  my $script = url_param('script');
+  open IN,EXAMPLES . "/$script" or warn "couldn't";
+  my (@metadata,$metadata_flag,$within_div);
+  my $saw_pod;
+  my @lines;
+  my $code_lines;
+  while (<IN>) {
+    # Ignore the blank line following pod
+    if ($saw_pod) {
+      undef $saw_pod;
+      next;
+    }
+    # Collecting metadata
+    if (/\=end\smetadata/) {
+      undef $metadata_flag;
+      next;
+    }
+
+    if (/\=begin\smetadata/ || $metadata_flag) {
+      # I should print formatting here
+      $metadata_flag++;
+      push (@metadata,$_);
+      next;
+    }
+
+    # Slurp up the pod
+    if (/\=pod/) {
+      if ($within_div) {
+	push (@lines,end_div());
+      }
+      pop @lines;
+      push(@lines,end_div());
+      push(@lines,start_div({-class=>'pod'}));
+      $within_div++;
+      $saw_pod++;
+      next;
+    }
+
+    # If this is the end of a pod section,
+    # Lets assume that the end of pod is also the start of code
+    if (/\=cut/) {
+      if ($within_div) {
+	push (@lines,end_div());
+      }
+
+      pop @lines;
+      push(@lines,end_div());
+      push(@lines,start_div({-class=>'code'}));
+      $within_div++;
+      $saw_pod++;
+      next;
+    }
+
+    # Replace head elements
+    if (/\=head(\d+)\s(.*)/) {
+      pop @lines;
+      push(@lines,"<h$1>$2</h$1>");
+      $saw_pod++;
+      next;
+    }
+
+    # begin over pod elements
+    if (/\=over/) {
+      pop @lines;
+      push(@lines,ul());
+      $saw_pod++;
+      next;
+    }
+
+    if (/\=item\s(.*)/) {
+      pop @lines;
+      push(@lines,li($1));
+      $saw_pod++;
+      next;
+    }
+
+    # Made it this far?  Just plain pod or code.
+    $_ =~ s/\n/<br>/;
+    #    $_ =~ s/^[\t|\s]*?/&nbsp;&nbsp;/g;
+    push(@lines,$_);
+  }
+  push(@lines,end_div());
+  foreach (@lines) {
+    print $_;
+  }
+
+  print_metadata(@metadata);
+}
+
+sub print_metadata {
+  my @lines = @_;
+  my $meta = join('',@lines);
+  my ($filename) = ($meta =~ /<filename>(.*)<\/filename>/);
+  my ($purpose)  = ($meta =~ /<purpose>(.*)<\/purpose>/);
+  my ($concepts) = ($meta =~ /<concepts>(.*)<\/concepts>/);
+  my ($date)     = ($meta =~ /<date>(.*)<\/date>/);
+  my ($author)   = ($meta =~ /<author>(.*)<\/author>/);
+  my ($author_email) = ($meta =~ /<author_email>(.*)<\/author_email>/);
+
+  print div({-class=>'info'},
+	    join(br,
+		 "filename : $filename",
+		 "purpose  : $purpose",
+		 "concepts : $concepts",
+		 "date     : $date",
+		 "author   : $author",
+		 "author email : $author_email"));
+}
+
+
+
+#sub create_index {
+#
+#}
+
+#sub print_prompt {
+#  print start_form,
+#    p({-class=>'caption'},"Enter an abbreviation or term: ",
+#      textfield(-name=>'name'),hidden('class'),
+#      checkbox_group(-name=>'options',-values=>['terms','definitions','sources'],-default=>'terms'),
+#      submit(-value=>'search'),
+#      end_form);
+#}
+
+
+#sub do_search {
+#  my @found;
+#  my %options = map { $_ => 1 } param('options');
+#  my $query = param('name');
+#  foreach my $term (@TERMS) {
+#    my %entry;
+#    $entry{terms}       = $term->{title};
+#    $entry{definitions} = $term->{def};
+#    $entry{sources}     = $term->{source};
+#    my $matches;
+#    foreach (keys %options) {
+#      my $current = $entry{$_};
+#      next unless ($current =~ /$query/i || $query =~ /$current/i);
+#      $matches++;
+#    }
+#    push @found,[$entry{terms},$entry{definitions},$entry{sources}] if $matches > 0;
+#  }
+#  if (@found == 0) {
+#    print h2({-class=>'warning'},"Your search for $query returned no entries in the WormBase glossary");
+#    return;
+#  }
+
+#  # Suppress message when linking in from another page
+#  unless (url_param('name') && url_param('options')) {
+#    print h2(qq/Your search for "$query" returned /,scalar (@found),(scalar @found == 1) ? ' entry.' : ' entries.');
+#  }
+#  display_found(@found);
+#}
+
+#sub display_found {
+#  my @temp = @_;
+#  my @found = sort {$a->[0] cmp $b->[0]} @temp;
+#  return unless @found > 0;
+#  print start_div({-class=>'pages'});
+#  print start_table({-class=>'incontainer',-cellpadding=>10});
+#  print map { TR({-class=>'pageentry'},
+#		 td({-class=>'pagetitle'},$_->[0]),
+#		 td({-class=>'pagedescription'},$_->[1]
+#		    . (($_->[2]) ? br . 'Source: ' . $_->[2] : '')));
+#	    } @found;
+#  print end_table;
+#  print end_div;
+#}

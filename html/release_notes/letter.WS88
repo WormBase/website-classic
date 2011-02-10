@@ -1,0 +1,193 @@
+New Release of acedb WS88, Wormpep88 and Wormrna88  11/10/02 
+============================================================
+
+This directory includes:
+   i)	database.WS88.*.tar.gz    -   compressed data for new release
+  ii)	models.wrm.WS88           -   the latest database schema (also in above database files)
+ iii)	CHROMOSOMES/subdir        -   contains 3 files (DNA, GFF & AGP per chromosome)
+  iv)	WS88-WS87.dbcomp          -   log file reporting difference from last release
+   v)	wormpep88.tar.gz          -   full Wormpep distribution corresponding to WS88
+  vi)	wormrna88.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+ vii)	confirmed_genes.WS88.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+Primary databases used in build WS88
+------------------------------------
+brigdb : 2002-09-29 - updated
+camace : 2002-09-30 - updated
+citace : 2002-09-29 - updated
+cshace : 2002-08-28
+genace : 2002-09-30 - updated
+stlace : 2002-09-29 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS88       	WS87      	change
+----------------------------------------------
+ A    	32352971	32352971	  +0
+ C    	17772485	17772485	  +0
+ G    	17750022	17750022	  +0
+ T    	32354695	32354695	  +0
+ N    	95      	95      	  +0
+ -    	2000    	2000    	  +0
+
+Total	100232268	100232268	  +0
+
+
+Wormpep data set:
+-----------------
+
+There are 19,501 CDS in autoace, 20,931 when counting 1,430 alternate splice forms.
+
+The 20,931 sequences contain 9,259,541 base pairs in total.
+
+  Modified entries             118
+  Deleted entries               33
+  New entries                   83
+  Reappeared entries             0
+
+Net change  +50
+
+Status of entries: Confidence level of prediction
+-------------------------------------------------
+Confirmed              3411 (16.3%)
+Partially_confirmed    9124 (43.6%)
+Predicted              8396 (40.1%)
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2088 (10.0%)
+TrEMBL accessions     17242 (82.4%)
+TrEMBLnew accessions   1307 (6.2%)
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            20772 (99.2%)
+
+Locus <-> Sequence connections (cgc-approved)
+---------------------------------------------
+Entries with locus connection   3322
+
+
+GeneModel correction progress WS87 -> WS88
+-----------------------------------------
+
+							+---------+--------+
+Confirmed introns not is a CDS gene model:		| Introns | Change |
+							+---------+--------+
+					Cambridge	|   1298  |  -247  |
+					St Louis 	|    358  |   -53  |
+							+---------+--------+
+
+							+---------+--------+
+Known repeat families that overlap predicted exons:	| Introns | Change |
+					     		+---------+--------+
+					Cambridge	|     28  |     2  |
+					St Louis 	|    180  |    -1  |
+							+---------+--------+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+CHROMOSOME_III	sequence AF040644
+CHROMOSOME_IV	sequence AF036703
+CHROMOSOME_IV	sequence U40798
+
+Remaining gaps:
+---------------
+For more info mail worm@sanger.ac.uk
+
+# Gap on Chromosome III is covered by a 950Kb SseI fragment 
+
+III     1005794 1028769 37      F       AC087078.1      1       22976   +
+III     1028770 1029769 38      N       1000
+III     1029770 1055632 39      F       AC092690.1      1       25863   +
+
+# Gap on Chromosome X is covered by YAC clones in production at St Louis
+
+X       1       2649    1       F       AL031272.2      1       2649    +
+X       2650    3649    2       N       1000
+X       3650    14860   3       F       AC087735.3      1       11211   +
+
+
+-=================================================================================-
+
+
+New Data:
+---------
+C.briggsae non-coding RNA genes added to the cb25.agp assembly data.
+
+
+New Fixes:
+----------
+Updated the Parasitic nematode EST sequences. 
+
+Removed empty sequence objects made by cross-reference to (mis)named
+OST DNA sequences.
+
+Increased connections between mRNAs and CDS to 75%.
+
+Naming of Gadfly proteins in the database has been corrected.
+
+
+Known Problems:
+--------------
+Bad sequence objects left over from removal of emblace (see below).
+
+
+Other Changes:
+--------------
+*IMPORTANT* - The data previously contained in emblace has been retired.
+Much of this was redundant (e.g. the EMBL:<id> objects existed as <acc>
+objects used in BLAT mapping mRNAs to the genome sequence). emblace
+derived objects have the timestamp 'emblace' and are usually named
+EMBL:*. Connections to emblace objects have been removed from camace and 
+geneace. There remain 475 EMBL:* objects in WS88 derived from citace via
+cross-reference to Paper and Expr_patterns objects. 
+
+*KEYSETS* - Lincoln had asked for a list of CDS sequences which are 
+supported by mRNA/EST/OST data. Due to the limit on subclasses from a
+class in acedb databases we cannot produce this at the moment. A working
+solution is to generate and save in the database release keysets of objects
+as required. This is a scaleable method for providing quick access to a set
+of often asked for queries. See <web> pages for more information.
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+Further tidying of data sets to remove deprecated sequence objects.
+
+Re-working of the Matching_cDNA tags linking mRNA/EST to CDS.
+
+Pilot project to map sequence features to the genome sequence.
+
+-================================================================================-
+
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

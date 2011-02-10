@@ -1,0 +1,143 @@
+#!usr/bin/perl
+
+# Simple display of mass_spec_experiment objects
+
+use strict;
+use lib '../lib';
+use vars qw($DB $DBGFF $BROWSER $WORMBASE $EXPERIMENT @RESULTS);
+
+use CGI qw(:standard *table *TR *td escape *ul *div *iframe);
+use Ace::Browser::AceSubs qw(:DEFAULT AceRedirect);
+
+use ElegansSubs qw(:DEFAULT);
+
+#use Bio::Graphics::Browser;
+#use Bio::Graphics::Browser::Markup;
+use WormBase;
+
+END {
+  undef $EXPERIMENT;
+}
+
+use constant DEBUG         => 0;
+use constant PICTURE_WIDTH => 500;
+use constant STRUCTURE_DATA_SIMILARITY => 99; # Percent similarity cut-off to display
+                                              # mapped Structure_data objects
+
+$Ace::DEBUG_LEVEL=0;
+
+$|++;
+
+# print HTTP header & open the ace database
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$DB->class('Ace::Object::Wormbase');
+
+$WORMBASE = WormBase->new($DB);
+
+$EXPERIMENT = fetch_object() if param('name');
+
+# open elegans and briggsae GFF databases
+$DBGFF   = OpenGFFDB($DB,$EXPERIMENT->Species)   || AceError("Couldn't open GFF database.") if $EXPERIMENT;
+
+
+#my $cache_key = CGI->new->Vars;
+#delete $cache_key->{class};  # irrelevant for this page
+#$cache_key->{name} = "$GENE";
+#StartCache($cache_key) if (!param('nocache') and $GENE); # Disabled caching if no GENE is found 12Jul2004/PC
+#@SEGMENTS = segments() if ($GENE);
+
+PrintTop($EXPERIMENT,'Mass Spec Experiment',"Experiment $EXPERIMENT");
+
+if (param('name') && !$EXPERIMENT) {
+  PrintWarning(param('name'),"mass_spec_experiment");
+  print_prompt();
+  PrintBottom();
+  exit 0;
+} elsif ($EXPERIMENT) {
+  print_prompt();
+  print_report();
+} else {
+  print_prompt();
+}
+
+PrintBottom();
+
+exit 0;
+
+
+
+sub print_report {
+  print start_table({-border=>1});
+  
+  StartSection('Details');
+  print_identification();
+  
+  StartSection('Experimental results');
+  print_results();
+}
+
+
+sub print_identification {
+  my $strain = $EXPERIMENT->Strain;
+  my $stage  = $EXPERIMENT->Life_stage;
+  my $local  = $EXPERIMENT->Sub_cellular_localization;
+  my $lab    = $EXPERIMENT->Laboratory;
+  
+  SubSection('Strain',$EXPERIMENT->Strain);
+  SubSection('Stage',$EXPERIMENT->Life_stage);
+  SubSection('Localization',$EXPERIMENT->Sub_cellular_localization);
+
+  my $rep = eval { $lab->Representative->Full_name };
+  SubSection('Generated in',ObjectLink($lab) . ' ' . $rep ? ObjectLink($rep) : '');
+  EndSection();
+}
+
+
+# Display all of the peptides found in a given experiment.
+# This will really only be useful for experiments that have used specific
+# conditions
+sub print_results {
+  my @peptides = $EXPERIMENT->Mass_spec_peptide;
+  
+  SubSection('');
+#sub {
+	       print start_table();
+	       print TR(td(['Peptide','CDS','Protein']));
+	       foreach (@peptides) {
+		 my @results = $_->Mass_spec_peptide_result;
+
+		 # Peptides can have a one-one or one-many relationship to results
+		 # We will, in all likelihood, need to go done the same road as RNAi
+		 # with primary and secondary transcripts
+		 my (%cds,%proteins);
+		 foreach (@results) {
+		   map { $cds{$_} = $_ } $_->CDS;
+		   map { $proteins{$_} = $_ } $_->Protein;
+		 }
+		 my $cds = join(', ',map { ObjectLink($cds{$_}) } keys %cds);
+		 my $proteins = join(', ',map { ObjectLink($proteins{$_}) } keys %proteins);
+		 print TR(td(ObjectLink($_)),
+			  td($cds),
+			  td($proteins))
+	       }
+#	     }
+#	    );
+  EndSection();
+}
+
+
+
+sub fetch_object {
+    my $obj = $DB->fetch(Mass_spec_experiment => param('name'));
+    return $obj;
+}
+
+
+############################## the prompt #########################
+sub print_prompt {
+  param(-name=>'name',-value=>$EXPERIMENT || '');
+  $WORMBASE->print_prompt(-message  => 'Specify an experiment using',
+			  -class    => 'Mass_spec_experiment',
+			  -examples => [ {'Mass_spec_experiment'   => 'unc-26'},
+				       ]);
+}

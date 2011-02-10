@@ -1,0 +1,16 @@
+# This file stores configuration for the logrotate
+# for the principle WormBase log files
+
+# It should be run as a cron job
+
+
+# The acedb serverlog.wrm and log.wrm files
+/usr/local/acedb/elegans/database/*log.wrm {
+    size 100M
+    missingok
+    nocreate
+    sharedscripts
+    prerotate
+	/usr/local/acedb/bin/ace.pl -port 2005 -login admin -pass ace123 -e 'Serverlog'
+    endscript
+}

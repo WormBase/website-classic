@@ -1,0 +1,335 @@
+  <!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN"
+           "http://www.w3.org/TR/REC-html40/loose.dtd">
+<HTML>
+<Header><Title>Richard Durbin's Thesis</Title>
+<link rel="stylesheet" href="./stylesheets/_my.css"></Header>
+   <BODY>
+   
+<H1>Contents </H1><A class=toc href="#tth_sEc9"
+>9&nbsp; Process Placement in the Nerve Ring</A><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<A class=toc href="#tth_sEc9.1"
+>9.1&nbsp; Specific persistent contacts</A><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<A class=toc href="#tth_sEc9.2"
+>9.2&nbsp; Identified bundles</A><br>
+&nbsp;&nbsp;&nbsp;&nbsp;<A class=toc href="#tth_sEc9.3"
+>9.3&nbsp; Discussion</A><br>
+ 
+<p>
+   <hr>
+   
+   <p>
+   
+   <H2><A NAME="tth_sEc9"> 9</A>&nbsp;&nbsp;Process Placement in the Nerve 
+   Ring</H2>
+   
+   <p class=boxed>
+   In order for nerve cells to make connections with each other they must be 
+   in physical contact.  Therefore the physical arrangement of the neuropil is 
+   an important part of its design. The <i>C. elegans</i>  nerve ring is 
+   essentially a large parallel bundle of fibres bent around the pharynx.  A 
+   typical transverse section through the <i>C. elegans</i>  nerve ring shows 
+   an apparently homogeneous group of process outlines on each side.  
+   Bilaterally symmetric processes occupy approximately symmetrical positions 
+   within the bundle, but there is local disorder on the scale of a few 
+   process diameters so that in general it is impossible to identify processes 
+   on the basis of their positions, even over fairly long stretches of 
+   reconstruction (although characteristic diagnostic properties of certain 
+   neurons do make them identifiable).  <br>
+   <br>
+   It is presumably unnecessary to specify the exact relative positions of all 
+   the processes, but important for there to be reasonably tight control over 
+   process position because processes do not branch, so the only way to make 
+   contact is to lie next to each other in the bundle.  How is position 
+   controlled?  There are essentially two different possible sources of order, 
+   either from contact with other processes or from an external source of 
+   information, such as a gradient (e.g. Bonhoeffer and Huf, 1982).  The most 
+   likely form of contact mediated information would be a mutual adhesivity 
+   that kept two or more neurons together and therefore simplified the task of 
+   specifying their positions.  Such selective fasciculation has been proposed 
+   as important in laying down other invertebrate nervous systems during 
+   development (see chapter 1 for review) and there are indications that it is 
+   important in process outgrowth in <i>C. elegans</i> (<a class=cell 
+   href="http://www.wormbase.org/db/cell/cell.cgi?name=PVPL;class=Cell">PVPL</a>/<a 
+   class=cell 
+   href="http://www.wormbase.org/db/cell/cell.cgi?name=PVPR;class=Cell">PVPR</a>/<a 
+   class=cell 
+   href="http://www.wormbase.org/db/cell/cell.cgi?name=PVQL;class=Cell">PVQL</a>/<a 
+   class=cell 
+   href="http://www.wormbase.org/db/cell/cell.cgi?name=PVQR;class=Cell">PVQR</a> 
+   behaviour, discussed in chapter 5).
+   </p>
+   
+   <p class=fig>
+   <B>Figure 9.1</B><br>
+   The distribution of adjacency in the database.  The crosses connected by 
+   the heavy line indicate the number of cell pairs in the database with a 
+   particular adjacency.  The fine lines are the corresponding numbers from 
+   the outcome of the random mixing stochastic model, using three different 
+   values of the parameter, p, and averaged over 10 runs to get smooth 
+   results.  The best overall fit to the distribution is given by p - 0.08.  
+   This leaves two regions of misfit, X and Y, which are discussed in the 
+   text.  Note that the vertical axis in this graph is nonlinear.
+   </p>
+   
+   <center>
+   <A href="./figs/full_jpg/fig9.1full.jpg" target=_blank"><img 
+   src="./figs/small_jpg/fig9.1.jpg" border=0></A>
+   </center>
+   
+   <p class=fig>
+   <B>Figure 9.2</B><br>
+   An expansion of the region Y with three separate simulations of the random 
+   mixing model with p = 0.08.  The gap between the true data and the model 
+   data is clearly significant.  Since the vertical scale is linear in this 
+   case the area of region Y corresponds to the number of "extra" high 
+   adjacency contacts.  This predicts around 400 extra persistent contacts, or 
+   2.3 per neuron (178 neurons).
+   </p>
+   
+   <center>
+   <A href="./figs/full_jpg/fig9.2full.jpg" target=_blank"><img 
+   src="./figs/small_jpg/fig9.2.jpg" border=0></A>
+   </center>
+  
+   
+   <H3><A NAME="tth_sEc9.1"> 9.1</A>&nbsp;&nbsp;Specific persistent 
+   contacts</H3>
+   
+   <p class=boxed>
+   If selective fasciculation were important in organising the nerve ring, and 
+   the adhesive forces remained after early development, then one would expect 
+   to find pairs of processes with persistent contacts.  These should be 
+   detectable in the database as pairs of neurons with exceptionally high 
+   adjacencies.  If one looks at the distribution of all the adjacencies in 
+   the database it would be the sum of two components, a random mixing 
+   component, and a high adjacency component due to persistent contacts.  The 
+   distribution of adjacencies is shown in figure 9.1.  There is a clear 
+   change in slope at the curve at an adjacency of around 30.  <br>
+   <br>
+   In order to assess the significance of this shoulder, and to estimate its 
+   size, and hence the average number of persistent contacts made by a neuron, 
+   I produced a stochastic model of a collection of randomly mixing parallel 
+   fibres.  This operates by recording the positions of the fibres in a 
+   hexagonal grid representing a slice through the process tract, and then 
+   moving to the next slice and allowing neighbouring processes to exchange 
+   positions with a certain probability.  The adjacency of a pair of fibres is 
+   then taken to be the number of slices in which they are neighbours.  The 
+   total number of slices was taken to be 75 to make the total adjacency (sum 
+   of all its adjacencies) of each fibre the same as the average total 
+   adjacency for the processes in the database.  The second parameter, the 
+   probability of a process switching, p, was chosen so as to best match the 
+   model's distribution of adjacencies to that of the database.  Thje best fit 
+   is given by p = 0.08.  <br>
+   <br>
+   There are two regions of misfit that cannot be eliminated, denoted by X and 
+   Y. Region X is due to a very large number of additional contacts of very 
+   short duration, which probably arise from processes crossing at an angle in 
+   the nerve ring.  Such events are known to occur in the nerve ring but are 
+   not considered by the computer model.  Region Y is the shoulder that 
+   includes longer contacts than predicted by the random model.  Figure 9.2 
+   shows an expansion of the shoulder region of the database distribution 
+   together with data from 3 simulations of the model.  The shoulder is 
+   clearly significant beyond the variation in the simulations due to 
+   randomness in the model.  However it is fit quite well by the random model 
+   with a low switching probability (p= 0.025, figure 9.1), which is not 
+   surprising, because low switching probabilities for a subset of process 
+   pairs are an approximation to specific adhesion between the processes, 
+   which is the sort of feature that we predicted might give rise to a 
+   shoulder beforehand.  <br>
+   <br>
+   It is possible to estimate the number of significantly persistent contacts 
+   from the graph in figure 9.2 as about 400, and thus to arrive at a figure 
+   of on average 2.3 persistent specific contacts per neuron.  This is very 
+   crude - there may be many specific contacts of shorter length - but it 
+   gives an indication that there may be fascicles or bundles of mutually 
+   adhesive processes in the <i>C. elegans</i>  nerve ring.  However if such 
+   bundles are common then they cannot contain very many processes, because 
+   the average number for long bundles must be only 3 or 4.  A second test 
+   suggests the same result.  The average number of contacts made by a neuron 
+   is 52.1, most of which are short.  If we compare the adjacencies of all the 
+   contacts with that of the longest contact then we see that on average 12.6 
+   are longer then 25% of the maximum, only 4.8 are longer than 50% of the 
+   maximum, but 2.4 are longer than 75% of the maximum.  Thus it seems that a 
+   very small number of contacts are comparatively consistent.
+   </p>
+   <p class=fig>
+    <B>Figure 9.3</B><br>
+
+    Clusters of neuronal classes obtained by hierarchical clustering of the 
+    adjacency data.  There are three thicknesses of line, corresponding to an 
+    association measure of 25 or more for the thickest, 15 or more for the 
+    intermediate one, and 8 or more for the thinnest one.  All these clusters 
+    were seen on both sides of the nervous system.  In some cases the dorsal 
+    and ventral members of the same class ended up reproducibly in different 
+    clusters (e.g. <a class=cell 
+    href="http://www.wormbase.org/db/cell/pedigree">CEP</a>, <a class=cell 
+    href="http://www.wormbase.org/db/cell/pedigree">IL1</a>, <a class=cell 
+    href="http://www.wormbase.org/db/cell/pedigree">SMB</a>).  The positions of 
+    classes were moved as little as possible from those in figure 8.1, in order 
+    to show the relationship between possible bundle assignments and circuitry. 
+    The <a class=cell 
+    href="http://www.wormbase.org/db/cell/cell.cgi?name=RMED;class=Cell" 
+    target=_blank>RMED</A>/<a class=cell 
+    href="http://www.wormbase.org/db/cell/cell.cgi?name=RMEL;class=Cell" 
+    target=_blank>L</A>/<a class=cell 
+    href="http://www.wormbase.org/db/cell/cell.cgi?name=RMER;class=Cell" 
+    target=_blank>R</A>/<a class=cell 
+    href="http://www.wormbase.org/db/cell/cell.cgi?name=RMEV;class=Cell" 
+    target=_blank>V</A> class is ringed because the four <a class=cell 
+    href="http://www.wormbase.org/db/cell/cell.cgi?name=RMED;class=Cell" 
+    target=_blank>RMED</A>/<a class=cell 
+    href="http://www.wormbase.org/db/cell/cell.cgi?name=RMEL;class=Cell" 
+    target=_blank>L</A>/<a class=cell 
+    href="http://www.wormbase.org/db/cell/cell.cgi?name=RMER;class=Cell" 
+    target=_blank>R</A>/<a class=cell 
+    href="http://www.wormbase.org/db/cell/cell.cgi?name=RMEV;class=Cell" 
+    target=_blank>V</A> neurons form a tight bundle 
+    with each other.  The <a class=cell 
+    href=\"http://www.wormbase.org/db/cell/cell.cgi?name=RIAL;class=Cell\">RIAL</a>/<a 
+    class=cell 
+    href=\"http://www.wormbase.org/db/cell/cell.cgi?name=RIAR;class=Cell\">R</a> 
+    and RMD classes are linked in a dashed cluster because there are a number 
+    of <a class=cell 
+    href=\"http://www.wormbase.org/db/cell/cell.cgi?name=RIAL;class=Cell\">RIAL</a>/<a 
+    class=cell 
+    href=\"http://www.wormbase.org/db/cell/cell.cgi?name=RIAR;class=Cell\">R</a>/RMD 
+    pairs that have associations just under 8.
+    </p>
+ 
+    <center>
+    <A href="./figs/full_jpg/fig9.3full.jpg" target=_blank"><img 
+    src="./figs/small_jpg/fig9.3.jpg" border=0></A>
+    </center>
+    
+    <H3><A NAME="tth_sEc9.2"> 9.2</A>&nbsp;&nbsp;Identified bundles</H3>
+    
+    <p class=boxed>
+    It is hard to tell with individual process pairs whether their high 
+    adjacency in accidental or not, but if several processes combined in a 
+    bundle it should be objectively deducible from the adjacency information in 
+    the database.  A bundle will consist of a group of processes with the 
+    property that all pairs in the group are highly adjacent, but no other 
+    process is very adjacent to the group as a whole.  <br>
+    <br>
+    The number of possible groups goes up exponentially with the size of the 
+    group, so it is not possible to try every one even with small groups.  
+    However there is a branch of multivariate statistics called cluster 
+    analysis that is specifically designed to handle this type of problem, and 
+    a variant of a standard algorithm from this theory was used to extract 
+    clusters of highly mutually adjacent processes that are likely candidates 
+    for bundles.  The details of this algorithm are given in the appendix, but 
+    the final result is a hierarchial set of nested clusters with a measure of 
+    the degree of association at each level, which corresponds to an average 
+    internal adjacency.  Any real clusters, such as the proposed bundles, 
+    should stand out as having a high association measure at the level of the 
+    group, but not combine well with an external process or group at the next 
+    level down.  Figure 9.3 shows the bundles detected by the algorithm in the 
+    <i>C. elegans</i>  database at associations measure cutoffs of 25, 15 and 
+    8.  In the case of contralateral homologues, either bundles were seen on 
+    both sides, or the same bundle included both homologues.  <br>
+    <br>
+    In order to provide an objective significance criterion for the association 
+    measure of a cluster, I used the same algorithm on data from a simulation 
+    of the random mixing model described in the last section (with p = 0.08).  
+    The maximum association measure obtained was 12.75 and less than 10% of the 
+    values were greater than 7.5.  Thus according to this criterion all the 
+    bundles shown in figure 9.3 at an associational level of 15 are likely to 
+    be significant, as are most of those at a level of 8, especially when they 
+    occur on both sides of the animal.  <br>
+    <br>
+    Since the clustering method is hierarchial and continues to make larger and 
+    larger clusters it does generate further amalgamations of the bundles seen 
+    in figure 9.3.  Although the association measure for such bundles falls 
+    below our significance test level there is evidence that some of them are 
+    real, primarily because the same groupings are seen for homologous bundles 
+    on the two different sides of the same animal.  The fact that they have a 
+    low association measure implies that they are not true completely mixing 
+    bundles, but they may be either super-bundles - bundles of bundles - or 
+    cases where processes are shared by several bundles. The suggestion that 
+    particular processes might belong to more than one bundle is taken further 
+    in the discussion section.
+    </p>
+    
+      <H3><A NAME="tth_sEc9.3">
+9.3</A>&nbsp;&nbsp;Discussion</H3>
+   <p class=boxed>There is some evidence in the database for the presence of
+   reproducible persistent contacts between nerve fibres, both between
+   pairs of neurons and between groups of three or more processes that
+   run together round the ring as sub-bundles within the complete
+   process tract.  The largest grouping of neurons which all had
+   fairly high adjacency to each other contained seven cell types
+   (figure 9.3) but most of the likely bundles generated by cluster
+   analysis of the neighbourhood information contained only two or
+   three cell types.  The average number of high adjacency contacts
+   per neuron was also small (2.3).  <br><br>The analysis presented
+   here suffers from its reliance on identifying specific contacts by
+   unusually high adjacencies.  It would therefore miss any important
+   short term contacts, and would also be confused by processes that
+   for half their length are in one part of the neuropil, and for the
+   other half in another part.  There is a clear example of such
+   behaviour in the case of the interneuron <a class=cell href="http://www.wormbase.org/db/cell/cell.cgi?name=AIBL;class=Cell">AIBL</a>/<a class=cell href="http://www.wormbase.org/db/cell/cell.cgi?name=AIBR;class=Cell">AIBR</a>, which runs near <a class=cell href="http://www.wormbase.org/db/cell/cell.cgi?name=AIAL;class=Cell">AIAL</a>/<a class=cell href="http://www.wormbase.org/db/cell/cell.cgi?name=AIAR;class=Cell">AIAR</a>
+   in the proximal part of its trajectory, and near <a class=cell href="http://www.wormbase.org/db/cell/cell.cgi?name=RIBL;class=Cell">RIBL</a>/<a class=cell href="http://www.wormbase.org/db/cell/cell.cgi?name=RIBR;class=Cell">RIBR</a> in the distal
+   part (White, 1983).  This is consistent with <a class=cell href="http://www.wormbase.org/db/cell/cell.cgi?name=AIBL;class=Cell">AIBL</a>/<a class=cell href="http://www.wormbase.org/db/cell/cell.cgi?name=AIBR;class=Cell">AIBR</a>'s role as the
+   major linking interneuron between the amphid receptor circuitry and
+   the motor control circuitry (figure 8.2).  Such switching of
+   bundles could be used by other processes that carry information
+   between sufficiently different groups of processes.  <br><br>Another
+   example of the possible presence of sub-bundles in the nervous
+   system is provided by the motor neuron processes in the ventral
+   nerve cord.  The <a class=cell 
+href="http://www.wormbase.org/db/cell/pedigree">VA</a> and <a class=cell 
+href="http://www.wormbase.org/db/cell/pedigree">VB</a> classes of motor neuron are both
+   bipolar, with an axonal process that produces neuromuscular output
+   for part of its length (the other part neither makes nor receives
+   connections) and also receives some input, and a dendritic process
+   that is purely postsynaptic.  All the dendrites run together in one
+   place, under the main motor neurons, while all the axons run in a
+   group against the basement membrane.  Although these two groups of
+   processes are adjacent they rarely mix.  In addition there are a
+   number of places where a motor neuron commissure cuts across the
+   entire nerve cord; when this happened the commissure usually runs
+   between the dendritic and axonal groups, separating one group from
+   the other, but splitting neither (7/13 cases; in 5/13 a <a class=cell 
+href="http://www.wormbase.org/db/cell/pedigree">VB</a> dendrite
+   is on the wrong side - in only one case is the axonal bundle
+   split).  In this case a general adhesion between like processes may
+   be useful in keeping all the dendrites near their source of
+   inervation, and keeping the axons near the basement membrane, where
+   neuromuscular junctions are made.  <br><br>There is a strong
+   relationship between the proposed groupings of the neurons into
+   bundles and the circuitry.  Figure 9.3 has been organised so as to
+   show the extent to which the bundles are formed from neurons that
+   are near in the processing diagram in figure 8.1, which was
+   obtained purely from connectivity data.  However it is by no means
+   true that all persistent pairwise contacts are between neurons that
+   are connected, either by chemical synapses, or by gap junctions
+   (e.g. <a class=cell 
+   href="http://www.wormbase.org/db/cell/pedigree">CEP</a> and <a class=cell href="http://www.wormbase.org/db/cell/pedigree">URX</a>, or the ventral cord motor neuron bundles).  In
+   some cases bundles correspond to parts of the processing modules
+   defined previously on the basis of internal feedback, but they also
+   often contain vertical groupings of neuronal classes from the
+   directional ordering, sometimes with elements from two modules, one
+   of which feeds into the other.  Such organisation is to be expected
+   if the main criterion for process placement is to maximise the
+   adjacency of symaptic partners, since the main flow of information
+   is down through the network, across the modules.  <br><br>The
+   observation that there are a small number of persistent contacts
+   suggests that specific fasciculation mechanisms are significant in
+   the <i>C. elegans</i>  nerve ring, and appears to rule out the
+   specification of process position by a general mechanism that acts
+   equivalently on all cells.  This is perhaps not surprising in an
+   organism with such a small number of cells, almost all of which are
+   distinct, forming different sets of specific connections.  The data
+   certainly do not allow the prediction of a set of hierarchical
+   forces that could determine position in the nerve ring.  There is
+   also the problem present in all the analysis of the database of
+   trying to investigate the underlying mechanisms involved in
+   building a structure (the nerve ring) by looking at the finished
+   product.  However, taken together with the evidence for the role of
+   specific fasciculation in embryonic neural outgrowth presented in
+   the first part of this thesis, there are strong grounds for
+   believing that the organisation of the nerve ring may make use of
+   small specific bundles to correctly position processes so that
+   synaptic connections can be made.  </p>
+
+</HTML>

@@ -1,0 +1,43 @@
+#!/usr/bin/perl
+# not found document
+
+use lib '../lib';
+use Ace::Browser::AceSubs qw(:DEFAULT Style);
+use ElegansSubs qw(:DEFAULT Banner Footer);
+use CGI qw(:standard);
+#use LogErrors;
+use vars qw/$uri/;
+
+my $referer = referer() || '/';
+my $path = path_info();
+my @refresh = ($path =~ /\.html?/) ? 
+    (-refresh=>"2; url=$referer")
+    : ();
+
+#my $reporter = ServerErrorReporting->new();
+
+
+$uri      = $ENV{REDIRECT_URL} || $ENV{REQUEST_URI} || $ENV{REDIRECT_REQUEST_URI};
+$response = "requested_file: $uri";
+
+#log_response();
+print header(-type=>'text/html',@refresh),
+      start_html(-title=>'Not Found',
+                 -style=>Style());
+print Banner();
+print '<h1>Requested Document Not Found</h1>';
+print p("The document you requested ($uri) is not available.  Please use your browser's
+       back button, or return to the <a href=\"/\">main WormBase page</a>.
+       <p>
+       The WormBase team has been notified of this problem and we are working to resolve the issue.");
+
+print Footer();
+
+
+#sub log_response {
+#    # Send an email!
+#    $reporter->email_error($response,'404');
+#    $reporter->log_error($response,'404');
+#}
+
+

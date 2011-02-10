@@ -1,0 +1,106 @@
+#!/usr/bin/perl
+# file: wtp
+# describes worm transcriptome project
+
+use strict;
+use Ace::Browser::AceSubs;
+use ElegansSubs;
+use CGI qw(:standard);
+use Bio::Graphics::Browser;
+
+my $wtp = GetAceObject();
+PrintTop($wtp,'WTP',$wtp ? "Worm Transcriptome Project: Gene $wtp" : "Worm Transcriptome Project");
+
+AceError("No such WTP ID known.") unless $wtp;
+
+my $DBGFF = OpenGFFDB(OpenDatabase(),get_species($wtp)) || AceError("Couldn't open GFF database.") if $wtp;
+
+print p(
+        "The Worm Transcriptome Project uses cDNA evidence to develop reliable models of gene boundaries and transcription patterns.",
+	"WTP genes are named using a system that indicates the chromosome, and region of the chromosome in which the",
+	"gene is located."),
+    p("Currently only the full extent of WTP genes is available to WormBase. Alternative splicing patterns",
+      "may be published at a later date.",
+      "Please contact Jean &amp; Danielle Thierry-Mieg prior to using this coordinate information for genome-wide analyses.",
+      );
+
+my ($segment,$start,$stop,$chrom) = find_position($wtp);
+
+print p("This gene is located at",hunter_url($segment));
+
+print_gff($segment);
+
+
+print p(i("Warning: The WormBase sequence display only shows published cDNA data.  The WTP project uses unpublished data",
+	  "from Yuji Kohara that may be made available at a later date."));
+
+print p(b($wtp->Contact_information));
+
+
+PrintBottom();
+
+sub find_position {
+  my $s = shift;
+  my $segment = $DBGFF->segment(WTP=>$s);
+  $segment;
+  return ($segment,$segment->abs_start,$segment->abs_stop,$segment->abs_ref);
+}
+
+sub get_source {
+  my $s = shift;
+  my $parent = $s->get('Source') || $s->get('Canonical_parent');
+  return unless $parent;
+  $parent->fetch;
+}
+
+sub get_child {
+  my $s = shift;
+  my @children;
+  push @children,$s->get(S_Child=>2) if $s->get('S_Child');
+  push @children,$s->get('Subsequence') if $s->get('Subsequence');
+  @children;
+}
+
+sub hunter_url {
+  my $segment = shift;
+  my $start      = $segment->abs_start;
+  my $stop       = $segment->abs_stop;
+  my $chromosome = $segment->abs_ref;
+  $start = int($start - 0.05*($stop-$start));
+  $stop  = int($stop  + 0.05*($stop-$start));
+  ($start,$stop) = ($stop,$start) if $start > $stop;
+  $chromosome =~ s/^CHROMOSOME_//;
+  return a({-href=>"gbrowse?source=c_elegans;ref=$chromosome;start=$start;stop=$stop"},"<b>$chromosome</b>:$start..$stop");
+}
+
+# THIS SHOULD BE PUT INTO THE LIBRARY
+sub print_gff {
+  my $segment = shift;
+  my $ref   = $segment->ref;
+  my $start = $segment->start;
+  my $stop  = $segment->stop;
+
+  # add another 10% to left and right
+  $start = int($start - 0.05*($stop-$start));
+  $stop  = int($stop  + 0.05*($stop-$start));
+
+  $segment = $DBGFF->segment($segment,$start,$stop) or return;
+=pod
+  my $img = $BROWSER->render_panels(segment=>$segment,
+				  tracks =>['NG',
+					    'WTP',
+					    'ESTB',
+					    'mRNAB',
+					    'PCR',
+					    'CG',
+					    'CLO',
+					   ],
+				  do_map  => 1,
+				  # Purge post WS182
+				  #tmpdir  => AppendImagePath('wtp')
+				  );
+  print p({-align=>'CENTER'},$img);
+=cut
+  my $type= "t=NG;t=WTP;t=ESTB;t=mRNAB;t=PCR;t=CG;t=CLO"; 
+  print p({-align=>'CENTER'},InlineImage($type,'c_elegans',$ref,$start,$stop));
+}

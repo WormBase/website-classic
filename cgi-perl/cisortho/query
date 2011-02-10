@@ -1,0 +1,497 @@
+#!/usr/bin/perl -w
+
+#ENVIRONMENT
+$WEBROOT='/usr/local/wormbase/website-classic/html/cisortho/';
+$URIROOT='http://www.wormbase.org/cisortho/';
+use lib '/usr/local/wormbase/website-classic/cgi-perl/cisortho/';
+use lib '/usr/local/wormbase/website-classic/cgi-perl/lib/';
+#//////////////////////////
+
+
+use ElegansSubs;
+use Env;
+use Data::Dumper;
+use CGI qw(:standard :cgi-lib);
+use CGI::Pretty;
+use CGIsubs;
+sub QueryPage;
+sub WriteStockholm;
+sub WriteParams;
+sub ParsePostData;
+sub DumpParams;
+sub CountConserved;
+sub Header;
+sub NavigationBar;
+
+$Per=$WEBROOT.'per/';
+$Exe1=$WEBROOT.'hmmbuild';
+
+$ErrFile=$WEBROOT.'log/query.error';
+$LogFile=$WEBROOT.'log/query.log';
+
+umask 002;
+open MYERR, '>>'.$ErrFile;
+#*STDERR=*MYERR;
+open MYLOG,'>>'.$LogFile;
+
+#@Fields=qw (name npairs nretrieve nreport pasted_file uploaded_file);
+
+#Make Random Number and have a potential filename onhand
+for ($RandNum=int(rand(10000000)); -e $WEBROOT.'out/'.$RandNum; $RandNum=int(rand(10000000))){}
+#this generates a filestem which doesn't exist
+
+$Scan=$WEBROOT.'scan/';
+$Out=$WEBROOT.'out/'.$RandNum.'/';
+$Page=$WEBROOT.'out/'."$RandNum.html";
+$PageURI=$URIROOT.'out/'."$RandNum.html";
+$TFBS=$Out.'temp'; #user input file which is deleted immediately
+$Params=$Out.'params'; #other settings from the webpage
+$PWM=$Out.'PWMfile'; #the HMMER parameter file
+$PH=$Out.'PutativeHits';
+$PWMURI=$URIROOT."out/$RandNum/PWMfile";
+$ScanTag=$Scan.$RandNum;
+$PriorFile=$Per.'eb.pri';
+$NullFile=$Per.'eb.null';
+$MinCons=6;  #HardCoded
+
+
+#check whether input is defined, act accordingly
+%Input=Vars;
+$Input{remote_addr}=$ENV{REMOTE_ADDR};
+$Input{remote_host}=$ENV{REMOTE_HOST};
+
+if (! defined $Input{name} or
+    $Input{name} eq "") {$Input{name}="Results"}
+$Query=$Out.$Input{name}.'.user_input'; #user-friendly contents of files TFBS and Params
+
+
+open SCAN,'>'.$ScanTag or die "Couldn't open ScanTag file $ScanTag\n";
+print SCAN "ab";
+close SCAN; #solely for the purpose of creating the file
+$html= h3({-class=>'table'}, "The system is working on your request.",
+	  "This page will update every minute until done.",
+	  "The",
+	  &a({-href=>$PWMURI,-target=>"window2"},
+	     'Position weight matrix'),
+	  "generated from your input is already being used in the search.",
+	  "You may inspect it while you are waiting.");
+
+if (! exists $Input{page}) { &QueryPage(""); }
+
+else {
+    $ErrorMsg = &ParsePostData(\%Input);
+	  
+    if (defined $ErrorMsg and $ErrorMsg ne ""){
+	&QueryPage(&pre($ErrorMsg));
+	print MYERR $ErrorMsg,"\n";
+    }
+    
+    else {
+	delete $Input{uploaded_file};
+	delete $Input{pasted_file};
+	
+	`rm $TFBS`;
+	
+	&PrintPage($Page,$html,30);
+	print redirect(-uri=>$PageURI,
+		       #-nph=>1,
+		        -target=>"window4");
+    }
+	
+}
+    
+close MYLOG;
+close MYERR;
+exit;
+
+
+
+#SUBS ========================
+	sub QueryPage {
+	    my $errormsg=$_[0];
+
+	    &Header();
+	    &ElegansSubs::Banner();
+	    &NavigationBar();
+
+	    print
+		  table({-class=>'table'},
+		      
+		      start_multipart_form('POST',$REQUEST_URI),
+		      
+			  Tr(td(h3("Transcription Factor Binding Site Prediction using Position Weight Matrices and",
+					   &i("C. elegans"),'/',&i("C. briggsae"), 
+					   "Ortholog-based Filtering (Phylogenetic Footprinting)"))),
+		      Tr(td(br)),
+		      Tr(td('Output name (optional):'),
+			 td({-style=>'text-align: right;'},
+			    textfield({-name=>'name',-size=>15})),
+			 td()),
+		      
+		      Tr(
+			 td('Maximum number of retrieved hit-pairs desired'),
+			 td({-style=>'text-align: right;'},
+			    popup_menu({-name=>'npairs',
+					-values=>[100,200,300,400,500,1000,5000],
+					-default=>500})),
+			 td()),
+		      
+		      Tr(
+			 td('Maximum number of hits retrieved per species before phylogenetic filtering'),
+			 td({-style=>'text-align: right;'},
+			    popup_menu({-name=>'nretrieve',
+					-values=>[100,500,1000,5000,10000,20000],
+					-default=>10000})),
+			 td()),
+		      
+		      Tr(
+			 td('Maximum number of next-highest hits reported for each gene'),
+			 td({-style=>'text-align: right;'},
+			    popup_menu(-name=>'nreport',-values=>[1,2,3,4,5,10],-default=>3)),
+			 td()),
+		      
+		      Tr(
+			 td('Input file type:'),
+			 td({-style=>'text-align: right;'},
+			    popup_menu({-name=>'file_type',
+					-values=>["ungapped TF alignment",
+						  "position-weight matrix"],
+					-default=>"ungapped TF alignment"}))),
+		      Tr(
+			 td('Search Type (CisOrtho or Individual Site Scores):'),
+			 td({-style=>'text-align: right;'},
+			    popup_menu({-name=>'program_type',
+					-values=>["cisortho",
+						  "sitescores"],
+					-default=>"cisortho"}))),
+		      Tr(td(br)),
+		      
+		      Tr(
+			 td('Filename:'),
+			 td({-style=>'text-align: right;'},
+			    input({-type=>'file',-name=>'uploaded_file',
+				   -size=>40,-maxlength=>80}))));
+
+	    
+	    if (! $Input{name} ) {
+		print hidden(-name=>'name');
+	    }
+	    
+	    print
+		table(
+		      "<colgroup span=6 width=\"16.66%\">\n",
+		      Tr(td('or Paste TF binding site alignment or PWM here:')),
+		      Tr(td(
+			    textarea({-name=>'pasted_file',-rows=>8,-cols=>60,
+				      -style=>"font-family: courier"}))),
+
+			  Tr(td('File containing list of putative hits to score:')),
+			  Tr(td({-style=>'text-align: right;'},
+					input({-type=>'file',-name=>'putative_hits',
+						   -size=>40,-maxlength=>80}))),
+		      Tr(
+				 td({-style=>'text-align: right; vertical-align: bottom;'},
+					input({-type=>'submit',-value=>'Find Hits'}))));
+	    
+		
+	    if (defined $errormsg) {
+			print &h3({-style=>"color: rgb(255,0,0)"},$errormsg);
+	    }
+
+	    print
+		  table({-class=>'table'},
+				colgroup({-span=>'3'}),
+				Tr(td({-colspan=>2, -width=>"66.66%"},
+					  &h4(
+						  'Please submit an',
+				&a({-target=>"window2",
+				    -href=>$URIROOT."download/align_ex1"},
+				   'ungapped TF Alignment'),
+				'or a',
+				&a({-target=>"window2",
+				    -href=>$URIROOT."download/rawpwm_ex1"},
+				   'position weight matrix') . '.',
+				'&nbsp Alignment must have lines all the same',
+				'length, containing only',
+				'[acgtnACGTN].',
+				'Position weight matrix must at least six lines,',
+				'with each line containing four integers separated by whitespace.',
+				'Results will appear on a',
+				'randomly named webpage which will be',
+				&b('deleted after two hours.')))
+			 ),
+		      Tr(td({-colspan=>2},
+			    &b('Note: &nbsp&nbsp') ,
+			    'Binding Site Alignment must have at least',
+			    &b({-style=>"color: rgb(255,100,0)"},'6 conserved columns'),
+			    '(as judged by HMMER)' ,
+			    'or the search cannot be run.',
+			    "Please read the CisOrtho",
+			    &a({-href=>"http://cpmcnet.columbia.edu/dept/gsas/biochem/labs/hobert/bioinf/manual.html",
+				-target=>"window2"},
+			       "manual"),"for further details."),
+			 td())
+		      );
+	    
+	    print hidden(-name=>'page',-value=>0,-override=>1);
+	    print end_form;
+	    
+	    print table({-class=>'table'},
+					Tr(td(hr)));
+	    
+	    print &ElegansSubs::Footer();
+	    print end_html;
+	}
+
+
+sub Header {
+    my $tab=$_[0];
+    print header;
+
+    print
+	start_html(-title=>'C. elegans/C. briggsae Transcription Factor Binding Site Search',
+		   -style=>{-src=>$URIROOT."cisortho.css"},
+		   -meta=>{'Content-style-type'=>'text/css'},
+		   -dtd=>['-//W3C//DTD XHTML 1.0 Strict//EN',
+			  'http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd']);
+    print base({-href=>$URIROOT});
+}
+
+
+sub NavigationBar {
+    print
+	img({-src=>'graphics/title.png'}),
+	table({-style=>'text-align: left',
+		   -class=>'table',
+	       -cellspacing=>2
+		   },
+		  colgroup({span=>'4'}),
+	      Tr({-style=>'text-align: center;'}, 
+		 td({-class=>'grey'},a({href=>''},'Introduction')),
+		 td({-class=>'grey'},a({href=>'methods.html'},'Methods')),
+		 td({-class=>'grey'},a({href=>'download.html'},'Download')),
+		 td({-class=>'predict'},
+		    a({href=>$REQUEST_URI},b('Prediction')))),
+	      Tr({-class=>'predict'},
+		 td({-colspan=>4},br)));
+}
+
+
+
+sub WriteStockholm {
+    my ($input,$outfile)=@_;
+
+    #Print out File for crontab launch
+
+    #check whole format and create stockholm file
+    my $stockholm = "";
+    my ($line, $L, $Lfirst, $errormsg);
+    $errormsg = "";
+
+    my @lines=split /\s*\n\s*/, $input;
+    if (! @lines) { $errormsg.="File is empty.\n"; }
+    $Lfirst = length $lines[0];
+
+    if ($Lfirst<6) {
+	$errormsg.="Binding sites must be 6 or more nucleotides long\n";
+    }
+
+    $stockholm.="# STOCKHOLM 1.0\n\n";
+    for my $ind (0..$#lines){
+	$line=$lines[$ind];
+	$L = length($line);
+	
+	unless ($line=~/^[acgtnACGTN]+$/) {
+	    $errormsg.= "Line " . ($ind+1) .
+		" has bad letters: " . br . $line . 
+		    br . "Should be [acgtnACGTN] only" . br;
+	}
+	
+	unless (length ($line) == $Lfirst) {
+	    $errormsg.= "Line " . ($ind+1) . " is " . length($line) .
+		" nucleotides.  Should be $Lfirst\n";
+	}
+	$stockholm.=sprintf "%-3s%s\n",$ind+1,uc($line);
+    }
+    $stockholm.="//\n";
+
+    local *FH;
+    unless (open FH,'>'.$outfile){die "Couldn't open $outfile for writing\n"}
+    print FH $stockholm;
+    close FH;
+    return $errormsg;
+}
+
+
+sub WriteParams {
+    #skip file parameter...
+    my ($vars,$params,$exclude_keys)=@_;
+    my $key;
+
+    local *FH;
+    unlink $params;
+    unless (open FH,'>'.$params){die "Couldn't open $params for writing\n"}
+    for $key (keys %$vars){
+		next if (exists $exclude_keys->{$key});
+		print FH "$key\t$vars->{$key}\n";
+    }
+    close FH;
+}
+
+
+sub ParsePostData{
+    my $input = $_[0];
+    my $errormsg;
+    #$errormsg is the error message which will be displayed on HTML
+    #$input is a hashref of the post message
+    #Checks that the file is the proper format, based
+    #on the input
+
+    #Proper format matches the regex /^([acgtnACGTN]{$N}\s*\n)+$/;
+    #where $L is motif length, $N is number of motifs
+    #returns ($L x $N) or (0,0) if bad format
+
+    my $file;
+	my $ph_file;
+
+	#print MYERR Dumper $input;
+
+    if ($input->{pasted_file} and ! $input->{uploaded_file}){
+		$file=$input->{pasted_file};
+    }
+    elsif ($input->{uploaded_file} and ! $input->{pasted_file}){
+		my $fh=upload('uploaded_file');
+		undef $/;
+		$file=<$fh>;
+		$/="\n";
+    }
+    
+    elsif (! $input->{uploaded_file} and ! $input->{pasted_file}) {
+		$errormsg="Please upload or paste a file.\n";
+    }
+    
+    else { $errormsg="Please choose upload or paste, not both...\n"; }
+	
+    if ($errormsg ne "") { return $errormsg; }
+	
+    $DirError=`mkdir -m 757 $Out 2>&1`;
+    if ($? != 0) {print MYERR $DirError}
+
+	# write the sitescores putative hits file
+	if ($input->{program_type} eq 'sitescores'){
+		my $fh = upload('putative_hits');
+		undef $/;
+		$ph_file = <$fh>;
+		$/="\n";
+		local *OUT;
+		unless (open OUT, ">$PH") {die "Couldn't open $PH for writing: $!\n"; }
+		print OUT $ph_file;
+		close OUT;
+	}
+	
+	
+
+    if ($input->{file_type} eq "ungapped TF alignment"){
+		#produce the HMMER PWM file
+		
+		&WriteStockholm($file,$TFBS);
+		
+		my $Cmd1="$Exe1 --null $NullFile --prior $PriorFile $PWM $TFBS";
+		$HMMError=`$Cmd1 2>&1 1>>/dev/null`;
+		print STDERR $HMMError;
+		$CmdError = $?;
+
+		if ($CmdError != 0){
+			#print out the query page and an error message in it
+			$errormsg=&h3("HMMER produced the following error messages:") . 
+			  $HMMError . "\n" . 
+			  &h3("Please consult the HMMER Userguide to correct this.") . "\n";
+			
+			print MYERR "Client $input->{remote_addr}: HMMER error message: $HMMError\n";
+			#print "Executed $Cmd1";
+		}
+
+		$NumCons = &CountConserved($PWM);
+		
+		if ($NumCons < $MinCons) {
+			$errormsg="HMMER found only $NumCons conserved columns in your alignment.\n".
+			  "Unfortunately we need at least $MinCons to continue.\n" .
+			  "Please inspect the output file " . 
+			  &a({-href=>$PWMURI,-target=>"window2"},'here') . ".\n";
+		}
+		
+		
+    }
+	
+    else {
+		#produce the PWM directly
+		my @lines = split /\n/,$file;
+		if (! @lines) {
+			$errormsg .= "The Position weight matrix you supplied is empty.";
+		}
+		else {
+			for $ind (0..$#lines){
+				$line = $lines[$ind];
+				if ($line !~/^[-\d]+\s+[-\d]+\s+[-\d]+\s+[-\d]+/){
+					$errormsg .= "There is a problem with the format.\n";
+					last;
+				}
+			}
+		}
+		local *FH;
+		unless (open FH,'>'.$PWM){
+			die "Couldn't open $PWM for writing\n";
+		}
+		print FH $file;
+		close FH;
+		
+		if ($errormsg ne "") {
+			$errormsg .= "Please check the input for errors and make sure "
+			  . "it matches the format specified in the 'Input file type' menu.";
+		}
+		
+    }
+	
+    &WriteParams($input,$Params,{});
+    &DumpParams($input,$file,$Query);
+
+    return $errormsg;
+}
+
+
+sub CountConserved {
+    #Counts the number of conserved columns in the PWM HMMER parameter file
+    my ($pwm)=$_[0];
+    my ($curcol,$maxcol,$line);
+    $maxcol=0;
+    local *PWM;
+    open PWM,'<'.$pwm or
+	die "CountConserved: Couldn't open HMMER parameter file $pwm\n";
+    while ($line=<PWM>){
+	chomp $line;
+	if ($line=~/^\s+(\d+)\s+\-*\d+\s+\-*\d+\s+\-*\d+\s+\-*\d+\s+\d+$/){
+	    $curcol=$1;
+	    if ($maxcol<$curcol) {$maxcol=$curcol}
+	    #print STDERR "$line\n$curcol\n$maxcol\n";
+	}
+    }
+    close PWM;
+    return $maxcol;
+}
+
+
+sub DumpParams {
+    #dumps all input parameters so the user can reproduce the query
+    local *O;
+    my ($vars,$datafile,$outfile)=@_;
+    unlink $outfile;
+    open O,">$outfile" or die "DumpParams:  Couldn't open $outfile\n";
+    printf O "Output name:\t%s\n",$vars->{name};
+    printf O "Maximum number of retrieved hit-pairs desired:\t%s\n",$vars->{npairs};
+    printf O "Maximum number of hits retrieved per species before phylogenetic footprinting:\t%s\n",
+    $vars->{nretrieve};
+    printf O "Maximum number of next-highest hits reported for each gene:\t%s\n",$vars->{nreport};
+    printf O "Format of Provided Search File:\t%s\n", $vars->{file_type};
+    printf O "Alignment or PWM file:\n%s\n", $datafile;
+    close O;
+}

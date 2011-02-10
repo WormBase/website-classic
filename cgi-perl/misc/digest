@@ -1,0 +1,198 @@
+#!/usr/bin/perl
+use lib '../lib';
+use strict;
+use CGI qw(:standard);
+use Bio::DB::GFF;
+use Bio::Tools::RestrictionEnzyme;
+use Bio::Tools::Gel;
+use Bio::Seq;
+use GD;
+use Ace::Browser::AceSubs;
+use ElegansSubs qw(:DEFAULT PrintRefs);
+use vars '$DB';
+
+my $TITLE  = "Digest-o-matic";
+my $GEL_W  = 200;
+my $GEL_H  = 500;
+my $MARGIN = 10;
+
+my $mime = param("img") ? 'image/png' : 
+           param("xml") ? 'text/html'  : #xml
+                          'text/html';
+
+$DB = OpenDatabase();
+
+print header($mime);
+
+my @chewed = ();
+
+my $ref = uc(join "\n",param('ref'));
+my @types = ();
+my %cleaved = ();
+foreach (param("type")){ push @types, $_ if $_ =~ /[A-Za-z]/; }
+my $seqobj;
+
+if(param()){
+  #make sure there are workable parameters
+  print "Please choose enzyme(s)" and exit unless scalar @types;
+  print "Please provide a sequence or ID" and exit unless param("ref") =~ /\S/gs;
+
+  #clean up the ref
+  my $qtype = $ref =~ /\s*^>/ ? 'fasta' : 'id';
+  my($head,$body);
+
+  if($qtype eq 'fasta'){
+    ($head,$body) = $ref =~ /\s*>(.+?)\n(.+)/gs;
+    $body =~ s/\W//gs;
+  }
+
+  elsif($qtype eq 'id'){
+    my $seqfac  = OpenGFFDB($DB);
+    my $segment = $seqfac->segment($ref);
+    $head = $ref;
+
+    if($segment){
+      $body = uc $segment->dna;
+    } else {
+      $body = uc $body;
+    }
+  }
+
+  $seqobj = Bio::Seq->new(-seq => $body);
+
+  #do the digest
+
+  @chewed = ($seqobj);
+  foreach my $type (@types){
+    my $re = Bio::Tools::RestrictionEnzyme->new(-NAME=>$type)
+      or die "couldn't create Bio::Tools::RestrictionEnzyme: $!";
+
+    $cleaved{$_} = $type foreach @{$re->cut_locations($seqobj)};
+
+    my @chewing = @chewed;
+       @chewed  = ();
+    foreach my $c (@chewing){
+      foreach my $part ($re->cut_seq($c)){
+        push @chewed, Bio::Seq->new(-seq=>$part);
+      }
+    }
+  }
+}
+
+if(param("xml")){
+  #return some DAS XML
+  print qq(<?xml version="1.0" standalone="yes"?>\n);
+  print qq(<!DOCTYPE DASGFF SYSTEM "http://www.wormbase.org/dtd/dasgff.dtd">\n);
+  print qq(<DASGFF>\n);
+  print qq(<GFF version="0.999" href="http://www.wormbase.org/db/das/elegans/features?ref=$ref">\n);
+  print qq(<SEGMENT id="$ref" start="1" stop=") . $seqobj->length . qq(" version="1.0">\n);
+
+  foreach my $site (keys %cleaved){
+    print qq(  <FEATURE id="$ref/$site,$site" label="Cleavage site: $cleaved{$site}">\n);
+    print qq(    <TYPE id="restriction_site" category="structural">restriction_site</TYPE>\n);
+    print qq(    <METHOD id="restriction_site">restriction_site</METHOD>\n);
+    print qq(    <START>$site</START>\n);
+    print qq(    <END>$site</END>\n);
+    print qq(    <SCORE>-</SCORE>\n);
+    print qq(    <ORIENTATION>+</ORIENTATION>\n);
+    print qq(    <PHASE>0</PHASE>\n);
+    print qq(  </FEATURE>\n);
+  }
+
+  print qq(</SEGMENT>\n);
+  print qq(</GFF>\n);
+  print qq(</DASGFF>\n);
+  exit;
+}
+
+elsif(param("img")){
+  #draw a nice picture
+  my @bands = sort {$a->length <=> $b->length} @chewed; #smallest first
+  my $gel = Bio::Tools::Gel->new();
+  my $img = GD::Image->new($GEL_W,$GEL_H);
+
+  my $white = $img->colorAllocate(255,255,255);
+  my $black = $img->colorAllocate(0,0,0);       
+  my $red   = $img->colorAllocate(255,0,0);      
+  my $blue  = $img->colorAllocate(0,0,255);
+#  $img->transparent($white);
+  $img->interlaced('true');
+
+  #scale the image
+  my $fastest = $bands[0];
+  my $dilate = 1;
+  while ((++$dilate * $gel->migrate($fastest->length)) < $GEL_H - $MARGIN*2.5){}
+
+  foreach my $band (@bands){
+    my $migrate = $dilate * $gel->migrate($band->length) + $MARGIN;
+    $img->line($MARGIN,$migrate,$GEL_W - $MARGIN,$migrate,$black);
+  }
+
+  #the starting and finishing lines
+  $img->line($MARGIN,$MARGIN,$GEL_W - $MARGIN,$MARGIN,$red);
+  $img->string(gdSmallFont,0,0,"(-)",$red);
+  $img->line($MARGIN,$GEL_H - $MARGIN,$GEL_W - $MARGIN,$GEL_H - $MARGIN,$red);
+  $img->string(gdSmallFont,0,$GEL_H - $MARGIN,"(+)",$red);
+
+  print $img->png;
+  exit;
+}
+
+#html
+else {
+  my @available_enzymes = Bio::Tools::RestrictionEnzyme->available_list;
+  unshift @available_enzymes, "------";
+
+  PrintTop(undef,undef,undef,$TITLE);
+
+  print start_form;
+  print h1($TITLE);
+  print "Paste a FastA-formatted sequence or a valid Wormbase sequence ID",br;
+  print textarea(-name=>'ref',-rows=>10,-cols=>50),br;
+  print "Choose enzyme(s):",
+        popup_menu(-name=>'type',-values=>\@available_enzymes),
+        popup_menu(-name=>'type',-values=>\@available_enzymes),br;
+  print checkbox_group(-name=>'sequence',
+                       -labels=>{1=>'show fragment sequences'},
+                       -values=>['1']),br;
+  print checkbox_group(-name=>'gel',
+                       -labels=>{1=>'show gel image'},
+                       -values=>['1']),br;
+  print submit("Digest");
+  print end_form;
+}
+
+if(param()){
+  print hr;
+
+  print h3("Digest produced:");
+  print "<table><tr><td valign=\"top\" bgcolor=#000000>";
+
+  my $show_frag_gel = param("gel")      ? 1 : 0;
+  if($show_frag_gel){
+    my $url = url."?ref=$ref;img=1;type=".$types[0].";type=".$types[1];
+       $url =~ s/\n/%0A/gs;
+    print img({-src=>$url});
+  }
+
+  print "</td><td valign=\"top\">";
+
+  my @sorted_frags = sort {$b->length <=> $a->length} @chewed;
+  my $show_frag_seq = param("sequence") ? "<th align=\"left\">sequence</th>" : "";
+
+  print "<table><tr><th>length (bp)</th>$show_frag_seq</tr>\n";
+
+  my $show_gel = 1;
+  foreach my $frag (@sorted_frags){
+    print "<tr><td>".$frag->length."</td>";
+    print $show_frag_seq ? "<td>".$frag->seq."</td>" : "";
+
+    print "</tr>\n";
+  }
+  print "</table>";
+
+
+print "</td></tr></table>";
+}
+
+print end_html;

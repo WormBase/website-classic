@@ -1,0 +1,91 @@
+#!/usr/bin/perl
+
+# Init.d script for the ontology browser
+
+use strict;
+use IO::Socket::UNIX;
+use lib '/usr/local/wormbase/cgi-perl/ontology/browser_lib';
+use OBrowse;
+use Getopt::Long;
+
+my ($socket,$ontology,$association,$type,$version,$help,$command);
+GetOptions( 'help'          => \$help,	    
+	    'socket=s'      => \$socket,
+	    'type=s'        => \$type,
+	    'ontology=s'    => \$ontology,
+	    'association=s' => \$association,
+	    'version=s'     => \$version,
+	    'command=s'     => \$command);
+
+use constant DBPATH => '/usr/local/wormbase/databases';
+use constant SOCKET => '/usr/local/wormbase/sockets';
+
+if ($version) {
+#    $association = DBPATH . "/$version/ontology/gene_association.$version.ce.wb";
+    $association = DBPATH . "/$version/ontology/gene_association.$version.wb";
+    $ontology    = DBPATH . "/$version/ontology/gene_ontology.$version.obo";
+}
+
+my $program_name = $0 =~ /([^\/]+)$/ ? $1 : '';
+
+if ($help || (!$command && !$type)) {
+  print_usage();
+  exit;
+}
+
+# Set up the path to the appropriate socket file
+$socket ||= SOCKET;
+$socket .= "/$type" . "_socket";
+
+if ($command eq 'stop') {
+  my $obo=OBrowse->new(Peer=>$socket, Type=>SOCK_STREAM) || die "cannot create object here: $!\n";
+  $obo->killServer();
+} else {
+
+  system("rm -rf $socket");
+	
+  my $obo = OBrowse->new(Local=>$socket,
+			 Type=>SOCK_STREAM,
+			 Listen=>10) || die "cannot create OBrowse object: $!\n";
+
+  my $term_count=$obo->loadOntology($ontology)
+    || die "cannot open load ontology from $ontology: $! \n";
+  print "$term_count terms read from $ontology\n";
+
+  if ($association) {
+    my $annotation_count=$obo->loadAnnotations($association)
+	|| die "cannot load annotations from $association: $!\n";
+    print "$$annotation_count[0] annotations read\n";
+    print "$$annotation_count[1] NOT annotations read\n";
+  }
+
+  $obo->startServer() || die "cannot start server: $!\n";
+}
+
+
+sub print_usage {
+    print <<END;
+usage: $program_name [options]
+       -h               help - print this message
+       -t <type>        ontology type (go|ao|po) (required)
+       -c <command>     start or stop
+       -v <version>     acedb / WormBase version
+
+   When starting the server, specify the current version
+   of the acedb/WormBase release. (Alternatively, specify
+   the full path to the association and ontology files)
+
+   Options:
+       -s <socket> full path to the socket directory
+           (defaults to /usr/local/wormbase/sockets)
+       -o <ontology>    full path to OBO file
+       -a <annotations> full path to file containing annotations       
+
+ie: to start:
+  $program_name -s [socket_path] -c start -t go -v WS168
+
+ie: to stop:
+  $program_name -s [socket_path] -c stop -t go
+END
+
+}

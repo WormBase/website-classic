@@ -1,0 +1,2 @@
+The caching directory must be writable by the "nobody" user 
+in order for the caching mechanism to work.

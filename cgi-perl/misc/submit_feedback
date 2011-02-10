@@ -1,0 +1,230 @@
+#!/usr/bin/perl
+
+use strict;
+use lib '../lib';
+use Ace::Browser::AceSubs qw/:DEFAULT Configuration/;
+use ElegansSubs;
+use Time::ParseDate;
+use Date::Format;  # For converting stringified dates to RFC822
+use CGI qw(:standard :form *div *table);
+use vars qw/$DB @FEEDBACK_RECIPIENTS/;
+
+use constant TIME_TEMPLATE   => '%a, %d %b %Y %T %Z';   # RFC 822 compliant time format
+use constant UNKNOWN         => 'anonymous';
+
+
+$DB = OpenDatabase();
+PrintTop(undef,undef,undef,-title=>'WormBase Feedback');
+
+if (param()) {
+  print h3('The following comments have been submitted to the WormBase Consortium');
+  print start_div({-class=>'container'});
+  print_response();
+  print end_div;
+
+  #  print h2('Submit additional comments to WormBase');
+  Delete_all();
+} else {
+  print h2('Submit feedback, comments, or complaints to WormBase');
+  param(-name=>'temp',-value=>1);
+}
+PrintBottom;
+exit;
+
+
+sub print_response {
+  my $referer   = param('referer') || referer();
+  # Parse out the query string from the user;
+  my ($host,$script,$query_string) = $referer =~ /http:\/\/(localhost|.*org)+(.*)\?(.*)/;
+  my $time      = get_time_string();
+
+  my ($object_name)  = $referer =~ /name=([^=;&]+)/i  if $referer;
+  my ($object_class) = $referer =~ /class=([^=;&]+)/i if $referer;
+  my ($object,$lab);
+  if ($object_name) {
+    ($object,$object_name,$object_class,$lab) = fetch_object($object_name,$object_class);
+  }
+
+  my $success = send_email($object,$object_name,$object_class,$lab,$time);
+#  unless ($success) {
+#    print end_div();
+#    PrintBottom();
+#    exit;
+#  }
+
+  my $title = get_title($script) if $script;
+  print start_div({-class=>'feedback_box'}),
+      h3('Submitted by:'),
+	div({-class=>'bigindent'},
+	    table({-border=>0},
+		  TR(td({-class=>'rowheader'},'Submitted by:'),td(param('submitted_by') || UNKNOWN)),
+		  TR(td({-class=>'rowheader'},'Insitution:'),td(param('institution') || UNKNOWN)),
+		  TR(td({-class=>'rowheader'},"Email:"),td(param('submitted_email') || UNKNOWN))));
+
+  print h3('Comments:'),
+    start_div({-class=>'bigindent'});
+  print start_table({-border=>0});
+  print TR(td({-class=>'rowheader',-valign=>'top'},'Subject:'),td(param('subject')))   if param('subject');
+  my $selected  = get_selected_suggestions();
+  print TR(td({-class=>'rowheader',-valign=>'top'},'Categories:'),td(join(br,@$selected))) if $selected;
+  print TR(td({-class=>'rowheader',-valign=>'top'},'Comments:'),td(param('comments'))) if param('comments');
+  print end_table,end_div;
+
+  print h3('Submission details:'),start_div({-class=>'bigindent'}),
+    start_table({-border=>0});
+  print TR(td({-class=>'rowheader'},'Date submitted:'),td($time));
+  print TR(td({-class=>'rowheader'},'Submitted from page:'),td("$title ($script)")) if $script;
+  print TR(td({-class=>'rowheader'},'Database class (object):'),
+	   td($object_class . ' (' . a({-href=>Object2URL($object)},$object_name) . ')')) if $object_name;
+  print TR(td({-class=>'rowheader'},'Full URL:'),td($referer));
+  print end_table,end_div;
+
+  print h3("Thank You!");
+  print p("If you supplied your email address we will be contacting you shortly regarding your comments." . br . br
+	  . a({-href=>$referer},'Return') . ' to the previous page.');
+  print end_div;
+}
+
+
+sub get_title {
+  my $script = shift;
+  my ($page) = $script =~ /.*\/(.*)$/;
+  my $title = eval { Configuration->Displays->{lc($page)}{label}};
+  return $title;
+}
+
+
+sub fetch_object {
+  my ($name,$class) = @_;
+  my $lab_name = '';
+  my $obj;
+  if ($name) {
+    my @classes = ($class) ? ($class,'Sequence','Protein','Locus','Gene','Gene_name') : ('Sequence','Protein','Locus','Gene','Gene_name');
+    for my $c (@classes) {
+      $obj ||= $DB->fetch($c=>$name);
+    }
+    my $lab   = eval { $obj->From_laboratory };
+    $lab_name = eval { $lab->Mail } || $lab;
+    $class    = eval { $obj->class};
+
+    # Return a gene object instead of a gene_name object
+    if ($class eq 'Gene_name') {
+      $obj = $obj->CGC_name_for || $obj->Public_name_for || $obj->Molecular_name_for || $obj->Other_name_for;
+      $class = 'Gene';
+    }
+  }
+  return ($obj,$name,$class,$lab_name);
+}
+
+
+
+sub get_time_string {
+  my $time = localtime();
+  my $fmtime = time2str(TIME_TEMPLATE,parsedate($time));
+  return $fmtime;
+}
+
+sub get_selected_suggestions {
+  my %labels = (annotations_incorrect => 'Annotations are incorrect',
+		annotations_incomplete => 'Annotations are incomplete',
+		speed                  => 'The page takes too long to load',
+		bug                    => 'The page has a software bug in it',
+		requested_feature      => 'Request for a new feature');
+
+  my @suggestions = map { $labels{$_} } param('suggestions');
+  push @suggestions,param('other') if param('other');
+  return \@suggestions;
+}
+
+sub send_email {
+  my ($object,$object_name,$object_class,$lab,$time) = @_;
+  @FEEDBACK_RECIPIENTS = @{Configuration->Feedback_recipients};
+  
+  #    my @addresses = map { $FEEDBACK_RECIPIENTS[$_] ? 
+  #			      $FEEDBACK_RECIPIENTS[$_]->[0]
+  #				  : () } param('recipients');
+#  my @addresses = Configuration->Feedback_recipient;
+  my @addresses = 'harris@cshl.org';
+  my $name        = param('submitted_by')    || UNKNOWN;
+  my $institution = param('institution')     || UNKNOWN;
+  my $from        = param('submitted_email') || UNKNOWN;
+  my $comments    = param('comments');
+  my $subject     = param('subject');
+  $subject ||= "Comments on $object_class $object_name ($DB db)";
+  #  $subject ||= (substr($comments,0,10) . '...');
+
+  my $selected  = get_selected_suggestions();
+  my $categories = join("\n",map { "  - $_" } @$selected);
+  my $remote_ip = $ENV{REMOTE_ADDR};
+
+  my $origin = $lab ? "($lab)" : '';
+  $object_name  ||= '(unknown name)';
+  $object_class ||= '(unknown class)';
+
+  # Parse out the query string from the user;
+  my $referer  = referer() || '(unknown)';
+  my ($host,$script,$query_string) = $referer =~ /http:\/\/(localhost|.*org)+(.*)\?(.*)/;
+  my $title      = get_title($script) if $script;
+
+  my $from_page = ($title) ? "$title ($script)" : (($script) ? $script : '');
+  
+
+    my @missing;
+#    push @missing,"At least one message recipient"
+#	unless  @addresses;
+#    push @missing,"Your e-mail address"
+#      unless my $from = param('submitted_email');
+#    push @missing,"A properly formatted e-mail address"
+#	if $from && $from !~ /.+\@[\w.]+/;
+    push @missing,"A comment or correction" 
+	unless my $remark = param('comments');
+    if (@missing) {
+	print
+	    p({-class=>'error'},
+	      "Your submission could not be processed because",
+	      "the following information was missing:"),
+	    ol({-class=>'error'},
+	       li(\@missing)),
+	    p({-class=>'error'},
+	      "Please fill in the missing fields and try again.");
+	return 0;
+      }
+    my $error = <<END;
+Unable to send mail.  Please try again later.  
+If the problem persists, contact the site\'s webmaster.
+END
+    ;
+    unless (open (MAIL,"|/usr/lib/sendmail -oi -t")) {
+	AceError($error);
+	return;
+    }
+    my $to = join(", ",@addresses);
+    print MAIL <<END;
+From: $from ($name via WormBase feedback page)
+To: $to
+Subject: $subject
+
+Full name:   $name
+Institution: $institution
+Address:     $from
+
+DATABASE RECORD     : $object_class: $object_name $origin
+
+SUBMITTED FROM SERVER : $host
+SUBMITTED FROM PAGE   : $from_page
+FULL URL              : $referer
+
+SELECTED CATEGORIES   :
+$categories
+
+COMMENT TEXT:
+$comments
+END
+    ;
+
+    unless (close MAIL) {
+	AceError($error);
+	return;
+    }
+    return 1;
+}

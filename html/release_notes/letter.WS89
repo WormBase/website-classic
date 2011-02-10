@@ -1,0 +1,176 @@
+New Release of acedb WS89, Wormpep89 and Wormrna89 Fri Oct 25 10:12:02 BST 2002
+
+======================================================================
+
+This directory includes:
+i)	database.WS89.*.tar.gz    -   compressed data for new release
+ii)	models.wrm.WS89           -   the latest database schema (also in above database files)
+iii)	CHROMOSOMES/subdir        -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)	WS89-WS88.dbcomp          -   log file reporting difference from last release
+v)	wormpep89.tar.gz          -   full Wormpep distribution corresponding to WS89
+vi)	wormrna89.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)	confirmed_genes.WS89.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS89
+------------------------------------
+brigdb : 2002-10-11 - updated
+camace : 2002-10-17 - updated
+citace : 2002-10-13 - updated
+cshace : 2002-10-10 - updated
+genace : 2002-10-14 - updated
+stlace : 2002-10-11 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS89       	WS88      	change
+----------------------------------------------
+a    	32353009	32352971	 +38
+c    	17772424	17772485	 -61
+g    	17749963	17750022	 -59
+t    	32354518	32354695	-177
+n    	95      	95      	  +0
+-    	2259    	2000    	+259
+
+Total	100232268	100232268	  +0
+
+Telomeric clone cTel7X was reverse-complemented and clipped to remove chimeric
+sequence and vector contamination.
+
+Wormpep data set:
+----------------------------
+
+There are 19508 CDS in autoace, 20951 when counting 1443 alternate splice forms.
+
+The 20951 sequences contain 9,266,692 base pairs in total.
+
+Modified entries              29
+Deleted entries               15
+New entries                   33
+Reappeared entries             2
+
+Net change  +20
+
+Status of entries: Confidence level of prediction
+-------------------------------------------------
+Confirmed              3460 (16.5%)
+Partially_confirmed    9126 (43.6%)
+Predicted              8365 (39.9%)
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2093 (10.0%)
+TrEMBL accessions     17797 (84.9%)
+TrEMBLnew accessions    845 (4.0%)
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            20713 (98.9%)
+
+Wormpep proteins linked to Locus
+---------------------------------------------
+Entries with locus connection   3358
+
+
+GeneModel correction progress WS88 -> WS89
+-----------------------------------------
+Confirmed introns not is a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|   1253  |   -45  |
+St Louis 	|    306  |   -52  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|     27  |    -1  |
+St Louis 	|    179  |    -1  |
+		+---------+--------+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+No synchronisation issues
+
+
+Remaining gaps:
+---------------
+For more info mail worm@sanger.ac.uk
+
+# Gap on Chromosome III is covered by a 950Kb SseI fragment 
+
+III     1005794 1028769 37      F       AC087078.1      1       22976   +
+III     1028770 1029769 38      N       1000
+III     1029770 1055632 39      F       AC092690.1      1       25863   +
+
+# Gap on Chromosome X is covered by YAC clones in production at St Louis
+
+X       1       2649    1       F       AL031272.2      1       2649    +
+X       2650    3649    2       N       1000
+X       3650    14860   3       F       AC087735.3      1       11211   +
+
+-===================================================================================-
+
+
+
+New Data:
+---------
+- Updated Ensemble human protein dataset for blastP/X
+
+New Fixes:
+----------
+- Fixed prefix of Gadfly protein entries
+- Removed EMBL prefix of sequences crossed referenced from Caltech
+
+Known Problems:
+--------------
+- some RNAi objects from csh (extra large coordinates, > 1 Mb)
+
+Other Changes:
+-------------
+- Removed deprecated nematode ESTs consensus seqeunces.
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+- Improve the quality of timestamps to display each object with its source database 
+wherein timestamps made by cross-reference will maintain the source primary database
+name (i.e. caltech/camace/stlace/csh).
+
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

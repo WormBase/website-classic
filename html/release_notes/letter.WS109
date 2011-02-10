@@ -1,0 +1,184 @@
+New release of WormBase WS109, Wormpep109 and Wormrna109 Fri Sep  5 15:29:03 BST 2003
+
+
+WS109 was built by Anthony Rogers
+======================================================================
+
+This directory includes:
+i)	database.WS109.*.tar.gz    -   compressed data for new release
+ii)	models.wrm.WS109           -   the latest database schema (also in above database files)
+iii)	CHROMOSOMES/subdir        -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)	WS109-WS108.dbcomp          -   log file reporting difference from last release
+v)	wormpep109.tar.gz          -   full Wormpep distribution corresponding to WS109
+vi)	wormrna109.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)	confirmed_genes.WS109.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+viii)	yk2orf.WS109.gz            -    Latest set of ORF connections to each Yuji Kohara EST clone
+ix)	gene_interpolated_map_positions.WS109.gz    - Interpolated map positions for each coding/RNA gene
+x)	clone_interpolated_map_positions.WS109.gz    - Interpolated map positions for each clone
+xi)	best_blastp_hits.WS109.gz    - for each C. elegans WormPep protein, lists Best blastp match to
+ 
+                                        human, fly, yeast, C. briggsae, and SwissProt & Trembl proteins.
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS109
+------------------------------------
+brigdb : 2003-08-22 - updated
+camace : 2003-08-26 - updated
+citace : 2003-08-25 - updated
+cshace : 2003-07-22
+genace : 2003-08-29 - updated
+stlace : 2003-08-22 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS109       	WS108      	change
+----------------------------------------------
+a    	32367165	32367166	  -1
+c    	17780236	17780238	  -2
+g    	17757587	17757588	  -1
+t    	32368413	32368415	  -2
+n    	95      	95      	  +0
+-    	0       	0       	  +0
+
+Total	100273496	100273502	  -6
+
+6bp (GATCTC) was removed from the 5' end of K12B6 (and the corresponding
+region of the overlapping clone (F31F7)). A finisher had chosen the wrong GATC site. 
+This 6 bp sequence was then duplicated when F31F7 was finished, and the overlap with K12B6 was
+added.
+
+
+Wormpep data set:
+----------------------------
+
+There are 19928 CDS in autoace, 22128 when counting 2200 alternate splice forms.
+
+The 22128 sequences contain  base pairs in total.
+
+Modified entries             143
+Deleted entries               28
+New entries                   42
+Reappeared entries            14
+
+
+
+
+Status of entries: Confidence level of prediction
+-------------------------------------------------
+Confirmed              4516 (20.4%)
+Partially_confirmed   11570 (52.3%)
+Predicted              6030 (27.3%)
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2412 (10.9%)
+TrEMBL accessions     18177 (82.2%)
+TrEMBLnew accessions   1502 (6.8%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            22091 (99.9%)
+
+
+
+Locus <-> Sequence connections (cgc-approved)
+---------------------------------------------
+Entries with locus connection   4441
+
+
+GeneModel correction progress WS108 -> WS109
+-----------------------------------------
+Confirmed introns not is a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|   1062  |    10  |
+St Louis 	|    750  |  -136  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|     29  |     0  |
+St Louis 	|     31  |     1  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+No synchronisation issues
+
+
+There are no gaps remaining in the genome sequence
+---------------
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+
+New Data:
+---------
+
+A new version of the C.briggsae peptide set will be included (Brigpep2) which is based on the improved gene set.
+Brigpep2 will undergo the set of analyses that Wormpep regularly does i.e BLASTP against the various protein sets along with PFAM, 
+tmhmm etc.
+
+
+New Fixes:
+----------
+The new transcript generating  / matching_cDNA assignment script incorrectly assigned some OSTs to gene models. This resulted in some genes becoming Partially_confirmed when this was not actually true.This has been remedied hence the slight reduction in the number of Partially_confirmed genes.
+
+Known Problems:
+--------------
+
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+The next release of WormBase ( WS110 ) will become a "frozen" version, containing several genome sequence corrections.
+
+The BLAT analysis will be upgraded to use the latest version and the post-processing improved.  This will probably have little 
+noticable effect, but should remove many of the poorer quality matches that exist in the database.
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

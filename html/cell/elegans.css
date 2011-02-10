@@ -1,0 +1,102 @@
+HTML,BODY {
+   background-color: #EEEEE0
+}
+H1,H2,H3,H4,I,EM,B,LI,UL,OL,DD,DT,ADDRESS,DL,A,STRONG,BLOCKQUOTE,P  {
+    background-color: transparent;
+}
+TABLE {
+}
+TR,TD.search {
+   font-size: 10pt;
+}
+
+.acetree {
+   font-size: 10pt;
+}
+P.caption {
+   font-size: 10pt;
+}
+P.note {
+   font-size: 10pt;
+}
+INPUT {
+    font-family: sans-serif;
+    background-color: #EEEEE0
+}
+SELECT {
+    font-family: sans-serif;
+    background-color: #EEEEE0
+}
+H1 {
+    color: red;
+}
+H2 {
+}
+H3 {
+}
+TH {
+    font-family: sans-serif;
+    padding: 0;
+}
+TD {
+    font-family: sans-serif;
+    padding: 0;
+}
+.highlight {
+    background-color: #f5deb3;
+}
+.small {
+   font-size: 10pt;
+}
+TH.small {
+    padding: 0;
+}
+TD.small {
+    padding: 0;
+}
+.banner {
+    font-family: sans-serif;
+    font-size: 18pt;
+    align: center;
+    background-color: blue;
+    color: yellow;
+    padding-top: 3px;
+    padding-bottom: 3px;
+    padding-left: 100px;
+    padding-right: 100px;
+}
+.gene {
+    font-style: italic   
+}
+.error {
+    color: red;
+}
+.note { 
+}
+Blockquote.abstract {
+    background-color: rgb(255,248,220);
+}
+.description {
+    color: black;
+    font-style: italic;
+}
+.smalldescription {
+    color: black;
+    font-style: italic;
+}
+TD.small {
+}
+TD.pre {
+    font-family: monospace;
+}
+TD.search {
+    font-size: 10pt;
+}
+PRE.peptide {
+   font-family: monospace;
+   font-size: 10pt;
+}
+PRE.dna {
+   font-family: monospace;
+   font-size: 10pt;
+}

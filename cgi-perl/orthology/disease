@@ -1,0 +1,357 @@
+#!/usr/bin/perl
+
+use strict;
+use lib '../lib';
+use Ace::Browser::AceSubs;
+use ElegansSubs qw/:DEFAULT Bestname Species2URL/;
+
+use CGI qw(:standard *table escape);
+use WormBase;
+use vars qw/$WORMBASE $DB $query $list $gene $disease $related/;
+use strict;
+
+END {
+  undef $WORMBASE;
+  undef $gene;
+  undef $list;
+  undef $DB;
+  undef $disease;
+}
+
+
+$query = param('call');
+$list = param('list');
+$related = param('related');
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+my $version = $DB->version;
+our $data_dir = "/usr/local/wormbase/databases/$version/orthology/";  #"../../databases/$version/orthology/";
+my $cgi = new CGI;
+
+StartCache();
+
+$WORMBASE = WormBase->new();
+
+
+my %omim2disease_name = build_hash($data_dir."omim_id2disease_name.txt");
+## clean up disase names 
+foreach my $omim_id (keys %omim2disease_name){
+	# $omim2disease_name{$omim_id} =~ s/[{*,}*]//g;
+	$omim2disease_name{$omim_id} =~ s/[{*]//g;
+	$omim2disease_name{$omim_id} =~ s/[}*]//g;
+	$omim2disease_name{$omim_id} =~ s/\[*//g;
+	$omim2disease_name{$omim_id} =~ s/\]*//g;
+}
+my %omim2all_ortholog_data = build_hash($data_dir."omim_id2all_ortholog_data.txt");
+my %name2id = build_hash($data_dir."name2id.txt");
+my %omim_id2disease_desc = build_hash($data_dir.'omim_id2disease_desc.txt');
+my %omim_id2txt_notes = build_hash($data_dir.'omim_id2disease_notes.txt');
+my %id2name = build_hash($data_dir."id2name.txt");
+
+my $script_url = "/db/";
+
+$disease = $omim2disease_name{$query} if $query;
+my $title;
+
+if($query){
+	$title = "Disease Summary for $disease";
+}
+elsif($list){
+	$title = "Disease Summary, full list";
+}
+elsif($related){
+	$title = "Disease summary for $related";
+}
+else{
+	$title = "Disease summary";
+}
+
+
+PrintTop($query,'Gene',$title);
+
+
+# PrintTop($query,'Gene',$disease; ? $disease : "Disease Summary");
+
+
+if ($query){	
+    
+    print start_table({-border=>1,width=>"100%"});
+	
+    #### display disease info #####
+    StartSection('Summary');
+    my $url = "http://www.ncbi.nlm.nih.gov/entrez/dispomim.cgi?id=".$query;
+    my $omim_link = a({-href=>$url},'Go to OMIM');
+
+    # Use CGI methods
+    SubSection("Disease",$omim2disease_name{$query} . ": ($omim_link)");
+    my $description = $omim_id2disease_desc{$query};
+
+	if ($description){
+		### add OMIM links into descriptions here
+		$description =~ s{([0-9]{6})}{<a href="http://www.ncbi.nlm.nih.gov/entrez/dispomim.cgi?id=$1">$1<\/a>}g;
+		####	
+		SubSection("description",$description);
+	}
+	
+	
+
+	
+	
+	
+    # my $note = $omim_id2txt_notes{$query};
+    # 	$note =~ s/A number sign \(\#\) is used with this entry because //;
+    # SubSection("OMIM note",$note) if $note;
+    EndSection(); ##  End section Gene Summary
+
+    #### display orthologs ####
+	
+    StartSection('Orthologous C. elegans Genes');
+	# print "<pre>$omim2all_ortholog_data{$query}</pre>\n";
+	
+	my @associations = split "%",$omim2all_ortholog_data{$query};
+	foreach my $association (@associations) {
+		# print "<ul>";
+		my ($disease,$omim_id,$wb_id,$db,$ens_id,$sp,$analysis,$method,$phenotype,$bp,$mf) = split /\|/,$association;
+		# print "$association\n";
+		if ($wb_id){
+
+			my $gene_obj = $DB->fetch(-class=>'Gene',-Name=>$wb_id);
+			if($gene_obj){
+				my $gene_public_name;
+				$gene_public_name = $gene_obj->CGC_name;
+				if(!($gene_public_name)){
+					$gene_public_name = $gene_obj->Sequence_name;
+				}
+				my $gene_url = $script_url.'gene/gene?class=Gene;name='.$wb_id;
+				my $gene_ortholog_url = $script_url.'orthology/gene?class=Gene;name='.$wb_id;
+				my $gene_link = a({-href=>$gene_url},'Gene report');
+				my $gene_ortholog_link = a({-href=>$gene_ortholog_url},'Ortholog report');
+				#print "<b>".$gene_public_name.":</b>&nbsp;(".$wb_id.": ".$gene_link." | ".$gene_ortholog_link.")";
+				#print "<ul>";
+				# SubSection('Gene',$gene_public_name."(".$gene_link." | ".$gene_ortholog_link.")",hr);
+				SubSection('Gene',$gene_public_name."(".$gene_link.")",hr);
+			}
+			
+			if ($phenotype){
+				SubSection('Phenotype', $phenotype,hr);
+			}
+		
+			if($bp){
+			    my $bp_list = "";
+			    # $bp_list = $bp_list."<ul>";
+				#print "<li>BIOLOGICAL PROCESS(ES):";
+				#print "<ul>";
+				my @bps = split "&",$bp;
+				my %bps;
+				foreach my $bp_id (@bps){
+					$bps{$id2name{$bp_id}} = $bp_id;
+				}
+				foreach my $bp_term (sort keys %bps){
+					my $bp_url = $script_url.'ontology/gene?name='.$bps{$bp_term};
+					my $bp_link = a({-href=>$bp_url},$bp_term);
+					#print "<li> $bp_link";
+					$bp_list = $bp_list.$bp_link."<br>";
+				}
+				#print "</ul>";
+			    # $bp_list = $bp_list."</ul>";
+			    SubSection('GO Biological Process(es)',$bp_list,hr);
+			}
+			if($mf){
+			    my $mf_list = "";
+				#print "<li>MOLECULAR FUNCTION(S):";
+				#print "<ul>";
+				my @mfs = split "&",$mf;
+				my %mfs;
+				foreach my $mf_id (@mfs){
+					$mfs{$id2name{$mf_id}} = $mf_id;
+				}
+				foreach my $mf_term (sort keys %mfs){
+					my $mf_url = $script_url.'ontology/gene?name='.$mfs{$mf_term};
+					my $mf_link = a({-href=>$mf_url},$mf_term);
+					#print "<li> $mf_link";
+					$mf_list = $mf_list.$mf_link."<br>";
+					# print "<li> $mf_term \($name2id{$mf_term}\)";
+				}	
+			    # $mf_list = $mf_list."</ul>";
+			    SubSection('GO Molecular function(s)',$mf_list,hr);
+			}
+			#print "</ul>";				 
+		}
+		
+	} ## end foreach my $association (@associations) {
+	
+    EndSection(); ##  End section Orthologs
+    print end_table();
+} elsif ($list){
+	my @sorted = sort { $omim2disease_name{$a} cmp $omim2disease_name{$b} } keys %omim2disease_name; 
+	list_diseases(\@sorted,\%omim2all_ortholog_data,\%omim2disease_name);
+} elsif($related =~ m/^WBGene/){
+	
+	 ### get gene related diseases                                                                                                                                                                                                                                                                       
+	my %gene_id2omim_ids = build_hash($data_dir.'gene_id2omim_ids.txt');                                                                                                 
+	my $disease_list = $gene_id2omim_ids{$related};                                                                                                            
+	my @diseases = split /%/,$disease_list;                                                                                                            
+	                   
+	my @sorted;    
+	my %unsorted_disease_data;                                                                                                     
+	foreach my $omim_id (@diseases){
+		$unsorted_disease_data{$omim_id} = $omim2disease_name{$omim_id};  
+	}   
+	my @sorted = sort { $unsorted_disease_data{$a} cmp $unsorted_disease_data{$b} } keys %unsorted_disease_data; 
+	list_diseases(\@sorted,\%omim2all_ortholog_data,\%omim2disease_name);
+} elsif ($related =~ m/^GO/){
+	## get go term related diseases
+	
+	my %go_id2omim_ids = build_hash($data_dir.'go_id2omim_ids.txt');
+	my $disease_list = $go_id2omim_ids{$related};                                                                                                            
+	my @diseases = split /\|/,$disease_list;
+	
+	my @sorted;    
+	my %unsorted_disease_data;                                                                                                     
+	foreach my $omim_id (@diseases){
+		$unsorted_disease_data{$omim_id} = $omim2disease_name{$omim_id};  
+	}   
+	my @sorted = sort { $unsorted_disease_data{$a} cmp $unsorted_disease_data{$b} } keys %unsorted_disease_data; 
+	list_diseases(\@sorted,\%omim2all_ortholog_data,\%omim2disease_name);
+
+} 
+
+my $list_page_url = $script_url."orthology/disease?list=1";
+my $list_page_link = a({-href=>$list_page_url},'Go to list of all diseases with (a) C.elegans ortholog(s).');
+print "<br>$list_page_link";
+
+print_search_form($cgi);	
+
+ClosePage;
+
+exit 0;
+
+##### subroutines ###########
+##### cnp from tree_lister!!!! #######
+
+sub build_hash{
+	my ($file_name) = @_;
+	open FILE, "<./$file_name" or die "Cannot open the file: $file_name\n";
+	my %hash;
+	foreach my $line (<FILE>) {
+		chomp ($line);
+		my ($key, $value) = split '=>',$line;
+		$hash{$key} = $value;
+	}
+	return %hash;
+}
+
+
+sub list_diseases {
+	
+	my ($sorted_ar,$omim2all_ortholog_data_hr,$omim2disease_name_hr) = @_; 
+	my @sorted = @{$sorted_ar};
+	my %omim2all_ortholog_data = %{$omim2all_ortholog_data_hr};
+	my %omim2disease_name = %{$omim2disease_name_hr};
+
+	print start_table();
+	print TR({},
+		th({-align=>'center',-width => '60%',-class=>'databody'},'Disease'),
+		th({-align=>'center',-width => '40%',-class=>'databody'},'Links')
+	);
+	
+	foreach my $key (@sorted){
+		my @associations = split "%",$omim2all_ortholog_data{$key};
+		my ($disease,$omim_id,$wb_id,$db,$ens_id,$sp,$analysis,$method,$phenotype,$bp,$mf);
+		my @wb_ids;
+		foreach my $association (@associations) {
+			# print "<ul>";
+			($disease,$omim_id,$wb_id,$db,$ens_id,$sp,$analysis,$method,$phenotype,$bp,$mf) = split /\|/,$association;
+			if($wb_id =~ m/^WB/){
+				push @wb_ids,$wb_id;
+			}
+			else {
+				next;
+			}
+		}
+
+		my $url = "/db/orthology/disease?call=".$key;
+		my $disease_page_link = a({-href=>$url},$omim2disease_name{$key});
+		my $omim_url = "http://www.ncbi.nlm.nih.gov/entrez/dispomim.cgi?id=".$key;
+		my $omim_link = a({-href=>$omim_url},$key);
+		my $wb_gene_id = shift @wb_ids;
+		my $wb_gene_obj = $DB->fetch(-class=>'Gene',-Name=>$wb_gene_id);
+		my $wb_gene_link = a({-href=>Object2URL($wb_gene_obj)},$wb_gene_obj->CGC_name||$wb_gene_obj->Sequence_name);
+
+		my $link_list = "Go to OMIM (".$omim_link.") | Gene (".$wb_gene_link.")";
+		print TR({},
+			td({-align=>'left',-width => '50%',-class=>'databody'},$disease_page_link),
+			td({-align=>'center',-width => '50%',-class=>'databody'},$link_list)
+		);
+	}
+	print end_table();
+}
+
+sub print_search_form {
+    
+    my $cgi = shift @_;
+
+    print $cgi->startform(-method=>'GET', 
+			  -action=>'search');   
+
+    print "<br><hr><br>Search for disease related term, or phrase, that \&nbsp\;\&nbsp;";
+
+    my %string_choices = (#'before'=>'Starts with', 
+			  'middle'=>'Contains',
+			  'stand_alone'=>'Stands Alone'
+			  );
+
+    print $cgi->popup_menu(-name=>'string_modifications', 
+			   -values=>[
+				     'middle',
+				     'stand_alone'], 
+			   -default=>'middle', 
+			   -labels=>\%string_choices);
+ 
+    
+    print "<br><br>\n";
+
+    print $cgi->textfield(-name=>'call', 
+			  -size=>50, 
+			  -maxlength=>80);
+    
+
+    print "<br><br>\n";
+
+    print $cgi->checkbox(-name=>'note_check', 
+			 -checked=>'checked', 
+			 -value=>'ON', 
+			 -label=>'Check OMIM notes also');
+
+    print "<br><br>";
+    print $cgi->submit('Submit');
+    print "\&nbsp\;\&nbsp\;";
+    print $cgi->defaults('  Reset  ');
+
+	print $cgi->endform;
+}
+
+sub get_represented_diseases {
+	
+	my $filename = shift @_;
+	open FILE, "<./$filename" or die "Cannot open $filename\n";
+	my %diseases;
+	foreach my $line (<FILE>){
+		chomp $line;
+		my @line_data = split /\|/,$line;
+		my %line_data;
+		($line_data{'disease'},$line_data{'omim_id'},$line_data{'wb_id'},$line_data{'db'},$line_data{'ortholog_id'},$line_data{'sp'},$line_data{'analysis'},$line_data{'method'},$line_data{'phenotype'},$line_data{'bp'},$line_data{'mf'}) = @line_data;
+		$line_data{'disease'} =~ s/\{//g;
+		$line_data{'disease'} =~ s/\}//g;
+		$line_data{'disease'} =~ s/\[//g;
+		$line_data{'disease'} =~ s/\]//g;
+		if (!($line_data{'disease'} eq "NO_DISEASE")){
+			$diseases{$line_data{'disease'}}{$line_data{'ortholog_id'}} = \%line_data;
+		}
+		else {
+			next;
+		}
+	}
+	# my @diseases = keys %diseases;
+	return \%diseases;
+}

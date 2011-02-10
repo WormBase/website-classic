@@ -1,0 +1,55 @@
+#autoCompleteInput { 
+ position:relative;
+ width:20em;
+}
+
+#autoCompleteContainer {
+ position:absolute;
+ text-align:left;
+ display:inline;
+}
+
+#autoCompleteContainer .yui-ac-hd {
+ background-color:#FFFFCC;
+ margin-left:-6px;
+ padding-left:5px;
+ padding-bottom:1px;
+ border-bottom:1px dashed black;
+}
+
+#autoCompleteContainer .yui-ac-content {
+ position:absolute;
+ padding-left:5px;
+ font-size:10pt;
+ left:0;
+ top:0;
+ width:19em;
+ overflow:hidden;
+ border:1px solid #404040;
+ background-color: white;
+ z-index:99999999;
+}
+
+#autoCompleteContainer ul {
+ padding:5px 0;
+ margin:0;
+ width:100%;
+}
+
+#autoCompleteContainer li {
+ padding:0 5 px;
+ cursor:default;
+ white-space:nowrap;
+ list-style: none;
+}
+
+#autoCompleteContainer li.yui-ac-highlight {
+ position:relative;
+ background:#99CCFF;
+ font-weight:bold;
+}
+
+#autoCompleteSubmit {
+ position:relative;
+}
+

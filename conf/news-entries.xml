@@ -1,0 +1,386 @@
+##################################################################
+# WormBase Development Server RSS Entries
+#
+# This file contains news feed entries for the development server.
+# Entries should be of the following format:
+#
+#<item>
+#<title>Title of the entry</title>
+#   <link>The url of the entry (typically http://dev.wormbase.org/)</link>
+#   <description>A brief description of the entry</description>
+#   <date>The data added (format 24 June 2004)</date>
+#   <posted_by>OPTIONAL</posted_by>
+#</item>
+#
+# NOTES:
+# 1. Place most recent items at the bottom of the page
+# 2. Your entry will hit the feed within the hour or you can
+#    update it by issuing the following command: 
+#    /usr/local/wormbase/util/admin/generate_rss_feed.pl development xml
+#
+##################################################################
+#                     BEGIN RSS ENTRIES
+##################################################################
+<item>
+   <title>Announcing the WormBase development server news feed</title>
+   <link>http://dev.wormbase.org/</link>
+   <description>We are pleased to announce the launch of the WormBase development server news feed.  Here you will find updates pertaining to new features and datasets currently under testing on the development server (http://dev.wormbase.org/).</description>
+   <date>21 July 2004</date>
+</item>
+
+<item>
+   <title>Partial support for non-coding transcripts</title>
+   <link>http://dev.wormbase.org/</link>
+   <description>Today we are working on refining our handling of non-coding transcripts.  Currently, we have partial support for display of these objects on the <a href="http://dev.wormbase.org/db/gene/gene?name=W10D5.3b;class=Transcript">Gene Page</a> and the <a href="http://dev.wormbase.org/db/seq/sequence?name=F07H5.4;class=Transcript">Sequence Page</a></description>
+   <date>22 July 2004</date>
+</item>
+
+<item>
+   <title>ncRNAs aligned by BLAT now displayed (again) on the Genome Browser</title>
+   <link>http://dev.wormbase.org/db/seq/gbrowse/wormbase?help=link_image;rand=04416313d286e9a559ec2d093a36367b</link>
+   <description>I've restored display of ncRNAs aligned to the genome by blat on the Genome Browser. This involved placing them in the 'mRNAs aligned by blat' track. The type of feature (ie ncRNA or mRNA) is now prepended to the label. The track has been renamed 'RNAs aligned by blat'</description>
+   <posted_by>Todd Harris</posted_by>
+   <date>22 July 2004</date>
+</item>
+
+<item>
+   <title>Book chapters now displayed with proper citation</title>
+   <link>http://dev.wormbase.org/db/misc/paper?name=%5bcgc2065%5D</link>
+   <description>Chapters from books now appear with ther full book citation (unsure how long this has been broken)</description>
+   <date>27 July 2004</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+<item>
+   <title>PCR Summary page greatly expanded</title>
+   <link>http://dev.wormbase.org/db/seq/pcr</link>
+   <description>The PCR Summary page has been greatly expanded to include many features not previously displayed.  This includes overlapping CDSes, Transcripts, Psuedogenes, deletions, and microarray experiments. The complete sequence of the amplicon is now displayed, too.  The page also now tentatively supports the new Oligo_set objects.</description>
+   <date>27 July 2004</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+<item>
+   <title>The PCR Summary page now handles Microarray oligo probes</title>
+   <link>http://dev.wormbase.org/db/seq/pcr?name=Aff_K12D9.6;class=Oligo_set</link>
+   <description>Oligo_set microarray probes are now available on the &lt;a 
+href="http://dev.wormbase.org/db/seq/pcr?name=Aff_K12D9.6;class=Oligo_set">PCR Summary page</a>.  In addition, they are also displayed on the the &lt;a href="http://dev.wormbase.org/db/gene/gene?name=unc-2#Reagents">Reagents section</a> of the Gene Summary and on the &lt;a href="http://dev.wormbase.org/db/seq/gbrowse_img/wormbase?name=X:13211552..13216551;type=CG+OP+OLIGO+GB;width=800">Genome Browser</a></description>
+   <date>27 July 2004</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+<item>
+   <title>Tentative fix for lakc of UTRS, WS128</title>
+   <link>http://dev.wormbase.org</link>
+   <description>I've found a tentative fix for the missing UTRs in WS128. This involves translating the group filed of *_prime_*_noncding_region from Transcript to CDS.  I have to do this because I am unable to aggregate features of multiple groups. The database should be ready in about 20 minutes.</description>
+   <date>30 July 2004</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+<item>
+   <title>Dev site update to WS129 delayed</title>
+   <link>http://dev.wormbase.org</link>
+   <description>Updating of the development server is delayed, pending resolution of two GFF related issues.  One of 
+these, the missing UTRs, should be fixed this evening.  The development site should be updated by Monday</description>
+   <date>30 July 2004</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+<item>
+   <title>[Ignore] Testing new web interface to RSS feed</title>
+   <link>http://dev.wormbase.org/</link>
+   <description>Please ignore this item.  I am testing a new web interface for adding items to the RSS feed.</description>
+   <date>Sat, 31 Jul 2004 18:27:45 EDT</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Horrible hack for UTRs in WS128 now in place</title>
+   <link>http://dev.wormbase.org/db/seq/gbrowse/wormbase?name=IV%3A120%2C000..130%2C000</link>
+   <description>Okay, I've engineered a rather horrible GFF post-processing hack to display UTRs.  This should hold us for a WS128 release until we really decide how to handle multiple alternatively spliced UTRs per Transcript.
+<p>
+The solution involved converting features of source *_prime_exon_noncoding_region UTRs from Transcript groups to  CDS.  (Currently, GBrowse and the Gene page aggregates curated:CDS features).  Furthermore, we aren't fully prepared to handle multiply alternatively spliced UTRs per Transcript.
+<p>
+In the future, we may wish to aggregate Transcripts instead.</description>
+   <date>Sat, 31 Jul 2004 21:55:41 EDT</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>WS128 going live, Sunday afternoon, EDT</title>
+   <link>http://dev.wormbase.org/</link>
+   <description>Barring last minute plane failure, WS128 will be going live Sunday afternoon.  The dev site will be updated to WS129 at the same time.</description>
+   <date>Sat, 31 Jul 2004 21:58:07 EDT</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Live Demo Of WormBase, CSHL C. elegans course</title>
+   <link>http://dev.wormbase.org/</link>
+   <description>There will be a live demo of WormBase today fro the Cold Spring Harbor Laboratory C. elegans course.  The demo wil be at 9 AM in the Plimpton conference room, top floor of Beckman.</description>
+   <date>Mon, 02 Aug 2004 08:49:44 EDT</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Update to WS129 delayed</title>
+   <link>http://dev.wormbase.org/</link>
+   <description>Due to unforeseen compatibility issues between the WS129 release and data model changes, the WS129 release will be delayed.  We are currently rebuilding the gff databases for C. elegans, as well as patching WS129 with the C. briggsae gene objects.  All databases should be online by this 10 PM EDT.</description>
+   <date>Tue, 03 Aug 2004 17:23:59 EDT</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+<item>
+   <title>Dev Site Now Running WS129</title>
+   <link>http://dev.wormbase.org/</link>
+   <description>I've resolved many of the issues surrounding handling of the WS129 release.  In part, many of the difficulties were caused by distribution of premature changes to the underlying data model.
+<p>
+These fixes included rebuilding the elegans and briggsae GFF databases after modification to the scripts that post-process the Sanger GFF files.  In addition, I am still patching the ace release to add in the temporary gene objects until C. briggsae genes are fully converted to the new gene model.</description>
+   <date>Wed, 04 Aug 2004 01:44:29 EDT</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Laboratory page now has option to list all labs </title>
+   <link>http://dev.wormbase.org/db/misc/laboratory?name=%2A;class=laboratory</link>
+   <description>Searching the textfield of the <a href=http://dev.wormbase.org/db/misc/laboratory?name=%2A;class=laboratory">Laboratory Summary</a> page with a wildcard now returns a sortable list of all C. elegans labs.  No longer do you have to remember that MT strains originated in the Horvitz lab (as if you forget that one...)</description>
+   <date>Fri, 06 Aug 2004 13:22:14 EDT</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Development Site updated to WS130</title>
+   <link>http://dev.wormbase.org/</link>
+   <description>The development site has now been updated to WS130.  We invite interested users to begin testing of the next WormBase genome freeze.  WS130 introduces several model changes in the Gene class;  these changes will break many of the WormBase pages.  Affected pages will be brought into compliance with WS130 within the next few days.</description>
+   <date>Sun, 22 Aug 2004 14:32:07 EDT</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Preliminary debugging for WS130 complete</title>
+   <link>http://dev.wormbase.org/</link>
+   <description>Preliminary debugging for WS130 is now complete. Due to the nature of model changes incorporated in WS130, we request interested users to please test the site.  These model changes altered several tag names in the Gene class.  Identical tag names in other classes prevent a simple "find and replace" approach which means that some bugs may remain.</description>
+   <date>Mon, 23 Aug 2004 17:44:53 EDT</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Experimental transcript display on Genome Browser</title>
+   <link>http://dev.wormbase.org/db/seq/gbrowse/transcript_test</link>
+   <description>In addition to alternatively spliced CDSes, the WormBase data model can now represent alternatively spliced UTRs.  This allows us to properly annotate situations where more than one transcript makes an identical CDS.  We've generated a test display of these new transcripts on the Genome Browser.  The test database contains only Chromosome I.</description>
+   <date>Fri, 03 Sep 2004 08:34:22 EDT</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Development site updated to WS131</title>
+   <link>http://dev.wormbase.org/</link>
+   <description>The development site is now running the WS131 release of the database, built by Paul Davis.  New in this release are unique WBPaper IDs.  This may introduce some display bugs particularly when paper object IDs are presented.  On the Genome Browser, we are working to resolve problems related to the display of UTRs with the experimental Transcript objects.</description>
+   <date>Wed, 08 Sep 2004 16:55:06 EDT</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Display of abstract text restored</title>
+   <link>http://dev.wormbase.org/db/misc/paper?name=WBPaper00015370;class=Paper</link>
+   <description>WS131 and the introduction of the new WBPaper IDs broke the display of certain abstracts.  This problem was due to the abstract text containing leading or trailing whitespace in the LongText object.  I've now patched AcePerl to account for these instances, restoring the display of abstracts.</description>
+   <date>Wed, 22 Sep 2004 10:47:29 EDT</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Handling of references, WBPaper IDs</title>
+   <link>http://dev.wormbase.org/db/misc/paper?name=WBPaper00015370;class=Paper</link>
+   <description>I've modified the display of references throughout the site.  This primarily affects pages such as gene, paper, biblio, allele, antibody, etc.  Modifications include adding PubMed icon when a paper has an associated PMID ID, adding a WormBase icon (on the <a href="http://dev.wormbase.org/db/misc/biblio?name=unc-26&category=&class=Gene&abstract=WBPaper00004275#WBPaper00004275">bibliography page</a> as a shortcut to the WormBase citation, as well as fixing several bugs in reference formatting relating to books, paper ranges, and volumes.</description>
+   <date>Wed, 22 Sep 2004 11:00:38 EDT</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Expanded display of Evidence hash</title>
+   <link>http://dev.wormbase.org/db/gene/gene?name=aex-3;details=1</link>
+   <description>I've expanded the display of information contained in the Evidence hash in several instances throughout the site.  This tags items so when they are displayed the source of the evidence is clear.  Display now supports multiple entires of any specific type.  PubMed evidence also now contains a direct link to PubMed via the pubmed button added recently.
+
+I'll be making this modifications site-wide after finishing a survey of all occurrences of the Evidence hash.</description>
+   <date>Wed, 22 Sep 2004 11:06:47 EDT</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Scheduled Network Outtage</title>
+   <link>http://dev.wormbase.org/db/gene/gene?name=aex-3;details=1</link>
+   <description>Due to scheduled network maintenance at Cold Spring Harbor, WormBase (and the related development and data freeze sites) will be unavailable between 10 PM on October 2nd until  approximately 6 AM on October 3rd. We apologize for the disruption.</description>
+   <date>Mon, 27 Sep 2004 17:07:51 EDT</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Development site updated to WS133</title>
+   <link>http://dev.wormbase.org/</link>
+   <description>The development site has been updated to the WS133 release of the database.</description>
+   <date>Wed, 13 Oct 2004 13:03:54 EDT</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Interpolated genetic map position of polymorphisms</title>
+   <link>http://dev.wormbase.org/db/searches/strains</link>
+   <description>All polymorphisms now have an interpolated genetic map position.  These positions are calculated by interpolating over 15,000 polymorphisms into a genetic map containing over 1700 markers.  This data is most directly evident on the <a href="http://dev.wormbase.org/db/searches/strains">Markers</a> search page.  In general, this should help to stabilize the position of polymorphisms on the genetic map.</description>
+   <date>Sat, 30 Oct 2004 18:39:59 EDT</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Development site updated to WS134</title>
+   <link>http://dev.wormbase.org/</link>
+   <description>The development site has been updated to WS134.  I'm now in the process of updating the site to accomodate model changes in WS134. 
+
+Of note, the experimental transcript aggregator has now superceded the old CDS-based approach for generating gene models in the <a href="http://dev.wormbase.org/db/seq/gbrowse/wormbase">Gene Browser<a/>.  This allows us to display alternative splicing in the UTR when present.  This change will have additional ramifications on a number of other pages.</description>
+   <date>Mon, 01 Nov 2004 16:27:58 EST</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>The Genome Browser now displays genetic spans</title>
+   <link>http://dev.wormbase.org/db/seq/gbrowse/wormbase?name=III%3A7472287..7572286;source=wormbase;width=800;version=100;label=LOCI%3Aoverview-CG-OP-GENETIC</link>
+   <description>In an effort to unite the genetic and physical maps, the Genome Browser can now display interpolated genetic intervals (under the "Genetic limits" option).   This currently only includes loci that have two-factor mapping data. It works by taking the map positions of all genetic loci - cloned or not - and interpolating them onto the physical map.  The range is established using the confidence interval.  A secondary consequence of this is that it is now possible to search the Genome Browser for genetic loci like <a href="http://dev.wormbase.org/db/seq/gbrowse/wormbase?name=mua-4;source=wormbase;width=800;version=100;label=LOCI%3Aoverview-CG-OP-GENETIC">mua-4</a>.</description>
+   <date>Tue, 02 Nov 2004 19:24:20 EST</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Finding rearrangements carrying specific markers</title>
+   <link>http://dev.wormbase.org/db/gene/rearrange?name=unc-4;position=contains</link>
+   <description>It's now much easier to find rearrangements containing a gene of interest.  To do this, visit the <a href="http://dev.wormbase.org/db/gene/rearrange">Rearrangement Page</a>.  From the prompt, enter "excludes:gene" or "contains:gene" to find rearrangements known to exclude or contain your gene of interest.
+
+Links to this function are also displayed for every gene on the <a href="http://dev.wormbase.org/db/gene/gene?name=unc-4?#Alleles">Gene Page</a> in the Alleles section.</description>
+   <date>Sat, 06 Nov 2004 11:47:51 EST</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Development site updated to WS135</title>
+   <link>http://dev.wormbase.org/</link>
+   <description>The development site has been updated to the WS135 release of the database.</description>
+   <date>Fri, 19 Nov 2004 14:39:06 EST</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>RNAi search now limitable by dataset</title>
+   <link>http://dev.wormbase.org/db/searches/rnai_search</link>
+   <description>Results from the RNAi Phenotype search page can now be limited to several prominent RNAi datasets, including the recent ORFeome-based RNAi screen. </description>
+   <date>Sun, 21 Nov 2004 19:10:51 EST</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Development site updated to WS136</title>
+   <link>http://dev.wormbase.org/</link>
+   <description>The development server has been updated to the WS136 release of the database.</description>
+   <date>Mon, 06 Dec 2004 11:50:51 EST</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>RNAi search now limitable by chromosomal position</title>
+   <link>http://dev.wormbase.org/db/searches/rnai_search</link>
+   <description>The <a href="http://dev.wormbase.org/db/searches/rnai_search">RNAi Search</a> is now limitable by chromosomal position.  This makes is possible to, say, search for all RNAi experiments on chromosome I between -1.0 and 2.0 that result in a Dpy phenotype.</description>
+   <date>Tue, 07 Dec 2004 14:27:46 EST</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Additional filtering of messages sent to wormbase-help</title>
+   <link>http://www.wormbase.org/html/mailarch/index.html</link>
+   <description>Due to a tremendous increase in the amount of spam travelling through the open-access wormbase assistance mailing list (wormbase-help@wormbase.org), we have increased the stringency of spam filtering.  If a request is not answered within 24 hours, it most likely means that we did not receive your request.  Please resend your request to harris@cshl.edu so that we may continue to refine spam filtering.</description>
+   <date>Fri, 10 Dec 2004 17:05:57 EST</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>The new Gene Class display is now available</title>
+   <link>http://dev.wormbase.org/db/gene/gene_class</link>
+   <description>A new Gene Class display is now available for testing.  This display shows information for specific gene classes <a href="http://dev.wormbase.org/db/gene/gene_class?name=unc">unc</a>, <a href="http://dev.wormbase.org/db/gene/gene_class?name=lin">lin</a> as well as a <a href="http://dev.wormbase.org/db/gene/gene_class?name=*">sortable table of all gene classes</a>.  Each specific page lists all genes in that specific class as well as genes that have been renamed to another class.</description>
+   <date>Wed, 15 Dec 2004 15:37:16 EST</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+<item>
+<title>Development site updated to WS137</title>
+<link>http://dev.wormbase.org/</link>
+<description>The development server has been updated to the WS137 release of the database. [posted: Fri, 24 Dec 2004 11:50:51 EST by Todd Harris]</description>
+</item>
+
+<item>
+<title>Development site updated to WS138</title>
+<link>http://dev.wormbase.org/</link>
+<description>The development server has been updated to the WS138 release of the database. [posted: Fri, 21 Jan 2005 11:50:51 EST by Todd Harris]</description>
+</item>
+
+<item>
+<title>Development site updated to WS139</title>
+<link>http://dev.wormbase.org/</link>
+<description>The development server has been updated to the WS139 release of the database. [posted: Fri, 11 Feb 2005 11:50:51 EST by Todd Harris]</description>
+</item>
+
+<item>
+   <title>Public beta of WormMart, a new data mining facility</title>
+   <link>http://dev.wormbase.org/BioMart/martview</link>
+   <description>WormBase is pleased to announce WormMart, a new data mining facility now available for public beta testing.  The WormBase implementation of Biomart was built by Will Spooner. You can read more about the public beta test of WormMart at:
+<p>
+<a href="http://dev.wormbase.org/about/wormmart.html">http://dev.wormbase.org/about/wormmart.html</a></description>
+   <date>Tue, 22 Feb 2005 17:37:44 EST</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Protein motifs now displayed on the Genome Browser</title>
+   <link>http://dev.wormbase.org/db/seq/gbrowse/wormbase?name=unc-26;source=wormbase;width=960;version=100;label=LOCI%3Aoverview-CG-MOTIFS</link>
+   <description>Protein motifs are now displayed in genomic coordinates on the Genome Browser.  You can see these features by enabling the "Protein Motifs" track.  This track was created by interpolating translated coordinates of protein motifs into genomic coordinates.  In the event that a motif spans an exon boundary, a dashed line is displayed.</description>
+   <date>Thu, 24 Mar 2005 12:28:13 EST</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>Genes now searchable by RefSeq and AceView IDs</title>
+   <link>http://dev.wormbase.org/db/gene/gene?name=XC24</link>
+   <description>It is now possible to search for genes using NCBI RefSeq (<a href="http://dev.wormbase.org/db/gene/gene?name=NM_058274">NM_058274</a>) or AceView identifiers (<a href="http://dev.wormbase.org/db/gene/gene?name=XC24">XC24</a>).</description>
+   <date>Sat, 07 May 2005 14:58:43 EDT</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+
+
+<item>
+   <title>WormBase has been updated to WS145</title>
+   <link>http://dev.wormbase.org/</link>
+   <description>WormBase has been updated to the WS145 release of the database.  Development for this release focuses on tweaks to handlingof the Variation and Gene_name class. </description>
+   <date>Sun, 19 Jun 2005 10:39:07 EDT</date>
+   <posted_by>Todd Harris</posted_by>
+</item>
+

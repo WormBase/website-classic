@@ -1,0 +1,1722 @@
+@import url('../gbrowse2/css/gbrowse_autocomplete.css');
+
+A:link            { text-decoration: none; 
+                    color: #0000FF;
+                    border:none;
+                  }
+A:visited         { text-decoration: none; 
+                    color: #AA0088;
+                    border:none;
+                  }
+A:hover           { text-decoration: underline; 
+                    border:none;
+                  }
+A.banner          { color  : #FFFFFF;
+                    text-decoration : none;
+                  }
+A.bblue           { color: #FFFFFF;
+                    background-color: #9999FF;
+                    text-align: center;
+                  }
+A.binactive      { color: #FFFFFF;
+                    background-color: #5870a3;
+                    font-size: 13pt; /* was 16 */
+                    text-align: center;
+                  }
+.binactive      { color: #FFFFFF;
+                    background-color: #5870a3;
+                    font-size: 13pt; /* was 16 */
+                    text-align: center;
+                  }
+A.bactive        {  color:            #FFFFFF;
+                    background-color: #b4cbdb;
+                    font-size: 13pt;  /* was 16 */
+                    text-align: center;
+                 }
+.bactive        {  color:            #FFFFFF;
+                    background-color: #b4cbdb;
+                    font-size: 13pt;  /* was 16 */
+                    text-align: center;
+                 }
+A.bblue2         { color: #FFFF99;
+                   text-align: center;
+                 }
+
+A.bblue3         { 
+                   color: #FFFF99;
+                   background-color: #5555FF;
+                   text-align: center;
+                 }
+
+A.nakedlinks { color: #3366ff;  
+                font-weight:bold;
+                font-size:10pt;
+}
+
+
+A.nochange:visited { text-decoration: none; 
+                     color: #0000FF;
+}
+
+body              {  font-family:sans-serif;
+                     background-color: white;
+		     z-index:0; 
+}
+
+div.tooltip        {text-decoration: none; 
+                    color: #0000FF;
+                    border:none;
+                    }
+
+/* The following configs are used only for the site-map (currently) */
+div.container    {
+  margin:10px 80px 10px 80px;
+  padding-left:10px;
+  line-height:20px;
+}
+
+div.wormbook_box {
+  margin:0px 0px 10px 10px;
+#  font-size:0.8em;
+  font-style:italic;  
+}	
+
+/* a compressed container, typically used in the middle of a page */
+div#narrowcontainer {  margin: 0px 150px 0px 150px;  }
+
+div#narrowcontainer .block {
+  font-style:italic;
+  padding-bottom:10px;
+  line-height:20px;
+  margin-left:15px;
+}
+
+div#narrowcontainer .surveyitem { 
+  line-height:20px;
+  margin-left:15px;
+}
+
+div#narrowcontainer .surveyquestion {
+  font-weight:bold;
+  padding-top:10px;
+}
+
+div#narrowcontainer h3 { 
+  border-bottom:1px solid #3366FF;
+  padding-bottom:5px;
+}
+
+div#narrowcontainer .point { 
+  font-size:1.2em;
+  text-align:center;
+  padding:10px;
+  background-color:#CCFFFF;
+  border:1px solid #3366FF;
+  margin:15px;
+}
+
+/* various indented and padded blocks */
+div.paddedbox   { margin:  0px 10px 0px 10px;
+                  padding: 10px 10px 10px 10px;
+                }
+div.indent    {  padding-left: 15px; }
+div.bigindent {  padding-left: 50px; }
+
+DIV.blue { 
+  background-color:#EEFFFF;
+  padding-left:10px;
+  padding-bottom:5px;
+  border:1px solid gray;
+ }
+
+
+DIV.category      { 
+  font-size:14pt;
+  color: #3366FF; 
+  margin: 8px 25px 2px 20px;
+  padding-bottom:2px;
+  padding-top:10px;
+  font-weight:bold;
+  border-bottom:1px solid #3366FF;
+}
+    
+DIV.subcategory      { 
+  font-size:16px;
+  color: #333333;
+  font-weight:bold;
+  /*  padding-bottom:4px; */
+  padding-top:10px;
+  margin-top:10px;
+  margin-bottom:2px;
+}
+
+div#rss-box {
+/*  margin-left:1px; */
+}
+
+div.rss-item {
+/*   font-size:1.0em;	 */
+/*   padding-bottom:6px; */
+}
+
+.rss-title {
+  font-weight:bold;
+}
+
+/* byline contains board, poster, date */
+div.rss-byline {
+   color:gray;
+   font-style:italic;
+   font-size:0.7em;
+   padding-left:15px;
+   padding-top:4px;
+}
+
+.rss-board  { }
+.rss-poster { }
+.rss-date   { }
+
+
+
+DIV.pages         { 
+  margin:0px 10px 0px 40px;
+  font-size:13pt;
+  color:black;
+}
+
+
+
+
+
+/*
+   EVIDENCE HASH FORMATTING */
+/* Tableized */
+div.evidence { 
+  font-size:12px;
+  margin-left:30px;
+}
+
+div.evidence tr { 
+  text-align:top;
+}
+
+div.evidence td { 
+  text-align:top;
+}
+
+div.evidence tr.updated { 
+  font-weight:bold;
+  text-align:right;
+}
+
+/* The following sections contain selectors specific to
+   different tasks.
+   The four primary markup areas in WormBase are:
+   admin:    tasks relating to administration
+   feedback: areas prompting the user for feedback or comments
+   config:   tasks relating to user-configurable options
+
+/* markup relating to administrative tasks */
+div.admin  {   }
+
+/* markup relating to user configuration */
+div.config {   }
+
+/* markup relating to feedback prompts */
+div.feedback {
+  background-color: #CCFFFF;     
+  border: 1px solid gray;
+  padding-left:10px;
+  padding-right:10px;
+  padding-top: 0px;
+  padding-bottom:15px;
+  margin-top:5px;
+  margin-bottom:5px;
+  line-spacing:120%;
+  font-size:13px;;
+}
+
+/* might reasonably wish to change colors of these sections, too */
+.feedback h2 {   font-size: 14px; }
+
+H1,H2,H3,H4  { color: #3366FF; 
+             }
+
+IMG               { border:0px               }
+
+INPUT             { background-color: white; }
+INPUT.reset_button { background-color: pink; }
+A.reset_button       { color: red; } 
+
+UL                {
+	            padding-left: 15;
+		  }
+LI                {
+                    list-style: url(/images/reddot_small.gif) outside;
+                  }
+LI.tri            {
+                    list-style: url(/ico/triangle_right.gif) outside;
+}
+
+PRE.peptide       { font-family: monospace;  }
+PRE.dna           { font-family: monospace;   }
+SELECT            { background-color: white; }
+
+/* table styling - Weird, spacing is not in the spec...*/
+table             { padding: 0;
+                    spacing: 2;
+                  }
+/* obsolete? 
+table.multi       { padding: 0;
+                    border-spacing: 0;
+                    width: 100%;
+                  }
+*/
+
+th                { padding: 0; }
+
+/* dataheader and datacell are used in page-wide tables such as in the 
+   listing of all rearrangements by chrom on the rearrangment page */
+th.dataheader      {  padding:5px;
+                      background-color: #FFFFCC;
+                      border: 1px solid grey;
+                 }
+
+tr.pageentry      { background-color: #BFD5E8; }
+
+td.pagetitle      { text-align:center;
+                    width:20%;
+                  }
+
+td.pagedescription { font-style:italic; }
+
+
+td.datacell        { border:1px solid grey; }
+
+/* this should probably be a contextual selector.
+   it's used for tables inside div.container   */
+table.incontainer { margin:0px 10px 5px 40px; }
+
+
+
+
+.abstract         { background-color: #FFEEEE; }
+.acetree          { font-size: small; }
+.banner           { font-size: x-large;
+                    align: center;
+                    background-color: #5077E9;
+                    color: yellow;
+                    padding: 100px 3px;
+                  }
+
+.code             { 
+                    background-color: #CCFFFF;
+                    font-family:courier;
+                    border:1px solid grey;
+                    font-size:12px;
+                    width:75%;
+                    margin:10px;
+                    padding:5px;
+}
+.data             { }
+
+
+.blue             {
+                    background-color: #5870a3;
+                  }
+.white            {
+                    background-color: #FFFFFF;
+                  }
+.news             {
+                    background-color: #BFD5E8;
+                  }
+.newsheadermain   {  
+                    background-color: #BFD5E8;
+                    color: #3366FF;
+                    font-size: 16px;
+                    font-weight:bold;
+                  }
+.newsheaderside   {  
+                    background-color: #5870a3;
+                    color: #FFFFFF;
+                    font-size: 16px;
+                    font-weight:bold;
+                  }
+
+div#alert { 
+  background-color: #BFD5E8;
+  text-align:center;
+  border-bottom:2px solid gray;
+  padding:10px;
+  margin-bottom:10px;
+}
+
+.databody         { background-color: #CDE4F9; } <!-- #BFD5E8 -->
+.databodysmall    { background-color: #EEFFFF; }
+.datatitle        { background-color: #93CBF4; }
+.description      { font-style: italic; }
+.error            { color: red; }
+.exon             { background-color: #00FFFF;
+                    color: #000000;
+                  }
+.exonalt          { background-color: #EEEE99; 
+                    color: #000000;
+                  }
+.exonm            { /* font-weight: bold; */
+	            background-color: #00FFFF; 
+                    color: #000000;
+                  }
+.flankm           { background-color: #FFFFFF; 
+                    color: #888888;
+                  }
+.match            { background-color: #FFFF77;
+                    color: #FF00;
+                  }
+.gene             { font-style: italic; }
+.highlight        { background-color: #f5deb3; }
+.intron           { background-color: #FFFFFF; 
+                    color: #000000;
+                  }
+.intronm          { background-color: #FFFFFF; 
+                    color: #000000;
+                  }
+.mism             { color: #000000;
+                    background-color: #FF9999;
+                  }
+.note             { color: red; }
+.phenotype        { font-style: italic;
+                    margin-left: 2em;
+                  }
+.podheader1       { 
+                    color: #3366FF; 
+                    font-size:24px;
+}
+.podheader2       { 
+                    color: #3366FF; 
+                    font-size:22px;
+}
+.podheader3       { 
+                    color: #3366FF; 
+                    font-size:18px;
+}
+.podheader4       { 
+                    color: #3366FF; 
+                    font-size:16px;
+}
+
+
+.pre              { font-family: monospace; }
+.resultstitle     { background-color: #93cbf4; }
+.resultsbody      { background-color: #CCFFFF; }
+.resultsbodyalt   { background-color: #EEFFFF; }
+.search           { }
+.searchtitle      { background-color: #FFFF99; }
+.searchexamples   { background-color: #FFFF99; font-style: italic; }
+# .searchbody       { background-color: #FFFFCC; }
+.searchbodyalt    { background-color: #CCFFFF; }
+.settingstitle    { background-color: DarkKhaki;
+	            font-size: small;
+}
+.settingsbody     { background-color: khaki;
+	            font-size: small;
+}
+.uploadtitle      { background-color: #93cbf4;
+	            font-size: small;
+}
+.uploadbody       { background-color: #CCFFFF;
+	            font-size: small;
+}
+.small            { font-size: small; }
+.smalldescription { font-style: italic;
+                    font-size: small;
+                  }
+.superscript      { vertical-align:super; 
+                    font-size:10pt;
+                    color:black;
+                  }
+.technicalinfo    { background-color: #FFFFFF; }
+.toggle           { color: #3366FF; }
+.warning          { color: red;      }
+.cellwarning      { background-color: #FF0033;      }
+
+/* For pages that use SubSections, this div provides a convenient
+ encapsulation that ensures titles and footnotes are positioned correctly */
+
+div.subsection { 
+  padding-bottom:8px;
+  width:100%;
+}
+
+/* Create a nice title for tables instead of relying on th hacks */
+div.tabletitle { 
+  padding:10px 0 5px 0;
+  font-weight:bold;
+}
+
+span.tablesubtitle { 
+/*  font-style:italic; */
+  font-weight:normal;
+}
+
+/* This div is used on the gene page to provide
+   a small footnote for tables as necessary */
+div.tablefootnotes     { 
+  font-style:italic;
+  margin-left:30px;
+  padding-top:3px;
+  text-align:left;
+}
+
+/* Used for empty data containers */
+div.notapplicable     { 
+  font-style:italic;
+  text-align:left;
+}
+
+.test { 
+  border-right:1px solid gray;
+  margin-right:10px;
+}
+
+
+td.rowheader { 
+  font-weight:bold;
+  text-align:left;
+}
+
+/* GBrowse configuration */
+.tRNAs            { background-color: white;
+                    color: black;
+                    curatedexon: slateblue;
+                    fontcolor: slateblue;
+                    bump: -1;
+                    height: 3;
+                  }
+.transcriptf      { glyph: wormbase_transcript;
+		    background-color: white;
+                    color: black;
+	            forwardcolor: slateblue;
+	            reversecolor: dodgerblue;
+                    bump: -1;
+                    height: 10;
+	            key: 'Predicted genes (forward)';
+                  }
+.transcriptr      { 
+		    glyph: wormbase_transcript;
+                    color: black;
+	            forwardcolor: slateblue;
+	            reversecolor: dodgerblue;
+                    color: black;
+                    bump: +1;
+                    height: 10;
+	            key: 'Predicted genes (reverse)';
+                  }
+.Briggsae-Alignments-(WABA)  { background-color: blue;
+		  glyph: graded_segments;
+		  max_score: 100;
+                  color: black;
+                  bump: +1;
+                  height: 6;
+                  connectgroups: 1;
+                  connector: black;
+                  key: 'Briggsae alignments (WABA)';
+                  }
+.ESTs-Aligned-with-BLAT-(best) { 
+		    background-color: limegreen;
+                    color: black;
+                    bump: +1;
+                    height: 6;
+                    stranded: 1;
+                    connectgroups: 1;
+                    connector: black;
+                    key: 'ESTs aligned by BLAT (best)';
+                  }
+.ESTs-Aligned-with-BLAT-(other) { 
+                    background-color: lightgray;
+                    color: black;
+                    bump: +1;
+                    height: 6;
+                    stranded: 1;
+                    connectgroups: 1;
+                    connector: black;
+                    key: 'ESTs aligned by BLAT (other)';
+                  }
+.mRNAs-Aligned-with-BLAT-(best) { 
+	            background-color: yellow;
+                    color: black;
+                    bump: +1;
+                    height: 6;
+                    stranded: 1;
+                    connectgroups: 1;
+                    connector: black;
+                    key: 'mRNAs aligned by BLAT (best)';
+                  }
+.mRNAs-Aligned-with-BLAT-(other) { 
+                    background-color: lightgray;
+                    color: black;
+                    bump: +1;
+                    height: 6;
+                    stranded: 1;
+                    connectgroups: 1;
+                    connector: black;
+                    key: 'mRNAs aligned by BLAT (other)';
+                  }
+.RNAi             { background-color: goldenrod;
+                    color: black;
+                    height: 4;
+                    bump: +1;
+		    label: 1;
+                    key: 'RNAi experiments';
+                  }
+.Expression-Chip-Profiles { background-color: orange;
+                    color: black;
+                    height: 4;
+                    bump: +1;
+		    label: 1;
+                    key: 'Expression chip profiles';
+                  }
+.Transposon-Insertions { 
+		    bgcolor: red;
+                    fgcolor: red;
+		    glyph: triangle;
+	            point: 1;
+	            orient: S;
+                    height: 10;
+                    bump: +1;
+		    label: 1;
+                    key: 'Transposon Insertions';
+                  }
+.SNPs { 
+		    bgcolor: red;
+                    fgcolor: red;
+		    glyph: diamond;
+	            point: 1;
+	            orient: S;
+                    height: 10;
+                    bump: +1;
+		    label: 1;
+                    key: 'SNP';
+                  }
+.Worm-Transcriptome-Project-Genes { 
+		    bgcolor: yellow;
+	            glyph: generic;
+                    strand_arrow: 1;
+                    color: black;
+                    height: 6;
+                    bump: +1;
+		    label: 1;
+                    key: 'Worm Transcriptome Project genes';
+                  }
+.BLASTX-Hits {
+	glyph: segments;
+	bgcolor: orange;
+	fgcolor: black;
+	height: 4;
+	key: 'BLASTX Hits';
+	     }
+.TBLASTX-Hits {
+	glyph: segments;
+	bgcolor: red;
+	fgcolor: black;
+	height: 4;
+	key: 'BLASTX Hits';
+              }
+.Oligos   { background-color: violet;
+	    glyph: primers;
+            color: black;
+            connect: 1;
+            connect_color: cyan;
+            connector: violet;
+            bump: -1;
+	    label: 1;
+            key: 'Oligos';
+                  }
+.Genbank-entries { glyph: anchored_arrow;
+		   bump: +1;
+                   tick: +2;
+                   relative_coords: 1;
+                   key: 'Genbank entry';
+		 }
+.PolyA-sites      { background-color: violet;
+		    glyph: ex;
+                    color: blue;
+                    bump: -1;
+                    key: 'polyA sites';
+                  }
+.Primers          { background-color: violet;
+                    color: black;
+                    connect: 1;
+                    connector: violet;
+                    connect_color: gray;
+                    bump: -1;
+                    key: 'oligos';
+                  }
+.HMMer            { background-color: red;
+                    color: black;
+                    connect: 1;
+	            height: 4;
+                    connector: black;
+	            label: 1;
+                    bump: -1;
+                    key: 'motifs';
+                  }
+.Briggsae-Alignments-(BLAST)  { background-color: tomato;
+                    color: black;
+                    height: 4;
+                    bump: +1;
+                    key: 'C. briggsae similarity';
+                  }
+.Prosite          { background-color: bisque;
+                    color: black;
+                    height: 4;
+                    bump: +1;
+                    key: 'prosite';
+                  }
+.Misc_feature     { background-color: bisque;
+                    color: black;
+                    height: 4;
+                    bump: +1;
+                    key: 'Miscellaneous';
+                  }
+.Clones           { color: black;
+		    glyph: anchored_arrow;
+                    height: 7;
+                    bump: +1;
+                    key: 'YACs & Cosmids';
+                  }
+
+/* this is all das stuff */
+default.default {
+  glyph: GENERIC;
+  das: 1;
+  label: 1;
+  bump: +1;
+  height: 6;
+  color: wheat;
+}
+Sequence.default {
+  glyph: GENERIC;
+  das: 1;
+  label: 1;
+  bump: +1;
+  height: 6;
+  color: black;
+  background-color: gray;
+}
+ALLELE.default {
+  glyph: ANCHORED_ARROW;
+  das: 1;
+  label: 1;
+  bump: +1;
+  height: 3;
+  color: black;
+  background-color: tomato;
+}
+translation.default {
+  glyph: GENERIC;
+  das: 1;
+  height: 5;
+  bump: +1;
+  point: 2;
+  color: blue;
+}
+translated.default {
+  glyph: GENERIC;
+  das: 1;
+  height: 5;
+  label: 1;
+  bump: +1;
+  height: 6;
+  color: blue;
+}
+translated.stopsite {
+  glyph: GENERIC;
+  das: 1;
+  label: 1;
+  height: 5;
+  color: black;
+}
+translated.ATG {
+  glyph: CROSS;
+  das: 1;
+  label: 1;
+  height: 2;
+  color: green;
+}
+translated.CDS {
+  glyph: ARROW;
+  das: 1;
+  label: 1;
+  height: 6;
+  color: cyan;
+}
+Predicted_gene.default {
+  glyph: TRANSCRIPT;
+  das: 1;
+  label: 1;
+  bump: +1;
+  height: 10;
+  color: dodgerblue;
+  background-color: dodgerblue;
+}
+transcription.default {
+  glyph: TRANSCRIPT;
+  das: 1;
+  label: 1;
+  bump: +1;
+  height: 10;
+  color: black;
+  background-color: wheat;
+}
+transcription.transcript {
+  glyph: TRANSCRIPT;
+  das: 1;
+  label: 1;
+  bump: +1;
+  height: 10;
+  background-color: dodgerblue;
+  color: black;
+  linewidth: 1;
+}
+transcription.curated {
+  glyph: TRANSCRIPT;
+  das: 1;
+  label: 1;
+  height: 10;
+  color: black;
+  background-color: wheat;
+}
+transcription.exon {
+  glyph: GENERIC;
+  das: 1;
+  label: 1;
+  height: 10;
+  background-color: dodgerblue;
+  color: dodgerblue;
+  linewidth: 1;
+}
+transcription.intron {
+  glyph: CONNECTOR;
+  das: 1;
+  label: 1;
+  height: 10;
+  color: blue;
+}
+transcription.tRNA {
+  glyph: GENERIC;
+  das: 1;
+  label: 1;
+  height: 5;
+  color: red;
+  color: red;
+  linewidth: 1;
+}
+transcription.mRNA {
+  glyph: TOOMANY;
+  das: 1;
+  label: 1;
+  height: 5;
+  color: magenta;
+  color: black;
+  linewidth: 1;
+}
+transcription.snRNA {
+  glyph: GENERIC;
+  das: 1;
+  label: 1;
+  height: 5;
+  color: green;
+  color: blue;
+  linewidth: 1;
+}
+transcription.polyA {
+  glyph: ARROW;
+  das: 1;
+  label: 1;
+  height: 2;
+  color: green;
+  parallel: yes;
+  northeast: no;
+}
+transcription.splice5 {
+  glyph: ARROW;
+  das: 1;
+  label: 1;
+  color: green;
+  height: 2;
+  parallel: yes;
+  northeast: yes;
+  southwest: no;
+}
+transcription.splice3 {
+  glyph: ARROW;
+  das: 1;
+  label: 1;
+  color: green;
+  height: 2;
+  parallel: yes;
+  northeast: yes;
+  southwest: no;
+}
+variation.default {
+  glyph: GENERIC;
+  das: 1;
+  label: 1;
+  bump: +1;
+  height: 2;
+  color: gray;
+}
+variation.insertion {
+  glyph: ARROW;
+  das: 1;
+  label: 1;
+  color: yellow;
+  height: 5;
+  parallel: no;
+  northeast: no;
+}
+variation.deletion {
+  glyph: ARROW;
+  das: 1;
+  label: 1;
+  color: yellow;
+  height: 5;
+  parallel: no;
+  southwest: no;
+}
+variation.substitution {
+  glyph: ARROW;
+  das: 1;
+  label: 1;
+  color: cyan;
+  height: 5;
+  parallel: no;
+  northeast: yes;
+  southwest: no;
+}
+structural.default {
+  glyph: ANCHORED_ARROW;
+  das: 1;
+  bump: +1;
+  label: 1;
+  height: 4;
+  linewidth: 1;
+  color: red;
+}
+structural.Link {
+  glyph: ANCHORED_ARROW;
+  das: 1;
+  bump: +1;
+  height: 4;
+  linewidth: 2;
+  color: black;
+}
+structural.GenePair_STS {
+  glyph: PRIMERS;
+  das: 1;
+  bump: +1;
+  height: 4;
+  linewidth: 1;
+  color: violet;
+  connect: 1;
+  connector: violet;
+}
+structural.PCR_product {
+  glyph: PRIMERS;
+  das: 1;
+  label: 1;
+  height: 50;
+  color: #33ff33;
+}
+structural.Genomic_canonical {
+  glyph: ANCHORED_ARROW;
+  das: 1;
+  label: 1;
+  bump: +1;
+  height: 3;
+  color: black;
+}
+structural.clone {
+  glyph: GENERIC;
+  das: 1;
+  height: 5;
+  color: #33ff33;
+}
+structural.assembly_tag {
+  glyph: GENERIC;
+  das: 1;
+  point: 2;
+  color: red;
+}
+structural.Clone_left_end {
+  glyph: GENERIC;
+  das: 1;
+  point: 2;
+  color: red;
+}
+structural.Clone_right_end {
+  glyph: GENERIC;
+  das: 1;
+  point: 2;
+  color: red;
+}
+structural.primer_left {
+  glyph: TEXT;
+  das: 1;
+  label: 1;
+  font: helvetica;
+  fontsize: 8;
+  string: l;
+  color: purple;
+}
+structural.primer_right {
+  glyph: TEXT;
+  das: 1;
+  label: 1;
+  font: helvetica;
+  fontsize: 8;
+  string: r;
+  color: purple;
+}
+structural.oligo {
+  glyph: GENERIC;
+  das: 1;
+  bump: +1;
+  height: 3;
+  color: #669900;
+  background-color: white;
+}
+structural.SNP {
+  glyph: TRIANGLE;
+  point: 1;
+  das: 1;
+  label: 1;
+  height: 2;
+  color: green;
+}
+Homol_data.default {
+  glyph: SEGMENTS;
+  das: 1;
+  bump: +1;
+  label: 1;
+  height: 3;
+  color: black;
+  background-color: red;
+}
+Homol_data.NN {
+  glyph: TOOMANY;
+  das: 1;
+  label: 1;
+  height: 50;
+  color: #666666;
+  linewidth: 1;
+}
+Homol_data.NP {
+  glyph: SEGMENTS;
+  das: 1;
+  label: 1;
+  height: 50;
+  color: #666666;
+  linewidth: 1;
+}
+Homol_data.PN {
+  glyph: SEGMENTS;
+  das: 1;
+  label: 1;
+  height: 2;
+  color: #666666;
+  linewidth: 1;
+}
+Homol_data.PP {
+  glyph: SEGMENTS;
+  das: 1;
+  label: 1;
+  height: 50;
+  color: #666666;
+  linewidth: 1;
+}
+similarity.default {
+  glyph: SEGMENTS;
+  das: 1;
+  label: 1;
+  bump: +1;
+  height: 5;
+  background-color: limegreen;
+  color: black;
+}
+similarity.BLAT_EST_BEST {
+  glyph: SEGMENTS;
+  das: 1;
+  bump: +1;
+  height: 5;
+  background-color: darkgray;
+  color: greenyellow;
+  fillcolor: red;
+}
+similarity.BLASTN {
+  glyph: SEGMENTS;
+  das: 1;
+  bump: +1;
+  height: 5;
+  background-color: darkgray;
+  color: lawngreen;
+}
+similarity.BLASTN_EST_briggsae {
+  glyph: SEGMENTS;
+  das: 1;
+  bump: +1;
+  height: 5;
+  background-color: darkgray;
+  color: thistle;
+}
+similarity.BLASTN_EST_elegans {
+  glyph: SEGMENTS;
+  das: 1;
+  bump: +1;
+  height: 5;
+  background-color: darkgray;
+  color: springgreen;
+}
+similarity.BLASTN_TC1 {
+  glyph: SEGMENTS;
+  das: 1;
+  bump: +1;
+  height: 5;
+  background-color: darkgray;
+  color: lime;
+}
+similarity.BLASTN_briggsae_cosmid {
+  glyph: SEGMENTS;
+  das: 1;
+  bump: +1;
+  height: 5;
+  background-color: darkgray;
+  color: orchid;
+}
+similarity.BLASTN_eleg_brig {
+  glyph: SEGMENTS;
+  das: 1;
+  bump: +1;
+  height: 5;
+  background-color: darkgray;
+  color: limegreen;
+}
+similarity.BLASTN_elegans_cosmid {
+  glyph: SEGMENTS;
+  das: 1;
+  bump: +1;
+  height: 5;
+  background-color: darkgray;
+  color: darkgreen;
+}
+similarity.BLASTX {
+  glyph: SEGMENTS;
+  das: 1;
+  bump: +1;
+  height: 5;
+  background-color: darkgray;
+  color: red;
+}
+similarity.BLASTX_wormpep {
+  glyph: SEGMENTS;
+  das: 1;
+  bump: +1;
+  height: 5;
+  background-color: darkgray;
+  color: darkred;
+}
+similarity.BLASTP {
+  glyph: SEGMENTS;
+  das: 1;
+  bump: +1;
+  height: 5;
+  background-color: darkgray;
+  color: yellow;
+}
+similarity.TBLASTN {
+  glyph: SEGMENTS;
+  das: 1;
+  bump: +1;
+  height: 5;
+  background-color: darkgray;
+  color: cyan;
+}
+similarity.TBLASTX {
+  glyph: SEGMENTS;
+  das: 1;
+  bump: +1;
+  height: 5;
+  background-color: darkgray;
+  color: royalblue;
+}
+similarity.TBLASTX_briggsae {
+  glyph: SEGMENTS;
+  das: 1;
+  bump: +1;
+  height: 5;
+  background-color: darkgray;
+  color: violet;
+}
+similarity.TBLASTX_EST_elegans {
+  glyph: SEGMENTS;
+  das: 1;
+  bump: +1;
+  height: 5;
+  background-color: darkgray;
+  color: dodgerblue;
+}
+similarity.TBLASTX_EST {
+  glyph: SEGMENTS;
+  das: 1;
+  bump: +1;
+  height: 5;
+  background-color: darkgray;
+  color: dodgerblue;
+}
+repeat.default {
+  glyph: GENERIC;
+  das: 1;
+  bump: +1;
+  height: 3;
+  background-color: #ffe4c4;
+  color: #8b7d6b;
+}
+repeat.microsatellite {
+  glyph: GENERIC;
+  das: 1;
+  label: 1;
+  height: 50;
+  color: #6699cc;
+}
+repeat.inverted_repeat {
+  glyph: GENERIC;
+  das: 1;
+  label: 1;
+  height: 50;
+  color: #6699cc;
+}
+repeat.tandem_repeat {
+  glyph: GENERIC;
+  das: 1;
+  label: 1;
+  height: 5;
+  color: #6699cc;
+}
+repeat.transposable_element {
+  glyph: GENERIC;
+  das: 1;
+  label: 1;
+  height: 5;
+  color: #6699cc;
+}
+repeat.LINE {
+  glyph: GENERIC;
+  das: 1;
+  label: 1;
+  height: 5;
+  color: #6699cc;
+}
+experimental.default {
+  glyph: GENERIC;
+  das: 1;
+  label: 1;
+  bump: +1;
+  height: 5;
+  color: black;
+  background-color: #b8860b;
+}
+experimental.cDNA_for_RNAi {
+  glyph: SPAN;
+  das: 1;
+  label: 1;
+  bump: +1;
+  height: 4;
+  color: black;
+  background-color: limegreen;
+}
+experimental.knockout {
+  glyph: TRIANGLE;
+  point: 1;
+  das: 1;
+  label: 1;
+  color: red;
+}
+experimental.expression_tag {
+  glyph: GENERIC;
+  das: 1;
+  label: 1;
+  color: cyan;
+}
+experimental.microarrayed {
+  glyph: TRIANGLE;
+  das: 1;
+  color: yellow;
+}
+experimental.RNAi {
+  glyph: GENERIC;
+  das: 1;
+  label: 1;
+  bump: +1;
+  height: 4;
+  background-color: goldenrod;
+  color: black;
+}
+experimental.transgenic {
+  glyph: GENERIC;
+  das: 1;
+  label: 1;
+  color: blue;
+}
+experimental.mutant {
+  glyph: GENERIC;
+  das: 1;
+  label: 1;
+  color: violet;
+}
+partial_gene.default {
+  glyph: GENERIC;
+  das: 1;
+  label: 1;
+  background-color: yellow;
+  color: orange;
+  height: 5;
+  bump: +1;
+}
+.test {
+  color:black;
+  text-transform:none;
+}
+.tiny { 
+  font-size: 9pt;
+ }
+#mainSearch {
+ text-align:center;
+ padding:10px;
+ z-index:9050;
+}
+
+/* Interaction matrix table */
+table.interaction_matrix {
+    border-style: solid;
+    background-color: #def6ff;
+    border-bottom-width: 1px;
+    border-top-width: 0px;
+    border-right-width: 1px;
+    border-left-width: 0px;
+    border-spacing: 0px;
+    empty-cells: show;
+    font-size: 11px;
+    text-align: center;
+}
+
+table.interaction_matrix tr td{
+    border-style: solid;
+    border-width: 1px;
+    border-bottom-width: 0px;
+    border-top-width: 1px;
+    border-right-width: 0px;
+    border-left-width: 1px;
+}
+table.interaction_matrix td.header{
+    font-weight: bold;
+}
+table.interaction_matrix a{
+    cursor: pointer;
+}    
+
+/* Pie Chart Legend (in Interaction Matrix) */
+table.pie_chart_legend {
+    border-style: solid;
+    background-color: #def6ff;
+    border-bottom-width: 1px;
+    border-top-width: 1px;
+    border-right-width: 1px;
+    border-left-width: 1px;
+    border-spacing: 2px;
+    empty-cells: show;
+    font-size: 11px;
+    text-align: left;
+}
+
+
+
+/* ***********************************************
+
+CSS below this point is experimental.
+I'm in the process of beautifying some
+long clunky elements.
+
+************************************************** */
+
+
+
+/* Jquery tab theming */
+.ui-tabs-nav, .ui-tabs-panel {
+    font-family: "Trebuchet MS", Trebuchet, Verdana, Helvetica, Arial, sans-serif;
+    font-size: 12px;
+}
+.ui-tabs-nav {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0 3px;
+}
+.ui-tabs-nav:after { /* clearing without presentational markup, IE gets extra treatment */
+    display: block;
+    clear: both;
+    content: " ";
+}
+.ui-tabs-nav li {
+    float: left;
+    margin: 0 0 0 4px;
+    font-weight: bold;
+}
+
+
+.ui-tabs-nav a, .ui-tabs-nav a span {
+    float: left; /* fixes dir=ltr problem and other quirks IE */
+    padding: 0 12px;
+    background-color:#BFD5E8;
+/*    background: url(i/tabs.png) no-repeat; */
+    opacity: 0.4;
+    filter: alpha(opacity=40);
+}
+
+
+.ui-tabs-nav a {
+    margin: 5px 0 0; /* position: relative makes opacity fail for disabled tab in IE */
+    padding-left: 0;
+    background-position: 100% 0;
+    text-decoration: none;
+    white-space: nowrap; /* @ IE 6 */
+    outline: 0; /* @ Firefox, prevent dotted border after click */    
+}
+.ui-tabs-nav a:link, .ui-tabs-nav a:visited {
+     /*    color: #fff; */
+}
+.ui-tabs-nav .ui-tabs-selected a {
+    position: relative;
+    top: 1px;
+    z-index: 2;
+    margin-top: 0;
+    background-position: 100% -23px;
+}
+
+/* only hidden spans are anchors */
+.ui-tabs-nav a span {
+    padding-top: 1px;
+    padding-right: 0;
+    height: 20px;
+    background-position: 0 0;
+    line-height: 20px;
+}
+
+.ui-tabs-nav .ui-tabs-selected a span {
+    padding-top: 0;
+    height: 27px;
+    background-position: 0 -23px;
+    line-height: 27px;
+    opacity: 1.0;
+    filter: alpha(opacity=100);
+}
+
+.ui-tabs-nav .ui-tabs-selected a:link, .ui-tabs-nav .ui-tabs-selected a:visited,
+.ui-tabs-nav .ui-tabs-disabled a:link, .ui-tabs-nav .ui-tabs-disabled a:visited { /* @ Opera, use pseudo classes otherwise it confuses cursor... */
+    cursor: text;
+}
+.ui-tabs-nav a:hover, .ui-tabs-nav a:focus, .ui-tabs-nav a:active,
+.ui-tabs-nav .ui-tabs-unselect a:hover, .ui-tabs-nav .ui-tabs-unselect a:focus, .ui-tabs-nav .ui-tabs-unselect a:active { /* @ Opera, we need to be explicit again here now... */
+    cursor: pointer;
+}
+.ui-tabs-selected a span {
+
+}
+
+.ui-tabs-nav .ui-tabs-disabled a:link, .ui-tabs-nav .ui-tabs-disabled a:visited {
+    color: #000;
+}
+.ui-tabs-panel {
+    border: 1px solid #BFD5E8;
+    padding: 0px;
+/*    background: #fff; */
+/* declare background color for container to avoid distorted fonts in IE while fading */
+}
+/*.ui-tabs-loading em {
+    padding: 0 0 0 20px;
+    background: url(loading.gif) no-repeat 0 50%;
+}*/
+
+/* Additional IE specific bug fixes... */
+* html .ui-tabs-nav { /* auto clear @ IE 6 & IE 7 Quirks Mode */
+    display: inline-block;
+}
+*:first-child+html .ui-tabs-nav  { /* auto clear @ IE 7 Standards Mode - do not group selectors, otherwise IE 6 will ignore complete rule (because of the unknown + combinator)... */
+    display: inline-block;
+}
+
+
+
+.ui-tabs-selected {
+      background-color: #BFD5E8;
+      border-bottom:0px;
+}
+
+.ui-tabs-hide {  
+    display:none;
+}
+
+#searchtabs li {
+	display:inline;
+	}
+
+#searchtabs ul {
+	text-align:left;
+}
+
+
+#cse-search-results {
+     padding:25px;
+}
+
+
+
+
+.hpbox {
+  padding:0px 30px 1.1em 30px;
+}
+
+
+.left {
+   float:left;
+   width:50%;
+}
+
+.right {
+   float:right;
+   width:47%;
+}
+
+.hpbox h2 {
+  font-size:1.1em;
+  border-bottom: 1px dotted #BCC;
+  margin-right:20px;
+}
+
+.hpbox h3 {
+   font-size:1.0em;
+}
+
+.hpbox ul {
+   list-style:none;
+   margin-left: 0;
+   padding-left:1em;
+   tex-indent: -1em;
+}
+
+.hpbox .footnote {
+    text-align:right;
+    font-size:0.8em;
+    text-style:italics;
+    margin-top:8px;
+}
+
+.hpbox .footnote-left {
+    text-align:left;
+    font-size:0.8em;
+    text-style:italics;
+    margin-top:3px;
+}
+
+
+.entry {
+
+}
+
+.entry h3 {
+   font-size:0.9em;
+   color:#2C2C2C;
+   margin-bottom:3px;
+}
+
+.entry h3 a {
+  color:#2C2C2C;
+}
+
+.entry p {
+    font-size:0.8em;
+    color:#2C2C2C;
+    padding:2px 10px 0px 10px;
+}
+
+.entry .byline {
+    font-size:0.8em;
+    font-style:italic;
+    color:#2C2C2C;
+    padding:2px 10px 0px 10px;
+}
+
+/* for news items ONLY */
+.entry .news-byline {
+    font-size:0.9em;
+/*    font-style:italic; */
+/*    color:#6f6f6f */
+    color:#2C2C2C;
+    width:80%;
+    line-height:1.1em;
+    padding:0px 10px 0px 10px;
+}
+   
+/* The older news byline */
+.older-news {
+    padding-top:5px;
+    padding-right:25px;
+    width:100%;
+    text-align:right;
+    font-size:0.8em;
+    color:#696969;
+}
+
+
+/* Footer Styling */
+
+#footer{
+        border-bottom: 1px dotted #BCC;
+/*      width: 760px; */
+        clear:both;
+	margin: 0 auto;
+        padding: 10px 0 0 0;
+        font-size:0.7em;
+}
+
+#footercredit {
+        text-align: left;
+	margin: 0px;
+        padding: 10px 0 10px 10px;
+	color: #878787;
+        float: left;
+        width:400px;
+}
+
+#footermeta {
+        text-align: right;
+        margin: 0px;
+        padding: 10px 10px 10px 0;
+	color: #878787;
+        float: right;
+}
+
+#footer a:link, #footer a:hover {  }
+
+#footer a:visited { }
+
+#footer a:hover {  }
+
+#footer .stbutton {
+   height:10px;
+   margin-bottom:20px;
+}
+
+.resources {
+/*    border-top:1px dotted #BCC;
+    border-right:1px dotted #BCC;
+    border-left:1px dotted #BCC;
+*/
+    border:1px dotted #BCC;
+    font-size:0.8em;
+    padding:5px 5px 5px 5px;
+    margin-top:20px;
+}
+
+.resources .title {
+     font-weight:bold;
+     float:left;
+     text-align:right;
+     width:100px;
+     padding-right:8px;
+}
+
+
+
+
+
+
+
+
+/* Flickr POC */
+
+.flickr-field {
+   padding: 5px 0 0 25px;
+}
+
+.flickr-field-image {
+	vertical-align:top;
+}
+
+.flickr-field-title {
+	text-align:right;
+	vertical-align:top;
+	width:auto;
+}	
+	
+.flickr-field-contents {
+	text-align:left;
+	width: 75%;
+}
+
+
+
+/* for GBrowse 1.998 */
+.multiplechoicetitle  { background-color: lightblue;
+		        font-size: small;
+}
+
+.searchbody       { background-color: khaki;
+	            font-size: small;
+		    margin-left: 1em;
+		    margin-bottom: 3px;
+}
+.settingstitle    { background-color: #E6EBF0;
+	            font-size: small;
+		    margin-left: 1em;
+}
+.settingsbody     { background-color: #F2F6FA;
+	            font-size: small;
+		    margin-left: 1em;
+}
+.uploadtitle      { background-color: #E6EBF0;
+	            font-size: small;
+		    margin-left: 1em;
+}
+.uploadbody       { background-color: #F2F6FA;
+	            font-size: small;
+		    margin-left: 1em;
+}
+.tabmenu_active   { cursor: pointer;
+			color: black;
+			background-color: beige;
+			font-size: 10pt;
+			font-weight: bold;
+                        font-family: sans-serif;
+			padding-top: 5px;
+			padding-left: 5px;
+			padding-right: 5px;
+		      }
+.tabmenu_inactive { cursor: pointer;
+			color: blue;
+			font-size: 10pt;
+			background-color: transparent;
+			font-weight: bold;
+                        font-family: sans-serif;
+			padding-top:   5px;
+			padding-left:  5px;
+			padding-right: 5px;
+		      }
+.tabmenu_inactive:hover {
+    text-decoration: underline;
+}
+.tabbed {
+    background-color: beige;
+}
+.tabmenu {
+    background-color: white;
+}
+

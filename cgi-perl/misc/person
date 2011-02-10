@@ -1,0 +1,635 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# Unified person_name/author report
+
+use strict;
+use lib '../lib';
+use vars qw/$DB @people $data %headers $WORMBASE/;
+use Ace::Browser::AceSubs;
+use ElegansSubs qw(:DEFAULT PrintRefs StartCache EndCache FetchPeople format_references);
+use CGI qw(:standard *table escape);
+use WormBase;
+
+END {
+  undef @people;
+  undef $data;
+  undef %headers;
+}
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$WORMBASE = WormBase->new($DB);
+
+use constant LINEAGE => 'http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/person_lineage.cgi';
+use constant IMAGES  => '/usr/local/wormbase/html/images/intellectual_lineage';
+use constant CONTACT => 'http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/person.cgi';
+
+# Users will not have any papers to confirm until Cecilia has attached them and notified
+# the authors.  Instead, let's just direct users to email Cecilia if they notice problems
+use constant CONFIRM => 'mailto:cecilia@tazendra.caltech.edu';
+
+# Translate database tags into useful headers
+%headers = (
+	       Publication           => 'Publications' . br . '(author confirmed)',
+	       Abstracts             => 'Abstracts' . br . '(author confirmed)',
+	       Possible_publications => 'Possible publications' . br . '(not confirmed by author)',
+	       Worked_with           => 'Collaborated with',
+	       Paper                 => 'Publications and Abstracts' . br . '(not confirmed by author)',
+	      );
+
+
+@people = FetchPeople($DB,param('name'));
+
+if (@people == 1) {
+  StartCache();
+  $data = Data->new($people[0]->fetch,$DB);
+  my $title = 'Person Report: ' . $data->name;
+  PrintTop($data->person,'Person',$title);
+} else {
+  my $title = 'Person Report';
+  PrintTop('person','Person',$title);
+}
+
+
+if (param('name') && !@people) {
+  print p(font({-color=>'red'},"WormBase has no record for " . param('name') . '.'));
+}
+print_prompt();
+
+#print_prompt((@people == 1) ? $data->name : param('name'));
+if (@people > 1) { multiple_people(); }
+
+# Caching no longer required
+#if (@people) {
+#  my $cache_key = CGI->new->Vars;
+#  delete $cache_key->{class};  # irrelevant for this page
+#  $cache_key->{name} = $people[0];
+#  StartCache($cache_key) unless param('nocache');
+#}
+
+# Print out person report
+print_report() if (param('name') && @people > 0);
+PrintBottom();
+
+undef @people;
+undef $data;
+undef %headers;
+
+exit;
+
+
+sub multiple_people {
+  if (@people > 100){
+    print p(font({-color=>'red'},"Your search retrieved ", $#people+1," hits. Please refine your search."));
+  } else {
+    print h3("Your search had", scalar @people,"hits.  Please choose one:") if @people;
+    
+    if (my @persons = grep {$_->class eq 'Person'} @people) {
+      print h3('Person(s)');
+      print 'These are curated entries and more up-to-date than Author entries.';
+      print ol(li([
+		   map {
+		     a({-href=>Object2URL($_)},
+		       font({-color=>'red'},$_->class) . ': ' .
+		       name($_) .
+		       identify($_)
+		      )
+		  }
+		 sort { name($a) cmp name($b) } @persons
+		]));
+    } else {
+      print 'No person objects were recovered for this search.';
+    }
+    
+    if (my @authors = grep {$_->class eq 'Author'} @people) {
+      print h3('Authors');
+      print 'These entries may not be as up-to-date as Person entries.';
+      print ol(li([
+		   map {
+		     a({-href=>Object2URL($_)},
+		       font({-color=>'red'},$_->class) . ': ' .
+		       name($_) .
+		       identify($_)
+		      )
+		   }
+		   sort { name($a) cmp name($b) } @authors
+		]));
+    }
+  }
+  
+  PrintBottom();
+  exit;
+}
+
+sub name {
+  my $obj = shift;
+  return (eval { $obj->Standard_name} || eval {$obj->Full_name} || $obj);
+}
+
+sub identify {
+  my $person = shift;
+  my %hash = map { $_ => $_->right } $person->Address;
+  return " ($hash{Institution}) " if $hash{Institution};
+  return " ($hash{Country}) "     if defined $hash{Country};
+}
+
+
+sub print_prompt {
+  my $name = shift;
+  param(-name=>'name',-value=>$name);
+  $WORMBASE->print_prompt(-message=>'Enter name (' . i('Last or Last F') . ') :&nbsp;&nbsp;',
+			  -class   => 'Person');
+  print a({-href=>LINEAGE,-target=>'_blank'},'Add or update')
+      . ' your information in our lineage of '
+	. i('C. elegans')
+	  . ' scientists.'
+	    . br
+	      . a({-href=>CONTACT,-target=>'_blank'},'Add or update')
+		. ' your contact information.';
+}
+
+
+sub print_report {
+  my $person = $data->person;
+  # Straight off the bat, is the primary object fetched an Author?
+  # If so, display a warning
+  if ($person->class eq 'Author') {
+    #    print h3({-class=>'warning'},'No "person" entry was found for ' . $data->name . '.');
+    author_warning();
+  }
+
+  print start_table({-border=>1,-width=>'100%'});
+  print TR(th({-colspan=>3,-class=>'searchtitle'},
+	      (($data->person->class eq 'Person') ? '' : $data->person->class. ': ') . $data->name));
+
+  my @headers = qw/Name Address Laboratory CGC_representative_for Publication Paper Lineage Tracking/;
+  foreach my $header (@headers) {
+    # Make sure there is some information for this entry
+    next unless (eval {$person->$header});
+    # Ignore the paper tag for Person objects
+    next if ($person->class eq 'Person' && $header eq 'Paper');
+
+    if (0) {
+	# add in the lineage image and key
+	if ($header eq 'Lineage') {
+	    if (-e IMAGES . "/$person.png") {
+		# Some inline images are too darn big!
+		# We will only display them if they are less than ~ 20 KB
+		if (-s IMAGES . "/$person.png" < 20000) {
+		    # Fetch the map file and embed it in the output
+		    my $map;
+		    if (-e IMAGES . "/$person.cmapx") {
+			open IN,IMAGES . "/$person.cmapx";
+			while (<IN>) { print $_; }
+		    }
+		    print img({-src=>"/images/intellectual_lineage/$person.png",usemap=>"#lineage",});
+		} else {
+		    # Print a link to an SVG
+		    print i('View a ' . a({-href=>"/images/intellectual_lineage/$person.svg",-target=>'_blank'},
+					  'graphical representation') . ' of this intellectual lineage in a new window.');
+		}
+	    }
+	}
+    }
+    
+    # Papers require a little more hands-on formatting
+    if ($header eq 'Publication' || $header eq 'Paper') {
+      do_papers($person,$header);
+      next;
+    } else {
+	StartSection(clean_header($header));
+	my @subheader = eval { $person->at($header)->col };
+	for my $subheader (@subheader) {
+	    do_subsection($person,$header,$subheader);
+	}
+	SubSection('WormBase Identifier',$person) if ($header eq 'Name');
+	EndSection();
+    }
+
+  }
+  print end_table(),p();
+
+  # These are author objects.  Oh well, let's not display them
+  if (0) {
+      if (my @possible = eval {$person->Possibly_publishes_as}) {
+	  my $c;
+	  
+	  # Try to elliminate papers that have been verified by someone else
+	  # We will ONLY look at Person objects here
+	  my %verified_by_others;
+	  foreach my $author (@possible) {
+	      foreach ($author->Possible_person) {
+		  next if $_ eq $person;  # Already looked at this person
+		  map { $verified_by_others{$_}++ } $_->Paper;
+	      }
+	  }
+	  
+	  foreach (@possible) {
+	      $c++;
+	      author_information($_,$c,\%verified_by_others);
+	  }
+      }
+  }
+}
+
+
+# Special formatting for papers
+# Extract each subtag specifically - gets slow with lots of papers
+sub do_papers {
+  my ($person,$header,@pubs) = @_;
+  # Fetch all papers and meeting abstracts
+  @pubs = $data->papers unless @pubs;
+
+  ## In the interests of speed, I will not classify Author object papers
+  ## set to true (and adjust else) to avoid classifying author papers.
+  if (0) {
+    if ($person->class eq 'Author') {
+      if (@pubs) {
+	SubSection('',
+		   map { $_->Brief_citation . ' ' . ObjectLink($_) }
+		   (sort { $b->Publication_date <=> $a->Publication_date } @pubs));
+	
+	SubSection('Note',"Please "
+		   . a({-href=>CONFIRM,-target=>'_blank'},' email us') .
+		   ' to confirm authorship of these entries.');
+      }
+    }
+  } else {
+
+      StartSection("Papers" . br "(author confirmed)");
+      
+      my ($papers,$meetings,$seen) = classify_papers(@pubs);
+      SubSection('Publishes as',
+		 map { ObjectLink($_)}  eval { $header->Publishes_as->col });
+      #    SubSection('Papers',
+      #	       map { $_->Brief_citation .
+      #		       ( ($_->PMID) ? ' ' . a({-href=>Configuration->Pubmed_retrieve . $_->PMID},
+      #					      img({-src=>'/images/pubmed.gif'}))
+      #			 : ''
+      #		       )
+      #		     } @$papers);
+      #    SubSection('Meeting Abstracts',
+      #	       map { ($_->Brief_citation) ? $_->Brief_citation . ' ' . ObjectLink($_)
+      #		       : ($_->Author > 1) ? $_->Author . ' et al' : $_->Author
+      #			 . ' (' . $_->Year . ') ' . $_->Journal . '. "' . $_->Title . '" ' 
+      #			   . ObjectLink($_)} @$meetings);
+      
+      format_references(-references    =>\@$papers,
+				    -format        =>'long',
+				    -pubmed_link   =>'image',
+				    );
+      SubSection('Note',i("If you have publications not listed here, please "
+			. a({-href=>CONFIRM,-target=>'_blank'},' email us') .
+			' to update your information.'));
+      EndSection();
+
+    if ($meetings) {
+	StartSection("Abstracts" . br . "(author confirmed)");
+	format_references(-references    =>\@$meetings,
+					-format        =>'long',
+					-pubmed_link   =>'image',
+					);
+	
+	SubSection('Note',i("If you have abstracts not listed here, please "
+			    . a({-href=>CONFIRM,-target=>'_blank'},' email us') .
+			    ' to update your information.'));
+	EndSection();
+    }
+#    SubSection('Papers',format_references(-references    =>\@$papers,
+#					  -format        =>'long',
+#					  -pubmed_link   =>'image',
+#					  -suppress_years=>'true',
+#					  -curator       => url_param('curator'), # Debugging to show IDs, too
+#					 ));
+#    
+#    SubSection('Abstracts',format_references(-references    =>\@$meetings,
+#					     -format        =>'long',
+#					     -pubmed_link   =>'image',
+#					     -suppress_years=>'true',
+#					     -curator       => url_param('curator'), # Debugging to show IDs, too
+#					    ));
+
+  }
+  
+  # Fetch papers possibly by this author and display them seperately
+  # Display of papers published under Possibly_publishes_as names
+  # is currently disabled because even if an individual had said that
+  # a paper was NOT authored by them, there was no way to remove it from
+  # this list.  2.18.2004
+  
+  # Instead, I'll just display a new Section listing possibly publishes as
+  if (my @possible = eval {$person->Possibly_publishes_as}) {
+    StartSection('Possibly publishes as');
+    #    SubSection('','Further less-curated information about this person may also be found in these Author entries:',
+    #	       join(', ',map {ObjectLink($_)} @possible));
+    # Let's not link these because they take us right back to where we were
+    SubSection('',join(', ',@possible));
+    EndSection;
+
+    ####    print end_table;
+    ####    author_warning();
+    ####    foreach (@possible) {
+    ####      author_information($_);
+    ####    }
+  }
+
+  ## See the person_name script for a code blurb that display
+  ## "possible" publications. ugh.
+}
+
+sub author_warning {
+  print hr;
+  print h3({-class=>'warning'},'Supplemental Information'),
+    p('The following information was found from Author
+    entries. Bibliographic information listed below is generated
+    automatically during the paper curation process. Recent papers may
+    appear here before final curation associates them with their
+    corresponding Person entry.  Address information, if present, is no
+    longer maintained for author entries and is not guaranteed to be
+    up-to-date but may be useful if no Person entry is available.');
+
+  # If the primary object is a person, display an additional note
+  if ($data->person->class eq 'Person') {
+    print p('In the following bibliographic sections, only papers
+    distinct from those listed above are displayed.');
+  }
+}
+
+sub classify_papers {
+  my @pubs = @_;
+  my (@papers,@meetings,%seen);
+  foreach (sort { $b->Publication_date <=> $a->Publication_date } @pubs) {
+    if ($_->Meeting_abstract) {
+      push (@meetings,$_);
+    } else {
+      push (@papers,$_);
+    }
+    $seen{$_}++;
+  }
+  return (\@papers,\@meetings,\%seen);
+}
+
+sub do_subsection {
+  my ($person,$section,$subsection) = @_;
+
+  # Let's re-format some of the subsection headers
+  my $formatted_subsection = clean_header($subsection);
+
+  # Hack to display more information for author objects...
+  if ($person->class eq 'Author' && $person->Possible_person eq $subsection) {
+    SubSection('',
+	       'Additional information may be available in the
+	       following Person Reports. The information in the Person
+	       report is curated and more likely to be up-to-date.',
+	       map { a({-href=>Object2URL($_)},$_->Standard_name . " [$_]") } $person->Possible_person);
+  } else {
+    if ($subsection->class eq 'tag') {
+#      $subsection->right->class eq 'Person'
+#	? SubSection($formatted_subsection,
+#		     map {
+#		       ObjectLink($_,$_->Standard_Name) . role($subsection,$person,$_)
+#		     } $subsection->col)
+#	  : SubSection($formatted_subsection,
+#		       ($formatted_subsection eq 'Web page')
+#		       ? map {
+#			 my ($url,$desc);
+#			 if ($_ =~ /^http/) {
+#			   $url  = $_;
+#			   $desc = $_;
+#			 } elsif ($_ =~ /(.*)(http\:\/\/.*)/) {
+#			   $url  = $2;
+#			   $desc = $1 . $url
+#			 }
+#			 a({-href=>$url},$desc) } $subsection->col
+#		       : $subsection->col);
+      if ($subsection->right->class eq 'Person') {
+	my @people = $subsection->col;
+	# Oh my god.  This is getting so convoluted.
+	
+	SubSection($formatted_subsection,
+		   map {
+#		     ObjectLink($_,$_->Standard_Name) . role($subsection,$person,$_)
+		     role($subsection,$person,$_)
+		       #		   } $subsection->col);
+		   } @people);
+
+      } elsif ($formatted_subsection eq 'Web page') {
+	SubSection($formatted_subsection,
+		   map {
+		     my ($url,$desc);
+
+		    if ($_ =~ /(.*)(http\:\/\/.*)/i) {
+		       $url  = $2;
+		       $desc = $1 . $url;
+		       $url =~ s/\\//g;
+		       } elsif ($_ =~ /^http/) {
+			   $url  = $_;
+			   $desc = $_;
+			   # Assume we aren't linked
+		       } else {
+			   $url = "http://$_";
+			   $desc = $_;
+		       }
+
+		     a({-href=>$url},$desc) } $subsection->col);
+      } elsif ($formatted_subsection eq 'Old address') {
+	  my @dates = $subsection->col;
+	  foreach my $date (@dates) {
+	      my @tags = $date->col;
+	      foreach my $tag (@tags) {
+		  my ($parsed_date) = $date =~ /(\d\d \w\w\w \d\d\d\d).*/; 
+#	      my $entries = join(br,map { "$_ (modified $date)" } $tag->col);
+		  my $entries = join(br,$tag->col);
+		  SubSection("Old $tag","$entries ($parsed_date)");
+	      }
+	  }
+      } else {
+	  if ($subsection eq 'History') {
+	      my ($tag) = $subsection->col;
+	      my $data = ObjectLink($tag->right);
+	      SubSection($formatted_subsection,"$tag: $data");
+	  } else {
+	      SubSection($formatted_subsection,$subsection->col);
+	  }
+      }
+    } else {
+      # Sections that have no subsections
+      # Fetch some additional information if there is a laboratory subtag present
+      if ($section eq 'CGC_representative_for') {
+	SubSection('CGC designation',$subsection);
+	SubSection('Assigned allele classes',$subsection->Allele_designation) if $subsection->Allele_designation;
+	SubSection('Assigned gene classes',Tableize([$subsection->Gene_classes])) if ($subsection->Gene_classes);
+      } else {
+	SubSection('',$subsection);
+      }
+    }
+  }
+}
+
+sub role {
+  my ($subheader,$parent,$child) = @_;
+  my @duties = $child->col;
+  my $string;
+  foreach my $role (@duties) {
+    #  my $role = $child->right or return '';
+
+    # HACK for ugly data.
+    # Some roles are unknown. We suppress the display
+    # of these if we have two or more entries, else we try to use it.
+    if (lc $role eq 'unknown') {
+      next if @duties > 1;
+      return ObjectLink($child,$child->Standard_name) . br;
+    }
+    my $name = $subheader eq 'Supervised' ? $child->Last_name : $parent->Last_name;
+    #  return " ($role)" if $subheader eq 'Worked_with';
+    #  return ' ' if ($subheader eq 'Worked_with');
+    my $start = $role->right;
+    my $stop  = $role->right(2);
+    ($start) = ($start =~ /(\d\d\d\d)/);
+    ($stop)  = ($stop =~ /(\d\d\d\d)/);
+    
+    $stop ||= 'present';
+    if ($start && $stop) {
+      if ($subheader eq 'Worked_with') {
+	$string .= ObjectLink($child,$child->Standard_name) . " ($start - $stop)" . br;
+      } else {
+	$string .= ObjectLink($child,$child->Standard_name) . " (during ${name}'s $role [$start - $stop])" . br;
+      }
+    } else {
+      if ($subheader eq 'Worked_with') {
+	$string .= ObjectLink($child,$child->Standard_name) . br;
+      } else {
+	$string .= ObjectLink($child,$child->Standard_name) . " (during ${name}'s $role)" . br;
+      }
+    }
+  }
+  # MORE HACKS FOR INCOMPLETE DATA
+  # Many roles are not actually populated
+  unless (@duties) {
+    return (ObjectLink($child,$child->Standard_name));
+  }
+
+  return $string;
+}
+
+
+sub clean_header {
+  my $header = shift;
+  my $formatted = (defined $headers{$header}) ? $headers{$header} : $header;
+  $formatted    =~ s/_/ /g;
+  return $formatted;
+}
+
+
+# This section displays information gleaned from author objects
+# This can either be
+# 1) in addition to a person object (excluding information already displayed)
+# 2) from an author object itself when no person object exists
+sub author_information {
+  my ($author,$count,$verified_by_others) = @_;
+
+  # Fetch out the fields of author we'd like to display in advance
+  # so I can fully suppress display of the author if necessary
+  my $name = $author->Full_name || $author->Also_known_as;
+  my @keywords = $author->Keyword;
+
+  # Fetch and uniquify the papers
+  my @unique_papers;
+  if (my @refs = $author->Paper(-filled=>1)) {
+    # uniquify these refs against those already attached to the person object
+    my %person_pubs = map { $_ => 1 } $data->papers;
+    foreach (@refs) {
+      next if (defined $person_pubs{$_});
+      next if (defined $verified_by_others->{$_});   # These are papers which have been confirmed by someone else
+      push @unique_papers,$_;
+    }
+  }
+  
+  # Suppress display of this author unless they have unique papers of keywords
+  return unless (@unique_papers || @keywords);
+  author_warning() if ($count == 1);
+
+  print hr;
+  print start_table({-border=>1,-width=>'100%'});
+  print TR(th({-colspan=>3,-class=>'searchtitle'},$author->class . ": $author"));
+
+  StartSection('Name');
+  SubSection('Name',join('',$author));  # block linking of these items - they are circular
+  SubSection('Full name',join('',$name)) if ($name);
+  SubSection('Also known as',join(', ',$author->Also_known_as)) if ($author->Also_known_as);
+  EndSection;
+
+  # Instead, I'll just display a new Section listing possibly publishes as
+  # if (my @possible = $author->Possible_person) {
+  #  StartSection('Possible Person Reports');
+  #  SubSection('','Additional information about this author may also
+  #  be found in the more highly curated and up-to-date Person Reports.',
+  #	       join(', ',map {a({-href=>Object2URL('person',$_)},
+  #				($_->Standard_name || $_->Full_name) . " [$_]")} @possible));
+  #   EndSection;
+  # }
+
+  # 2004.03.30 - Post ABM
+  # We're now suppressing the display of ALL contact information
+  # derived from the author class
+  # (This should be suppressed if a person object has already been found)
+
+  # my @address = grep (!/OLD/,$author->Mail);
+  # my $phone = $author->Phone;
+  # my $fax   = $author->Fax;
+  # my $email = $author->at('Address.E_mail[1]');
+  
+  # if (@address || $phone || $fax || $email) {
+  #  StartSection('Address');
+  #  SubSection('Street Address',@address);
+  #  SubSection('Phone',$phone);
+  #  SubSection('Fax',$fax);
+  #  SubSection('Email',$email);
+  #  EndSection;
+  # }
+
+  if (@keywords) {
+    StartSection('Research Interests');
+    SubSection('',@keywords);
+    EndSection;
+  }
+
+  if (@unique_papers) {
+    StartSection(clean_header('Paper'));
+    do_papers($author,'Paper',@unique_papers);
+  }
+  print end_table();
+}
+
+
+
+
+1;
+
+
+
+# This package serves to smooth out the distinction
+# between authors and persons.
+package Data;
+
+use strict;
+
+sub new {
+  my ($self,$person,$DB) = @_;
+  my $this = bless {},$self;
+  $this->{person} = $person;
+  $this->{name}   = eval {$person->Standard_name } || eval { $person->Full_name } || $person;
+  if ($person->class eq 'Author') {
+    push(@{$this->{papers}},$person->Paper(-filled=>11));
+  } else {
+    my $query = 'find Paper Person = "' . $person . '"';
+    push (@{$this->{papers}},$DB->fetch(-query=>$query,-filled=>1));
+  }
+  return $this;
+}
+
+sub name   { return shift->{name};      }
+sub person { return shift->{person};    }
+sub papers { return eval { @{shift->{papers}}} ; }
+
+1;
+

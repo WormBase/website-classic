@@ -1,0 +1,167 @@
+New release of WormBase WS208, Wormpep208 and Wormrna208 Tue Oct 27 13:31:22 GMT 2009
+
+
+WS208 was built by Anthony
+======================================================================
+
+This directory includes:
+i)   database.WS208.*.tar.gz    -   compressed data for new release
+ii)  models.wrm.WS208           -   the latest database schema (also in above database files)
+iii) CHROMOSOMES/subdir         -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)  WS208-WS207.dbcomp         -   log file reporting difference from last release
+v)   wormpep208.tar.gz          -   full Wormpep distribution corresponding to WS208
+vi)   wormrna208.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)  confirmed_genes.WS208.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+viii) cDNA2orf.WS208.gz           -   Latest set of ORF connections to each cDNA (EST, OST, mRNA)
+ix)   gene_interpolated_map_positions.WS208.gz    - Interpolated map positions for each coding/RNA gene
+x)    clone_interpolated_map_positions.WS208.gz   - Interpolated map positions for each clone
+xi)   best_blastp_hits.WS208.gz  - for each C. elegans WormPep protein, lists Best blastp match to
+                            human, fly, yeast, C. briggsae, and SwissProt & TrEMBL proteins.
+xii)  best_blastp_hits_brigprot.WS208.gz   - for each C. briggsae protein, lists Best blastp match to
+                                     human, fly, yeast, C. elegans, and SwissProt & TrEMBL proteins.
+xiii) geneIDs.WS208.gz   - list of all current gene identifiers with CGC & molecular names (when known)
+xiv)  PCR_product2gene.WS208.gz   - Mappings between PCR products and overlapping Genes
+
+
+Release notes on the web:
+-------------------------
+http://www.wormbase.org/wiki/index.php/Release_Schedule
+
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS208       	WS207      	change
+----------------------------------------------
+a    	32367418	32367418	  +0
+c    	17780763	17780763	  +0
+g    	17756943	17756943	  +0
+t    	32367086	32367086	  +0
+n    	0       	0       	  +0
+-    	0       	0       	  +0
+
+Total	100272210	100272210	  +0
+
+
+Chromosomal Changes:
+--------------------
+There are no changes to the chromosome sequences in this release.
+
+
+Gene data set (Live C.elegans genes 39999)
+------------------------------------------
+Molecular_info              38295 (95.7%)
+Concise_description         5605 (14%)
+Reference                   13653 (34.1%)
+WormBase_approved Gene name 25843 (64.6%)
+RNAi_result                 22833 (57.1%)
+Microarray_results          21058 (52.6%)
+SAGE_transcript             19056 (47.6%)
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 20238 CDS in autoace, 24202 when counting 3964 alternate splice forms.
+
+The 24202 sequences contain 10,693,111 base pairs in total.
+
+Modified entries      13
+Deleted entries       12
+New entries           29
+Reappeared entries    0
+
+Net change  +17
+
+
+
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              9843 (40.7%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed   11605 (48.0%)	Some, but not all exon bases are covered by transcript evidence
+Predicted              2754 (11.4%)	No transcriptional evidence at all
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+UniProtKB accessions  24062 (99.4%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            24062 (99.4%)
+
+
+
+Gene <-> CDS,Transcript,Pseudogene connections
+----------------------------------------------
+Caenorhabditis elegans entries with WormBase-approved Gene name  24187
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+No synchronisation issues
+
+
+There are no gaps remaining in the genome sequence
+---------------
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+
+New Data:
+---------
+H.contortus included in orthology determination.
+
+Genome sequence updates:
+-----------------------
+
+
+New Fixes:
+----------
+Some abherrant gene names have been removed.
+
+Known Problems:
+---------------
+
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+-------------------------------------
+
+
+Model Changes:
+------------------------------------
+added Title to ?Analysis
+
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

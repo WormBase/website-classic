@@ -1,0 +1,815 @@
+#!/usr/bin/perl
+
+use strict;
+use vars qw/$query $query_type $ontology $obo $script_url $format %ontology2ace $target $DB/;
+
+use Ace::Browser::AceSubs qw/:DEFAULT/;
+use CGI qw/:standard *table *TR *td *div/;
+
+use Ace::Browser::SearchSubs qw/:DEFAULT/;
+use ElegansSubs qw/:DEFAULT !TypeSelector/;
+
+use lib 'browser_lib/';
+use OBrowse;
+
+use constant ISA    => '/images/ontology/is_a_serif_small.png';
+use constant PARTOF => '/images/ontology/part_of_serif_small.png';
+
+use constant CONF_FILE => '/usr/local/wormbase/conf/ontology_browser.conf';
+
+# Problems:  not currently displaying the link to fetch annotations as text.
+
+END {
+  undef $query;
+  undef $query_type;
+  undef $ontology;
+  undef $script_url;
+  undef $obo;
+  undef $format;
+  undef %ontology2ace;
+  undef $target;
+  undef $DB;
+}
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+$script_url = url(-absolute=>1);
+
+# Pull out some parameters
+$query      = param('query');
+$query_type = param('query_type');
+$ontology   = param('ontology');
+$format     = param('format');
+$target     = '_blank' if $format eq 'inline';
+
+# Map ontologies to their corresponding ace_classes
+%ontology2ace = (
+		 go => 'GO_term',
+		 po => 'Phenotype',
+		 ao => 'Anatomy_term');
+
+# Set up the document.
+establish_page();
+
+# Only display the page if we have an ontology and query type selected
+if ($ontology && $query_type) {
+  display_page();
+}
+
+display_form() unless ($format =~ /text|inline/);
+
+PrintBottom();
+exit;
+
+####################################################################
+
+sub display_page {
+    my %conf=%{readConfigOBO(CONF_FILE)};
+    
+    my $retry_count=0;
+    my $retry_limit=10;
+    my $restarted=0;
+    my $version = $DB->version;
+    
+    my $socket = sprintf($conf{$ontology}{socket},$version,$version);
+
+#    $obo=OBrowse->new(Peer=>$conf{$ontology}{socket}, Type=>SOCK_STREAM);
+    $obo=OBrowse->new(Peer=>$socket, Type=>SOCK_STREAM);
+
+    while (!$obo) {
+	$retry_count++;
+	if ($retry_count > $retry_limit) {
+	    die "cannot create object after $retry_limit attempts: $!\n";
+	}
+#	$obo=OBrowse->new(Peer=>$conf{$ontology}{socket}, Type=>SOCK_STREAM);
+	$obo=OBrowse->new(Peer=>$socket, Type=>SOCK_STREAM);
+	if (!$obo && !$restarted) {
+#	    if (-e $conf{$ontology}{socket}) {
+	    if (-e $socket) {
+#		unlink $conf{$ontology}{socket} || die "cannot delete $conf{$ontology}{socket}: $!";  # remove file if exists
+		unlink $socket || die "cannot delete $socket: $!";  # remove file if exists
+	    }
+	    restartServerOBO(ontology=>$ontology, config_hash=>\%conf) || die "cannot restart server: $!";
+	    $restarted=1;
+	}
+	sleep 2;
+    }
+
+
+#  my $socket_path = Configuration->Ontology_socket_path . "/$ontology" . "_socket";
+#  $obo = OBrowse->new(Peer=>$socket_path,
+#		      Type=>SOCK_STREAM)
+#    || die "cannot create object: $!; expected socket at $socket_path; check that the socket server is running\n";
+
+  # Expand this so that users can also search by terms and not just IDs
+#  # Maybe a user searched with a descriptive term instead of an ID
+#  if ($query !~ /WBbt|PO|AO/) {
+#      $DB = OpenDatabase() || AceError("Couldn't open database.");
+#      if ($ontology =~ /ao/) {
+#	  $db->
+#      }
+#  }
+
+
+  if ($query_type eq 'annotations') {             # retrieve annotations
+    my @terms      =split('\|', $query);
+    my $linebreak  = br;
+
+    my $ref = $obo->getAnnotations(\@terms,param('not_annotations'))
+      || die "cannot get annotations: $!";
+
+    # Query submitted but no annotations found?
+    # Display the query form and exit.
+    not_found("No annotations found for $query") if (!@{$ref});
+
+    if ($format eq 'text') {
+      $linebreak = "\n";
+      print scalar @$ref, " annotations retrieved$linebreak";
+      foreach (@$ref) {
+	print join("\t", @$_), $linebreak;
+      }
+    } else {
+      printAnnotations($ref);
+    }
+  } elsif ($query =~ /GO:|WBbt:|WBPhenotype/i) {  # ontology term
+    if ($query =~ /(GO:)/i) {                     # make it case-insensitive
+      $query =~ s/$1/GO:/;
+    } elsif ($query =~ /(WBbt:)/i) {
+      $query =~ s/$1/WBbt:/;
+    } elsif ($query =~ /(WBPhenotype)/i) {
+      $query =~ s/$1/WBPhenotype/;
+    }
+    
+    my $propagate_to_root = '';
+    my $ref=$obo->browseTerm($query, $propagate_to_root) || die "cannot get term: $!";
+    
+    # Nothing found? Display a warning and exit
+    not_found("$query is not found in " . uc($ontology) . " ontology. Please go back.") if (!%$ref);
+    
+    printTree($ref);
+  } else {                                         # term lookup
+    my $ref = $obo->findTerms($query) || die "cannot find terms: $!";
+    
+    # Nothing found? Display a warning and exit
+    not_found("$query is not found in " . uc($ontology) . " ontology. Please go back.") if (!%$ref);
+    
+    my @aspect          = param('aspect');
+    my %aspect_hash = ();
+    foreach (@aspect) {
+      $aspect_hash{$_} = 1;
+    }
+    
+    my %to_delete=();
+    foreach (keys %$ref) {
+      if (!$aspect_hash{$$ref{$_}{namespace}} && $ontology eq 'go') {
+	$to_delete{$_}=1;
+      }
+      if ($$ref{$_}{other}{is_obsolete}) {     # skip obsolete terms
+	$to_delete{$_}=1;
+      }
+    }
+    foreach (keys %to_delete) {
+      delete $$ref{$_};
+    }
+    printSearchResults($ref);
+  }
+}
+
+sub not_found {
+  my $message = shift;
+  if ($format eq 'text') {
+    print $message;
+  } else {
+    unless ($format =~ /inline|text/) {
+      print div({-class=>'warn'},$message);
+      display_form();
+      PrintBottom();
+    }
+  }
+  exit;
+}
+
+
+sub display_form {
+  my %ontologies = (
+		    go  => 'Gene',
+		    po  => 'Phenotype',
+		    ao  => 'Anatomy',
+		   );
+  
+  my %aspects  = (
+		  biological_process => 'biological process',
+		  cellular_component => 'cellular compartment',
+		  molecular_function => 'molecular function',
+		 );
+
+#  print hr();
+  print h2('Browse ontologies at WormBase') unless (!$query);
+  print start_form({-name=>$script_url,-name=>'browse_form'});
+  print hidden({-name  => 'query_type',
+		-value => 'term_search'}),
+  hidden({-name  => 'details',
+	  -value => 'on'}),
+  hidden({-name  => 'children',
+	  -value => 'on'}),
+  div({-class=>'form'},
+      div({-class=>'row'},
+	  span({-class=>'field_name'},'Query:'),
+	  span({-class=>'field'},
+	       textfield({-name => 'query',
+			  -size => '50'}))),
+      div({-class=>'row'},
+	  span({-class=>'field_name'},'Ontology:'),
+	  span({-class=>'field'},
+	       popup_menu({-name   => 'ontology',
+			   -values => [ qw/ ao po go/ ],
+			   -labels => \%ontologies,
+			   -default => $ontology || 'go',
+			   -onChange=>qq{ var block = document.getElementById('aspect_row'); if (this.value=='go') {block.style.display = 'block'} else { block.style.display='none'}}
+		       }))),
+      div({-id=>'aspect_row'},
+	  span({-class=>'field_name'},'Aspect:'),
+	  span({-class=>'field'},
+	       checkbox_group({-name   => 'aspect',
+			       -values => [ qw/biological_process
+					    cellular_component molecular_function/],
+				   -labels => \%aspects,
+				   -default => [ keys %aspects ]}))),
+      div({-class=>'row'},
+	  span({-class=>'field'},
+	       submit(-value => 'Submit'),
+	       '&nbsp;',
+	       submit(-value => 'Reset')))),
+				   end_form();
+}
+
+
+# Begin the page as text or HTML
+sub establish_page {
+    # Text or HTML
+    if ($format eq 'text') {
+	print header(-type=>"text/plain");
+    } else {
+	unless ($format =~ /inline|text/) {
+	    # Hacks - PrintTop is choking - shared var problem?
+	    $Ace::Browser::AceSubs::TOP = undef;
+	    PrintTop(undef,$ontology2ace{$ontology} || 'GO_term',
+		     ($query)
+		     ? "WormBase Ontology Browser: $query"
+		     : "WormBase Ontology Browser",
+		     -style=>{-src=>['/stylesheets/wormbase.css',
+				     '/stylesheets/ontology.css'
+				  ]});
+	    
+	    $ElegansSubs::PAGE_OPEN++;
+	    
+	    # What should this link be?
+	    # Originally, it linked back to the browser search itself
+	    # print div({-id => 'home'},
+	    #	  a({-href=>"/db/ontology/gene?name=$query"},
+	    #	    'Back to submission form')) unless !$query;
+
+	}
+    }
+    
+    if ($format eq 'inline') {
+	print header();
+	print start_html();
+    }
+}
+
+
+sub printAnnotations {
+  my $annotations = shift;
+
+  my $not = param("not_annotations");
+  my @fields = ();
+  my @cols   = ();
+
+  if ($not && $ontology ne 'go') {
+    @cols   = ('Gene Name', 'Qualifier', 'Ontology Term ID', 'Reference', 'Evidence Type', 'Evidence');
+    @fields = (3,4,0,6,7,8);
+  } elsif ($not && $ontology eq 'go') {
+    @cols   = ('Gene Name', 'Qualifier', 'Ontology Term ID', 'Reference', 'Evidence Type');
+    @fields = (3,4,0,6,7);
+  } elsif (!$not && $ontology ne 'go') {
+    @cols   = ('Gene Name', 'Ontology Term ID', 'Reference', 'Evidence Type', 'Evidence');
+    @fields = (3,0,6,7,8);
+  } elsif (!$not && $ontology eq 'go') {
+    @cols   = ('Gene Name', 'Ontology Term ID', 'Reference', 'Evidence Type');
+    @fields = (3,0,6,7);
+  }
+
+  print span({-id => 'search_results'},scalar @$annotations . ' annotations found'),br,br;
+  print start_table({-align=>'center',-border=>1,-width=>'100%'});
+  print start_TR();
+  foreach (@cols) {
+    print td({-class => 'annotations_header'},$_);
+  }
+  print end_TR();
+  foreach my $l (@$annotations) {
+    print start_TR();
+    for my $i (@fields) {
+      if (!$$l[$i]) {
+	$$l[$i]='&nbsp';
+      }
+      my @tmp=split('\|',$$l[$i]); 
+      my $class='';
+      if ($i==2 || $i==3) {
+	$class='gene';
+      } elsif ($i==5 || $i==0) {
+	$class = $ontology2ace{$ontology};
+      } elsif ($i==6) {
+	$class='paper';
+      } elsif ($i==8) {
+	$class=$$l[7] if $$l[7] eq 'Expr_pattern'
+	  || $$l[7] eq 'RNAi' || $$l[7] eq 'Variation' || $$l[7] eq 'Transgene';
+      }
+
+      print td({-class=>'annotations'});
+      foreach (@tmp) {
+	if ($class) {
+	  if ($class eq 'paper' && /PMID/) {
+	    s/PMID://;
+	    print a({-href=>Configuration->Pubmed_retrieve . $_},"&nbsp;PMID:$_&nbsp");
+	  } else {
+	    if (/WB:WBPaper/) {
+	      s/WB://;
+	    }
+	    if (/WB:WP:/) {
+	      s/WB:WP://;
+	    }
+	    if ($i==0) {
+	      print a({-href   => "/db/get?name=$$l[5];class=$class",
+		       -target => $target},
+		      "&nbsp;$_&nbsp;");
+	    } else {
+	      print a({-href => "/db/get?name=$_;class=$class",
+		       -target => $target},"&nbsp;$_&nbsp;");
+	    }
+	  }
+	} else {
+	  print qq(&nbsp;$_&nbsp;);
+	}
+      }
+      print end_td();
+    }
+    print end_TR();
+  }
+  print end_table();
+}
+
+
+
+sub printSearchResults {
+  my ($ref) = @_;
+  my %terms_found_hash = %$ref;
+
+  my ($add_param,
+      $details,$siblings,$parent_levels,$children_levels,$expand_tree) = build_params();
+
+  print table({-width => '100%',-align => 'center'},
+	      TR(
+		 td({-id=>'term_tag',-width=>'20%'},'Query'),
+		 td({-id=>'term_tag'},$query)),
+	      TR(
+		 td({-id=>'term_tag',-width=>'20%'},'Terms found'),
+		 td({-id=>'term_data'},scalar keys %terms_found_hash))),br;
+  
+  my $namespace = '';
+  foreach my $id (sort {
+    if (($terms_found_hash{$a}{namespace} cmp $terms_found_hash{$b}{namespace}) != 0) {
+      return $terms_found_hash{$a}{namespace} cmp $terms_found_hash{$b}{namespace};       # sort by aspect (namespace), then by name
+    } else {
+      return $terms_found_hash{$a}{name} cmp $terms_found_hash{$b}{name};
+    }
+  } keys %terms_found_hash) {
+      if ($namespace ne $terms_found_hash{$id}{namespace}) {
+	if ($namespace) {
+	    print end_table(),br;
+	}
+      $namespace = $terms_found_hash{$id}{namespace};
+      print span({-id=>'namespace'},$namespace),br;
+      print start_table({-align=>'center',-border=>1,-width=>'100%'}),start_TR();
+	foreach ('Term ID', 'Name', 'Description') {
+	print td({-class=>'annotations_header'},$_);
+      }
+      print end_TR();
+    }
+    print start_TR(),
+      td({-class  => 'annotations'},
+	 a({-href => "$script_url?query=$id;query_type=term_id;ontology=$ontology$add_param",
+	    -target => $target},
+	   $id)),
+	     td({-class  => 'annotations'},$terms_found_hash{$id}{name});
+    if ($terms_found_hash{$id}{other}{def}) {
+      print start_td({-class  => 'annotations'});
+      foreach (@{$terms_found_hash{$id}{other}{def}}) {
+	s/\\//g;
+	s/\"//g;
+	print "$_\t";
+      }
+      print end_td();
+    } else {
+      print td({-class  => 'annotations'},'&nbsp;');
+    }
+    print end_TR();
+  }
+  print end_table();
+}
+
+
+# Build a suitable URL (and return parameters to boot).
+sub build_params {
+    my $add_param;
+    my @params;
+    #    foreach (qw/details siblings parent_levels children_levels format/) {
+    foreach (qw/details siblings parent_levels children_levels merge_paths children/) {
+	my $data = param($_); 
+	if ($data || ($_ eq 'details' && $format ne 'inline')) {
+	  $data ||= 'on';
+            # Ugly hack - launching the browser from iframe remembers that state.
+	    $data = 0 if ($_ eq 'merge_paths' && $format ne 'inline');
+	  $add_param .= ";$_=$data";
+	}
+	push @params,$data;
+    }
+    
+    if (!param('expand')) {
+	$add_param .= ";expand=1";
+    } else {
+	push @params,1;
+    }
+    return $add_param,@params;
+}
+
+sub printTree {
+  my ($ref) = @_;
+  my %data=%$ref;
+  
+  my ($add_param,
+      $details,$siblings,$parent_levels,$children_levels,$merge_paths,$children,$expand_tree) = build_params();
+  
+  my $tab='&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;';
+  foreach my $id (sort {$a cmp $b} keys %data) {
+    if (! defined $data{$id}{paths}) {      #top level term
+      @{$data{$id}{paths}{1}{proximal_path_parent_child}}=['self_in_path:', '', $id, $data{$id}{name}];
+    }
+    
+    my @tag_names = qw/namespace def synonym exact_synonym broad_synonym
+		       narrow_synonym related_synonym subset is_obsolete/;
+      my %tag_name_hash = (
+			   'namespace'       => 'Namespace',
+			   'def'             => 'Definition',
+			   'synonym'         => 'Synonym',
+			   'exact_synonym'   => 'Exact synonym',
+			   'broad_synonym'   => 'Broad synonym',
+			   'narrow_synonym'  => 'Narrow synonym',
+			   'related_synonym' => 'Related synonym',
+			   'subset'          => 'Subset',
+			   'is_obsolete'     => 'Obsolete');
+    if ($format ne 'text') {
+	if ($details) {
+	    print h3('Term Details');
+	    print start_div({-class=>'term_details'});
+	    print start_table({-width=>'100%',-align=>'center'});
+	    print TR(td({-id => 'term_tag'},'Term Name'),
+		     td({-id => 'term_data'},$data{$id}{name}));
+	    print TR(td({-id => 'term_tag'},'Term ID'),
+		     td({-id => 'term_data'},a({-href=>"/db/get?name=$id;class=$ontology2ace{$ontology}",
+						-target => $target},
+					       ,$id)));
+	    foreach my $l (@tag_names) {
+		if ($data{$id}{other}{$l}) {
+		    my $tag_name=$tag_name_hash{$l};
+		    foreach (@{$data{$id}{other}{$l}}) {
+			my $tmp=$_;
+			$tmp=~s/\\//g;
+			$tmp=~s/\"//g;
+			if ($tmp=~/\[.*\]/) {
+			    $tmp=~s/$1//;
+			}
+			print TR(td({-id => 'term_tag'},$tag_name),
+				 td({-id => 'term_data'},$tmp));
+			$tag_name = '';
+		    }
+		}
+	    }
+	    print TR(td({-id => 'term_tag'},
+			'Number of paths to term'),
+		     td({-id => 'term_data'},$data{$id}{path_count}));
+	    print end_table();
+	    print end_div();
+	    print hr({-width=>'98%'});
+	}
+    }
+
+
+    # calculate overlap between all path pairs - will be used for ordering and merging paths
+    my @paths= sort {$#{$data{$id}{paths}{$b}{path_parent}} <=> $#{$data{$id}{paths}{$a}{path_parent}}} keys %{$data{$id}{paths}};
+    my %intersection=();
+    my @max_pair=();
+    
+    for (my $i=0; $i<=$#paths; $i++) {
+	for (my $j=$i+1; $j<=$#paths; $j++) {
+	    my $overlap=0;
+	    for (my $k=0; $k<=$#{$data{$id}{paths}{$paths[$i]}{path_parent}}; $k++) {
+		if ($data{$id}{paths}{$paths[$i]}{path_parent}[$k][1] eq $data{$id}{paths}{$paths[$j]}{path_parent}[$k][1]) {
+		    $overlap++;
+		}
+		else {
+		    last;
+		}
+	    }
+	    $intersection{$paths[$i]}{$paths[$j]}=$overlap;
+	    $intersection{$paths[$j]}{$paths[$i]}=$overlap;
+	    if (!@max_pair) {
+		@max_pair=($paths[$i],$paths[$j],$overlap);
+	    }
+	    elsif ($overlap > $max_pair[2]) {
+		@max_pair=($paths[$i],$paths[$j],$overlap);
+	    }
+	}
+    }
+    
+    
+    # order paths based on overlap
+    my @ordered_paths=();
+    if (!@max_pair) {
+	@ordered_paths=@paths;
+    }
+    else {
+	my %not_seen=();
+	foreach (@paths) {
+	    $not_seen{$_}=1;
+	}
+	
+	my $to_process=$max_pair[0];
+	while (%not_seen) {
+	    push @ordered_paths, $to_process;
+	    delete $not_seen{$to_process};
+	    my @tmp=sort {$intersection{$to_process}{$b} <=> $intersection{$to_process}{$a}} keys %{$intersection{$to_process}};
+	    foreach (@tmp) {
+		if ($not_seen{$_}) {
+		    $to_process=$_;
+		    last;
+		}
+	    }
+	}
+    }
+	
+    my $last_path=0;
+    my $path_count=0;
+    foreach my $p (@ordered_paths) {
+      $path_count++;	
+      my $offset='';
+      print div({-id => 'path_number'},"Path $p") unless $merge_paths;
+
+      my $i=0;	
+      my $first_parent=0;
+      if ($data{$id}{paths}{$p}{path_parent}) {
+	if ((scalar @{$data{$id}{paths}{$p}{path_parent}} - $parent_levels) 
+	    > 0 && defined $parent_levels) {
+	  $first_parent=scalar @{$data{$id}{paths}{$p}{path_parent}} - $parent_levels;
+	}
+      }
+
+      my $skip=1;
+      foreach (@{$data{$id}{paths}{$p}{path_parent}}) {
+	  next unless $$_[1];
+	  if ($i >= $first_parent) {
+	      $offset.=$tab;
+	      unless ($last_path && $data{$id}{paths}{$last_path}{path_parent}[$i] && $data{$id}{paths}{$last_path}{path_parent}[$i][1] eq $$_[1] && $merge_paths && $skip) { # if $merge_paths is set, skip printing term unless it is different from the term in the previous path at the same position
+		  $skip=0;
+		  print "$offset";
+		  if ($$_[0] eq 'is_a') {
+		      print_isa_img() unless $i == 0;
+		  } elsif ($$_[0] eq 'part_of') {
+		      print_partof_img() unless $i == 0;
+		  }
+		  print a({-id   => 'ontology_link',
+			   -href => "$script_url?query=$$_[1];query_type=term_id;ontology=$ontology$add_param",
+			   -target => $target},
+			  $$_[2]),br;   # THIS HAD TRAILING NEWLINE - text output?
+	      }
+	  }
+	  $i++;
+      }
+      $offset.=$tab;
+      $last_path=$p;
+
+
+
+      foreach (@{$data{$id}{paths}{$p}{proximal_path_parent_child}}) {
+	my $expand='';
+	$expand='+' if $$_[3];
+	if ($$_[0] eq 'is_a' && $siblings) {
+	  print $offset;
+	  print_isa_img();
+	  print a({-id   => 'ontology_link',
+		   -href => "$script_url?query=$$_[1];query_type=term_id;ontology=$ontology$add_param",
+		   -target => $target},
+		  $$_[2]),"&nbsp;$expand",br;   # THIS HAD TRAILING NEWLINE - text output?
+	} elsif ($$_[0] eq 'part_of' && $siblings) {
+	  print $offset;
+	  print_partof_img();
+	  print a({-id   => 'ontology_link',
+		   -href => "$script_url?query=$$_[1];query_type=term_id;ontology=$ontology$add_param",
+		   -target => $target},
+		  $$_[2]),"&nbsp;$expand",br;   # THIS HAD TRAILING NEWLINE - text output?
+	} elsif($$_[0] eq 'self_in_path:') {
+	  print $offset;
+	  print_isa_img()    if ($$_[1] eq 'is_a');
+	  print_partof_img() if ($$_[1] eq 'part_of');
+	  print span({-id=>'ontology_link_self'},
+		     $$_[3] . ':');
+	  
+	  if ($data{$id}{tac}{combined}) {
+	    print span({-id =>"annotations_link"},
+		       '&nbsp;&nbsp;'
+		       . a({-href => "$script_url?query=$data{$id}{taoc}{terms};query_type=annotations;ontology=$ontology",
+			    -target => $target},
+			   "genes $data{$id}{taoc}{count}, annotations $data{$id}{tac}{combined}"));
+
+	    print span({-id => "annotations_link_text"},
+		       '&nbsp;'
+		       . a({-href => "$script_url?query=$data{$id}{taoc}{terms};query_type=annotations;ontology=$ontology;format=text",
+			    -target => $target},
+			   '(text)'));   # Had a trailing newline
+	  } else {
+	    print span({-id => "annotations_link"},
+		       '&nbsp;&nbsp;'
+		       . "genes $data{$id}{taoc}{count}, annotations $data{$id}{tac}{combined}");  # Had a trailing newline
+	  }
+	  if ($data{$id}{tac_not}{combined}) {
+	    print span({-id => 'annotations_link'},
+		       '&nbsp;&nbsp;&nbsp;&nbsp;'
+		       . span({-id => "standout"},
+			      'NOT:&nbsp;&nbsp;')
+		       . a({-href => "$script_url?query=$data{$id}{taoc_not}{terms};query_type=annotations;ontology=$ontology&not_annotations=on",
+			    -target => $target},
+			   "genes $data{$id}{taoc_not}{count}, annotations $data{$id}{tac_not}{combined}"));
+
+	    print span({-id => "annotations_link_text"},
+		       '&nbsp;'
+		       . a({-href => "$script_url?query=$data{$id}{taoc_not}{terms};query_type=annotations;ontology=$ontology;format=text;not_annotations=on",
+			    -target => $target},
+			   '(text)'));  # TRAILING NEWLINE
+	  } else {
+	    #			print qq(<span id="annotations_link">&nbsp;&nbsp;&nbsp;&nbsp;<span id="standout">NOT $$_[3]:&nbsp;&nbsp;</span>genes $data{$id}{taoc_not}{count}, annotations $data{$id}{tac_not}{combined}</span>\n);   # do not print those for now
+	  }
+	  print br;
+
+
+	  if ($children) {
+	      if ($merge_paths && $path_count != scalar @paths) {
+		  next;
+	      }
+	      if ($expand_tree) {
+		  print "$offset$tab$tab"
+		      . span({-id => 'expand'},
+			     a({-href => "$script_url?query=$$_[2];query_type=term_id;ontology=$ontology$add_param",
+				-target => $target},
+			       'collapse children')) . br
+			       if defined @{$data{$id}{children}};   # TRAILING NEWLINE
+		  my $i=0;
+		  foreach (@{$data{$id}{children}}) {
+		      last if $i == $children_levels && $children_levels;
+		      $i++;
+		      my $obj_count='';
+		      if ($$_[2]) {
+			  $obj_count="($$_[2] genes)";
+		      }
+		      print "$offset$tab$tab";
+		      print a({-id  => 'ontology_link',
+			       href => "$script_url?query=$$_[0];query_type=term_id;ontology=$ontology$add_param",
+			       -target => $target},
+			      $$_[1])
+			  . span({-id => "obj_count"},"&nbsp;&nbsp;$obj_count") . br;  # Trailing newline
+		  }
+	      } else {
+		  print "$offset$tab$tab"
+		      . span({-id => 'expand'},
+			     a({-href => "$script_url?query=$$_[2];query_type=term_id;ontology=$ontology$add_param",
+				-target => $target},
+			       'expand children')) . br
+			       if defined @{$data{$id}{immediate_children}}
+		  && $#{$data{$id}{children}} > $#{$data{$id}{immediate_children}};  # TRAILING NEWLINE
+		  
+		  my $i=0;
+		  foreach (@{$data{$id}{immediate_children}}) {
+		      last if $i == $children_levels && $children_levels;
+		      $i++;
+		      my $expand='';
+		      $expand='+' if $$_[3];
+		      print "$offset$tab";
+		      print_isa_img()    if ($$_[0] eq 'is_a');
+		      print_partof_img() if ($$_[0] eq 'part_of');
+		      
+		      print a({-id   => 'ontology_link',
+			       -href => "$script_url?query=$$_[1];query_type=term_id;ontology=$ontology$add_param",
+			       -target => $target},
+			      $$_[2])
+			  .
+			  "&nbsp;$expand" . br;   # TRAILING NEWLINE
+		  }
+	      }
+	  }
+	  next;
+	}
+      }
+      print br;
+      print hr({-width => '98%'}) unless $merge_paths;
+    }
+  }
+}
+
+
+
+# BOTH OF THESE HAD TRAILING NEW LINES
+sub print_isa_img {
+  print img({-id  => 'relationship',
+	     -src => ISA,
+	     -border => 0,
+	     -height => 15,
+	     -alt => 'is-a'});
+}
+
+
+sub print_partof_img {
+  print img({-src => PARTOF,
+	     -border => 0,
+	     -height => '15',
+	     -alt    => 'part-of'});
+}
+
+# SUBS TO START ONTOLOGY SERVER IF NOT RUNNING - IGOR 10/09/2007
+sub readConfigOBO {
+    my $conf_file=shift;
+    my %conf=();
+    open(CONF, "<$conf_file") || die "cannot open configuration file $conf_file: $!\n";
+    my $ontology_name='';
+    while (<CONF>) {
+	chomp;
+	if (/^\s*ontology_name\s+(\S+)/) {
+	    $ontology_name=$1;
+	}
+	elsif (/^\s*socket\s+(\S+)/) {
+	    $conf{$ontology_name}{socket}=$1;
+	}
+	elsif (/^\s*ontology\s+(\S+)/) {
+	    $conf{$ontology_name}{ontology}=$1;
+	}
+	elsif (/^\s*annotations\s+(\S+)/) {
+	    $conf{$ontology_name}{annotations}=$1;
+	}
+    }
+    close CONF;
+    return \%conf;
+}
+
+
+sub restartServerOBO {
+
+    my %args=@_;
+    my $ontology_name=$args{ontology};
+    my %conf=();
+    if ($args{config_hash}) {
+	%conf=%{$args{config_hash}};
+    }
+    else {
+	%conf=%{readConfigOBO($args{config_file})};
+    }
+
+    my $parentpid=$$;
+    my $pid=fork();
+    die "cannot fork: $!" unless defined $pid;
+    if ($pid) {        # parent
+	while(1) {
+	    if ($SIG{'USR1'}) {
+		last;
+	    }
+	}
+    }
+    else {                # child
+	for my $handle (*STDIN, *STDOUT, *STDERR) {        #need to close handles associated with the parent
+	    open($handle, "+<", "/dev/null") || die "cannot reopen $handle to /dev/null: $!";
+	}
+	my $version = $DB->version;
+	my $socket   = sprintf($conf{$ontology_name}{socket},$version,$version);
+	my $ontology = sprintf($conf{$ontology_name}{ontology},$version,$version);
+	my $annot    = sprintf($conf{$ontology_name}{annotations},$version,$version);
+
+#	my $obo_server=OBrowse->new(Local=>$conf{$ontology_name}{socket}, Type=>SOCK_STREAM, Listen=>10) || die "cannot create OBrowse object: $!\n";
+	my $obo_server=OBrowse->new(Local=>$socket, Type=>SOCK_STREAM, Listen=>10) || die "cannot create OBrowse object: $!\n";
+	if ($ontology) {
+	    my $term_count=$obo_server->loadOntology($ontology) || die "cannot open load ontology from $ontology: $! \n";
+	}
+	if ($annot) {
+	    my $annotation_count=$obo_server->loadAnnotations($annot) || die "cannot load annotations from $annot: $!\n";
+	}
+	$obo_server->startServer() || die "cannot start server: $!\n";
+	kill 'USR1', $parentpid;
+    }
+    return 1;
+}

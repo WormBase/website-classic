@@ -1,0 +1,71 @@
+#!/bin/bash
+
+#if [ $# != 2 ]
+#    then
+#    echo "usage: $0 strains_dir acedb_path_or_URI"
+#    exit 1;
+#fi
+
+
+strains_dir=/usr/local/wormbase/html/strains
+acedb=/usr/local/acedb/elegans
+js_dir=$strains_dir/js
+
+echo "strain database will be installed in $strains_dir"
+echo
+
+if [ ! -d $strains_dir ]
+    then
+    echo $strains_dir "does not exist. It will be created."
+    mkdir $strains_dir
+    mkdir $js_dir
+else
+    echo "removing existing files from $strains_dir"
+    listing=`ls $strains_dir`
+    i=0
+    for file in $listing
+      do
+      rm $strains_dir/$file 2>&- &&  let i=i+1
+    done
+    echo "$i files deleted from $strains_dir"
+    echo
+    rm $strains_dir/* 2>&-
+fi
+
+if [ ! -d $js_dir ]
+    then
+    echo $js_dir "does not exist. It will be created."
+    mkdir $js_dir   
+fi
+
+if [ ! -e $js_dir/highlightTerms.js ]
+    then
+    cp highlightTerms.js $js_dir
+fi
+
+
+
+
+if [ -e gophstrnt.txt ]
+    then 
+    cp gophstrnt.txt gophstrnt.txt.bak
+fi
+
+echo "running: wget -N http://www.cbs.umn.edu/CGC/strains/gophstrnt.txt"
+cd $strains_dir
+wget -N http://www.cbs.umn.edu/CGC/strains/gophstrnt.txt
+echo
+
+if [ ! -e gophstrnt.txt ]
+    then 
+    cp gophstrnt.txt.bak gophstrnt.txt
+fi
+
+echo "running: ./make_html_files_strains.pl -i gophstrnt.txt -o $strains_dir -w"
+/usr/local/wormbase/util/strain_search/make_html_files_strains.pl -i gophstrnt.txt -o $strains_dir -w -a ${acedb}
+
+# This should be release specific
+echo "running: /usr/local/wormbase/util/strain_search/create_index_strains.pl -d $strains_dir -i $strains_dir -o"
+/usr/local/wormbase/util/strain_search/create_index_strains.pl -d $strains_dir -i $strains_dir -o -a ${acedb}
+echo "database update complete"
+

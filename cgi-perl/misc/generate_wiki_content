@@ -1,0 +1,64 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+
+# THIS IS A STUB SCRIPT I AM WORKING ON TO DYNAMICALLY ADD CONTENT
+# TO WIKI PAGES
+
+
+use strict;
+use lib './lib';
+use CGI 2.42 qw(:standard start_form table TR th td textfield submit end_form redirect);
+use Ace::Browser::AceSubs;
+use ElegansSubs qw/FetchGene/;
+
+my $class = param('class');
+
+my $object = GetAceObject();
+if ( $object ) {
+  my $url = Object2URL($object);
+
+  print "$object $url";
+
+  # Hack for locus linked in from external sites.
+  # This is probably not the BEST place for this
+  # solution, but it does prevent redirecting ALL loci
+  # to the gene page...
+} elsif ($class =~ /Protein/) {
+  # Someone may have linked in via a standarized protein ID suchs as UNC-26
+  # Have to fetch the gene first, then traverse to the protein via the CDS.
+  # Truly disgusting
+
+  my $gene = get_loci();
+  if ($gene) {
+    my $protein = eval { $gene->Corresponding_CDS->Corresponding_protein };
+    my $url = Object2URL($protein);
+    print redirect($url) if $protein;
+  }
+} elsif (my $object = get_loci()) {
+  my $url = Object2URL($object);
+  print redirect($url);
+} else {
+  PrintTop();
+  print
+    start_form(-name=>'question'),
+      table(
+	    TR (th('Name'),td(textfield(-name=>'name',-onChange=>'document.question.submit()')),
+		th('Class'),td(textfield(-name=>'class',-size=>15,-onChange=>'document.question.submit()')),
+		td(submit({-style=>'background: white',-name=>'Change'}))),
+	   ),
+     end_form;
+  PrintBottom();
+  exit 0;
+}
+
+
+
+sub get_loci {
+  my $db = OpenDatabase;
+  my ($gene,$bestname) = FetchGene($db,param('name'));
+  return $gene;
+}
+
+
+
+

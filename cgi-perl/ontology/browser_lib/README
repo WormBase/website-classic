@@ -1,0 +1,27 @@
+This directory contains various support files for the ontology browser.
+
+T. Harris (harris@cshl.edu; 2/2007)
+
+
+To set up the ontology databases:
+
+./install.sh WSVERSION
+
+To start up the socket servers:
+
+./launch_ontology_sockets.sh WSVERSION
+
+
+The files
+-----------------------------------------------------------------
+OBrowse.pm		      Support methods for the browser
+
+README			      This file (duh).
+
+browser.initd		      A script suitable for use as an initd config. 
+                              Called by the launch_ontology_sockets.sh  script, too.
+
+install.sh		      A simple shell script that copies that ontology
+			      files into the local WormBase database directory.
+
+launch_ontology_sockets.sh    A script for starting the ontology socket servers.

@@ -1,0 +1,2966 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# file: allele
+
+# Nucleotide debugging matrix
+#   Allele   Strand   Seq_frag  Seq_full Trans
+
+# Insertions
+#  n1307           +  (no flanking sequences are known)  - Needs to be able to display information
+
+# Transposon insertions
+#   cn28 (unknown) +    ok-3
+#   cxP310 (Tc1)   +    ok-1
+#   cxP622 (Tc3)   +    ok-1
+#   cxP714 (Tc3)   +    ok-1
+#   cxP3212 (Tc1)  +    ok-1
+#   by101          +         (bogus coordinates - lenght of 2)
+#   m642 (unknown) +    ok-1
+#   n1428 (unknown) +   unknown - flanks reported on minues strand; frameshift!
+
+# Deletions
+#   gk184         -    ok
+#   bm1           +    ok-4
+#   ch4           -    ok
+#   e345          -    ok
+
+# Indels
+#   ad446        +         ok-2
+#   ok431        +         ok-2
+#   tm728        +         ok-2
+#   ca16         +         ok-1
+#   tm617        +         ok-2
+#   gk168        +         ok-2
+#   e2400        +         ok-2
+
+# Substitutions                        Conceptual
+#   ak67         -         ok          wrong
+#   e205         -         ok
+#   ar96         -         ok          ok (nonsense)
+#   ad692        -         ok          ok (missense)
+#   wa9          +         ok-4        ok (nonsense)
+
+# Polymorphisms
+
+
+use strict;
+use vars qw($DB $GFFDB $BROWSER $var $data $WORMBASE $CONFIG %EXT_LINKS $public_name);
+use Ace;
+use Ace::Browser::AceSubs qw(:DEFAULT !TypeSelector AceRedirect AceMultipleChoices Configuration);
+use ElegansSubs qw(:DEFAULT GetEvidence format_references Bestname GetInterpolatedPosition AlleleDescription Bestname format_reference GetEvidenceNew DisplayPhenotypes ParseHash);
+use CGI qw/:standard *table *blockquote *ul *td *TR *div *pre *span *start_table *end_table *iframe/;
+use Bio::Graphics::Browser;
+use Bio::Graphics::Panel;
+use Bio::Graphics::Feature;
+use lib '../lib';
+use WormBase;
+use WormBase::Util::Rearrange;
+use WormBase::Toggle;
+
+#use Carp qw(fatalsToBrowser);
+
+# This should also present the sequence ID for affected genes.
+# print HTTP header & open the database
+#my %HIT_CACHE;
+
+use constant PICTURE_WIDTH    => 600;
+use constant UNMAPPED_SPAN    => 10000;  # genomic span to display for alleles not mapped to genes
+use constant PADDING          => 10;
+use constant SEQ_STYLE        => 'font-size:12px;font-family:courier';
+use constant DISPLAY_ALL_TAGS => 1;
+use constant FULL_SEQUENCE_FLANK  => 250; # Amount of flank to use when displaying a variation in context
+use constant UNKNOWN          => i('unknown');
+use constant DEBUG            => 0;
+
+END {
+  undef $var;
+  undef $data;
+  undef $WORMBASE;
+  undef $public_name;
+}
+
+$DB    = OpenDatabase() || AceError("Couldn't open database.");
+
+$BROWSER ||= Bio::Graphics::Browser->new(Configuration->Gff_conf) or AceError('Cannot open picture generator');
+#$BROWSER->read_configuration(Configuration->Gff_conf)  or AceError("Can't read gff configuration");
+#$BROWSER->source('c_elegans');
+#$BROWSER->width(PICTURE_WIDTH);
+#$BROWSER->config->set('general','empty_tracks' => 'suppress');
+#$BROWSER->config->set('general','keystyle'     => 'none');
+
+$WORMBASE = WormBase->new($DB);
+
+my $request = param('name');
+
+# Fetch an ace object and a GFF segment in chrom coords
+($data,$var,$GFFDB,$public_name) = get_variation($request);
+$CONFIG = Configuration();
+
+#redirect_to_sequence($request)       if (!$var and $request);
+redirect_to_locus($var->New_name) if   $var and eval {$var->New_name};
+
+PrintTop($var,'Variation',
+	 $var ? "Variation report for: $public_name" : "Variation report");
+print_prompt();
+PrintWarning($request) if ($request && !$var);
+
+if ($var) {
+  if (param('definitions')) {
+    print_defintions();
+  } else {
+    print div({-align=>'center'},
+	      table(
+		    TR(
+		       th(
+			  [map {a({-href=>"#$_"},"[\L$_]")}
+			   'General Info','Molecular Details','Location','Genetic Information',
+			   'Phenotype',
+			   'History','References','Submit New Data']))));
+    print start_table({-border=>1});
+    general_info();
+    molecular_change();
+    location();
+    genetic_info();
+    polymorphism_details() if $var->SNP(0) or $var->RFLP(0);
+    #phenotype();      # Needs work - need to display evidence, etc
+    phenotype_new();
+    references();     # done
+    history();        # done
+    submit();         # done
+    print end_table;
+  }
+}
+##
+PrintBottom();
+
+#############################
+######## BEGIN SUBS #########
+#############################
+sub get_variation {
+  my $request = shift;
+  return unless $request;
+  my $class = url_param('class') || 'Variation';
+  my @var = $DB->fetch(-class=>'Variation_name',-name=>$request,-fill=>1);
+  
+  my %seen;
+  my @variations = grep { !$seen{$_}++} map { $_->Public_name_for
+						  || $_->Other_name_for
+  } @var;
+  
+  unless (@variations) {
+     @variations = $DB->fetch(-class => 'Variation',-name=>$request,-fill=>1);
+  }
+
+  
+  # Simple scalar results for the moment which is incredibly lame.
+  my $var = $variations[0];
+
+  return unless $var;
+  my $GFFDB = OpenGFFDB($DB,get_species($var));
+  # Create a package object for storing data
+  my $this = Container->new($var,$GFFDB);
+  my $public_name = $var->Public_name;
+  return ($this,$var,$GFFDB,$public_name);
+}
+
+sub print_prompt {
+  $WORMBASE->print_prompt(-message  => 'Specify an allele such as',
+			  -class    => 'Variation',
+			  -examples => [ {'no_message' => 'e307'    },
+					 {'no_message' => 'n2559'   },
+					 {'no_message' => 'e345'    },
+					 {'no_message' => 'pkP6112' },
+				       ]);
+  return;
+}
+
+
+
+
+
+sub submit {
+  my $submit_forms = $CONFIG->Submit_forms;
+  StartSection('Submit New Data');
+  foreach my $hash (@$submit_forms) {
+    my ($label,$href) = map { $_,$hash->{$_} } keys %$hash;
+    PrintMultiple($label,a({-href=>$href,-target=>'_blank'},'[submit]'));
+  }
+  EndSection;
+}
+
+
+sub phenotype {
+    StartSection('Phenotype');
+    DisplayPhenotypes($var->Phenotype) if $var->Phenotype;
+
+  my $description = AlleleDescription($var);
+    SubSection('Remarks',$description) if $description ne '';
+
+  # cross-reference laboratories in the Phenotype remark
+  my $best_description = join('; ',$var->Phenotype_remark);
+  if ($best_description) {
+      $best_description =~ s/;\s+([A-Z]{2})(?=[;\]])
+	  /"; ".ObjectLink($1,undef,'Laboratory')
+	  /exg;
+      
+      # cross-reference genes
+      $best_description =~ s/\b([a-z]+-\d+)\b
+	  /ObjectLink($1,undef,'Locus')
+	  /exg;
+      SubSection('Brief description',$best_description);
+  }
+  EndSection;
+}
+
+### NBC UPDATES #####
+
+sub phenotype_new {
+
+StartSection('Phenotype');
+my $phenotype_data_ar = pull_phenotype_data($var);
+
+print_phenotype_data($phenotype_data_ar);  ##SubSection()
+
+EndSection;
+
+# 	
+   	
+}
+
+
+sub pull_phenotype_data {
+
+  my $object = shift @_;
+  my @phenotype_data;   ## return data structure contains set of : not, phenotype_id; array ref for each characteristic in each element
+  my @phenotype_tags = ('Phenotype', 'Phenotype_not_observed');
+  
+  foreach my $phenotype_tag (@phenotype_tags) {
+  
+  my @phenotypes = $object->$phenotype_tag;
+
+  foreach my $phenotype (@phenotypes) {
+  
+    my %p_data;   ### data holder for not, phenotype, remark, and array ref of characteristics, loaded into @phenotype_data for each phenotype related to the variation.
+    my @phenotype_subtags = $phenotype->col ; ## 0
+    
+    # my $phenotype_not; #  = grep {$_ =~ m/Not/} @phenotype_subtags
+ 	
+
+    
+    my @psubtag_data;
+    my @ps_data;
+
+    my %tagset = (
+    		'Paper_evidence' => 1,
+    		'Remark' => 1,
+#    		'Person_evidence' => 1,
+#		  'Phenotype_assay' => 1,
+#		  'Penetrance' => 1,			
+#		  'Temperature_sensitive' => 1,
+#		  'Anatomy_term' => 1,
+#		  'Recessive' => 1,
+#		  'Semi_dominant' => 1,
+#		  'Dominant' => 1,
+#		  'Haplo_insufficient' => 1,
+# 		  'Loss_of_function' => 1,
+#		  'Gain_of_function' => 1,
+#		  'Maternal' => 1,
+#		  'Paternal' => 1
+		  
+		 ); ### extra data commented out off data pull system 20090922 to simplify table build and data pull
+
+
+
+    my %extra_tier = ( 'Phenotype_assay' => 1,
+		       'Temperature_sensitive' => 1
+		     );#'Penetrance' => 1,
+		     
+	my %gof_set = {
+			'Gain_of_function' => 1
+			, 'Maternal' => 1
+		  	#, 'Paternal' => 1
+			};
+	
+    my %no_details = (
+		      'Recessive' => 1,
+		      'Semi_dominant' => 1,
+		      'Dominant' => 1,
+		      'Haplo_insufficient' => 1,
+		      'Paternal' => 1
+ 			  
+		     );	 # 		, 'Loss_of_function' => 1'Gain_of_function' => 1,
+
+
+    foreach my $phenotype_subtag  (@phenotype_subtags) {
+
+      if (!($tagset{$phenotype_subtag})) {
+	next;
+      }
+      else{
+
+	my @ps_column = $phenotype_subtag->col;
+	
+	## data to be incorporated into @ps_data;
+
+	my $character;
+	my $remark;
+	my $evidence_line;
+
+	## process Penetrance data
+	if ($phenotype_subtag =~ m/Penetrance/) {
+	  foreach my $ps_column_element (@ps_column) {
+	  
+	  		
+
+	    if ($ps_column_element =~ m/Range/) {
+	    	next;
+	      
+	    } 
+	    else {
+	      my ($char,$text,$evidence) = $ps_column_element->row;
+	      	my @pen_evidence = $evidence-> col;
+	      	$character = "$phenotype_subtag"; #\:
+	      	$remark = $char; #$text
+	      	
+	      	my @pen_links = eval {map {format_reference(-reference=>$_,-format=>'short') if $_;} @pen_evidence}; # ;
+	      	
+	      	$evidence_line =  join "; ", @pen_links;
+	    }
+	  }
+	}
+
+	## get remark
+	
+	
+	elsif ($phenotype_subtag =~ m/Remark/) {
+	
+		my @remarks = $phenotype_subtag->col;
+		my $remarks = join "; ", @remarks;
+		my $details_url = "/db/misc/etree?name=$phenotype;class=Phenotype";
+		my $details_link = a({-href=>$details_url},'[Details]');
+		$remarks = "$remarks\ $details_link";
+		$p_data{'remark'} = $remarks; #$phenotype_subtag->right
+		next;
+	
+	}
+	
+	
+	
+	## get evidences
+	elsif ($phenotype_subtag =~ m/Paper_evidence/) {
+	
+		my @phenotype_paper_evidence = $phenotype_subtag->col;
+		my @phenotype_paper_links = eval {map {format_reference(-reference=>$_,-format=>'short') if $_;} @phenotype_paper_evidence}; #; 
+		$p_data{'paper_evidence'} = join "; ", @phenotype_paper_links;
+		next;
+	}
+	
+	
+	## process Anatomy_term data
+	
+	elsif ($phenotype_subtag =~ m/Anatomy_term/) {
+	  my ($char,$text,$evidence) = $phenotype_subtag ->row;
+	  my @at_evidence = $phenotype_subtag -> right -> right -> col;
+	  
+	  # my $at_link;
+	  my $at_term = $text->Term;
+	  my $at_url = "/db/ontology/anatomy?name=" . $text;
+	  my $at_link = a({-href => $at_url}, $at_term);
+	  
+	  $character = $char;
+	  $remark = $at_link; #$text
+	  
+	  my @at_links = eval {map {format_reference(-reference=>$_,-format=>'short') if $_;} @at_evidence}; #;
+	  
+	  $evidence_line = join "; ", @at_links;
+				
+	}
+
+	## process extra tier data
+	
+	elsif ($phenotype_subtag =~ m/Phenotype_assay/) {
+	foreach my $character_detail (@ps_column) {
+	    	my $cd_info = $character_detail->right; # right @cd_info
+	    	my @cd_evidence = $cd_info->right->col;
+	    	$character = "$character_detail";  #$phenotype_subtag\:
+	    	# = $cd_info->col;
+	    	$remark =  $cd_info; # join "; ", @cd_info;
+	    	
+	    	my @cd_links= eval {map {format_reference(-reference=>$_,-format=>'short') if $_;} @cd_evidence }; #  ;
+	    	
+	    	$evidence_line = join "; ", @cd_links;
+	    
+	    my $phenotype_st_line = join "|", ($phenotype_subtag,$character,$remark,$evidence_line);
+		push  @ps_data, $phenotype_st_line ; 
+	    
+	  }
+		next;
+	}
+	
+	elsif ($phenotype_subtag =~ m/Temperature_sensitive/) {
+		foreach my $character_detail (@ps_column) {
+	    	my $cd_info = $character_detail->right;
+	    	my @cd_evidence = $cd_info->right->col;
+	    	
+	    	my @cd_links = eval {map {format_reference(-reference=>$_,-format=>'short') if $_;} @cd_evidence }; #  ;
+	    
+	   		$character = "$character_detail";  #$phenotype_subtag\:
+	    	$remark = $cd_info;
+	    	$evidence_line = join "; ", @cd_links ;
+	   
+	   		my $phenotype_st_line = join "|", ($phenotype_subtag,$character,$remark,$evidence_line);
+			push  @ps_data, $phenotype_st_line ; 
+	  }
+	  
+		next;
+	}
+	
+	elsif ( $phenotype_subtag =~ m/Gain_of_function/) { # $gof_set{}
+	      my ($char,$text,$evidence) = $phenotype_subtag->row;
+	      	my @gof_evidence;
+	      	
+	      	eval{
+	      			@gof_evidence = $evidence-> col;
+	      	}; 
+	      	 #\:
+	      	$remark = $text; #$char
+	      	
+	      	if(!(@gof_evidence)){
+	      		$character = $phenotype_subtag;
+	      		$remark = '';
+	      		$evidence_line = $p_data{'paper_evidence'};
+	      		 
+	      		 
+	      		 
+	      	}
+	      	#my @pen_links = map {format_reference(-reference=>$_,-format=>'short');} @pen_evidence;
+	      	else {
+	      		$character = $phenotype_subtag;
+	      		$remark = $char;
+	      		my @gof_paper_links = eval {map {format_reference(-reference=>$_,-format=>'short') if $_;} @gof_evidence}; #  ;
+	      	
+	      		$evidence_line =  join "; ", @gof_paper_links;
+	      	}
+	      	my $phenotype_st_line = join "|", ($phenotype_subtag,$character,$remark,$evidence_line);
+			push  @ps_data, $phenotype_st_line ; 
+			next;
+	      	
+	      	
+	}
+	
+	elsif ( $phenotype_subtag =~ m/Loss_of_function/) { # $gof_set{}
+	      my ($char,$text,$evidence) = $phenotype_subtag->row;
+	      	my @lof_evidence;
+	      	
+	      	eval{
+	      			@lof_evidence = $evidence-> col;
+	      	}; 
+	      	 #\:
+	      	$remark = $text; #$char
+	      	
+	      	if(!(@lof_evidence)){
+	      		$character = $phenotype_subtag;
+	      		$remark = $text;
+	      		$evidence_line = $p_data{'paper_evidence'};
+	      		 
+	      		 
+	      		 
+	      	}
+	      	#my @pen_links = map {format_reference(-reference=>$_,-format=>'short');} @pen_evidence;
+	      	else {
+	      		$character = $phenotype_subtag;
+	      		$remark = $text;
+	      		my @lof_paper_links = eval {map {format_reference(-reference=>$_,-format=>'short') if $_;} @lof_evidence}; ; #
+	      	
+	      		$evidence_line =  join "; ", @lof_paper_links;
+	      	}
+	      	my $phenotype_st_line = join "|", ($phenotype_subtag,$character,$remark,$evidence_line);
+			push  @ps_data, $phenotype_st_line ; 
+			next;
+	      	
+	}
+	
+	
+	elsif ( $phenotype_subtag =~ m/Maternal/) { # $gof_set{}
+	      my ($char,$text,$evidence) = $phenotype_subtag->row;
+	      
+	      	my @mom_evidence;
+	      	
+	      	eval {
+	      	
+	      		@mom_evidence = $evidence->col;
+	      	
+	      	};
+	      	
+	      
+	      	if(!(@mom_evidence)){
+	      		$character = $phenotype_subtag;
+	      		$remark = '';
+	      		$evidence_line = $p_data{'paper_evidence'};
+	      		 		 
+	      	}
+	      	else {
+				$character = $phenotype_subtag;
+				$remark = '';
+				my @mom_paper_links = eval{map {format_reference(-reference=>$_,-format=>'short') if $_;} @mom_evidence} ; #;
+				$evidence_line =  join "; ", @mom_paper_links;
+	      	
+	      	}
+	      	
+	      	
+	      	my $phenotype_st_line = join "|", ($phenotype_subtag,$character,$remark,$evidence_line);
+			push  @ps_data, $phenotype_st_line ; 
+			next;
+	      	
+	      	
+	}
+	
+
+	## process no details data
+	elsif ($no_details{$phenotype_subtag}) {
+		my @nd_evidence;
+		eval {
+			@nd_evidence = $phenotype_subtag->right->col;
+		};
+	  
+	  $character = $phenotype_subtag;
+	  $remark = "";
+	  if (@nd_evidence){
+	  
+	  	my @nd_links = eval{map {format_reference(-reference=>$_,-format=>'short') if $_;} @nd_evidence ; }; # 
+	  
+	  	$evidence_line = join "; ", @nd_links;
+	  }
+	  
+
+	}
+	
+
+	my $phenotype_st_line = join "|", ($phenotype_subtag,$character,$remark,$evidence_line);
+	push  @ps_data, $phenotype_st_line ;  ## let @ps_data evolve to include characteristic; remarks; and evidence line
+      }
+      
+    }
+
+	my $phenotype_name = $phenotype->Primary_name;
+	my $phenotype_url = Object2URL($phenotype);
+	my $phenotype_link = b(a({-href=>$phenotype_url},$phenotype_name));
+
+	
+	if ($phenotype_tag eq 'Phenotype_not_observed') {
+ 	
+		$p_data{'not'} = 1; 		
+ 	}
+
+	
+    # = $phenotype_not;
+    $p_data{'phenotype'} = $phenotype_link;
+    $p_data{'ps'} = \@ps_data;
+
+    
+    push @phenotype_data, \%p_data;
+
+  }
+ 
+}  ### end foreach my $phenotype_tag (@phenotype_tags) 
+ #  my @phenotype_data = @phenotypes;
+
+  
+  return \@phenotype_data;
+
+}
+
+
+sub print_phenotype_data {
+
+  	my $phenotype_data_ar = shift @_;
+	my @positive;
+	my @negative;
+
+  	foreach my $phenotype_data_element (@{$phenotype_data_ar}) {
+    
+    	## cull the nots from positive
+    	if ($$phenotype_data_element{'not'} == 1) {
+    		push @negative, $phenotype_data_element;
+    	
+    	}
+    
+    	else {
+    		push @positive, $phenotype_data_element;
+    	}
+    }
+    
+    my $negative_table = build_data_table (\@negative, 0);
+	my $positive_table = build_data_table (\@positive, 1);
+ 	
+ 	SubSection("","$positive_table&nbsp<br>&nbsp<br>&nbsp<br>"); #POSITIVES
+ 	#print ;
+ 	
+# 	br();
+# 	br();
+	SubSection("",$negative_table); #NEGATIVES
+	
+}
+
+
+sub build_data_table {
+
+	my $data_ar = shift @_;
+	my $phenotype_set_type = shift @_; ### values 1 or 0
+	my $table = "";
+	
+	my $top_row_statement;
+	
+	if ($phenotype_set_type) {
+		
+		$top_row_statement = i("The following phenotypes were observed in this experiment.");
+		
+	} else {
+	
+		$top_row_statement = i("The following phenotypes were " . b("NOT") . " observed in this experiment.");
+	}
+	
+  
+  	$table .= start_table({-border => '1', -cellspacing => '2', -width=> '100%'}); # frame => 'box',-rules => 'all',
+  
+  	$table .= TR( td({-colspan=> 3, -width=> '100%'}, $top_row_statement)); 
+  	$table .= TR( th({ -width=> '15%'}, "Phenotype"),
+  					th({ -width=> '60%'}, "Remark(s)"),
+  					th({ -width=> '25%'}, "Reference(s)"),
+  	
+  	); 
+  
+  foreach my $phenotype_data_element (@$data_ar) {
+ 
+ 		my $phenotype =   $$phenotype_data_element{'phenotype'} . br;
+ 		$phenotype =~ s/_/ /g;
+ 		my $phenotype_remark =  $$phenotype_data_element{'remark'} . br if ($$phenotype_data_element{'remark'}); ## i('remark(s): ') .
+ 		my $phenotype_evidence = $$phenotype_data_element{'paper_evidence'}; ## i('reference(s): ') . 
+ 		
+ 		$table .= TR( td({ -width=> '15%'}, $phenotype), ##
+  					td({ -width=> '60%'}, $phenotype_remark),
+  					td({ -width=> '25%'}, $phenotype_evidence),
+ 			); 
+
+#,td(),td()
+# 			td({-colspan=> 3, -width=> '100%'},  
+# 			b($phenotype) 
+# 			. $phenotype_remark 
+# 			. $phenotype_evidence)
+
+
+
+# 		if (!(@{$$phenotype_data_element{'ps'}})){
+# 			next;
+# 		}	
+# 		else {
+# 		
+#			$table .= TR(
+#					td({-align => 'center', -width => '20%' }, i('Characteristic')),
+#					td({-align => 'center', -width => '40%' }, i('Remarks')),
+#					td({-align => 'center', -width => '40%' }, i('Evidence'))
+#				);
+#			
+#			foreach my $data_element (@{$$phenotype_data_element{'ps'}} ) {
+#			
+#				my ($char_name,$char,$remark,$evidence) = split /\|/,$data_element;
+#				my @evidences = split /&/,$evidence;
+#				my $evidences = join "," ,@evidences; #@ $formated_evidence
+#			
+#				$char =~ s/_/ /g;
+#				
+#				if($char) {
+#			
+#					$table .= TR(
+#					td({-align => 'left', -width => '20%' }, $char),
+#					td({-align => 'left', -width => '40%' }, $remark),
+#					td({-align => 'left', -width => '40%' }, 'via Paper(s): ' . $evidences)  #  @formated_evidences
+#					);
+#				} else {
+#				
+#					next;
+#				
+#				}
+#			}
+# 		}
+  }	
+  
+  $table .= end_table();
+  
+  return $table;
+  
+}
+
+sub format_paper_reference {
+	my $paper = shift @_;
+	my @authors    = $paper->Author;
+   	my $authors    = @authors <= 2 ? (join ' and ',@authors) : "$authors[0] et al.";
+   return a({-href=>Object2URL($paper)},$authors); #if ($format eq 'short')
+}
+
+
+
+
+
+#### END NBC UPDATES ####
+sub bail {
+  if ($var->Sequence) {
+    print hr,h3({-class=>'heading'},
+		"This is an allele of physical gene",ObjectLink($var->Sequence),
+		"but no additional information is available at this time.");
+  } else {
+    print hr,h3({-class=>'heading'},
+		"No additional information is available at this time.");
+  }
+}
+
+sub general_info {
+  StartSection('General Information');
+  SubSection('Variation',$var->Public_name);
+  
+  # What broad type of allele is this?
+  SubSection('Variation type',broad_classification());
+
+  # This information is collected and displayed under "Location"
+  #  my %affects = map { $_ => [$_->right] } $var->Affects;
+  #  # Pull corresponding CDSs from the Gene
+  #  $affects{CDS} = [ map { $_->Corresponding_CDS } @{$affects{Gene}} ] if $affects{Gene};
+  #  foreach (qw/Gene Predicted_CDS CDS Transcript Pseudogene/) {
+  #    my @data = eval { @{$affects{$_}} };
+  #    next unless eval { @{$affects{$_}} > 0 };
+  #    push(@data,UNKNOWN) unless @data;
+  #    my $tag = lc($_);
+  #    $tag =~ s/_/ /;
+  #    SubSection("Affected $tag(s)",
+  #	       join(' ',
+  #		    map {
+  #		      ($tag eq 'gene') ?
+  #			a({-href=>Object2URL($_)},i(Bestname($_)))
+  #			  :
+  #			    ObjectLink($_)
+  #			  } @{$affects{$_}}
+  #		   )
+  #	      );
+  #  }
+  
+  ## Is this allele contained within a gene, but not yet associated with it?
+  #SubSection('','NOTE:'.
+  #	     i(" Although contained within the segments listed above, " . br .
+  #	       "$var has not been directly associated with their function."));
+  
+  # Other names for the allele
+  SubSection('Other name',$var->Other_name) if $var->Other_name;
+  
+  # removed by request
+  #if ($var->Evidence) {
+  #  print TR(th({-class=>'small',-align=>'LEFT'},'Origin:'),
+  #	     td(GetEvidence($var->Evidence(0))));
+  #  }
+
+  my @remarks = $var->Remark;
+  SubSection('Remarks',join(br,map { "$_: " . GetEvidenceNew(-object => $_,
+							     -format => 'inline',
+							     -display_label => 1) } @remarks)) if @remarks;
+  
+}
+
+# Only print allele information if this allele has been mapped to a gene
+sub genetic_info {
+    my $gene = $var->Gene;
+    my $var_public_name = $var->Public_name;
+    
+    StartSection('Genetic Information');
+    if ($gene) {
+	SubSection('Corresponding gene',map { ObjectLink($_,Bestname($_) . " ($_)") } $var->Gene);
+	my $reference_allele = $var->Gene->Reference_allele;
+	SubSection('Reference allele',ObjectLink($reference_allele,$reference_allele->Public_name)) if ($reference_allele);
+	my @alleles = grep {$_ ne ($var || '')} $gene->Allele(-fill=>1);
+	my (@clean,@poly);
+	foreach (@alleles) {
+	    if ($_->SNP(0)) {
+		push @poly,$_;
+	    } else {
+		push @clean,$_;
+	    }
+	}
+	SubSection("Other alleles",join(', ',map { ($_->Sequence || $_->Flanking_sequences) ? b(ObjectLink($_,$_->Public_name)) : ObjectLink($_,$_->Public_name)} @clean),
+		   'Alleles with molecular information are shown in ' . b('boldface.')) if (@clean);
+	
+	SubSection("Polymorphisms",join(', ',map { ($_->Sequence || $_->Flanking_sequences) ? b(ObjectLink($_,$_->Public_name)) : ObjectLink($_,$_->Public_name)} @poly));
+    }
+    
+    my @strains;
+    foreach ($var->Strain) {
+	my @genes = $_->Gene;
+	my $cgc   = ($_->Location eq 'CGC') ? 1 : 0;
+	my $linked = a({-href=>Object2URL($_)},$_);
+	$linked = b($linked) if (@genes == 1);
+	$linked = i($linked) if $cgc;
+	push @strains,$linked;
+    }
+    
+    SubSection("Strains carrying " . $var_public_name,
+	       (@strains)
+	       ? Tableize(\@strains,1)
+	       . "Strains carrying <i>$var_public_name</i> alone are listed in "
+	       . b('boldface.')
+	       . br . 'Strains available directly from the CGC are ' . i('italicized.')
+	       : 'none available');
+    
+    SubSection('Rescued by transgene',Tableize([ $var->Rescued_by_Transgene ])) if $var->Rescued_by_Transgene;
+    EndSection;
+}
+
+
+
+sub location {
+  StartSection('Location');
+  # Some alleles are assigned to sequences but have no position
+  unless ($data->flanking_sequences || $var->Sequence) {
+      SubSection('',no_info('location'));
+      EndSection();
+      return;
+  }
+  
+  # Fetch the genetic position either from the variation itself or from the gene
+  my ($chrom,$position,$error) = fetch_map_position($var);
+  if ($chrom) {
+      my ($start,$stop) = ($position-0.5,$position+0.5);
+      my $genetic_position = 
+	  $position
+	  ? a({-href=>Url('pic',"name=$chrom;class=Map;map_start=$start;map_stop=$stop")},
+	      sprintf("$chrom:%2.2f +/- %2.3f cM",$position,$error))
+	  : a({-href=>Url('pic',"name=$chrom;class=Map")},
+	      $chrom);
+      
+#    my $genetic_position = a({-href=>Url('pic',"name=$chrom;class=Map;map_start=$start;map_stop=$stop")},
+#			  sprintf("$chrom:%2.2f +/- %2.3f cM",$position,$error));
+      SubSection('Genetic position',$genetic_position . i(" (Not necessarily derived from mapping experiments with "
+							  . $var->Public_name . ")"));
+  }
+  
+  my $chrom_coords = $data->chrom_coordinates(-link => 1);
+  SubSection('Physical position',$chrom_coords) if ($chrom_coords);
+  SubSection('',i(a({-href=>"/db/searches/strains?recenter=$var"},
+		    'Browse nearby genes, SNPs, transposons (including strains)')));
+  SubSection('',i(a({-href=>"/db/gene/genetable?name=$var"},
+		    'Browse nearby genetically-defined loci only (text)')));
+  
+  SubSection('',hr);
+  # Display the genomic environs of the allele, relative to a CDS if appropriate
+  SubSection('Genomic environs',genomic_picture());
+  #  SubSection('Genomic environs',genomic_picture_manual());
+}
+
+sub molecular_change {
+
+	my $var_public_name = $var->Public_name;
+	
+    StartSection('Molecular Details');
+    unless ($data->flanking_sequences || $var->Type_of_mutation || $var->PCR_product) {
+	SubSection('',no_info('molecular'));
+	EndSection();
+	return;
+    }
+    
+    # HACK HACK HACK for incomplete data
+    # Don't bother trying to post-process variations that lack coords
+    # or flanking sequences;
+    if ($var->Type_of_mutation && !$data->flanking_sequences) {
+	
+	my $type = $var->Type_of_mutation;
+	
+	my $text = "$type";
+	if ($type eq 'Substitution') {
+	    if (eval { $type->right->right }) {
+		$text .= ': ' . join('->',$type->right,$type->right->right );
+		my ($evidence) = GetEvidence(-obj=>$type->right->right,-omit_label=>1,-dont_link=>1);
+		    $text .= ': ' . $evidence if $evidence;
+	    }
+	} elsif ($type eq 'Insertion' || $type eq 'Deletion') {
+	    $text .= ': ' . $type->right if $type->right;
+	    my ($evidence) = GetEvidence(-obj=>$type->right,-omit_label=>1,-dont_link=>1);
+	    $text .= ': ' . $evidence if $evidence;
+	} else {}
+	
+	SubSection('Type of mutation',$text);
+#	EndSection();
+#	return;
+    }
+
+    # Nucleotide change details (from ace)
+    my $variations = $data->fetch_sequence_from_ace(-stringify=>1);
+    foreach my $variation (@{$variations}) {
+	my ($type,$wt,$mut) = @{$variation};
+	
+	my ($wt_label,$mut_label);
+	if ($var->SNP(0) || $var->RFLP(0)) {
+	    $wt_label = 'bristol';
+	    $mut_label = $var->Strain;  # CB4856, 4857, etc
+	} else {
+	    $wt_label = 'wild type';
+	    $mut_label = 'mutant';
+	}
+
+	$type = "definite deletion" if  ($data->cgh_deleted_probes);
+	if ($wt && $mut) {
+	    SubSection('Nucleotide change',(lc("$type: ") || UNKNOWN) .  "$wt / $mut ($wt_label / $mut_label)" );
+	} else {
+	    SubSection('Nucleotide change',(lc("$type:") || UNKNOWN) . " (sequence unknown / unlisted)" );
+	}
+    }
+    
+#        my $fasta = pre($data->to_fasta($sequence,$dna));
+    # Oh crap.  Lots of conditional code here for the CGH variables.
+    if ($data->cgh_deleted_probes) {
+#	my $variations = $data->cgh_segments(-stringify=>1);
+#	foreach my $variation (@{$variations}) {
+#	    my ($type,$wt,$mut) = @{$variation};
+#	    if ($wt && $mut) {
+#		SubSection('Nucleotide change',(lc("known deletion") .  "$wt / $mut (wild type / mutant)" ));
+#	    } else {
+#		SubSection('Nucleotide change',(lc("known deletion") . " (sequence unknown / unlisted)" ));
+#	    }
+#	}
+
+	SubSection('CGH flanking sequences',pre({-style => SEQ_STYLE},join("<br><br>",map { 
+	    (length $_ > 50) ?
+		$data->to_fasta($data->variation,$_,'no spaces') :
+		$_
+	    } $data->flanking_sequences))) if ($data->flanking_sequences);
+	SubSection('CGH deleted probes',pre({-style => SEQ_STYLE},join("<br><br>",map { 
+	    (length $_ > 50) ?
+		$data->to_fasta($data->variation,$_,'no spaces') :
+		$_
+	    } $data->cgh_deleted_probes))) if ($data->cgh_deleted_probes);
+    } else {
+	SubSection('Flanking sequences',pre({-style => SEQ_STYLE},join("<br><br>",map { 
+	    (length $_ > 50) ?
+		$data->to_fasta($public_name,$_,'no spaces') :
+		$_
+	    } $data->flanking_sequences))) if ($data->flanking_sequences);
+    }	
+
+
+
+    # Display a formatted string that shows the mutation in context
+    my $flank = 250;
+    my ($wt,$mut,$wt_full,$mut_full,$debug)  = $data->build_sequence_strings(-with_markup => 1);
+
+    $wt_full = "> Wild type N2, with $flank bp flanks<br>$wt_full";
+    $mut_full = "> $var with $flank bp flanks<br>$mut_full";
+
+    SubSection('Context',
+	       span({-style=>SEQ_STYLE},'...' . $wt . '... -- Wild type' . br .
+		    '...' . $mut . '... -- ' . i($var_public_name) 
+		    . br . br .i('Note: Sequence is reported on the plus strand.')
+		    . br
+		    . toggle_one({on=>0},'full_sequence','expanded context',p($wt_full),p($mut_full)))
+	       ) if ($wt && $mut);
+
+    SubSection('',hr);
+    # polymorphism_details();
+        
+    SubSection('Deletion verification',$var->Deletion_verification 
+	       . i( ' -- ' . GetEvidenceNew(-object => $var->Deletion_verification,
+					    -format => 'inline',
+					    -display_label => 1))) if $var->Deletion_verification;
+    
+    
+    # How to best link into the hunter
+    # print p(a({-href=>Url('hunter',"name=$poly")},"Gene Hunter display")) if $poly->Sequence;
+    
+    # Display the position of the variation within a number of features
+    # Foreach item that the variation is known to affect, display a table
+    # with variation coordinates relative to the feature
+    
+    # This is mostly constructed from Molecular_change hash associated with
+    # tags in Affects, with the exception of Clone and Chromosome
+
+
+    # Add some better markup (ie flat table looks kinda like crap)
+    # add conceptual translation
+    
+    my $toggle_count;
+    foreach my $tag (qw/Pseudogene Transcript Predicted_CDS Gene Clone Chromosome/) {
+	my @container;
+	if (my @entries = eval { $var->$tag }) {
+	    # Parse the Molecular_change hash for each feature
+	    my $parsed_data;
+	    foreach my $entry (@entries) {
+		$toggle_count++;
+		my $color = ($toggle_count % 2 == 0) ? '#AFDFE4' : '#B9D989';
+		push @container,start_div({-style=>"background-color:$color;padding:5px;margin-bottom:5px;"});
+		push @container,
+		div({-style => ''},
+		    $tag eq 'Gene' 
+		    ? a({-href=>Object2URL($entry)},Bestname($entry))
+		    : ObjectLink($entry));
+						
+		my @data = $entry->col;
+		push @data,$_ unless @data;   # Flat entries
+		next unless @data;
+		
+		my $hash_data  = ParseHash(-nodes => $entry);
+		
+
+		# do_translation is a flag controlling whether or not
+		# we should undertake a conceptual translation
+		# See FormatMolecularChangeHash for details
+		my ($cells,$do_translation) = FormatMolecularChangeHash(-data => $hash_data,
+									-tag  => $tag);
+		
+		print $do_translation;
+		if ($cells) {
+		    push @container,start_div();
+		    foreach (@$cells) {
+			push @container,div(map { span($_) } @$_);
+		    }
+		    push @container,end_div();
+		}
+		
+		push @container,start_span({-style=>SEQ_STYLE});
+		
+		# Display a conceptual translation, but only for Missense
+		# Nonsense, and Frameshift alleles within exons
+		if ($tag eq 'Predicted_CDS' && $do_translation) {
+		    my $aa_type = $data->aa_type;
+		    if ($aa_type) {
+			my ($wt_snippet,$mut_snippet,$wt_full,$mut_full,$debug);
+			($wt_snippet,$mut_snippet,$wt_full,$mut_full,$debug) 
+			    = $data->do_simple_conceptual_translation(-cds => $entry);
+			unless ($wt_snippet) {
+			    ($wt_snippet,$mut_snippet,$wt_full,$mut_full,$debug) 
+				= $data->do_manual_conceptual_translation(-cds => $entry);
+			}
+			
+			push @container,
+			    'Conceptual translation'
+			    . br
+			    . lc ($aa_type) . " [" . $data->formatted_aa_change . ']'
+			    . br
+			    . $wt_snippet . ' -- Wild type'
+			    . br . $mut_snippet . ' -- ' . i($var)
+			    . br . br
+			    . toggle_one({on=>0},"conceptual_translation$toggle_count",
+					 'full conceptual translation',pre($wt_full),pre($mut_full))
+			    . br
+			    . toggle_one({on=>1},"motif_picture$toggle_count",
+					 'variation and motif image',p(motif_picture(1,$entry)));
+			
+			push @container,div({-style=>'font-family:courier;background-color:#CCCCCC;padding:5px;margin-top:10px;margin-bottom:20px;font-size:12px;'},
+					    "$debug") if $debug;
+		    }
+		}
+				
+		my ($abs_start,$abs_stop,$fstart,$fstop,$start,$stop) = fetch_coords_in_feature($tag,$entry);
+		
+		push @container,br,
+		stuff_coordinates($fstart,$fstop,$start,$stop,
+				  ($tag eq 'Gene' 
+				   ? Bestname($entry) : $entry),$toggle_count)
+		    if ($fstart && $fstop && $start && $stop);
+		push @container,end_div();
+		push @container,end_div();
+	    }
+	} else {
+	    # Clone must come from the Sequence tag
+	    my @affects;
+	    if ($tag eq 'Clone') {
+		@affects = $var->Sequence if $var->Sequence;
+	    } 
+
+#	    elsif ($tag eq 'Chromosome') {
+#		# And fetch the chromosome from the Clone
+#		my ($chrom) = eval { $var->Sequence->Interpolated_map_position(1) };
+#		@affects = $chrom->name if $chrom;
+#	    }
+	    
+	    my $color_count;  # internal to @affects...
+	    foreach (@affects) {
+		$toggle_count++;
+		$color_count++; 
+		my $color = ($color_count % 2 == 0) ? '#AFDFE4' : '#B9D989';
+		
+		push @container,start_div({-style=>"background-color:$color;padding:5px;"});
+		push @container,ObjectLink($_);
+		
+		my ($abs_start,$abs_stop,$fstart,$fstop,$start,$stop) = fetch_coords_in_feature($tag,$_);
+		push @container,
+		br . span({-style=>SEQ_STYLE},
+			  stuff_coordinates($fstart,$fstop,$start,$stop,$_,$toggle_count))
+		    if ($fstart && $fstop && $start && $stop);		    
+		
+		push @container,end_div();	
+	    }
+	}
+	
+	SubSection("Affects "
+		   . ($tag eq 'Predicted_CDS' ? 'CDS' : $tag),join('',@container)) if @container;
+	
+    }
+
+    # Where should this go?  This is also redundant with SNPs
+    my @pcr = map { ObjectLink($_) } $var->PCR_product;
+    SubSection('Flanking PCR product(s)',Tableize(\@pcr)) if @pcr;
+}
+
+
+# Add the coordinates to the display
+sub stuff_coordinates {
+    my ($fstart,$fstop,$start,$stop,$entry,$c) = @_;
+    return toggle_one({on=>0},"coordinates$c",
+		      'coordinates',
+		      br,"$entry coordinates: $fstart:$fstop",br,
+			"$var coordinates relative to $entry: $start:$stop");
+
+}
+
+sub fetch_coords_in_feature {
+    my ($tag,$entry) = @_;
+    
+    # Fetch the variation segment
+    my $variation_segment = $data->variation_segment;
+    
+    # Fetch a GFF segment of the containing feature
+    my $containing_segment;
+    # Kludge for chromosome
+    if ($tag eq 'Chromosome') {
+	($containing_segment) = $GFFDB->segment(-class=>'Sequence',-name=>$entry);
+    } else {
+	
+	# Um, this breaks very often, returning multiple segments...
+	$containing_segment = $data->genomic_segment(-refseq=>$entry);
+    }
+    
+    return unless $variation_segment && $containing_segment;
+    if ($containing_segment) {
+	# Set the refseq of the variation to the containing segment
+	eval { $variation_segment->refseq($containing_segment) };
+	
+	# Debugging statements
+	warn "Contained in $tag $entry" . join(' ',$data->coordinates($variation_segment)) if DEBUG;
+	warn "Containing seg coordinates " . join(' ',$data->coordinates($containing_segment)) if DEBUG;
+	
+	my ($fabs_start,$fabs_stop,$fstart,$fstop) = $data->coordinates($containing_segment);
+	my ($abs_start,$abs_stop,$start,$stop)     = $data->coordinates($variation_segment);
+#	      ($fstart,$fstop) = (qw/- -/) if ($tag eq 'Chromosome');
+	($start,$stop) = ($stop,$start) if ($start > $stop);
+	return ($abs_start,$abs_stop,$fstart,$fstop,$start,$stop);
+    }
+}
+
+
+
+
+sub history {
+  StartSection('Isolation History');
+
+  my $source_db = $var->Database;
+  if ($source_db) {
+      my $name = $source_db->Name;      
+      my $id   = $var->Database(3);
+      my $url  = $source_db->URL_constructor;
+      # Create a direct link to the external site
+      my $request_link;
+      if ($url && $id) {
+	  $name =~ s/_/ /g;
+          my $href = sprintf($url,$id);
+	  $request_link = a({-href=>$href},"$name (external link)") ;
+      }
+#      SubSection('Source',($source_db->URL ? a({-href=>$source_db->URL},$name) : $name) . $request_link);
+      SubSection('Source',$request_link) if $request_link;
+  }
+  
+   
+    foreach my $dbsnp ($var->Database){
+      if($dbsnp eq 'dbSNP_ss'){
+	my $id=$dbsnp->right(2);
+	my $url  = $dbsnp->URL_constructor;
+	# Create a direct link to the external site
+	my $request_link;
+	if ($url && $id) {
+# 	    (my $name = $dbsnp) =~ s/_/ /g;
+	    my $href = sprintf($url,$id);
+	    $request_link = a({-href=>$href},"dbSNP: $id") ;
+	    
+	} 
+	SubSection('External Source',$request_link) if $request_link;
+	
+      }
+    }
+
+  SubSection('Author',$var->Author || UNKNOWN);
+  my $person = join("; ",map { ObjectLink($_,$_->Full_name || $_->Standard_name) } $var->Person) if $var->Person;
+  $person ||= UNKNOWN;
+  SubSection('Person',$person);
+
+
+  my @formatted;
+  foreach ($var->Laboratory) {
+  my $name  = eval { $_->Representative->Standard_name };
+  my $place = eval { $_->Mail };
+  push @formatted, ($name) ? ObjectLink($_) . ' (' . ObjectLink($name) . ', ' . $place . ')' : ObjectLink($_);
+}
+  my $formatted = join(br,@formatted);
+  SubSection('Laboratory of origin',$formatted || UNKNOWN);
+  SubSection('Date isolated',$var->Date || UNKNOWN);
+  SubSection('Mutagen',$var->Mutagen || UNKNOWN);
+  SubSection('Isolated via forward genetics',$var->Forward_genetics) if $var->Forward_genetics;
+  SubSection('Isolated via reverse genetics',$var->Reverse_genetics) if $var->Reverse_genetics;
+  SubSection('Transposon excision',$var->Transposon_excision)     if ($var->Transposon_excision);
+  
+  # Where does this belong?
+  SubSection('Transposon insertion',$var->Transposon_insertion)   if ($var->Transposon_insertion);
+
+  #### No longer in use, apparently
+  ####SubSection('Knockout Consortium allele, isolated_for',$var->Isolated_for)
+  ####  if ($var->KO_consortium_allele(0) && $var->Isolated_for);
+}
+
+sub references {
+  my @refs = $var->Reference;
+  my $var_public_name = $var->Public_name;
+  StartSection('References');
+  if (@refs) {
+    format_references(-references=>\@refs,-format=>'long',-pubmed_link=>'image',-curator=>url_param('curator'),-suppress_years=>1);
+  } else {
+    SubSection('',i("No publications refer to $var_public_name or they have not yet been entered into WormBase."));
+  }
+  EndSection;
+}
+
+# Display some information specific to polymorphisms
+sub polymorphism_details {
+  StartSection('Polymorphism details');
+  # What type of polymorphism is this?
+  my $type;
+  if ($var->SNP(0) && $var->RFLP(0)) {
+    $type = 'SNP and RFLP'
+  } elsif ($var->SNP(0)) {
+    $type = 'SNP';
+  } else {
+    $type = $var->Transposon_insertion . ' transposon insertion';
+  }
+  SubSection('Polymorphism type',$type);
+  SubSection('Reference strains',$var->Strain);
+  SubSection('Status',($var->Confirmed_SNP(0) ? 'confirmed' : 'predicted'));
+  SubSection('',hr);
+  
+  my @pcr_product = $var->PCR_product;
+
+  # Ugh.  Have to access RFLP by indexing into an array! Blech!
+  my @ref_enzymes = eval { $var->Reference_strain_digest->col(0) };
+  my @ref_digests;
+  foreach my $enz (@ref_enzymes) {
+      my @bands = $enz->col;
+      foreach (@bands) {
+	  push (@ref_digests,[$enz,$_]);
+      }
+  }
+  
+  my @poly_enzymes = eval { $var->Polymorphic_strain_digest->col(0) };
+  my @poly_digests;
+  foreach my $enz (@poly_enzymes) {
+      my @bands = $enz->col;
+      foreach (@bands) {
+	  push (@poly_digests,[$enz,$_]);
+      }
+  }
+  
+  my $index = 0;
+  foreach my $pcr_product (@pcr_product) {
+    # If this is an RFLP, extract digest conditions
+    my $assay_table;
+    if ($var->RFLP(0) && @ref_digests) {	
+	my ($ref_digest,$ref_bands)   = @{$ref_digests[$index]};
+	my ($poly_digest,$poly_bands) = @{$poly_digests[$index]};
+	
+	$assay_table = 
+	    b('RFLP analysis') .
+	    table({-border=>1},
+		  TR(th('Source'),th('Enzyme'),th('Resulting band(s)')),
+		  TR(td("Reference strain digest"),td($ref_digest),td($ref_bands)),
+		  TR(td("Polymorphic strain digest"),td($poly_digest),td($poly_bands)));
+    }
+
+    # Heinous hack. Some SNPs listed as RFLPs have no assay conditions
+    $assay_table ||= 'SNP Assay: Detectable only by sequencing.' unless $var->RFLP(0);
+
+    my ($left_oligo,$right_oligo);
+    if (my @oligos = $pcr_product->Oligo) {
+      $left_oligo  = $oligos[0]->Sequence;
+      $right_oligo = $oligos[1]->Sequence;
+    }
+
+    my $pcr_conditions = $pcr_product->Assay_conditions;
+
+    # Fetch the sequence of the PCR_product
+    my $sequence = eval { $var->Sequence };
+
+    my @pcrs = eval { $sequence->PCR_product };
+    my ($start,$stop,@pos);
+    foreach (@pcrs) {
+      next if ($_ ne $pcr_product);
+      @pos = $_->row;
+      $start        = $pos[1];
+      $stop         = $pos[2];
+    }
+    my ($segment) = $GFFDB->segment(-name=>$sequence,
+				    -offset=>$start,
+				    -length=>($stop-$start)) if ($start && $stop);
+    my $dna   = $segment->dna if $segment;
+    my $fasta = pre($data->to_fasta($sequence,$dna));
+
+    my $pcr_table = table(
+			  TR(td('Verified PCR product'),td(ObjectLink($pcr_product))),
+			  TR(td('Left oligo'),td($left_oligo)),
+			  TR(td('Right oligo'),td($right_oligo)),
+			  ($pcr_conditions) ? TR(td('PCR conditions'),td($pcr_conditions)) : '',
+			  ($dna) ? TR(td('Sequence'),td($fasta)) : ''
+			 );
+    SubSection('SNP Assay',
+	       $pcr_table,
+	       $assay_table
+	      );
+    $index++;
+  }
+}
+
+
+
+#####################################
+#  IMAGES
+#####################################
+
+# Create a genomic picture
+# This is far simpler than the manual approach below but doesn't give me as much
+# flexibility
+sub genomic_picture {
+  my $gene = $var->Gene;
+  my $source = get_species($var);
+
+#  my $segment = $GFFDB->segment(Gene => $gene);
+  my $segment;
+
+  # By default, lets just center the image on the variation itself.
+  # What segment should be used to determine the baseline coordinates?
+  # Use a CDS segment if one is provided, else just show the genomic environs
+  unless ($segment) {
+    # Try fetching a generic segment
+    my ($ref,$low,$high) =  $data->chrom_coordinates;
+    my $split = UNMAPPED_SPAN / 2;
+    
+    ($segment) = $GFFDB->segment($ref,$low-$split,$low+$split);
+  }
+  return unless $segment;
+
+  my $absref   = $segment->abs_ref;
+  my $absstart = $segment->abs_start;
+  my $absend   = $segment->abs_end;
+  ($absstart,$absend) = ($absend,$absstart) if $absstart > $absend;
+  my $length = $segment->length;
+
+  # add another 10% to left and right
+  my $start = int($absstart - 0.1*$length);
+  my $stop  = int($absend   + 0.1*$length);
+     # GB2
+  my $type = $source =~ /elegans/ ? "t=CG;t=CANONICAL;t=Allele;t=TRANSPOSONS":"t=WBG";
+  return InlineImage($type,$source,$absref,$start,$stop);
+
+}
+
+
+
+# What segment should be used to determine the baseline coordinates?
+# Use a gene if the allele has been mapped, else just show
+# the genomic environs for the region
+sub genomic_picture_manual {
+  my $gene = $var->Gene;
+  my $segment = $GFFDB->segment(Gene => $gene);
+  unless ($segment) {
+    # Try fetching a generic segment
+    my ($ref,$low,$high) =  $data->chrom_coordinates;
+    my $split = UNMAPPED_SPAN / 2;
+    $segment = $GFFDB->segment($ref,$low-$split,$low+$split);
+  }
+  return unless $segment;
+
+  # Conditionally flip the image for features on the (-) strand
+  my $flip = ($segment->abs_start > $segment->abs_stop) ? 1 : 0;
+  
+  my $absref   = $segment->abs_ref;
+  my $absstart = $segment->abs_start;
+  my $absend   = $segment->abs_end;
+  
+  ($absstart,$absend) = ($absend,$absstart)   if $absstart > $absend;
+  my $length = $segment->length;
+  
+  # add another 10% to left and right
+  my $start = int($absstart - 0.1*$length);
+  my $stop  = int($absend   + 0.1*$length);
+  my ($new_segment) = $GFFDB->segment(-name=>$absref,
+				      -start=>$start,
+				      -stop=>$stop
+				     );
+  # Fetch all (curated) gene models for this region
+  my @features = grep { $_->source eq 'curated' } $new_segment->features('wormbase_cds');
+
+  my $ftr = 'Bio::Graphics::Feature';
+  my $panel = Bio::Graphics::Panel->new(-segment   => $new_segment,
+					-key       => 'Genomic Environs',
+					-key_style => 'between',
+					-key_align => 'left',
+					-grid      => 1,
+					-width     => PICTURE_WIDTH,
+					-flip      => $flip);
+  $panel->pad_bottom(PADDING);
+  $panel->pad_left(PADDING);
+  $panel->pad_right(PADDING);
+  $panel->pad_top(PADDING);
+  
+  $panel->add_track(arrow => $new_segment,
+    		    -label => "Genomic segment " . $new_segment->abs_ref . ':' . $new_segment->start . '-' . $new_segment->end,
+  		    -arrowstyle =>'regular',
+		    -tick       => 5,
+    		   );
+
+  my @genes = $new_segment->features(qw/gene gene:RNA gene:miRNA/);
+  $panel->add_track(arrow        => [@genes],
+		    -base        => 1,
+		    -fgcolor     => 'red',
+		    -height      => 5,
+		    -linewidth   => 2,
+		    -label       => 1,
+		    -description => 1,
+		   );
+
+  # Gene models
+  $panel->add_track(wormbase_transcript   => [ @features ],
+		    -label       => 1,
+		    -bump        => 1,
+		    -linewidth   => 1,
+		    -height      => sub {
+		      my $feature = shift;
+		      return $feature->method =~  /transcript|CDS|UTR|coding_exon/i ? 10 : 6;
+		    },
+		    -description => sub {
+		      my $feature = shift;
+		      my $notes = join ' ',$feature->notes;
+		      if ($feature->method eq 'pseudo') {
+			$notes = $notes ? " (pseudogene)" : "(pseudogene)";
+		      }
+		      $notes;
+		    },
+		    -bgcolor      => 'white',
+		    -fgcolor      => 'black',
+		    -forwardcolor => 'violet',
+		    -reversecolor => 'turquoise',
+		    -utr_color    => 'gray',
+		    -font2color   => 'blue',
+		   );
+
+  # Add seperate tracks for main allele, other alleles, and SNPs
+  # All this rigamarole just to hilight the primary allele!
+  # And even then, I've lost the gff source and method
+  my $variation_segment = $data->variation_segment;
+  my @seg  = $ftr->new(-start=> $variation_segment->abs_start,
+		       -end  => $variation_segment->abs_end,
+		       -name => $var);
+
+  my @alleles = grep {$_->name ne $var } $new_segment->features(qw/Allele:Allele 
+							      deletion:Allele insertion:Allele
+							      sequence_variant:Allele
+							      substitution:Allele
+							      transposable_element_insertion_site:Allele
+							      transposable_element_insertion_site:Mos_insertion
+							      Complex_change_in_nucleotide_sequence:Allele
+								/);
+
+  my @snps = grep {$_->name ne $var } $new_segment->features('SNP:Allele');
+  add_track($panel,\@seg);
+  add_track($panel,\@alleles);
+  add_track($panel,\@snps);
+
+  # turn some of the features into urls
+  my $boxes = $panel->boxes;
+  my $map   = '';
+  foreach (@$boxes) {
+    my ($feature,@coords) = @$_;
+    my $name = $feature->name;
+    my $url  = hit_to_url($name) or next;
+    my $coords    = join ',',@coords;
+    $map   .= qq(<area shape="rect" target="_new" coords="$coords" href="$url" />\n);
+  }
+  
+  my $gd = $panel->gd;
+  my $url = AceImage($gd);
+
+  my $img = img({-src    => $url,
+		 -align  => 'center',
+		 -usemap => '#protein_domains',
+		 -border => 0,
+		});
+  my $note = ($flip == 1) ? i("Note: " . Bestname($gene) . " is on the (-) strand") : '';
+  return ($img,qq(\n<map name="protein_domains">\n),$map,qq(</map>\n),$note);
+}
+
+sub add_track {
+  my ($panel,$features) = @_;
+  $panel->add_track(segments     => [@$features],
+		    -glyph       => $BROWSER->setting(Allele=>'glyph'),
+		    -label       => 1,
+		    -bump        => 1,
+		    -bgcolor     => $BROWSER->setting('Allele' => 'bgcolor'),
+		    -font2color  => 'blue',
+		    -height      => 6,
+		    -linewidth   => 1,
+		    -description => $BROWSER->setting('Allele'=>'description'),
+		   );
+}
+
+
+##########################################
+# MolecularChangeHash
+##########################################
+sub FormatMolecularChangeHash {
+    my @p = @_;
+    my ($data,$format,$display_tag,$link_tag,$display_label,$detail,$tag) =
+	rearrange([qw/DATA FORMAT DISPLAY_TAG LINK_TAG DISPLAY_LABEL DETAIL TAG/],@p);
+
+#    print "here";
+ 
+    
+    return unless $data && eval { @$data >= 1 };   # Nothing to build a table from
+#    print keys %$data;
+    
+    my @types     = qw/Missense Nonsense Frameshift Silent Splice_site/;
+    my @locations = qw/Intron Coding_exon Noncoding_exon Promoter UTR_3 UTR_5 Genomic_neighbourhood/;
+    
+    # Select items that we will try and translate
+    # Currently, this needs to be
+    # 1. Affects Predicted_CDS
+    # 2. A missense or nonsense allele
+    # 3. Contained in a coding_exon
+    my %parameters_seen;
+    my %do_translation = map { $_ => 1 } (qw/Missense Nonsense/);
+    # Under no circumstances try and translate the following
+    my %no_translation = map { $_ => 1 } (qw/Frameshift Deletion Insertion/);
+
+    # The following entries should be examined for the presence
+    # of associated Evidence hashes
+    my @with_evidence = 
+	qw/
+	Missense
+	Silent
+	Nonsense
+	Splice_site
+	Frameshift
+	Intron
+	Coding_exon
+	Noncoding_exon
+	Promoter
+	UTR_3
+	UTR_5	
+	Genomic_neighbourhood
+	/; 
+    
+    my @cells;
+    my $table = start_table({-border=>1});
+    foreach my $entry (@$data) {  
+	my $hash  = $entry->{hash};
+	my $node  = $entry->{node};
+		
+	# Conditionally format the data for each type of evidence
+	# Curation often has the type of change and its location
+	
+	# What type of change is this?
+	foreach my $type (@types) {
+	    my $obj = $hash->{$type};
+	    my @data = eval { $obj->row };
+	    next unless @data;
+	    my $clean_tag = ucfirst($type);
+	    $clean_tag    =~ s/_/ /g;
+	    $parameters_seen{$type}++;
+
+	    my ($pos,$text,$evi,$evi_method,$kind);
+	    if ($type eq 'Missense') {
+		($type,$pos,$text,$evi) = @data;
+	    } elsif ($type eq 'Nonsense' || $type eq 'Splice_site') {
+		($type,$kind,$text,$evi) = @data;		
+	    } elsif ($type eq 'Framshift') {
+		($type,$text,$evi) = @data;
+	    } else { 
+		($type,$text,$evi) = @data;
+	    }	    
+
+	    if ($evi) {
+		($evi_method) = GetEvidenceNew(-object => $text,
+					       -format => 'inline',
+					       -display_label => 1,
+					       );
+	    }
+	    push @cells,["Effect on protein: $clean_tag",$pos || undef,$text,
+			 $evi_method ? " ($evi_method)" : undef];
+	}
+	
+	# Where is this change located?
+	foreach my $location (@locations) {
+	    my $obj = $hash->{$location};
+	    my @data = eval { $obj->col };
+	    next unless @data;
+	    $parameters_seen{$location}++;
+
+	    my ($evidence) = GetEvidenceNew(-object => $obj,
+					    -format => 'inline',
+					    -display_label => 1
+					    );
+	    
+	    my $clean_tag = ucfirst($location);
+	    $clean_tag    =~ s/_/ /g;
+	    push @cells,["Contained in: $clean_tag",undef,undef,
+			 $evidence ? " ($evidence)" : undef];
+	}
+    }
+    
+    my $do_translation;
+    foreach (keys %parameters_seen) {
+	$do_translation++ if (defined $do_translation{$_}  && !defined $no_translation{$_});
+    }
+   
+    return (\@cells,$do_translation);
+}
+
+
+
+
+
+
+sub motif_picture {
+    my ($best_only,$cds) = @_;
+    my $cds     = $data->cds_segment($cds);;
+    my $length  = $data->wt_trans_length;
+    # Setup the panel, using the protein length to establish the box as a guide
+    my $ftr = 'Bio::Graphics::Feature';
+    my $base_segment = $ftr->new(-start=>1,-end=>$length,
+				 -name => $cds->display_name,
+				 -type => 'Protein');
+
+    my $panel = Bio::Graphics::Panel->new(-segment   =>$base_segment,
+					  -key       =>'Protein Features',
+					  -key_style =>'between',
+					  -key_align =>'left',
+					  -grid      => 1,
+					  -width     =>PICTURE_WIDTH);
+
+    $panel->pad_bottom(PADDING);
+    $panel->pad_left(PADDING);
+    $panel->pad_right(PADDING);
+    $panel->pad_top(PADDING);
+    
+    # Fetch an ace object for the current CDS
+#    print $var->Predicted_CDS;
+#     print $var->Predicted_CDS->Corresponding_protein;
+    my ($obj) = map {$_->Corresponding_protein} grep { $_ eq $cds->display_name } $var->Predicted_CDS;
+
+   
+    my %features;
+    ## Structural motifs (this returns a list of feature types)
+    my @features = $obj->Feature;
+    # Visit each of the features, pushing into an array based on its name
+    foreach my $type (@features) {
+	# 'Tis dangereaux - could lose some features if the keys overlap...
+	my %positions = map {$_ => $_->right(1)} $type->col;
+	foreach my $start (keys %positions) {
+	    my $seg   = $ftr->new(-start=>$start,-end=>$positions{$start},
+				  -name=>"$type",-type=>$type);
+	    # Create a hash of all the features, keyed by type;
+	    push (@{$features{'Features-' .$type}},$seg);
+	}
+    }
+    
+#    # A protein ruler
+    $panel->add_track(arrow => [ $base_segment ],
+		      -label => 'amino acids',
+		      -arrowstyle=>'regular',
+		      -tick=>5,
+		      #		    -tkcolor => 'DarkGray',
+		      );
+    
+    # Fetch and sort the exons
+    my @exons = grep { $_->name eq $cds->display_name } $cds->features('exon:curated');
+
+    # Translate the bp start and stop positions into the approximate amino acid
+    # contributions from the different exons.
+    my ($count,$end_holder);
+    my @segmented_exons;
+    my $total_aa;
+    foreach my $exon (sort { $a->start <=> $b->start} @exons) {
+	$count++;
+	my $start = $exon->start;
+	my $stop  = $exon->stop;
+
+	# Calculate the difference of the start and stop to approximate its aa span
+	my $length = (($stop - $start) / 3);
+	$total_aa += $length;
+	
+	my $end = $length + $end_holder;
+	
+	my $seg = $ftr->new(-start=>$end_holder || 1,-end=>$end,
+			    -name=>$count,-type=>'exon');
+	push @segmented_exons,$seg;
+
+	# This is really the new start position
+	$end_holder = $end + 1;
+    }
+    
+    ## Print the exon boundaries
+    $panel->add_track(generic=>[ @segmented_exons ],
+		      -label     =>  1,  # number the exons
+		      -key       => 'exon boundaries',
+		      -description => 1,
+		      -bump      => 0,
+		      -height    => 6,
+		      -spacing   => 50,
+		      -linewidth =>1,
+		      -connector =>'none',
+		      #		  -tkcolor => $colors[rand @colors],
+		      ) if @segmented_exons;
+    
+    
+    foreach ($obj->Homol) {
+	my (%partial,%best);
+	my @hits = $obj->$_;
+	
+	# Let's not display pep_homols on this image
+	next if ($_ eq 'Pep_homol');
+	
+	#    # Pep_homol data structure is a little different
+	#    if ($_ eq 'Pep_homol') {
+	#      my @features = wrestle_blast(\@hits,1);
+	
+	#      # Sort features by type.  If $best_only flag is true, then we only keep the
+	#      # best ones for each type.
+	#      my %best;
+	#      for my $f (@features) {
+	#	next if $f->name eq $obj;
+	#    	my $type = $f->type;
+	#   	if ($best_only) {
+	#    	  next if $best{$type} && $best{$type}->score > $f->score;
+	#    	  $best{$type} = $f;
+	#    	} else {
+	#    	  push @{$features{'BLASTP Homologies'}},$f;
+	#    	}
+	#      }
+	
+	#      # add descriptive information for each of the best ones
+	#      local $^W = 0; #kill uninit variable warning
+	#      for my $feature ($best_only ? values %best : @{$features{'BLASTP Homologies'}}) {
+	#	my $homol = $HIT_CACHE{$feature->name};
+	#	my $description = $homol->Species;
+	#	my $score       = sprintf("%7.3G",10**-$feature->score);
+	#	$description    =~ s/^(\w)\w* /$1. /;
+	#	$description   .= " ";
+	#	$description   .= $homol->Description || $homol->Gene_name;
+	#	$description   .= eval{$homol->Corresponding_CDS->Brief_identification}
+	#	  if $homol->Species =~ /elegans|briggsae/;
+	#	my $t = $best_only ? "best hit, " : '';
+	#	$feature->desc("$description (${t}e-val=$score)") if $description;
+	#      }
+	
+	#      if ($best_only) {
+	#	for my $type (keys %best) {
+	#	  push @{$features{'Selected BLASTP Homologies'}},$best{$type};
+	#	}
+	#      }
+	#      #
+	#      #      # these are other homols
+	#    } else {
+	
+	for my $homol (@hits) {
+	    my $title = eval {$homol->Title};
+	    my $type  = $homol->right or next;
+	    my @coord = $homol->right->col;
+	    my $name  = $title ? "$title ($homol)" : $homol;
+	    for my $segment (@coord) {
+		my ($start,$stop) = $segment->right->row;
+		my $seg  = $ftr->new(-start=>$start,
+				     -end =>$stop,
+				     -name =>$name,
+				     -type =>$type);
+		push (@{$features{'Motifs'}},$seg);
+	    }
+	}
+    }
+    
+    my %glyphs = (low_complexity => 'generic',
+		  transmembrane   => 'generic',
+		  signal_peptide  => 'generic',
+		  tmhmm           => 'generic'
+		  );
+    
+    my %labels   = ('low_complexity'         => 'Low Complexity',
+		    'transmembrane'           => 'Transmembrane Domain(s)',
+		    'signal_peptide'          => 'Signal Peptide(s)',
+		    'tmhmm'                   => 'Transmembrane Domain(s)',
+		    'wublastp_ensembl'        => 'BLASTP Hits on Human ENSEMBL database',
+		    'wublastp_fly'            => 'BLASTP Hits on FlyBase database',
+		    'wublastp_slimSwissProt'  => 'BLASTP Hits on SwissProt',
+		    'wublastp_slimTrEmbl'     => 'BLASTP Hits on TREMBL',
+		    'wublastp_worm'           => 'BLASTP Hits on WormPep',
+		    );
+    
+    my %colors   = ('low_complexity' => 'blue',
+		    'transmembrane'  => 'green',
+		    'signalp'        => 'gray',
+		    'Prosite'        => 'cyan',
+		    'seg'            => 'lightgrey',
+		    'Pfam'           => 'wheat',
+		    'Motif_homol'    => 'orange',
+		    'Pep_homol'      => 'blue'
+		    );
+    
+    foreach my $key (sort keys %features) {
+	# Get the glyph
+	my $type  = $features{$key}[0]->type;
+	my $label = $labels{$key}  || $key;
+	my $glyph = $glyphs{$key}  || 'graded_segments';
+	my $color = $colors{$type} || 'green';
+	my $connector = $key eq 'Pep_homol' ? 'solid' : 'none';
+	
+	$panel->add_track(segments   =>$features{$key},
+			  -glyph    =>$glyph,
+			  -label  => ($label =~ /Features/) ? 0 : 1,
+			  -bump   => 1,
+			  -sort_order=>'high_score',
+			  -bgcolor   =>$color,
+			  -font2color => 'red',
+			  -height    =>6,
+			  -linewidth =>1,
+			  -description=>1,
+			  -min_score  =>-50,
+			  -max_score  =>100,
+			  -key       =>$label,
+			  );
+    }
+    
+    # Add in the allele position
+    # Should conditionally select the glyph
+    my $var_seg  = $ftr->new(-start=>$data->wt_aa_start,
+			     -end =>$data->wt_aa_start,
+			     -name =>$var . "(" . $data->formatted_aa_change . ")");
+    $panel->add_track(segments     =>$var_seg,
+		      -glyph       =>'diamond',
+		      -label       => 1,
+		      -bump        => 1,
+		      -bgcolor     => ($data->aa_type eq 'Missense') ? 'yellow' : 'red',
+		      -font2color  => 'red',
+		      -height      => 6,
+		      -linewidth   => 1,
+		      -description => 1,
+		      );
+    
+    # This will not work since I do not readily have
+    # The amino acid positions of alleles
+    #  my @raw_alleles = grep {$_ ne $var } $gene->features('Allele:Allele','Allele:SNP');
+    #  my @alleles;
+    #  foreach (@raw_alleles) {
+    #    print $_->start/3,br;
+    #    print $_->stop/3,br;
+    #    my $seg  = $ftr->new(-start=>$_->start/3,
+    #			 -end  =>$_->stop/3,
+    #			 -name =>$_->name,
+    #			 -type =>'Other alleles');
+    #    push (@alleles,$seg);
+    #  }
+    #  print @alleles;
+    #  $panel->add_track(segments     => [@alleles],
+    #		    -glyph       =>'diamond',
+    #		    -label       => 1,
+    #		    -bump        => 1,
+    #		    -bgcolor     =>'red',
+    #		    -font2color  => 'red',
+    #		    -height      =>6,
+    #		    -linewidth   =>1,
+    #		    -description =>1,
+    #		    -description => 1,
+    #		   );
+    
+    
+    # turn some of the features into urls
+    my $boxes = $panel->boxes;
+    my $map   = '';
+    foreach (@$boxes) {
+	my ($feature,@coords) = @$_;
+	my $name = $feature->name;
+	my $url  = hit_to_url($name) or next;
+	my $coords    = join ',',@coords;
+	$map   .= qq(<area shape="rect" target="_new" coords="$coords" href="$url" />\n);
+    }
+    
+    my $gd = $panel->gd;
+    my $url = AceImage($gd);
+    
+    my $img = img({-src    => $url,
+		   -align  => 'center',
+		   -usemap => '#protein_domains',
+		   -border => 0
+		   });
+    return ($img,qq(\n<map name="protein_domains">\n),$map,qq(</map>\n));
+}
+
+sub hit_to_url {
+  my $name = shift;
+  $name =~ /(\w+):(\w+)/ or return;
+  my $prefix    = $1;
+  my $accession = $2;
+  my $link      = $EXT_LINKS{$prefix} or next;
+  my $url       = sprintf($link,$accession);
+  $url;
+}
+
+
+
+# No gene found, but users often type in sequence names
+# and genbank accession numbers.
+# Try to redirect.
+sub redirect_to_sequence {
+  my $gene_name = shift;
+  my @genes;
+  my $seq;
+  if ($seq = $DB->fetch(Sequence => $gene_name)) {
+    @genes = $seq->Locus;
+  } elsif ($seq = $DB->fetch(Locus => $gene_name)) {
+  }
+  
+  if (@genes) {
+    AceMultipleChoices('gene','locus', \@genes);
+  } else {
+    AceRedirect('sequence' => $seq) if $seq;
+  }
+  exit 0;
+}
+
+# Special code:
+# Gene name has been superseded
+sub redirect_to_locus {
+  my $newlocus = shift;
+  AceRedirect('gene',$newlocus);
+  exit 0;
+}
+
+
+
+#####################################
+#  Classification
+#####################################
+# What broad type of allele is this?
+sub broad_classification {
+    if ($var->KO_consortium_allele(0)) {
+	return "Knockout Consortium allele";
+    } elsif ($var->SNP(0) && $var->RFLP(0)) {
+	my $string = 'Polymorphism; RFLP';
+	$string .= $var->Confirmed_SNP(0) ? " (confirmed)" : " (predicted)";
+	return $string;
+    } elsif ($var->SNP(0) && !$var->RFLP(0)) {
+	my $string = 'Polymorphism';
+	$string .= $var->Confirmed_SNP(0) ? " (confirmed)" : " (predicted)";
+    } else {
+	return 'allele';
+    }
+}
+
+
+sub fetch_map_position {
+  my $var = shift;
+  my ($chrom,$position,$error);
+  if ($var->Interpolated_map_position) {
+    ($chrom,$position,$error) = $var->Interpolated_map_position(1)->row;
+  } elsif ($var->Map) {
+    ($chrom,undef,$position,undef,$error) = $var->Map(1)->row;
+  }
+  return ($chrom,$position,$error) if $chrom;
+  # Try fetching from sequence
+  if (my $sequence = $var->Sequence) {
+    $chrom = $sequence->Interpolated_map_position(1);
+    $position = $sequence->Interpolated_map_position(2);
+    return ($chrom,$position,$error) if $chrom;
+  } 
+
+
+  if (my $gene = $var->Gene) {
+      if (my $m = $gene->get('Map')) {
+	  ($chrom,undef,$position,undef,$error) = $gene->Map(1)->row;
+      } else {
+	  if (my $m = $gene->get('Interpolated_map_position')) {
+	      ($chrom,$position,$error) = $m->right->row;
+	      return ($chrom,$position,$error) if $chrom;
+	  }
+      }
+  }
+  return ($chrom,$position,$error) if $chrom;
+}
+
+
+# Generic message for situtations where no information is found
+sub no_info {
+  my $section = shift;
+  return i("No $section information is available for $var or it has not yet been entered into WormBase.");
+}
+
+
+
+
+1;
+
+package Container;
+use Bio::Perl;
+use Bio::Graphics::Browser::Markup;
+use Bio::DB::GFF;
+use CGI qw/:standard/;
+use lib '../lib';
+use WormBase::Util::Rearrange;
+use ElegansSubs;
+
+use strict;
+
+# Number of bases of an indel to display before using "TYPE bp"
+use constant INDEL_DISPLAY_LIMIT  => '25';
+use constant SNIPPET_LENGTH       => 60;  # Maximum length of sequence snippet to display
+use constant DEBUG_ADVANCED       => 0;  # Debug advanced features
+use constant VARIATION_HILITE => 'color:#FFFFCC';
+
+sub new {
+  my ($class,$var,$GFFDB) = @_;
+  my $this = bless {},$class;
+  $this->{gffdb}     = $GFFDB;
+  $this->{variation} = $var;
+  
+  # Fetch a genomic segment that corresponds to the allele itself
+  # This will be a basal point from which to move outwards as necessary
+  my $segment = $this->genomic_segment(-key => 'wt_variation');
+#  my $cgh_segment = $this->genome_segment(-key => 'cgh_variation');
+
+  # Package the nucleotide sequences and type of mutation
+  # Redundant?
+  $this->fetch_sequence_from_ace;
+  return $this;
+}
+
+# Generically fetch a genomic segment
+# Source should be one of mutant or wild type
+# This may be a segmenet spanning a single variation
+# Type will be used to store the segment in the object
+# Pass an object to fetch that segment
+
+sub genomic_segment {
+  my ($self,@p) = @_;
+  my ($class,$start,$stop,$refseq,$key) = rearrange([qw/CLASS START STOP REFSEQ KEY/],@p);
+  my $var = $self->variation;
+  
+  my $db   = $self->gff;
+  my $segment;
+  if ($refseq && $start && $stop) {
+    $segment = $db->segment(-name=>$refseq,-start=>$start,-stop=>$stop);
+  } elsif ($refseq) {
+    $segment = $db->segment(-name=>$refseq,-class=>$refseq->class);
+  } else {
+    $class ||= $var->class;
+    $segment = $db->segment($class => $var);
+  }
+#  print "$key $segment $class $var";
+
+  $self->store_segment(-key => $key,-segment=>$segment) if $segment;
+  return $segment;
+}
+
+sub cds_segment {
+    my ($self,$cds) = @_;
+    my $db = $self->gff;
+    #my ($segment) = #grep {$_->method eq 'wormbase_cds'} 
+    
+    my $segment = $db->segment(-name=>$cds,-class=>'Transcript');
+    #  # Return the longest (spliced) transcript
+    #  # This seems like a really convoluted way to get the longest transcript
+    #  my $longest = 0;
+    #  foreach my $gene (@gene_segments) {
+    #    my @exons = grep { $_->name eq $gene->name } $gene->features('exon:curated');
+    #    my $dna = join('',map {$_->dna} @exons);
+    #    $longest = $gene if (length($dna) > $longest);
+    #  }
+    #  $data->add_segment('CDS',$longest);
+    # return $longest;
+    return $segment;
+}
+
+
+
+# Save various GFF segments under a provided name
+# Source should be one of wt / mut
+# type something like genomic or CDS
+sub store_segment {
+  my ($self,@p) = @_;
+  my ($segment,$key) = rearrange([qw/SEGMENT KEY/],@p);
+  $self->{segments}->{$key} = $segment;
+  return;
+}
+
+
+
+# What is the length of the mutation?
+# (Previously, this was done from the GFF itself.  This is better).
+
+# Stringify does not belong here  (should be part of build string)
+# need to concatenate multiple mutations
+sub fetch_sequence_from_ace {
+  my ($self,@p) = @_;
+  my ($stringify) = rearrange([qw/STRINGIFY/],@p);
+  my $var = $self->variation;
+  my @types = eval { $var->Type_of_mutation };
+  my @variations;
+
+  foreach my $type (@types) {
+    my ($mut,$wt);
+    if ($type =~ /insertion/i) {
+	$mut = $type->right;
+	$wt  = '-';
+	if ($var->Transposon_insertion || $var->Method eq 'Transposon_insertion') {
+	    $mut = $var->Transposon_insertion;
+	    $mut ||= 'unknown' if $var->Method eq 'Transposon_insertion';
+	    $mut = "Transposon insertion: $mut" if $mut;
+	} else {
+	    if (length($mut) > INDEL_DISPLAY_LIMIT && $stringify) {
+		$mut  = length ($mut) . ' bp insertion';
+	    }
+	}    
+    } elsif ($type =~ /deletion/i) {
+      # Extract the full sequence of the deletion from GFF
+      # (It is actually stored in the DB for some alleles)
+      my $segment = $self->variation_segment;
+      if ($segment) {
+	my ($chrom,$start,$stop) = $self->coordinates($segment);
+	$wt = $segment->dna;
+	if (length($wt) > INDEL_DISPLAY_LIMIT && $stringify) {
+	  $wt  = length ($wt) . ' bp deletion';
+	}
+	$mut = '-';
+      }
+    } elsif ($type =~ /substitution/i) {
+     my $change = $type->right;
+     ($wt,$mut) = eval { $change->row };
+     # Ack. Some of the alleles are still A/G.
+     unless ($wt && $mut) {
+       $change =~ s/\[\]//g;
+       ($wt,$mut) = split("/",$change);
+     }
+   }
+    push @variations,[$type,$wt,$mut];
+  }
+  return \@variations;
+}
+
+# Accessor for readability
+sub flanking_sequences {
+  my $self = shift;
+  my $var = $self->variation;
+  my $left_flank  = $var->Flanking_sequences(1);
+  my $right_flank = $var->Flanking_sequences(2);
+  return ($left_flank,$right_flank);
+}
+
+
+# Accessor for readability
+sub cgh_deleted_probes {
+  my $self = shift;
+  my $var = $self->variation;
+  my $left_flank  = $var->CGH_deleted_probes(1);
+  my $right_flank = $var->CGH_deleted_probes(2);
+  return ($left_flank,$right_flank);
+}
+
+#sub cgh_segments {
+#  my ($self,@p) = @_;
+#  my ($stringify) = rearrange([qw/STRINGIFY/],@p);
+#  my $var = $self->variation;
+#
+#  # Extract the full sequence of the deletion from GFF
+#  # (It is actually stored in the DB for some alleles)
+#  my $segment = $self->cgh_segment;
+#  if ($segment) {
+#      my ($chrom,$start,$stop) = $self->coordinates($segment);
+#      $wt = $segment->dna;
+#      if (length($wt) > INDEL_DISPLAY_LIMIT && $stringify) {
+#	  $wt  = length ($wt) . ' bp deletion';
+#      }
+#      $mut = '-';
+#  }
+#  push @variations,[$type,$wt,$mut];
+#  return \@variations;
+#}
+
+
+
+# Return the genomic coordinates of a provided span
+sub coordinates {
+  my ($self,$segment) = @_;
+  my $abs_start = $segment->abs_start;
+  my $abs_stop  = $segment->abs_stop;
+  my $start     = $segment->start;
+  my $stop      = $segment->stop;
+  return ($abs_start,$abs_stop,$start,$stop);
+}
+
+# The base segment is a GFF segment that contain a span of the primary allele
+sub base_segment { return shift->{segments}->{Variation}; }
+
+
+# DEPRECATING
+#sub cds_coordinates {
+#  my $self = shift;
+#  my $var = $self->variation;
+#  my $segment = $self->base_segment;
+#  # Eek.  What if no cds_segment?
+#  my $cds_segment = $self->cds_segment;
+#  return unless ($cds_segment);
+#  $segment->refseq($cds_segment);
+#  return ($segment->low,$segment->high);
+#}
+
+
+# CONVERTED
+sub chrom_coordinates {
+  my ($self,@p) = @_;
+  my ($link) = rearrange([qw/LINK/],@p);
+  my $segment = $self->variation_segment;
+  return unless $segment;
+  $segment->absolute(1);
+  my $abs_ref   = $segment->abs_ref;
+  my $abs_start = $segment->start;
+  my $abs_stop  = $segment->stop;
+  ($abs_start,$abs_stop) = ($abs_stop,$abs_start) if ($abs_start > $abs_stop);
+  my ($low,$high);
+  if ($abs_stop - $abs_start < 100) {
+    $low   = $abs_start - 50;
+    $high  = $abs_stop  + 50;
+  } else {
+    $low = $abs_start;
+    $high = $abs_stop;
+  }
+
+
+  my $var = $self->variation;
+  my $source = get_species($var);
+
+  my $ref = $segment->ref;
+  $segment->absolute(0);
+  if ($link) {
+    my $link = "/db/gb2/gbrowse/$source/?ref=$ref;start=$low;stop=$high;label=CG-Allele";
+    my $url = a({-href=>$link},"$ref:",$abs_start.'..'.$abs_stop);
+    return $url;
+  } else {
+    return ($abs_ref,$abs_start,$abs_stop);
+  }
+}
+
+
+
+sub aa_type {
+    my $self = shift;
+    my $var = $self->variation;
+    
+    # This must be parsed from the Molecular_change hash now, specifically Predicted_CDS
+    return $self->{aa_type} if $self->{aa_type};
+    
+    # AA type change, if known, will be located under the Predicted_CDS
+    my @types     = qw/Missense Nonsense Frameshift Silent Splice_site/;
+    foreach my $cds ($var->Predicted_CDS) {
+	my $data = ParseHash(-nodes => $cds);
+	foreach (@$data) {
+	    my $hash = $_->{hash};
+	    
+	    foreach (@types) {
+		return $_ if ($hash->{$_});
+	    }
+	}
+    }
+}
+
+
+## For missense and non_sense alleles only
+## Actually, the position is ONLY stored for
+## missense alleles
+sub get_aa_position {
+    my ($self,$cds) = @_;
+    my @types = qw/Missense Nonsense/;
+    my $data = ParseHash(-nodes => $cds);
+    foreach my $entry (@$data) {
+	my $hash = $entry->{hash};
+	my $node = $entry->{node};
+	foreach my $type (@types) {
+
+	    my $obj = $hash->{$type};
+	    my @data = eval { $obj->row };
+	    if ($obj) {
+		if ($type eq 'Missense') {
+		    my ($type,$pos,$text,$evi) = @data;
+		    return ($pos,$text,$type);
+		} 
+#		else {
+#		    my ($type,$pos,$text,$evi) = @data;
+#		    return ($pos,$text,$type);
+#		}
+	    }
+	}
+    }
+    return;
+}
+
+
+
+# Accessors
+sub formatted_aa_change  { shift->{formatted_aa_change};  }
+sub formatted_nt_change  { shift->{formatted_nt_change};  }
+sub wt_protein_fragment  { shift->{wt_protein_fragment};  }
+sub mut_protein_fragment { shift->{mut_protein_fragment}; }
+sub wt_aa_start          { shift->{wt_aa_start};          }
+sub wt_trans_length  {
+  my $self = shift;
+  return $self->{wt_trans_length} if $self->{wt_trans_length};
+  my $wt_trans = $self->{wt_trans};
+  return length $wt_trans;
+}
+sub wt_trans      { shift->{wt_trans}; }
+sub mut_trans     { shift->{mut_trans}; }
+sub wt_unspliced  { shift->{wt_unspliced}; }
+sub mut_unspliced { shift->{mut_unspliced}; }
+
+
+# Accessors
+sub gff       { return shift->{gffdb};     }
+sub variation { return shift->{variation}; }  # The principle variation object
+sub variation_segment { return shift->{segments}->{wt_variation}; }
+sub cgh_segment       { return shift->{segments}->{cgh_variation}; }
+
+
+# Build short strings (wild type and mutant) flanking
+# the position of the mutant sequence
+# If a mutation sequence (insertion or deletion) exceeds
+# INDEL_DISPLAY_LIMIT, a string will be inserted unless
+# the --all option is supplied.
+# Options:
+# --all    Return all of the flank-mutant-flank
+# --boldface Boldface the mutation
+# --flank amount of flank to include. Defaults to SNIPPET_LENGTH
+#
+# Returns (wt(+), mut(+), wt(-), mut(-));
+sub build_sequence_strings {
+    my ($self,@p) = @_;
+    my ($with_markup,$flank) = rearrange([qw/WITH_MARKUP FLANK/],@p);
+    
+    my $db         = $self->gff;
+    my $var        = $self->variation;
+    my $segment    = $self->variation_segment;
+    return unless $segment;
+    my $sourceseq  = $segment->sourceseq;
+    my ($abs_start,$abs_stop,$start,$stop) = $self->coordinates($segment);
+
+    my $debug;
+    $debug .= "VARIATION COORDS: $abs_start $abs_stop $start $stop" . br if (DEBUG_ADVANCED);
+    
+    # Coordinates are sometimes reported on the minus strand
+    # We will report all sequence strings on the plus strand instead.
+    my $strand;
+    if ($abs_start > $abs_stop) {
+	($abs_start,$abs_stop) = ($abs_stop,$abs_start);
+	$strand eq '-';  # Set $strand - used for tracking
+    }
+    
+    # Fetch a segment that spans the mutation with the appropriate flank
+    # on the plus strand
+
+# The amount of flanking sequence to recover should be configurable
+    # Right now, it is hardcoded for 500 bp
+    my $offset = 500;
+    my ($full_segment) = $db->segment(-class => 'Sequence',
+				    -name  => $sourceseq,
+				    -start => $abs_start - $offset,
+				    -stop  => $abs_stop  + $offset);
+    my $dna = $full_segment->dna;
+    
+    $debug .= "WT SNIPPET DNA FROM GFF: $dna" . br if DEBUG_ADVANCED;
+    
+    # Visit each variation and create a formatted string
+    my ($wt_fragment,$mut_fragment,$wt_plus,$mut_plus);
+    my $variations = $self->fetch_sequence_from_ace();
+
+    foreach my $variation (@{$variations}) {
+	my ($type,$wt,$mut) = @{$variation};
+	my $extracted_wt;
+	if ($type =~ /insertion/i) {
+	    $extracted_wt = '-';
+	} else {
+	    my ($seg) = $db->segment(-class => 'Sequence',
+				   -name  => $sourceseq,
+				   -start => $abs_start,
+				   -stop  => $abs_stop);
+	    $extracted_wt = $seg->dna;
+	}
+	
+	if (DEBUG_ADVANCED) {
+	    $debug .= "WT SEQUENCE EXTRACTED FROM GFF .. : $extracted_wt" . br;
+	    $debug .= "WT SEQUENCE STORED IN ACE ....... : $wt" . br;
+	    $debug .= "MUT SEQUENCE STORED IN ACE ...... : $mut" . br;
+	    $debug .= "LENGTH OF VARIATION ............. : " . length($extracted_wt) . ' bp' . br;
+	}
+
+	# Does the sequence we have extracted match that stored in the
+	# database?  Stated another way, is the mutation reported on the
+	# plus strand?
+	
+	# Insertions will have no sequence and I should not be able to
+	# extract any either (We use logical or here to check for the
+	# $strand flag. Sometimes insertions or deletions will have no
+	# sequence.
+	
+	if ($wt eq $extracted_wt && $strand ne '-') {
+	    # Yes, it has.  Do nothing.
+	} else {
+	    $debug .= "-----> TRANSCRIPT ON - strand; revcomping" if DEBUG_ADVANCED;
+	    # The variation and flanks have been reported on the minus strand
+	    # Reverse complement the mutant sequence
+	    $strand = '-';  # Set the $strand flag if not already set.
+	    unless ($mut =~ /transposon/i) {
+		$mut = reverse $mut;
+		$mut =~ tr/[acgt]/[tgca]/;
+		
+		$wt = reverse $wt;
+		$wt =~ tr/[acgt]/[tgca]/;
+	    }
+	}
+
+
+	
+	# Keep the full string of the all variations on the plus strand 
+	$wt_plus  .= $wt;
+	$mut_plus .= $mut;
+	
+	# What is the type of mutation? If deletion or insertion,
+	# check the length of the partner, then format appropriately
+	if (length $mut > INDEL_DISPLAY_LIMIT || length $wt > INDEL_DISPLAY_LIMIT) {
+	    if ($type =~ /deletion/i) {
+		my $target = length ($wt) . " bp " . lc($type);
+		$wt_fragment  .= "[$target]";
+		$mut_fragment .= '-' x (length ($target) + 2);
+	    } elsif ($type =~ /insertion/i) {
+		my $target;
+		if ($mut =~ /transposon/i) {  # String representing transposon insertions
+		    $target = $mut;
+		} else {
+		    $target = length ($mut) . " bp " . lc($type);
+		}
+		#  $mut_fragment .= '[' . a({-href=>$href,-target=>'_blank'},$target) . ']';
+		$mut_fragment .= "[$target]";
+		#  $wt_fragment  .= '-' x (length($mut_fragment) + 2);
+		$wt_fragment  .= '-' x (length($mut_fragment));
+	    }
+	} else {
+	    # We are less than 100 bp, go ahead and use it.
+	    $wt_fragment  .= ($wt  eq '-') ? '-' x length $mut  : $wt;
+	    $mut_fragment .= ($mut eq '-') ? '-' x length $wt : $mut;
+	}
+    }
+
+    # Coordinates of the mutation within the segment
+    my ($mutation_start,$mutation_length);
+    if ($strand eq '-') {
+#      print "On the minus strand",br if DEBUG_ADVANCED;
+	# This works for e205 substition (-)
+	$mutation_start   = $offset;
+	$mutation_length   = length($wt_plus);
+    } else {
+	# SETTING 1 - works for:
+	#   ca16 indel(+)
+	#   cxP622 insertion(+)
+	$mutation_start  = $offset + 1;
+	$mutation_length = length($wt_plus) - 1;
+	
+	# SETTING 2 - works for:
+	#     tm728 (indel)
+	#     ok431 (indel)
+	$mutation_start  = $offset;
+	$mutation_length = length($wt_plus) - 1;
+	
+	# SETTING 3 - works for:
+	#     cn28 (unknown transposon insertion)
+	#$mutation_start  = $offset + 2;
+	#$mutation_length = length($wt_full) - 1;
+	
+	# SETTING 4 - works for:
+	#      bm1 (indel)
+	$mutation_start  = $offset;
+	$mutation_length = length($wt_plus);
+    }
+    
+    $flank ||= SNIPPET_LENGTH;
+
+    my $insert_length = (length $wt_fragment > length $mut_fragment) ? length $wt_fragment : length $mut_fragment;
+    my $flank_length = int(($flank - $insert_length) / 2);
+    
+    # The amount of flank to fetch is based on the middle segment
+    my $left_flank  = substr($dna,$mutation_start - $flank_length,$flank_length);
+    my $right_flank = substr($dna,$mutation_start + $mutation_length,$flank_length);
+
+    if (DEBUG_ADVANCED) {
+#      print "right flank : $right_flank",br;
+	$debug .= "WT PLUS STRAND .................. : $wt_plus"  . br;
+	$debug .= "MUT PLUS STRAND ................. : $mut_plus" . br;
+    }
+
+    # Mark up the reported flanking sequences in the full sequence
+    my ($reported_left_flank,$reported_right_flank) = $self->flanking_sequences();
+#    my $left_length = length($reported_left_flank);
+#    my $right_length = length($reported_right_flank);
+    $reported_left_flank = (length $reported_left_flank > 25) ? substr($reported_left_flank,-25,25) :  $reported_left_flank;
+    $reported_right_flank = (length $reported_right_flank > 25) ? substr($reported_right_flank,0,25) :  $reported_right_flank;
+    
+    
+    # Create a full length mutant dna string so that I can mark it up.
+    my $mut_dna = 
+	substr($dna,$mutation_start - 500,500)
+	. $mut_plus
+	. substr($dna,$mutation_start + $mutation_length,500);
+
+    my $wt_full = $self->do_markup($dna,$mutation_start,$wt_plus,length($reported_left_flank));
+    my $mut_full = $self->do_markup($mut_dna,$mutation_start,$mut_plus,length($reported_right_flank));
+    
+    # Return the full sequence on the plus strand
+    if ($with_markup) {
+	my $wt_seq = join(' ',lc($left_flank),span({-style=>'font-weight:bold'},uc($wt_fragment)),
+			  lc($right_flank));
+	my $mut_seq = join(' ',lc($left_flank),span({-style=>'font-weight:bold'},
+						    uc($mut_fragment)),lc($right_flank));
+	return ($wt_seq,$mut_seq,$wt_full,$mut_full,$debug);
+    } else { 
+	my $wt_seq  = lc join('',$left_flank,$wt_plus,$right_flank);
+	my $mut_seq = lc join('',$left_flank,$mut_plus,$right_flank);
+	return ($wt_seq,$mut_seq,$wt_full,$mut_full,$debug);
+    }    
+}
+
+
+# Need to generalize this for all alleles
+sub do_manual_conceptual_translation {
+    my ($self,@p) = @_;
+
+    my ($cds) = rearrange([qw/CDS/],@p);
+
+    my ($wt_nuc,$mut_nuc,$wt_full,$mut_full,$debug) = $self->build_sequence_strings(-flank=>'20');
+    return unless ($wt_nuc && $mut_nuc);
+
+    my $var  = $self->variation;    
+
+    # Now that I have the full segment, map the position of the wildtype fragment
+    # It might be necessary to find the reverse complement
+    # Stitch together the dna of all features
+    
+    my $segment = $self->cds_segment($cds);
+    # $cds_segment->refseq($segment);
+    my $wt_unspliced = $segment->dna;
+    
+    # Save the coordinates of the exons
+    my @exon_boundaries;
+    my $wt_spliced;
+    foreach ( sort {$a->start <=> $b->start} 
+	      grep { $_->name =~ /$cds/ }
+	      $segment->features('coding_exon:Coding_transcript')) {
+	# 0-based indexing
+	push (@exon_boundaries,[$_->start,$_->stop]);
+	$wt_spliced .= $_->dna;
+    }
+    
+
+    # There is apparently no consistency in strandedness of the flanking sequence
+    # stored in the DB. Revcomp the flanks if we do not match
+    $wt_nuc =~ s/\-//g;    # Let's ignore insertions and deletions
+    $mut_nuc =~ s/\-//g;
+    $debug .= "WT STRING ......... ............. : $wt_nuc"  . br if DEBUG_ADVANCED;
+    $debug .= "MUT STRING ...................... : $mut_nuc" . br if DEBUG_ADVANCED;
+    
+    if ($wt_unspliced =~ /$wt_nuc/i) {
+    } else {
+	$wt_nuc = reverse $wt_nuc;
+	$wt_nuc =~ tr/[acgt]/[tgca]/;
+	$mut_nuc = reverse $mut_nuc;
+	$mut_nuc =~ tr/[acgt]/[tgca]/;
+	
+	
+	$debug .= "WT STRING REVCOMPED  : $wt_nuc" . br if DEBUG_ADVANCED;
+	$debug .= "MUT STRING REVCOMPED : $mut_nuc" . br if DEBUG_ADVANCED;
+    }
+    
+    # Hmmmmm.  Now, let's replace this section with the mutant sequence...
+    # I need to create pseudo GFF segments for the spliced and unspliced
+    my $mut_unspliced = $wt_unspliced;
+    
+    my $test = $mut_unspliced =~ s/$wt_nuc/$mut_nuc/i;
+    
+    if (DEBUG_ADVANCED) {
+	if ($wt_unspliced eq $mut_unspliced && !$test) {      
+	    $debug .= "!!! WT_UNSPLICED eq MUT_UNSPLICED --> something went wrong" . br;
+	} else {
+	    $debug .= " ----> WT UNSPLICED SUCCESSFULLY SUBSTITUTED WITH MUT" . br;
+	}
+    }
+    
+    
+    # Create the mutant spliced
+    # This my be incorrect if there is a splice mutant / deletion
+    my $mut_spliced;
+    foreach (@exon_boundaries) {
+	my ($start,$stop) = @$_;
+	my $dna = substr($mut_unspliced,$start-1,$stop - $start + 1);
+	$mut_spliced .= $dna;
+    }
+    
+    # Do a conceptual translation but only of allele is listed as
+    # frameshift, missense, nonsense
+    my $aa_type = $self->aa_type;
+    
+    if ($aa_type) {
+
+	# Create a truncated string of the translated wild type and mutant
+	# Calculate the position of the amino acid change
+	my $wt_trans  = translate_as_string($wt_spliced);
+	my $mut_trans = translate_as_string($mut_spliced);
+	if ($mut_trans eq $wt_trans && DEBUG_ADVANCED) {
+	    $debug .= "!! MUT TRANSLATION == WT TRANSLATIONS --> something went wrong..." . br;
+	}
+
+	my ($change,$pos);
+	if ($aa_type eq 'Nonsense') {
+	    $mut_trans =~ /\*/g;
+	    $pos = pos($mut_trans);
+	    my $wt_aa = substr($wt_trans,$pos-1,1);
+	    $change = uc $wt_aa . $pos . 'stop';
+	} elsif ($aa_type eq 'Missense') {
+	    # Find the amino acid that differs by comparing char by char - stoopid
+	    my $c = 0;
+	    my @mut_chars = split(//,$mut_trans);
+	    my @wt_chars  = split(//,$wt_trans);
+	    foreach (@mut_chars) {
+		if ($mut_chars[$c] eq $wt_chars[$c]) {
+		    $c++;
+		    next;
+		} else {
+		    $pos = $c+1;   # 1-based
+		    $change = uc $wt_chars[$c] . $pos . uc $mut_chars[$c];
+		    last;
+		}
+	    }
+	}
+	
+	# Store some data for easy accession
+	# I'd like to purge this but it's deeply embedded in the logic
+	# of presenting a detailed view of the sequence
+	$self->{wt_aa_start} = $pos;
+	
+	# I should be formatting these here depending on the type of nucleotide change...
+	$self->{formatted_aa_change} = $change;
+	$self->{wt_protein_fragment} = ($pos - 19) . '...' . substr($wt_trans,$pos - 20,19) 
+	    . ' ' . b(substr($wt_trans,$pos-1,1)) . ' ' .substr($wt_trans,$pos,20) .  '...' . ($pos + 19);
+	$self->{mut_protein_fragment} = ($pos - 19) . '...' . substr($mut_trans,$pos - 20,19) 
+	    . ' ' . b(substr($mut_trans,$pos-1,1)) . ' ' . substr($mut_trans,$pos,20) .  '...' . ($pos + 19);
+	$self->{wt_spliced}    = $wt_spliced;
+	$self->{mut_spliced}   = $mut_spliced;
+	
+	$self->{wt_trans_length} = length($wt_trans);
+	$self->{mut_trans_length} = length($mut_trans);
+
+	# Just assume that the length is 1 for these (postiion 3)
+	$self->{wt_trans} = 
+	    "> $cds"
+	    . $self->do_markup($wt_trans,$pos-1,1,undef,'is_peptide');
+	
+	$self->{mut_trans} = 
+	    "> $cds ($var: $change)"
+	    . $self->do_markup($mut_trans,$pos-1,1,undef,'is_peptide');
+	
+	
+##	$self->{wt_trans}      = $self->to_fasta($cds,$wt_trans);
+##	$self->{mut_trans}     = $self->to_fasta("$cds ($var: $change)",$mut_trans);
+    }
+    
+    $self->{wt_unspliced}  = $wt_unspliced;
+    $self->{mut_unspliced} = $mut_unspliced;    # This should be marked up...
+    return ($self->{wt_protein_fragment},$self->{mut_protein_fragment},$self->{wt_trans},$self->{mut_trans},$debug);
+}
+
+
+
+
+# Need to generalize this for all alleles
+sub do_simple_conceptual_translation {
+    my ($self,@p) = @_;
+    my ($cds) = rearrange([qw/CDS/],@p);
+    
+    my ($pos,$formatted_change,$type) = $self->get_aa_position($cds);
+    my $wt_protein = eval { $cds->Corresponding_protein->asPeptide };
+
+    return unless ($pos && $formatted_change);  # Try to do a manual translation
+    return unless $wt_protein;
+# De-FASTA
+
+    $wt_protein =~ s/^>.*//;
+    $wt_protein =~ s/\n//g;   
+    
+    $formatted_change =~ /(.*) to (.*)/;
+    my $wt_aa  = $1;
+    my $mut_aa = $2;
+    
+#    # String formatting of nonsense alleles is a bit different
+#    if ($type eq 'Nonsense') {
+#	$mut_aa = '*';
+#    }
+
+    # Substitute the mut_aa into the wildtype protein
+    my $mut_protein = $wt_protein;
+    
+    substr($mut_protein,($pos-1),1,$mut_aa);
+    
+    # Store some data for easy accession
+    # I'd like to purge this but it's deeply embedded in the logic
+    # of presenting a detailed view of the sequence
+    $self->{wt_aa_start} = $pos;
+    
+    # I should be formatting these here depending on the type of nucleotide change...
+    $self->{formatted_aa_change} = $formatted_change;
+    
+    # Create short strings of the proteins for display
+    $self->{wt_protein_fragment} = ($pos - 19)
+	. '...'
+	. substr($wt_protein,$pos - 20,19) 
+	. ' ' 
+	. b(substr($wt_protein,$pos-1,1)) 
+	. ' ' 
+	. substr($wt_protein,$pos,20) 
+	. '...'
+	. ($pos + 19);
+    $self->{mut_protein_fragment} = ($pos - 19) 
+	. '...' 
+	. substr($mut_protein,$pos - 20,19) 
+	. ' ' 
+	. b(substr($mut_protein,$pos-1,1)) 
+	. ' ' 
+	. substr($mut_protein,$pos,20) 
+	.  '...' 
+	. ($pos + 19);
+    
+    $self->{wt_trans_length} = length($wt_protein);
+    $self->{mut_trans_length} = length($mut_protein);
+    
+    $self->{wt_trans} = 
+	"> $cds"
+	. $self->do_markup($wt_protein,$pos-1,$wt_aa,undef,'is_peptide');
+    my $var = $self->variation;
+    $self->{mut_trans} = 
+	"> $cds ($var: $formatted_change)"
+	. $self->do_markup($mut_protein,$pos-1,$mut_aa,undef,'is_peptide');
+       
+    my $debug;
+    if (DEBUG_ADVANCED) { 
+	$debug .= "CONCEPTUAL TRANSLATION VIA SUBSTITUTION OF STORED AA" . br;
+	$debug .= "STORED WT : $wt_aa" . br;
+	$debug .= "STORED MUT: $mut_aa" . br;
+    }	
+    
+    return ($self->{wt_protein_fragment},$self->{mut_protein_fragment},$self->{wt_trans},$self->{mut_trans},$debug);
+}
+
+sub to_fasta {
+    my ($self,$name,$sequence,$skip_spaces) = @_;
+    $sequence ||= '';
+    my @markup;
+    for (my $i=0; $i < length $sequence; $i += 10) {
+	if ($skip_spaces) {
+	    # Don't add markup for flanking sequences
+	    push (@markup,[$i,$i % 80 ? '' : "\n"]);
+	} else {	
+	    push (@markup,[$i,$i % 80 ? ' ':"\n"]);
+	}
+    }
+
+    markup(\$sequence,\@markup);
+    return ">$name<br>$sequence";
+}
+
+# insert HTML tags into a string without disturbing order
+sub markup {	
+    my $string = shift;
+    my $markups = shift;
+    for my $m (sort {$b->[0]<=>$a->[0]} @$markups) { #insert later tags first so position remains correct
+	my ($position,$markup) = @$m;
+	next unless $position <= length $$string;
+	substr($$string,$position,0) = $markup;
+    }
+}
+
+
+# Markup features relative to the CDS or to raw genomic features
+sub do_markup {
+    my ($self,$seq,$var_start,$variation,$flank_length,$is_peptide) = @_;
+    
+    # Here, variation might be a specially formatted string (ie '----' for a deletion)
+    my @markup;
+    my $markup = Bio::Graphics::Browser::Markup->new;
+    $markup->add_style('utr'  => 'FGCOLOR gray');
+    $markup->add_style('cds0'  => 'BGCOLOR yellow');
+    $markup->add_style('cds1'  => 'BGCOLOR orange');
+    $markup->add_style('space' => ' ');
+    $markup->add_style('substitution' => 'text-transform:uppercase; background-color: red;');
+    $markup->add_style('deletion'     => 'background-color:red; text-transform:uppercase;');
+    $markup->add_style('insertion'     => 'background-color:red; text-transform:uppercase;');
+    $markup->add_style('deletion_with_insertion'  => 'background-color: red; text-transform:uppercase');
+    if ($self->variation->Type_of_mutation eq 'Insertion') {
+	$markup->add_style('flank' => 'background-color:yellow;font-weight:bold;text-transform:uppercase');
+    } else {
+	$markup->add_style('flank' => 'background-color:yellow');
+    }
+    # The extra space is required here when used in non-pre-formatted text!
+    $markup->add_style('newline',"<br> ");
+    
+    my $var_stop = length($variation) + $var_start;
+    
+    # Substitutions start and stop at the same position
+    $var_start = ($var_stop - $var_start == 0) ? $var_start - 1 : $var_start;
+    
+    # Markup the variation as appropriate
+    push (@markup,[lc($self->variation->Type_of_mutation),$var_start,$var_stop]);
+    
+    # Add spacing for peptides
+    if ($is_peptide) {
+	for (my $i=0; $i < length $seq; $i += 10) {
+	    push @markup,[$i % 80 ? 'space' : 'newline',$i];
+	}
+    } else {
+	for (my $i=80; $i < length $seq; $i += 80) {
+	    push @markup,['newline',$i];
+	}
+#	push @markup,map {['newline',80*$_]} (1..length($seq)/80);
+    }
+
+    if ($flank_length) {
+	push @markup,['flank',$var_start - $flank_length + 1,$var_start];
+	push @markup,['flank',$var_stop,$var_stop + $flank_length];
+    }
+
+    $markup->markup(\$seq,\@markup);
+    return $seq;
+
+#    if (param('type') eq 'peptide') {
+#	# Code redundancy just for convenience...
+#	push (@markup,[lc ($var->Allele_type),$var_start,$var_stop]);
+#	push @markup,map {['newline',80*$_]} (1..length($seq)/80);
+#	$markup->markup(\$seq,\@markup);
+#	return $seq;
+#    }
+    
+#    # Is the start coordinate of the allele *before* the gene?
+#    # Is the allele not within a gene?
+#    # If so, generate a new fragment that flanks the deletion (and the gene)
+#    # on the appropriate strand
+#    # THIS IS NOT YET WORKING!
+#    my $offset;
+#    if ($var_start < 1) {
+#	#    print "here",br;
+#	my $base = $self->base_segment;
+#	#    print $base->start,'-',$base->stop,br;
+#	$base->absolute(1);
+#	my $start = $base->start;
+#	$wt_segment->absolute(1);
+#	my $stop  = $wt_segment->stop;
+#	#    print $wt_segment->refseq,'-',$wt_segment->start,'=',$stop,br;
+#	my $new_segment = $GFFDB->segment($wt_segment->refseq,$start-50,$stop);
+#	$wt_segment = $new_segment;
+#	
+#	# Adjust the start and stop position of the allele relative to adjusted fragment
+#	my $offset = $wt_segment->start - $start - 50;
+#	$var_start = $var_start - $offset;
+#	$var_stop  = $var_stop - $offset;
+#	$seq = $new_segment->dna;
+#    }
+    
+#    # Fetch the coordinates of features relative to the wildtype sequence
+#    # Markup is not sort-sensitive; used only for debugging purposes
+#    my @features = grep { $_->info eq $wt_segment->name } 
+##    sort { $a->start <=> $b->start } $wt_segment->features('exon:curated','5_UTR','3_UTR');
+#    sort { $a->start <=> $b->start } $wt_segment->features('exon:curated','UTR','UTR');
+#    
+#    # Unspliced
+#    # 1. Is the allele associated with a gene and contained wholly within it?
+#    if ($var->Gene && ($var_start > $wt_segment->start)) {
+#	# Markup the mutation selectively based on its allele type if available
+#	push (@markup,[($var->Allele_type) ? lc ($var->Allele_type) : 'generic_mutation',
+#		       $var_start,$var_stop]);
+#	my $counter = 0;
+#	foreach (@features) {
+#	    my $style  = 
+#		($_->method =~ /UTR/i) ? 'utr'
+#		: ($_->method =~ /exon/i) ? 'cds' . $counter++ %2
+#		: '';
+#	    next unless $style;
+#	    push (@markup,[$style,$_->start-1,$_->stop]);
+#	}
+#    } else {
+#	push (@markup,[lc ($var->Allele_type),$var_start,$var_stop]);
+#    }
+##    push @markup,map {['newline',80*$_]} (1..length($seq)/80);
+#    $markup->markup(\$seq,\@markup);
+#    return $seq;
+}
+
+
+# Markup ALL features, not just the mutation
+# Start and stop refers to the position of the mutation
+#sub do_full_markup {
+#  my ($segment,$seq,$start,$stop) = @_;
+#  my @markup;
+#  my $markup = Bio::Graphics::Browser::Markup->new;
+#  $markup->add_style('utr'  => 'FGCOLOR gray');
+#  $markup->add_style('cds0'  => 'BGCOLOR yellow');
+#  $markup->add_style('cds1'  => 'BGCOLOR orange');
+#
+#  $markup->add_style('substitution' => 'Font-weight: bold; Text-decoration:underline; BGCOLOR red');
+#  $markup->add_style('newline',"\n");
+#  
+#  if ($stop - $start == 0) {
+#    $start = $start - 1;
+#  }
+#
+#  if (0) {
+#  # This is how to markup spliced
+##    foreach (grep { $_->info eq $segment->info } sort {$a->start <=> $b->start } $segment->features('exon:curated','5_UTR','3_UTR')) {
+#    foreach (grep { $_->info eq $segment->info } sort {$a->start <=> $b->start } $segment->features('exon:curated','UTR','UTR')) {
+#      my $start = $_->start;
+#      my $end = $_->end;
+#      my $length = $end - $start + 1;
+#      my $style  = ($_->method =~ /UTR/i) ? 'utr' :'cds' . $counter++ %2;
+#      push @markup,[$style,$pos=>$pos+$length];
+#      $pos += $length;
+#      print $style,br;
+#      #push (@markup,[$style,$_->start-1,$_->stop]);
+#      print $_->method,'-',$_->source,'-',$_->start,'-',$_->stop,br;
+#    }
+#  }
+#
+#  push @markup,map {['newline',80*$_]} (1..length($seq)/80);
+#  $markup->markup(\$seq,\@markup);
+#  return $seq;
+#}
+
+
+
+
+
+
+
+1;

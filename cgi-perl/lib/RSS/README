@@ -1,0 +1,75 @@
+Objective:
+
+Create a simple system used to track when and how different objects in the database are changed.  This requires knowledge of one release to the next.
+
+Creating a baseline representation of objects.
+When a feed for a given object is requested, the script first checks if the object exists in the database.  If it does not, an entry in the object table is created.  Next, an MD5 sum of the object's XML representation is created, and entered into the database.  This becomes the baseline for subsequent requests.
+
+Advantages:
+The database of updates grows organically over time as subscription requests are made. It is possible -- although not necessary -- to prepopulate the database.  This creates a baseline with which to search for future updates.
+
+Drawbacks:
+Since the date updated becomes the time at which a feed is requested, if no requests are made during a given release cycle, some updates may not appear in the feed.
+
+
+
+Determining if an object has changed:
+
+Three approaches:
+
+1. md5_sum of XML dump
+
+For a given class, visit each object.  Dump out the data as XML and create an md5sum.  Store the object ID, class, date, and the md5sum in a separate database.
+
+With each new release, repeat the procedure.  If the md5sum is DIFFERENT, update the record in the database and create a new RSS feed entry for that object.  Otherwise ignore it.  Alternatively, populate the database once to create a baseline representation of objects. Update objects as needed when requested for the feed.
+
+Using this approach, we have no way of indicating how the object has changed, only that it has.
+
+2. Parsed XML dump
+
+Parse the XML dump and look for time stamps newer than the last modification date of the object.  Two approaches to parsing - line-by-line of a data structure from parsed XML, or grepping the raw XML for "timestamp" entries.
+
+3. Parsed Ace::Object tree
+
+This is the slowest but most effective approach as it lets my save the entire path along the tree to a modified item.  This allows for a more meaningful RSS feed with hyperlinked objects.
+
+
+
+
+Schema
+
+|-----------------------------|
+
+
+RSS Feed generation:
+Feeds are generated dynamically. If a user/aggregator requests a feed, it is built from the 5 most recent signature entries and returned to the client.  If there isn't a new entry, client/aggregator doesn't show anything new.
+
+
+
+Caveats:
+1. The signatures that identify changes to objects correspond to the *primary* object on the page, not the page contents itself.  Thus, it could be possible to display new entries in the feed when only internal details of the object have changed.
+
+2. I've tried to choose the most stable representation of an object over time.  That is, I only want the representation to change when the contents of the object itself change.
+
+This requires some experimentation over time: too broad and the RSS feed is updated constantly, too narrow and it will never be updated.
+
+
+Other thoughts:
+
+1. I considered making the RSS feed generation dynamic.  For example, a user requests a feed that doesn't exist.  For the first request, a dummy RSS feed is created with no entries and the signature is inserted into the database.  After all, we have no recorded history yet.
+
+In the end, I decided it would be better to spend the processing time upfront and create a baseline representation of our data.
+
+2. Using HTML
+I considered using the HTML pages themselves to create an md5_sum.  The problem with this approach is that any UI change would then trigger new items in the RSS feed.  This is probably not what we want.
+
+3. Schema: This is a totally mindless schema.  I have no idea how it will scale but I suspect rather poorly.
+
+
+
+
+
+TODO:
+Add in the correct RSS link into the page header.  This should point at the feed, linked with object and class.
+
+Check the header settings on the RSS script itself.  What should this be?

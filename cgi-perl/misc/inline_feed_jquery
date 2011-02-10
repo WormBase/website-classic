@@ -1,0 +1,214 @@
+#!/usr/bin/perl
+
+# This script parses an SMF XML dump and places it injects it into the DOM
+# Call it as such
+# http://www.wormbase.org/db/misc/feed2recent?
+# url parameters:
+#   src: url_escaped src for the raw XML feed from SMF
+#       'http://www.wormbase.org/forums/index.php?action=.xml;limit=7';
+#   show_board: boolean to show or hide the board, default: off
+#   link_board: boolean to link the board, if shown
+#   show_poster: boolean to show the poster of the item, default: off
+#   link_poster: boolean to link the poster, if shown
+
+
+use strict;
+use CGI qw/:standard/;
+use XML::Simple;
+use LWP::UserAgent;
+
+#my $feed = 'http://www.wormbase.org/forums/index.php?action=.xml;limit=3';
+my $ua        = LWP::UserAgent->new();
+$ua->agent("WormBaseFeedParser/0.1");
+
+my $feed = url_param('src');
+my $load_box = url_param('load_box');
+my $request = HTTP::Request->new('GET',$feed);
+my $response = $ua->request($request);
+    print header("Content-type: application/x-javascript");
+    print "var container = \$jq(\"#$load_box\");\n";
+if ($response->is_success) {
+    
+    # Parse out the content and store the defaults in the object
+    my $content = $response->content;
+    my @lines;
+
+#     push @lines,'<div id="rss-box">';
+#    push @lines,'<ul>';
+    
+#    	push @lines,$content;
+    # Parsing a WordPress feed - 5 items only
+
+    if ($feed =~ /blog/)  {
+	my $parsed = XMLin($content,forcearray => [qw/item/],keyattr=>[]);
+	my $count;
+	foreach my $post (@{$parsed->{channel}->{"item"}}) {
+	    $count++;
+	    my $post_link = $post->{link};
+
+	    my $post_subject = $post->{title};
+	    
+	    $post_subject = escapeHTML($post_subject);
+	    $post_subject =~ s/\&quot\;/\"/g;
+	    $post_subject =~ s/\&amp\;/\&/g;
+	    $post_subject =~ s/\&gt\;/\>/g;
+	    $post_subject =~ s/\&lt\;/\</g;
+	    $post_subject =~ s/\&\#63\;/\?/g;
+
+	    my $date = $post->{pubDate};
+	    $date =~ /\w\w\w,\s(\d\d\s\w\w\w\s\d\d\d\d)/;
+	    my $formatted_date = $1;
+	    # The title
+        push @lines, '<li class="ellipsis"><div class=\"date\" id=\"fade\">' . $formatted_date . '</div>';
+	    push @lines,format_title($post_link,"$post_subject");
+        push @lines, '</li>';
+# 	    push @lines, "<div class=\"date\" id=\"fade\">$formatted_date</div>";
+	    # The brief description	    
+	    my $content = $post->{'content:encoded'};
+	    chomp $content;
+	    $content =~ /.*<p><\/p><p>(.*)/;
+	    my $description = $1;
+	    $description =~ s/<br \/>$//;
+	    $description =~ s/<br\/>$//;
+	    $description =~ s/<\/p>$//;	    
+	    
+	    # Split into a set number of words.
+	    # Let's say 250...
+#	    $description =~ s/\n/ /g;  # get rid of paragraphs
+#	    my $truncated_description = join(" ",split(/\w/,$description));
+
+	    push @lines,'<div class="news-byline text-min" style="height:auto;max-height:2.4em;">';
+	    push @lines,$description;
+	    push @lines,'</div>';
+#         if (scalar($description) > 150){
+          push @lines, '<div class="more">';
+          push @lines, '<div class="ui-icon ui-icon-triangle-1-s"></div>';
+          push @lines, '</div>';
+#         }
+
+# 	    push @lines,'</div>';	
+	    last if $count == 3;
+	}
+	
+	# Parsing a SMF forum feed    
+    } else {
+	my $parsed = XMLin($content,forcearray => [qw/recent-post/], keyattr=>[]);
+
+	my $count;
+	foreach my $post (@{$parsed->{"recent-post"}}) {
+	    $count++;
+#	push @lines,'<div class="rss-item">';
+
+	    my $poster_name = $post->{poster}->{name};
+	    my $poster_link = $post->{poster}->{link};
+	    
+	    my $post_subject = $post->{subject};
+# 	    my $post_subject = $post->{topic}->{subject};
+	    
+	    $post_subject = escapeHTML($post_subject);
+	    $post_subject =~ s/\&quot\;/\"/g;
+	    $post_subject =~ s/\&amp\;/\&/g;
+	    $post_subject =~ s/\&gt\;/\>/g;
+	    $post_subject =~ s/\&lt\;/\</g;
+	    $post_subject =~ s/\&\#63\;/\?/g;
+	    
+	    
+	    my $post_link    = $post->{link};
+	    
+	    my $board = $post->{board}->{name};
+	    my $board_link = $post->{board}->{link};
+	    
+	    # The item title
+#	    push @lines,
+#	    '<div class="entry">' .
+#		h3(a({href=>$post_link},"&raquo; $post_subject"));
+	    push @lines,'<li class="ellipsis">' . format_title($post_link,$post_subject) . '</li>';
+	    
+# 	    push @lines,'<span class="byline">';
+        push @lines,$post->{time};
+        
+        # The poster
+        if (param('show_poster')) {
+        if (param('link_poster')) {
+            push @lines,' by ' . a({href=>$poster_link},$poster_name);
+        } else {
+            push @lines,' by ' . $poster_name;
+        }
+        }
+
+	    if (param('show_board')) {
+		if (param('link_board')) {
+		    push @lines,' - ' . a({href=>$board_link},$board);
+		} else {
+		    push @lines,' - ' . $board;
+		}
+	    }
+
+	    
+	    # The time
+# 	    push @lines,' ' . $post->{time};
+# 	    push @lines,'</span>';
+# 	    push @lines,'</div>';	
+	    last if $count == 3;
+	}
+    }
+    
+#     push @lines,'</div>';
+	
+#    # The item title
+#    push @lines,'<span class="rss-title"><li>' . a({href=>$post_link},$post_subject) . "</li></span>";
+#    
+#    push @lines,'<div class="rss-byline">';
+#    if (param('show_board')) {
+#	if (param('link_board')) {
+#	    push @lines,'<span class="rss-board">Posted to: ' . a({href=>$board_link},$board) . "</span>";
+#	} else {
+#	    push @lines,'<span class="rss-board">Posted to: ' . $board . "</span>";
+#	}
+#    }
+#    
+#    # The poster
+#    if (param('show_poster')) {
+#	if (param('link_poster')) {
+#	    push @lines,'<span class="rss-poster"> by ' . a({href=>$poster_link},$poster_name) . ", </span>";;
+#	} else {
+#	    push @lines,'<span class="rss-poster"> by ' . $poster_name . ", </span>";
+#	}
+#    }
+#    
+#    # The time
+#    push @lines,'<span class="rss-date">' . $post->{time} . "</span>";
+#    push @lines,'</div>';
+#    
+#    push @lines,'</div>';	
+#    
+#}
+#
+#    push @lines,'</ul></div>';
+	
+
+    print "container.empty();\n";
+    print "container.append(\' <div id=\"results\"><ul>" . join("", @lines) . "</ul></div>\');\n";
+} else {
+    
+    my $return =  header("Content-type: application/x-javascript");    
+    my $str = "document.write('<div class=\"rss-box\">');\n";
+    if ($feed =~ /blog/) {
+	$str   .= "document.write('<span class=\"rss-item\">M9: The WormBase Blog is down or your browser does not support Javascript.');\n";
+    } else {
+	$str   .= "document.write('<span class=\"rss-item\">The Worm Community Forum is down or your browser does not support Javascript.');\n";
+    }
+    print $return . $str;
+}
+
+
+
+
+
+
+sub format_title {
+    my ($post_link,$title) = @_;
+    return 
+	a({href=>$post_link},"$title");
+}
+

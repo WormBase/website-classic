@@ -1,0 +1,203 @@
+New Release of acedb WS97, Wormpep97 and Wormrna97 Fri Mar  7 2003
+======================================================================
+
+This directory includes:
+i)	database.WS97.*.tar.gz    -   compressed data for new release
+ii)	models.wrm.WS97           -   the latest database schema (also in above database files)
+iii)	CHROMOSOMES/subdir        -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)	WS97-WS96.dbcomp          -   log file reporting difference from last release
+v)	wormpep97.tar.gz          -   full Wormpep distribution corresponding to WS97
+vi)	wormrna97.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)	confirmed_genes.WS97.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+Primary databases used in build WS97
+------------------------------------
+brigdb : 2003-02-21 - updated
+camace : 2003-02-25 - updated
+citace : 2003-02-23 - updated
+cshace : 2003-01-26
+genace : 2003-03-05 - updated
+stlace : 2003-02-24 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS97       	WS96      	change
+----------------------------------------------
+a    	32364259	32364259	  +0
+c    	17778485	17778485	  +0
+g    	17755881	17755881	  +0
+t    	32365361	32365361	  +0
+n    	95      	95      	  +0
+-    	0       	0       	  +0
+
+Total	100264081	100264081	  +0
+
+
+Wormpep data set:
+----------------------------
+
+There are 19542 CDS in autoace, 21437 when counting 1891 alternate splice forms.
+
+The 21437 sequences contain 9,458,170 base pairs in total.
+
+Modified entries              56
+Deleted entries               10
+New entries                   24
+Reappeared entries             3
+
+Net change  +17
+
+
+Status of entries: Confidence level of prediction
+-------------------------------------------------
+Confirmed              3758 (17.5%)
+Partially_confirmed    8875 (41.4%)
+Predicted              8804 (41.1%)
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2235 (10.4%)
+TrEMBL accessions     18549 (86.5%)
+TrEMBLnew accessions    641 (3.0%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            21425 (99.9%)
+
+
+
+Locus <-> Sequence connections (cgc-approved)
+---------------------------------------------
+Entries with locus connection   4204
+
+
+GeneModel correction progress WS96 -> WS97
+-----------------------------------------
+Confirmed introns not is a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|    619  | -1047  |
+St Louis 	|    160  |     2  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|      0  |   -24  |
+St Louis 	|      0  |   -24  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+No synchronisation issues
+
+There are no gaps remaining in the genome sequence
+
+For more info mail worm@sanger.ac.uk
+
+-===================================================================================-
+
+New Data:
+---------
+
+New ?Feature class to accomodate any feature to be mapped back 
+to the genome sequence (e.g. trans-splice leader, poly-A signal,
+etc). Currently, 13,900 splice leader acceptor sites have been
+added. 
+
+Local repeats have been moved in the models to the Feature_data
+class. This does not affect anything in terms of data display 
+or GFF dumps.
+
+The 'hybrid' gene set of C.briggsae predictions has been added 
+to WormBase. Orthologue pairs between C.elegans and C.briggsae
+are annotated (Todd Harris analysis for WS77-cb25).
+
+The briggsae data is available in GFF format (file cb25.agp8.gff.tar.gz
+on the FTP site with the rest of the cb25.agp8 data). For more 
+information mail <briggsae@sanger.ac.uk>.
+
+New Fixes:
+----------
+
+RepeatMasker anlaysis has been extended to the whole of the genome
+(i.e. includes WashU section). 
+
+Author class has been cleared up from WS96 meeting abstract parsing
+problems.
+
+Many TREMBLNEW SWALL accessions have been subsumed into the full release
+of TREMBL 73.
+
+Known Problems:
+--------------
+
+The additional RepeatMasker repeat families are too permisive, many
+of them overlap with valid coding segments (i.e. they match multiple
+gene families). These will be addressed over the coming weeks.
+
+Changes to the repeat mappings have not been followed through to the 
+consistency checking scripts. The CDS overlapping repeat counts (see above)
+are therefore incorrect and do not reflect the true situation.
+
+Features have been assigned in an automated fashion. Currently, the
+data set is redundant in terms of mapped trans-splice acceptors wherein
+one feature has been assigned for each transcript. The process of adding
+new features is an ongoing one and more will appear in future WormBase
+releases.
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+
+Switch WormBase's view of the human proteome from Ensembl to the IPI
+(see http://www.ebi.ac.uk/IPI/).
+
+Change to models to handle GO codes, and curator_confirmed evidence.
+
+Indexing the Also_known_as class to simplify the Author/Person data.
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

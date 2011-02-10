@@ -1,0 +1,86 @@
+#!/usr/bin/perl
+
+use strict;
+use lib '../lib';
+use lib '../cgi-perl/lib';
+use CGI::Carp qw/fatalsToBrowser/;
+use CGI qw/:standard :html3 escape *table *TR *td *pre/;
+#use Ace::Browser::AceSubs qw(:DEFAULT Configuration ResolveUrl);
+#use ElegansSubs;
+use Bio::DB::GFF;
+
+print header;
+
+my $seqfactory = Bio::DB::GFF->new(-adaptor    => 'dbi',
+				   -dsn        => 'dbi:mysql:elegans', 
+				   -username   => 'nobody',
+				   -fasta_dir  => '/var/ftp/pub/wormbase/DNA_DUMPS/unpacked',
+				   -join_limit => 100000
+				  );
+
+
+#param() ? PrintTop(undef,('Batch Search for '.join " ", split /\s+/s, param('list'))) 
+#        : PrintTop(undef,undef,'Batch Search Wormbase');
+
+my %fmethod = ();
+open (IN,'./dumper.methods.txt');
+while(<IN>){
+  chomp;  my($fmethod,$fsource) = split /\t/;
+  $fmethod{$fmethod} = 1;
+}
+close(IN);
+
+print startform, 
+  table({-width=>'100%'},
+        TR({-class=>'searchtitle'},th('Query List'),th('Feature Class')),
+        TR({-class=>'searchbody'},
+           td({-align=>'center'},(textarea(-name=>'list',-rows=>10,-cols=>15,-wrap=>'off'))),
+
+           td(checkbox_group(-name=>'feature',
+			     -cols=>6,
+                             -values=>[sort(keys(%fmethod))]))
+        ),
+        TR({-class=>'searchbody'},td({-align=>'center',-colspan=>2},"Dump as: ",submit("GFF"),submit("HTML"),submit("FLATFILE")))
+  ), endform;
+
+
+
+if(param('list')){
+  my @list = split /\s+/s, param('list');
+  my @rows = ();
+
+  #HTML output
+  if(param('HTML')){
+    print '<TABLE WIDTH="100%">',"\n";
+    print "<TR CLASS='resultstitle'><TH>Query</TH><TH>Feature</TH></TR>\n";
+
+    foreach my $item (@list){
+      my $segment = $seqfactory->segment($item);
+      next unless $segment;
+      foreach my $feature (param('feature')){
+	print "<TR CLASS='resultsbody'><TD>$item</TD><TD>",
+	a({-href=>Object2URL($_->info,$_->method)},"$_"), "</TD></TR>\n" foreach $segment->features($feature);
+	#print $_,"\t",ref $_,"\t",$_->method,"\t",$_->info,"\n" foreach $segment->features($feature);
+      }
+    }
+    print "</TABLE>\n";
+  }
+
+  #FLATFILE output
+  elsif(param('FLATFILE')){
+    print '<TABLE WIDTH="100%"><TR CLASS="resultstitle"><TH>View Page Source</TH></TR><TR CLASS="resultsbody"><TD>',"\n";
+    print "<PRE><!--cut flatfile here-->\n";
+    foreach my $item (@list){
+      my $segment = $seqfactory->segment($item);
+      next unless $segment;
+      foreach my $feature (param('feature')){
+	print $_->info,"\t",$_->method,"\t",$_,"\t",$_->dna,"\n" foreach $segment->features($feature);
+      }
+    }
+    print "<!--end cut--></PRE></TD></TR></TABLE>\n\n";
+  }
+}
+
+
+
+#PrintBottom();

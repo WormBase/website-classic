@@ -1,0 +1,190 @@
+New release of WormBase WS129, Wormpep129 and Wormrna129 Fri Jul 30 2004
+
+
+WS129 was built by me
+======================================================================
+
+This directory includes:
+i)	database.WS129.*.tar.gz                     -   compressed data for new release
+ii)	models.wrm.WS129                            -   the latest database schema (also in above database files)
+iii)	CHROMOSOMES/subdir                          -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)	WS129-WS128.dbcomp                          -   log file reporting difference from last release
+v)	wormpep129.tar.gz                           -   full Wormpep distribution corresponding to WS129
+vi)	wormrna129.tar.gz                           -   latest WormRNA release containing non-coding RNA's in the genome
+vii)	confirmed_genes.WS129.gz                    -   DNA sequences of all genes confirmed by EST &/or cDNA
+viii)	yk2orf.WS129.gz                             -    Latest set of ORF connections to each Yuji Kohara EST clone
+ix)	gene_interpolated_map_positions.WS129.gz    - Interpolated map positions for each coding/RNA gene
+x)	clone_interpolated_map_positions.WS129.gz   - Interpolated map positions for each clone
+xi)	best_blastp_hits.WS129.gz                   - for each C. elegans WormPep protein, lists Best blastp match to
+                                                      human, fly, yeast, C. briggsae, and SwissProt & TrEMBL proteins.
+xii)	best_blastp_hits_brigprot.WS129.gz          - for each C. briggsae protein, lists Best blastp match to
+                                                      human, fly, yeast, C. elegans, and SwissProt & TrEMBL proteins.
+xiii)	geneIDs.WS129.gz                            - list of all current gene identifiers with CGC & molecular names (when known)
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+Primary databases used in build WS129
+------------------------------------
+brigdb : 2004-03-12
+camace : 2004-07-20 - updated
+citace : 2004-07-15 - updated
+cshace : 2004-05-10
+genace : 2004-07-22 - updated
+stlace : 2004-07-19 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS129       	WS128      	change
+----------------------------------------------
+a    	32368573	32368573	  +0
+c    	17781252	17781252	  +0
+g    	17758265	17758265	  +0
+t    	32369957	32369957	  +0
+n    	0       	0       	  +0
+-    	0       	0       	  +0
+----------------------------------------------
+Total	100278047	100278047	  +0
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 19763 CDS in autoace, 22213 when counting 2450 alternate splice forms.
+
+The 22213 sequences contain 9,802,206 base pairs in total.
+
+Modified entries              50
+Deleted entries               59
+New entries                   95
+Reappeared entries             3
+
+Net change  +39
+
+
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              5536 (24.9%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed   10892 (49.0%)	Some, but not all exon bases are covered by transcript evidence
+Predicted              5785 (26.0%)	No transcriptional evidence at all
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2651 (11.9%)
+TrEMBL accessions     19281 (86.8%)
+TrEMBLnew accessions      0 (0.0%)
+
+
+Status of entries: Connections in public nucleotide databases
+-------------------------------------------------------------
+Protein_id            22030 (99.2%)
+GI_number             21987 (99.0%)
+
+Gene <-> CDS,Transcript,Pseudogene connections (cgc-approved)
+---------------------------------------------
+Entries with CGC-approved Gene name   5194
+
+Functional data associated with Genes
+-------------------------------------
+
+Gene with non-WT RNAi phenotype    7022
+Gene with microarray_result       18448
+
+
+GeneModel correction progress WS128 -> WS129
+-----------------------------------------
+Confirmed introns not in a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|    571  |   -45  |
+St Louis 	|    367  |   -79  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Repeats | Change |
+		+---------+--------+
+Cambridge	|    620  |     2  |
+St Louis 	|    872  |    -1  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+CHROMOSOME_II	sequence U39471
+
+There are no gaps remaining in the genome sequence
+
+-===================================================================================-
+
+
+
+New Data:
+---------
+
+Microarray_result data is better linked to the Gene/CDS/Transcript and Pseudogene classes
+as part of the build procedure.
+
+Yeast2Hybrid data from the Interactome is dynamically mapped to Gene/CDS/Transcript and
+pseudogene classes for the first time. 
+
+New Fixes:
+----------
+
+Tidy up of GI number connections to remove old redundant data.
+
+Known Problems:
+--------------
+
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+
+Gene spans have been included in the GFF files for the past two releases. We will be adding these
+into the database proper for WS130. This will help in streamlining some of the dynamic mappings
+which happen during the build to connect data to gene models (e.g. the coordinates for operons, 
+Overlapping genes for functional data such as expression microarrays or RNAi).
+
+Features will be linked to Genes/CDS/Transcripts in WS130 as part of the ongoing improvement 
+in gene prediction and accomodating TSL/polyA data into the prediction of full-length
+transcript models.
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

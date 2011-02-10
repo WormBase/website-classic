@@ -1,0 +1,64 @@
+#!/usr/bin/perl
+# $Id: standard_urls,v 1.1.1.1 2010-01-25 15:36:05 tharris Exp $
+# filename: standard_urls
+# Author: L. Stein
+
+use lib '../lib';
+use strict;
+use CGI 'param','header','path_info';
+use StandardURLDumpers 'dump_genome','dump_genes','dump_proteins';
+use Carp 'croak';
+
+my($operation,$species,$options,$version);
+eval {
+  $operation = get_operation();
+  $species   = get_species();
+  $options   = get_options();
+  $version   = get_version();
+};
+
+if ($@) {
+  print header('text/plain');
+  print "ERROR\n$@";
+  exit 0;
+}
+
+$version ||= 'current';
+my $filename = "$species-$version-$operation.fa";
+$filename    =~ s/\s/_/g;
+print header(-type      => 'application/octet-stream',
+	    -attachment => $filename,
+	    );
+eval {
+  dump_genome($species,$version)                    if $operation eq 'genome';
+  dump_genes($species,$options->{spliced},$version) if $operation eq 'transcriptome';
+  dump_proteins($species,$version)                  if $operation eq 'proteome';
+};
+
+print "Sorry. Your request could not be completed. Please report this error to help\@wormbase.org\n$@";
+
+exit 0;
+
+sub get_operation {
+  my $path = path_info();
+  $path    ||= 'proteome';  # default
+  my ($op)  = $path =~ /(\w+)$/;
+  return 'genome'           if $op eq 'genome';
+  return 'transcriptome'    if $op eq 'transcriptome';
+  return 'proteome'         if $op eq 'proteome';
+  croak "Invalid operation $op; choose one of 'genome', 'transcriptome', or 'proteome'";
+}
+
+sub get_species {
+  return param('species') || 'Celegans';
+}
+
+sub get_version {
+  return param('version');
+}
+
+sub get_options {
+  my $spliced = param('spliced') || param('spliced_coding');
+  return {spliced => $spliced};  # only option so far
+}
+

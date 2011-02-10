@@ -1,0 +1,198 @@
+#!/usr/bin/perl
+# Stuart Kim expression map
+
+# Expr_profile objects aren't conveniently XREF'ed to anything.
+# Expr_map objects contain information containg to the Expression map
+# Any gene information must be fetched from PCR_product objects
+
+use strict;
+use Ace::Browser::AceSubs;
+use ElegansSubs qw(:DEFAULT OverlappingGenes FetchGene Bestname MultipleChoices);
+use CGI qw(:standard *table *TR *td);
+use vars qw/%CACHED_GENES $WORMBASE $dbgff $bestname $db $profile/;
+use WormBase;
+
+END {
+  undef $bestname;
+  undef $profile;
+}
+$profile  = GetAceObject();
+$db       = OpenDatabase();
+$WORMBASE = WormBase->new($db);
+
+# Allow users to search for expression profile results by:
+# 1. Expr_profile object IDs
+# 2. Genes (three letter loci; predicted gene IDs, transcripts).
+if (!$profile && param('name')) {
+  ($profile,$bestname) = FetchGene($db,param('name'));
+}
+
+
+$bestname ||= $profile;
+
+PrintTop($profile,$bestname,$profile ? "Expression profile summary for $bestname" : "Expression Profile");
+
+$dbgff    = OpenGFFDB($db,'c_elegans') if $profile;
+
+$WORMBASE->print_prompt(-message  => 'Specify a gene using',
+			-class    => 'Expr_profile',
+			-examples => [ {'Locus'   => 'unc-26'},
+				       {'Gene'    => 'R13A5.9'},
+				       {'Expr_profile' => '1C09E8.1'},
+				     ]);
+
+AceError("No such profile available.") if param('name') && !$profile;
+print_profile($profile) if $profile;
+PrintBottom();
+
+exit 0;
+
+
+##################################
+############ END MAIN ############
+##################################
+
+sub print_profile {
+  my $profile = shift;
+  # If I'm dealing with a sequence or a gene,
+  # fetch possibly overlapping expr_profiles
+  if ($profile->class eq 'Gene') {
+    # I cannot fetch genes from the GFF if they are of the Gene class
+    # (They aren't in the GFF)...
+    # This makes it impossible to associate genes with profiles
+    my $s;
+    eval{$s = $dbgff->segment($profile);};
+    my @p;
+    eval{@p = map {$_->info} $s->features('experimental_result_region:Expr_profile') if $s;};
+    $profile = $p[0];
+    undef $profile unless @p;  # used as a flag that we fetched an appropriate object
+
+    @p = map { $db->fetch(-class=>'Expr_profile',-name=>$_->name) } @p;
+    if (@p > 1) {
+      MultipleChoices('Expr_profile',\@p);
+      exit 0;
+    }
+  }
+  AceError("No expression profile available for " . param('name') . '.') unless $profile;
+
+  # Since expression profiles aren't attached to anything meaninful
+  # use the coordinates of PCR_products. Blech.
+  my $primer = $profile->PCR_product;
+  my $seq = $dbgff->segment($primer);
+  $seq->absolute(1) if ($seq);
+  
+  my $chromosome    = $seq->refseq if $seq;
+  my ($start,$stop) = ($seq->start,$seq->end) if $seq;
+
+  my $expr_map = $profile->Expr_map(-filled=>1);
+  my ($x_coord,$y_coord,$mountain) = ($expr_map->X_coord,$expr_map->Y_coord,$expr_map->Mountain);
+  my $radius = param('radius') || 4;
+
+  print p("This is a summary of the gene expression map analysis performed by",
+	"Kim",i("et al"),
+	a({-href=>'http://cmgm.stanford.edu/~kimlab/topomap/c._elegans_topomap.htm'},"Science, 293: 2087-2092. 2001")
+	);
+
+  print start_table;
+  print start_TR({-valign=>'TOP'});
+  print td(img({-src=>"gene_in_profile?x=$x_coord;y=$y_coord;r=$radius"}));
+  print start_td;
+  print start_table;
+  PrintOne('PCR Product',$primer);
+  PrintOne('Genomic Position',a({-href=>hunter_url($chromosome,$start,$stop)},$seq));
+  PrintOne('"Mountain"',a({-target=>'_new',-href=>mountain_url($mountain)},$mountain));
+  PrintOne('Expression topology coordinates',"($x_coord,$y_coord)");
+  print end_table;
+  print end_td(),end_TR,end_table;
+
+  print start_form,
+    table(
+	  TR({-class=>'searchtitle'},th({-colspan=>2},'Expression space search')),
+	  TR({-class=>'searchbody'},
+	     td({-colspan=>2},
+		'Find all genes whose expression topology coordinates are within a certain radius of',
+		'this profile (a smaller radius is closer in expression space.)  Larger radii will take longer to search.')),
+	  TR({-class=>'searchbody'},
+	     td('Radius: ',popup_menu(-name=>'radius',-value=>[0,1,2,3,4,5,10,20,25,30,35,40],-default=>2)),
+	     td(submit('Search'))
+	    )
+       ),
+	 hidden('name'),
+	   hidden('class'),
+	     end_form;
+  
+  if (my $radius = param('radius')) {
+    my $radius_squared = $radius**2;
+    my $aql = <<END;
+select l, pos, x, y, pcr
+  from l in class SK_map,
+  pos in l->Mountain,
+  x in l->X_coord,
+  y in l->Y_coord,
+  pcr in l->Expr_profile->PCR_product
+ where ((x-$x_coord)*(x-$x_coord) + (y-$y_coord)*(y-$y_coord)) < $radius_squared
+END
+;
+    $aql =~ s/\n/ /g;
+    my @objects = $profile->db->aql($aql);
+
+    print br({-clear=>'ALL'});
+    print p({-class=>'note'},"NOTE: some primer pairs used in these experiments are not currently in WormBase,",
+	    "and others no longer overlap a confirmed or predicted gene.  These issues are being resolved by hand.");
+    
+    print start_table({-border=>1});
+    print TR({-class=>'datatitle'},th(['Expression Profile','Primer Pair','Gene','Mountain','X coordinate','Y coordinate'])),"\n";
+    foreach (sort { ($x_coord-$a->[2])**2+($y_coord-$a->[3])
+		      <=>
+			($x_coord-$b->[2])**2+($y_coord-$b->[3]) } @objects) {
+      my ($profile,$mountain,$x,$y,$pcr) = @$_;
+      my ($gene_link,$pcr_link);
+      if ($pcr) {
+	my @genes = lookup_gene($pcr);
+	my @gene_links = map {ObjectLink($_,
+					 $_->Brief_identification? "$_ (".$_->Brief_identification.")" 
+					 : $_)} @genes;
+	$gene_link = @gene_links ? join ', ',@gene_links : "primer pair position unknown";
+	$pcr_link = ObjectLink($pcr);
+      } else {
+      $gene_link = '&nbsp;';
+      $pcr_link  = 'primer pair unknown';
+    }
+      print TR(td(ObjectLink($profile)),
+	       td($pcr_link),
+	       td($gene_link),
+	       td(a({-target=>'_new',-href=>mountain_url($mountain)},$mountain)),
+	       td($x),td($y)),"\n";
+    }
+    print end_table();
+  }
+}
+
+
+sub hunter_url {
+  my ($chr,$start,$stop) = @_;
+  (my $c = $chr) =~ s/^CHROMOSOME_//;
+  return "../searches/hunter.cgi?name=$c:$start-$stop";
+}
+
+sub mountain_url {
+  my $mountain = shift;
+  return Configuration->Kim_mountains;
+}
+
+sub lookup_gene {
+  my $primer = shift;
+  return @{$CACHED_GENES{$primer}} if exists $CACHED_GENES{$primer};
+  my @genes = OverlappingGenes($primer,$db,$dbgff);
+  $CACHED_GENES{"$primer"}  = \@genes;
+  return @genes;
+}
+
+#here's the magic aql statement
+
+# select l, pos, x, y 
+#   from l in class SK_map, 
+#   pos in l->Mountain,
+#   x in l->X_coord,
+#   y in l->Y_coord 
+#  where ((x-20)*(x-20) + (y-20)*(y-20)) < 10

@@ -1,0 +1,79 @@
+#!/usr/bin/perl  -w
+
+use strict;
+use lib '../lib';
+use Ace::Browser::AceSubs;
+use ElegansSubs qw/:DEFAULT 
+		  display_reactome_data display_nemapath_data /;
+use CGI qw(:standard *table *Tr *TR *td a);
+use WormBase;
+use vars qw/$WORMBASE $DB  $gene $gene_object/;
+
+END {
+  undef $WORMBASE;
+  undef $gene;
+  undef $gene_object;
+  undef $DB;
+}
+
+$gene = param('name');
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+my $version = $DB->version;
+my $cgc_name;
+
+StartCache();
+
+if ($gene) {
+
+	$gene_object = $DB->fetch(-class=> 'Gene',-name=> $gene);
+	$cgc_name = $gene_object->CGC_name;
+}
+
+
+
+
+my $gene_name;
+
+if ($cgc_name) {
+
+	$gene_name = $cgc_name;
+
+} else {
+
+    eval {$gene_name = $gene_object->Sequence_name;};
+
+}
+
+PrintTop($gene_object ,'Pathway Information',$gene_object ? "Pathway Information for $gene_name" : "Pathway Information");
+
+if ($gene_object) {
+print_pathway_data();
+}
+
+ClosePage;
+
+exit 0;
+
+### subroutines ###
+
+sub print_pathway_data {
+	StartDataTable();
+	my $reactome_info = eval {display_reactome_data($gene_object)};
+	if($reactome_info) {
+		StartSection("Reactome");
+		for my $type (sort keys %{$reactome_info}) {
+			my @list = split(/\n/,$reactome_info->{$type});
+			#SubSection($type, join(br, map { my ($db,$name) = split(/\t/,$_);$db="http://www.reactome.org/cgi-bin/eventbrowser?DB=gk_current&ID=".$db; a({-href=>$db,-onmouseover=>"balloon.showTooltip(event,'<iframe frameborder=0 width=450 src=$db></iframe>',1)"},$name)} @list));
+			SubSection($type, join(br, map { my ($db,$name) = split(/\t/,$_);$db="http://www.reactome.org/cgi-bin/eventbrowser?DB=gk_current&ID=".$db; a({-href=>$db},$name)} @list));
+		}
+		EndSection();
+	}
+	my @ECs = display_nemapath_data($gene_object);
+	if(@ECs) {
+		StartSection('NemaPath EC Portal');
+		print join "&nbsp;",@ECs ;
+		EndSection();
+	}
+    EndDataTable();
+}
+	

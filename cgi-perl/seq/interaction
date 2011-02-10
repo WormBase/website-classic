@@ -1,0 +1,165 @@
+#!/usr/bin/perl
+use lib '../lib';
+
+use CGI qw/:standard *table *TR *td *center/;
+use Ace;
+use Ace::Graphics::Panel;
+use Ace::Browser::AceSubs qw(:DEFAULT AceRedirect Toggle);
+use WormBase;
+use ElegansSubs qw(:DEFAULT Bestname format_references GetEvidenceNew);
+use strict;
+
+use vars qw/$DB $WORMBASE $obj/;
+
+END {
+    undef $WORMBASE;
+    undef $obj;
+};
+
+$WORMBASE = WormBase->new($DB);
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+$obj = get_object() if param('name');
+
+PrintTop("Interaction Summary");
+#print_prompt();
+
+display_interaction($obj);
+PrintWarning(param('name'),param('class')) if param('name') and !$obj;
+
+PrintBottom();
+exit;
+
+
+# Users should be able to fetch interactions by Interaction ID, or Gene_name
+sub get_object {
+
+    my $name  = param('name');
+    my $class = param('class') || 'Interaction';
+    
+    # Let's assume this is a display limited to interactions only
+    my @objs = $DB->fetch(-name => $name,-class => $class);
+    return $objs[0];
+}
+
+
+sub display_interaction  {
+    my $interaction = shift;
+    
+    print start_table({-border=>1});
+    
+
+    
+    # Need to parse the Interactor_info hash
+    my $table = start_table({-border=>0,width=>'100%'});
+    my (@interactors) = $interaction->Interactor;
+    if (@interactors) {
+	StartSection('Interactors');
+	$table .= TR(th('Interactor'),,th('Details'));
+	foreach my $interactor (@interactors) {
+
+	    my @info_tags = $interactor->col;
+	    foreach my $tag (@info_tags) {
+		my @cells;
+		my @entries = $tag->right;
+		
+		my $label = $tag;
+		$label =~ s/_/ /g;
+		
+		if ($tag eq 'Variation') {
+		    push @cells,lc($tag) . ': ' . join('; ',map { a({-href=>Object2URL($_)},$_) } @entries);
+		} elsif ($tag eq 'Transgene') {
+		    push @cells,lc($tag) . ': ' . join('; ',map { a({-href=>Object2URL($_)},$_) } @entries);
+		} elsif ($tag eq 'Remark') {
+		    my $evidence =  join(br,GetEvidenceNew(-object         => $tag->right,
+							   -display_label  => 1,
+							   -format         => 'inline',
+							   ));
+		    
+		    push @cells,$evidence;
+		} else {
+		}
+		
+		my $link = $interactor->class eq 'Gene' ? a({-href=>Object2URL($interactor)},Bestname($interactor)) : ObjectLink($interactor);
+		$table .= TR(td($link),td(join('; ',@cells)));
+	    }
+	    # Ugh. slopy.
+	    my $link = $interactor->class eq 'Gene' ? a({-href=>Object2URL($interactor)},Bestname($interactor)) : ObjectLink($interactor);
+	    $table .= TR(td($link),td()) unless @info_tags;
+	}
+	
+	$table .= end_table();
+	SubSection('',$table);
+	EndSection();
+    }
+    
+    
+    # Interation type
+    my $table = start_table({-border=>0});
+    my @types = $interaction->Interaction_type;
+    if (@types) {
+	StartSection('Type');
+	foreach my $type (@types) {
+	    # Parse the #interaction_info
+	    $table .= TR(th('Interaction type'),td($type));
+	    
+	    my @info_tags = $type->col;
+	    foreach my $tag (@info_tags) {
+		
+		my @cells;
+		my (@entries) = $tag->col;
+		
+		my $label = $tag;
+		$label =~ s/_/ /g;
+		
+		if ($tag eq 'Interaction_RNAi') {
+		    push @cells,map { a({-href=>Object2URL($_)},$_) } @entries;
+		} elsif ($tag eq 'Effector') {
+		    next;
+#		push @cells,map { a({-href=>Object2URL($_)},Bestname($_)) } @entries;
+		} elsif ($tag eq 'Effected') {
+		    next;
+		    push @cells,map { a({-href=>Object2URL($_)},Bestname($_)) } @entries;
+		} elsif ($tag eq 'Interaction_phenotype') {
+		    foreach (@entries) {
+			my $phene = $_->Primary_name;
+			$phene =~ s/_/ /g;
+			push @cells,a({-href=>Object2URL($_)},$phene);
+		    }
+		} else {}
+		$table .= TR(th($label),td(join('; ',@cells)));
+	    }
+	    $table .= end_table();
+	}
+	SubSection('',$table);
+	EndSection();
+    }
+
+    if (my @remarks = $interaction->Remark) {
+	StartSection('Remarks');
+	SubSection('',@remarks);
+	EndSection();
+    }    
+
+    if (my @refs = $interaction->Paper) {
+	StartSection('References');    
+	SubSection('',format_references(-references=>\@refs,-format=>'long',-pubmed_link=>'image',
+						 -suppress_years=>1));
+	EndSection();
+    }
+
+    print end_table();
+}
+
+
+
+sub print_prompt {
+    $WORMBASE->print_prompt(-message  => 'Specify an interaction using',
+			    -class    => 'Interaction',
+			    -examples => [ {'Interaction' => 'WP:CE28239'},
+					   {'Y2H'         => 'Y2H000801'},
+					   {'Gene'        => 'T21C12.1'},
+					   ]);
+}
+

@@ -1,0 +1,437 @@
+#!/usr/bin/perl
+
+use strict;
+use lib '../lib';
+use vars qw($DB @genes_not_found @headers %data2class $header_printed $results_flag $total_objects_processed);
+use Ace::Browser::AceSubs;
+use ElegansSubs qw(:DEFAULT MicroarrayPapers);
+use CGI qw(:standard *table *TR *th *td);
+use CGI::Carp qw(fatalsToBrowser);
+
+END {
+  undef @genes_not_found;
+  undef @headers;
+  undef %data2class;
+  undef $results_flag;
+  undef $header_printed;
+  undef $total_objects_processed;
+}
+
+$|++;
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+
+$total_objects_processed = 0;
+@genes_not_found = ();
+$results_flag = 0;   # A flag that any data is returned
+$header_printed = 0; # A flag to follow if the header has been established.
+
+@headers = qw/Gene Result Sequence_info Reference Experiment A_vs_B_log_ratio
+  A_vs_B_SD Frequency Presence P_value Confidence_level Number_of_experiments
+  Cluster Sequence_type/;
+
+# Map data types to databases classes
+%data2class = (
+		  Gene        => 'Gene',
+		  Result      => 'Microarray_results',
+		  Sequence_info => 'seq_info',
+		  Reference   => 'Paper',
+		  Experiment  => 'Microarray_experiment',
+		  Cluster     => 'Cluster');
+
+
+###########################################
+unless (param('submit')) {
+  PrintTop(undef,undef,'Microarray Data Download');
+
+  print div({style=>'width:50%;background-color:#CCCCFF;margin-left:auto;margin-right:auto;padding:5px;border:2px solid blue;margin-bottom:20px'},
+		   h3("SPELL Microarray Resource now available"),    
+    p('Interested users may also wish to try the C. elegans <a href="http://spell.caltech.edu:3000/search/">SPELL microarray resource</a> which provides much greater sophistication in query and display of microarray data.'),
+	    p('For details, please see <a href="http://www.wormbase.org/wiki/index.php/SPELL">documentation</a> on the <a href="http://www.wormbase.org/org/wiki">WormBase Wiki</a>.'));
+
+  print_form();
+  PrintBottom();
+  exit;
+}
+
+# Since we are displaying results as they come in,
+# establish the page type
+# This makes things a bit messier here but appears faster for the user.
+if (param('format') eq 'text') {
+  print header("text/plain");
+} else {
+  PrintTop(undef,undef,"Microarray Search Results");
+
+}
+
+do_search();
+print end_table if ($results_flag && param('format') eq 'html');
+genes_not_found() if (@genes_not_found);
+
+if (!$results_flag and (@genes_not_found or !$total_objects_processed)) {
+  if (param('format') eq 'text') {
+    print "No microarray results found\n";
+  } else {
+    print h2('No microarray results found.');
+  }
+} elsif (!$results_flag and param('format') eq 'html') {
+  print hr;
+  print_form();
+}
+
+PrintBottom() if (param('format') eq 'html');
+exit;
+
+
+################# SUBS #####################
+sub do_search {
+  my $gene_list = param('gene_list'); $gene_list =~ s/^\s+//s; $gene_list =~ s/\s+$//s;
+  my @genes  = split('\s+',param('gene_list'));
+  my $paper  = param('paper');
+
+  # Expand wild cards in gene_list
+  my %expanded_genes;
+  foreach my $gene (@genes) {
+	my $query = "find Gene_name \"$gene\"";
+    my @objects = $DB->fetch(-query=>$query);
+	unless (@objects) { push(@genes_not_found, $gene); next; }
+	foreach (@objects) { $expanded_genes{$_} = 1; }
+	}
+  @genes = sort keys %expanded_genes;	
+
+  # STORAGE:
+  my %gene_idx;          # {name}{gene_name} => \@gene_names, {name}{m_results} => \@m_results, {name}{selected_m_results} => \@selected_m_results
+  my @m_results;         # Selected m_results (filtered if paper_id is specified)
+  	
+  # Find all WBGene names
+ foreach (@genes) { 
+ 	my $gene_names_ref = get_gene_name($_) or push(@genes_not_found, $_);
+	$gene_idx{$_}{gene_name} = $gene_names_ref if $gene_names_ref;
+	}
+
+ # Find all Microarray_results objects
+ foreach my $gene (keys %gene_idx) { 
+	my $gene_names_ref = $gene_idx{$gene}{gene_name};
+	my $m_results_ref = get_m_results($gene, $gene_names_ref) or push(@genes_not_found, $_);
+	$gene_idx{$gene}{m_results} = $m_results_ref if $m_results_ref;
+	delete $gene_idx{$gene} unless $m_results_ref;
+	}
+
+ # If a paper id is specified, go through Microarray_results and capture ones that satisy paper id criteria
+ # Just capture it if no paper id was specified
+ # Remember that paper id cannot have wildcards
+	
+#  if ($paper) {
+# 	
+# 	$paper = "[$paper]"; $paper =~ s/^\[+/[/; $paper =~ s/\]+$/]/; # Correction for the way paper objects are stored 
+# 	
+# 	foreach my $gene (keys %gene_idx) { 
+# 		my @m_results = @{$gene_idx{$gene}{m_results}};
+# 		my @selected_m_results;
+# 		foreach my $m_result (@m_results) {
+# 			foreach my $m_experiment ($m_result->Results) {	
+# 				if ($paper eq $m_experiment->Reference) { push (@selected_m_results, $m_result); last; }
+# 				}
+# 			}	
+# 		$gene_idx{$gene}{selected_m_results} = \@selected_m_results;
+# 		}
+# 	}	
+# 
+#   else { 
+# 	foreach my $gene (keys %gene_idx) { 
+# 		$gene_idx{$gene}{selected_m_results} = $gene_idx{$gene}{m_results};
+# 		}
+# 	}	
+
+  foreach my $gene (keys %gene_idx) {
+	my @gene_names = @{$gene_idx{$gene}{gene_name}};
+	my @m_results = @{$gene_idx{$gene}{m_results}};
+#	my @selected_m_results = @{$gene_idx{$gene}{selected_m_results}};
+
+	fetch_data($gene, \@m_results, '');
+	}
+	
+  }
+
+sub fetch_data {
+  my ($gene,$objects,$class) = @_;
+  my $paper_check  = param('paper');
+
+  my $paper  = param('paper'); $paper =~ s/[\[\]]//g; # Clean paper name
+  my $paper_wbpaper_id = $paper;
+  
+  if ($paper_check) { # Paper check here
+
+		if ($paper =~ /cgc/) {
+			my $query = "find Paper_name \"$paper\"";
+    		my ($object) = $DB->fetch(-query=>$query);
+			if ($object) { $paper_wbpaper_id = $object->CGC_name_for };
+			}
+		
+		}
+
+  my @results;
+  foreach (@$objects) {
+
+    my $seq       = $_->Sequence_info(2);
+    my $type      = $_->Sequence_info(1);
+
+    my $gene_name = $gene;
+
+    my @res = $_->Results;
+    foreach my $r (@res) {
+
+    my $ref = $r->Reference; $ref =~ s/[\[\]]//g; # Clean paper name
+
+	if ($paper_check) { # Paper check here
+		unless (lc($ref) eq lc($paper) or lc($ref) eq lc($paper_wbpaper_id)) { next; } # Make paper id comparison case insensitive 
+		}
+
+    $total_objects_processed++; # Main counter for how many objects were printed out
+
+      $results_flag++;
+      my $a_b   = step_inside_data($_,$r,'A_vs_B_log_ratio');
+      my $sd    = step_inside_data($_, $r, 'A_vs_B_SD');
+      my $fr    = step_inside_data($_, $r, 'Frequency');
+      my $num   = step_inside_data($_, $r, 'Number_of_experiments');
+      my $cl    = step_inside_data($_, $r, 'Confidence_level');
+      my $pv    = step_inside_data($_, $r, 'P_value');
+      my $pres  = step_inside_data($_, $r, 'Presence');
+      my $clust = step_inside_data($_, $r, 'Cluster');
+      
+      push (@results,{ Gene             => $gene_name,
+		       Result           => $_,
+		       Sequence_info    => $seq,
+		       Reference        => $ref,
+		       Experiment       => $r,
+		       A_vs_B_log_ratio => $a_b,
+		       A_vs_B_SD        => $sd,
+		       Frequency        => $fr,
+		       Presence         => $pres,
+		       P_value          => $pv,
+		       Confidence_level => $cl,
+		       Number_of_experiments => $num,
+		       Cluster          => $clust,
+		       Sequence_type    => $type,   # type or gene_type?
+#		       Deduced_type     => $gene_type
+		     });
+    }
+  }
+
+  # Dumping the results as they come in
+  display_running_results(\@results) if (@results);
+}
+
+sub display_running_results {
+  my $results = shift;
+
+  # Print out the column headers on the first iteration
+  # Ugh.  I hate this type of approach.
+  unless ($header_printed > 0) {
+    if (param('format') eq 'text') {
+      print join("\t",@headers),"\n";
+    } else {
+      print start_table({-width=>'100%',-border=>1});
+      print TR(
+	       th({-class=>'searchtitle'},
+		  ["Gene", "Result", "Sequence info", "Reference", "Experiment", "log(A/B)", 
+		   "log(A/B) SD", "Frequency", "Presence", "P value", "CL", "Number of experiments", "Cluster"]));
+    }
+    $header_printed++;
+  }
+
+  if (param('format') eq "text") {
+    foreach my $result (@$results) {
+      foreach (@headers) {
+	print $result->{$_},"\t";
+      }
+      print "\n";
+    }
+  } else {
+    foreach my $result (@$results) {
+      print start_TR({-class=>'databody'});
+      foreach my $index (@headers) {
+	next if ($index eq 'Sequence_type');
+	print start_td({-align=>'center'});
+	my $data = $result->{$index};
+	my $class = $data2class{$index};
+	
+	# Handle the cluster data a little differently...
+	if ($index eq 'Cluster') {
+	  my @tmp_cluster=split(' ; ', $data);
+	  foreach (@tmp_cluster) {
+	    my $tmp_name = $_;
+	    # This should be data2class lookup
+	    print "<a href=http://www.wormbase.org/db/get?name=$tmp_name;class=$class>$_</a><br>";
+	  }
+	} else {
+	  # Reset the class of the data to fetch ...
+	  if ($class && $class eq "Microarray_experiment") {
+		my $result = $result->{Result};
+		my $reference = $result->{Paper};
+		my $url = "http://www.wormbase.org/db/microarray/results?name=$result;reference=$reference;experiment=$data;details=1";
+	    print a({-href=>$url},$data);
+	  }
+	  elsif ($class && $class eq "seq_info") {
+	    my $tmp_class = $result->{Deduced_type};
+	    print a({-href=>Object2URL($data,$tmp_class)},$data);
+	  } elsif ($class) {
+	    print a({-href=>Object2URL($data,$class)},$data);
+	  } else {
+	    print $data;
+	  }
+	}
+	print end_td;
+      }
+      print end_TR;
+    }
+  }
+}
+
+
+#sub display_results {
+#  if (param('format') eq "text") {
+#    print header("text/plain");
+#    print join("\t",@headers),"\n";
+#    foreach my $result (@results) {
+#      foreach (@headers) {
+#	print $result->{$_},"\t";
+#      }
+#      print "\n";
+#    }
+#  } else {
+#    PrintTop(undef,undef,"Microarray Search Results");
+#    print h3("Microarray Search Results");
+#    
+#    print start_table({-width=>'100%',-border=>1});
+#    print TR(
+#	     th({-class=>'searchtitle'},
+#		["Gene", "Result", "Sequence info", "Reference", "Experiment", "log(A/B)", 
+#		 "log(A/B) SD", "Frequency", "Presence", "P value", "CL", "Number of experiments", "Cluster"]));
+#    
+#    # Map data types to databases classes
+#    my %data2class = (Gene => 'Sequence',
+#		      Result=> 'Microarray_results',
+#		      Sequence_info => 'seq_info',
+#		      Reference => 'Paper',
+#		      Experiment => 'Microarray_experiment',
+#		      Cluster    => 'Cluster');
+#    foreach my $result (@results) {
+#      print start_TR({-class=>'databody'});
+#      foreach my $index (@headers) {
+#	next if ($index eq 'Sequence_type');
+#	print start_td({-align=>'center'});
+#	my $data = $result->{$index};
+#	my $class = $data2class{$index};
+#	
+#	# Handle the cluster data a little differently...
+#	if ($index eq 'Cluster') {
+#	  my @tmp_cluster=split(' ; ', $data);
+#	  foreach (@tmp_cluster) {
+#	    my $tmp_name=uri_escape($_);
+#	    # This should be data2class lookup
+#	    print "<a href=http://www.wormbase.org/db/get?name=$tmp_name;class=$class>$_</a><br>";
+#	  }
+#	} else {
+#	  # Reset the class of the data to fetch ...
+#	  if ($class && $class eq "seq_info") {
+#	    my $tmp_class = $result->{Deduced_type};
+#	    print a({-href=>Object2URL($data,$tmp_class)},$data);
+#	  } elsif ($class) {
+#	    print a({-href=>Object2URL($data,$class)},$data);
+#	  } else {
+#	    print $data;
+#	  }
+#	}
+#	print end_td;
+#      }
+#      print end_TR;
+#    }
+#  }
+#}
+
+
+sub genes_not_found {
+  if (param('style') eq 'text') {
+    print "\nThe following genes have no microarray data from the specified paper or were not found in the database:\n";
+    print join("\n",@genes_not_found);
+  } else {
+    print p("<b>The following genes have no microarray data from the specified paper or were not found in the database:</b>");
+    print join(br,@genes_not_found);
+  }
+}
+
+sub step_inside_data {
+  my $mr=shift;
+  my $res=shift;
+  my $tag=shift;
+  my @data;
+  my $tree=$mr->at('Results')->at($res)->get($tag);
+  @data= $mr->at('Results')->at($res)->get($tag, 1) if $tree;
+  $data[0]="." unless @data;
+
+  my $string = join(' ; ',@data);
+  return $string;
+  # return @data;
+}
+
+
+sub print_form {
+  my $url = url({-absolute=>'true'});
+  print start_form({-action=>$url,-method=>"post"}),
+    table(
+	  TR({-class=>'databody'},
+	     td({-colspan=>2},b('Paper&nbsp;'),textfield({-name=>'paper',-size=>'10'}))),
+	  TR({-class=>'databody'},td(textarea({-name=>'gene_list',rows=>'15',wrap=>'virtual'})),
+	     td(
+		ol(li('This search provides list-based access to microarray data in WormBase.'),
+		   li('Enter paper CGC ID in the Paper box (e.g. cgc4489). If no ID is entered, data from all papers will be returned.'),
+		   li('Enter a list of gene names in the search box. Wildcard characters (* and ?) may be used.'),
+		   li('Select output style and press submit.')))),
+	  TR({-class=>'databody'},
+	     td({-align=>'left'},'Format: ' . radio_group({-name=>'format',-values=>[qw/text html/],-default=>'text'})),
+	     td({-align=>'right'},
+		submit({-name=>'submit',-type=>'submit'}),'&nbsp;',
+		qq[<input type="reset" value="Reset">] ))),end_form;
+}
+
+sub get_gene_name {
+	my ($name) = @_;
+	my $query = "find Gene_name \"$name\"";
+    my @objects = $DB->fetch(-query=>$query);
+    
+	return unless @objects;
+	
+	my %gene_names;
+	foreach my $object (@objects) { 
+		foreach my $class qw/CGC_name_for Sequence_name_for Molecular_name_for Other_name_for Public_name_for/ {
+			$gene_names{$object->$class} = 1;
+			}
+		}
+	
+	delete $gene_names{''};
+	my @gene_names = sort keys %gene_names;
+	return \@gene_names;
+	}
+
+sub get_m_results {
+	my ($name, $gene_names_ref) = @_;
+	
+	my @m_results;
+	
+	foreach my $g (@$gene_names_ref) {
+		my $query = "find Microarray_results Gene=\"$g\"";
+    	my @objects = $DB->fetch(-query=>$query);
+		if (@objects) { push @m_results, @objects; }
+		}
+	
+	unless (@m_results) {
+		foreach my $class qw/CDS Transcript/ {
+			my $query = "find Microarray_results $class=\"$name\"";
+    		my @objects = $DB->fetch(-query=>$query);
+			if (@objects) { push @m_results, @objects; last;}
+			}
+		}
+	
+	return @m_results ? \@m_results : undef ;
+	}

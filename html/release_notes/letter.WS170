@@ -1,0 +1,227 @@
+New release of WormBase WS170, Wormpep170 and Wormrna170 Fri Jan 19 09:31:14 GMT 2007
+
+
+WS170 was built by Paul Davis
+======================================================================
+
+This directory includes:
+i)   database.WS170.*.tar.gz    -   compressed data for new release
+ii)  models.wrm.WS170           -   the latest database schema (also in above database files)
+iii) CHROMOSOMES/subdir         -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)  WS170-WS169.dbcomp         -   log file reporting difference from last release
+v)   wormpep170.tar.gz          -   full Wormpep distribution corresponding to WS170
+vi)   wormrna170.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)  confirmed_genes.WS170.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+viii) cDNA2orf.WS170.gz           -   Latest set of ORF connections to each cDNA (EST, OST, mRNA)
+ix)   gene_interpolated_map_positions.WS170.gz    - Interpolated map positions for each coding/RNA gene
+x)    clone_interpolated_map_positions.WS170.gz   - Interpolated map positions for each clone
+xi)   best_blastp_hits.WS170.gz  - for each C. elegans WormPep protein, lists Best blastp match to
+                            human, fly, yeast, C. briggsae, and SwissProt & TrEMBL proteins.
+xii)  best_blastp_hits_brigprot.WS170.gz   - for each C. briggsae protein, lists Best blastp match to
+                                     human, fly, yeast, C. elegans, and SwissProt & TrEMBL proteins.
+xiii) geneIDs.WS170.gz   - list of all current gene identifiers with CGC & molecular names (when known)
+xiv)  PCR_product2gene.WS170.gz   - Mappings between PCR products and overlapping Genes
+
+
+Release notes on the web:
+-------------------------
+http://www.wormbase.org/wiki/index.php/Release_notes
+
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS170       	WS169      	change
+----------------------------------------------
+a    	32365889	32365889	  +0
+c    	17779856	17779856	  +0
+g    	17756016	17756016	  +0
+t    	32365689	32365689	  +0
+n    	0       	0       	  +0
+
+Total	100267450	100267450	  +0
+
+
+Chromosomal Changes:
+--------------------
+There are no changes to the chromosome sequences in this release.
+
+
+Gene data set (Live C.elegans genes 23977)
+------------------------------------------
+Molecular_info              22281 (92.9%)
+Concise_description          4380 (18.3%)
+Reference                    6708 (28%)
+CGC_approved Gene name       8940 (37.3%)
+RNAi_result                 19842 (82.8%)
+Microarray_results          19134 (79.8%)
+SAGE_transcript             20020 (83.5%)
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 20082 CDS in autoace, 23224 when counting 3142 alternate splice forms.
+
+The 23224 sequences contain 10,186,194 base pairs in total.
+
+Modified entries              24
+Deleted entries               13
+New entries                   16
+Reappeared entries             0
+
+Net change  +3
+
+
+
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              7825 (33.7%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed   10746 (46.3%)	Some, but not all exon bases are covered by transcript evidence
+Predicted              4653 (20.0%)	No transcriptional evidence at all
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+UniProtKB/Swiss-Prot accessions   3269 (14.1%)
+UniProtKB/TrEMBL accessions     19437 (83.7%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            22706 (97.8%)
+
+
+
+Gene <-> CDS,Transcript,Pseudogene connections (cgc-approved)
+---------------------------------------------
+Entries with CGC-approved Gene name   7298
+
+
+GeneModel correction progress WS169 -> WS170
+-----------------------------------------
+Confirmed introns not in a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|     15  |     0  |
+St Louis 	|     10  |    -1  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Repeats | Change |
+		+---------+--------+
+Cambridge	|      6  |     0  |
+St Louis 	|      6  |     0  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+No synchronisation issues
+
+
+There are no gaps remaining in the genome sequence
+---------------
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+
+New Data:
+---------
+1) If you are planning to run mass spectrometry experiments, you might like to search the 
+   file of translated open reading frames in:
+   ftp://ftp.sanger.ac.uk/pub/wormbase/data/translated_orfs.WS170.gz
+   in addition to the set of curated wormpep proteins.
+
+   If you have questions about submitting any types of data to wormbase, please contact: submit@wormbase.org"
+
+Genome sequence updates:
+-----------------------
+
+
+New Fixes:
+----------
+
+
+Known Problems:
+---------------
+1) 16 elegans peptides failed to run through the blastp pipeline.
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+-------------------------------------
+
+
+Model Changes:
+------------------------------------
+PaulD
+Added tag to ?Operon to track removed operons and #Evidence to the Remark.
+
+?Operon
+History         Deprecated     Text     #Evidence
+Remark        Text     #Evidence
+
+further operon related addition.
+?Trans_splice_leader . Inferred #Evidence
+
+
+==========================================================================================================
+MichealH
+Removed the erroneous UNIQUE from the Ortholog_other tag added last time. It is actually not needed at all.
+
+?Gene
+Ortholog_other  ?Database ?Database_field ?Accession_number ?Species #Evidence
+
+==========================================================================================================
+GaryW
+Corrected type in Protein class introduced last time
+
+?Protein
+    Contains_peptide ?Mass_spec_peptonide     <----
+
+
+==========================================================================================================
+Igor/Raymond
+?Expression_cluster and ?Anatomy_term changes to describe microarray experiments involving expression profiling in a particular tissue or cell.
+
+?Expression_cluster Anatomy_term ?Anatomy_term XREF Expression_cluster #Evidence
+
+?Anatomy_term Attribute_of Expression_cluster ?Expression_cluster XREF Anatomy_term #Evidence
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

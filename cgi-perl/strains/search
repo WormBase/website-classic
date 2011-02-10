@@ -1,0 +1,207 @@
+#!/usr/bin/perl
+
+############################################################
+#
+#    written by Igor Antoshechkin
+#    igor.antoshechkin@caltech.edu
+#    Dec. 2005
+
+#    Rewritten to work in an accelerated, mod_perl environment
+#
+###############################################################
+
+use strict;
+use Search::Indexer;
+use Storable qw(store retrieve);
+
+use lib '../lib';
+use Ace::Browser::AceSubs qw(:DEFAULT);
+use ElegansSubs qw/:DEFAULT/;
+use CGI qw/:standard/;
+use vars qw/$DB $script_name $query/;
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+my $version = $DB->status->{database}{version};
+
+$| = 1; #turn off output buffering
+
+END {
+    undef $query;
+    undef $script_name;
+}
+
+
+
+$script_name = script_name();
+$query = param('query');
+
+
+
+if (!$query && !param('noQueryString')) {
+    PrintTop("Search Strain Database");
+    print_form();
+
+# Do we have a query? Call the script again (!). Weird.
+# prints query params on the URL line (use with JavaScript-based highlighling of terms in other pages)
+} elsif (!$ENV{QUERY_STRING} && $query && ! param('noQueryString')) {
+    my $self_url = self_url();
+    $self_url=~s/;search=Search//;
+    print redirect($self_url);
+} else {
+    PrintTop("Search Strain Results");
+    do_search();
+}
+
+PrintBottom();
+exit;
+
+############################################################
+# Begin subs
+############################################################
+sub do_search {
+    my $search  = param('search');
+    my $CGConly = param('CGConly');
+    my $words   = param('words');
+    
+    
+# Directory containg indexes (ixw.bdb, ixp.bdb, ixd.bdb)
+    my $indexDir = "/usr/local/wormbase/html/databases/strain_search";
+    my $htmlRoot = "/databases/strain_search";
+
+# full path to the lookup.strains file
+    my $strainFile = $indexDir . '/lookup.strains';    
+
+    my $ix = new Search::Indexer(dir => $indexDir);
+    my %strain_hash = ();
+
+
+    my $ref = retrieve($strainFile) || die "cannot retrieve $strainFile : $!\n";
+    %strain_hash = %$ref;
+    
+    if ($words ne "query") {
+	$query=~s/\"//g;
+	$query=~s/\'//g;
+	$query=~s/ AND / /ig;
+	$query=~s/ OR / /ig;
+	$query=~s/ NOT / /ig;
+	$query=~s/\s{2,}/ /g;
+    }
+    
+    if ($words eq "all") {
+	my @words=split(/\s/, $query);
+	$query='';
+	foreach (@words) {
+	    $query=join(' AND ', @words);
+	}
+    }
+    elsif ($words eq "any") {
+	my @words=split(/\s/, $query);
+	$query='';
+	foreach (@words) {
+	    $query=join(' OR ', @words);
+	}
+    }
+    elsif ($words eq "phrase") {
+	$query="\"".$query."\"";
+    }
+    else {  # use query
+    }
+    
+    
+    my $result = $ix->search($query);
+    my @tmp_docIds = keys %{$result->{scores}};
+    
+    
+    my @docIds=();
+    foreach (@tmp_docIds) {
+	if ($CGConly) {
+	    if ($strain_hash{$_}{CGC} eq "Yes") {
+		push @docIds, $_;
+	    }
+	}
+	else {
+	    push @docIds, $_;
+	}
+    }
+    
+=head
+	if (scalar @docIds == 1) {
+	    my $URL='';
+	    if ($strain_hash{$docIds[0]}{WB} eq "Yes") {
+#	$URL="http://www.wormbase.org/db/gene/strain?name=$strain_hash{$docIds[0]}{strain};class=Strain";
+		$URL=$htmlRoot."/".$strain_hash{$docIds[0]}{file};
+	    }
+	    else {
+		$URL=$htmlRoot."/".$strain_hash{$docIds[0]}{file};
+	    }
+	    print redirect($URL);
+	}
+=cut
+	
+	if (scalar @docIds == 1) {
+	    my $URL='';
+	    if ($strain_hash{$docIds[0]}{WB} eq "Yes") {
+#	$URL="\"http://www.wormbase.org/db/gene/strain?name=$strain_hash{$docIds[0]}{strain};class=Strain\"";
+		$URL="\"".$htmlRoot."/".$strain_hash{$docIds[0]}{file}."\"";
+	    }
+	    else {
+		$URL="\"".$htmlRoot."/".$strain_hash{$docIds[0]}{file}."\"";
+	    }
+	    
+	    print header("text/html");
+	    print "<html><script type=\"text/javascript\">window.location.replace($URL)</script></html>";  #both work
+	    exit;
+	}
+
+    
+
+    print "<h1>Results of search for $query</h1>";
+    print "Your search for $query found ", scalar @docIds, " strains:<br>";
+    
+    print "<ol>\n";
+    
+    foreach my $doc (sort {$strain_hash{$a}{strain} cmp $strain_hash{$b}{strain}} @docIds) {
+	my $URL='';
+	if ($strain_hash{$doc}{WB} eq "Yes") {
+#	$URL="http://www.wormbase.org/db/gene/strain?name=$strain_hash{$doc}{strain};class=Strain";
+	    $URL=$htmlRoot."/".$strain_hash{$doc}{file};
+	}
+	else {
+	    $URL=$htmlRoot."/".$strain_hash{$doc}{file};
+	}
+	print "<li><a href=\"$URL\">$strain_hash{$doc}{strain}</a>&nbsp;$strain_hash{$doc}{genotype}</li>\n";
+    }
+    print "</ol>\n";
+}
+
+
+
+
+sub print_form {
+    my @values = qw/any all phrase query/;
+    my %labels = ( any    => 'Any words',
+		   all    => 'All words',
+		   phrase => 'Phrase',
+		   query  => 'Use query syntax');
+    
+    print start_form({-action=>$script_name}),
+    table(
+	  TR(
+	     td(
+		b('Search strain list for:'),
+		),
+	     td(textfield({-name=>'query',-size=>'40'}),
+		submit({-name=>'search',-value=>'Search'}),
+		reset())),
+	  TR(
+	     td(),
+	     td('Search strains available at CGC only',
+		checkbox({-name=>'CGConly',-values=>[qw/on off/],-label=>''}))),
+	  TR(
+	     td(),
+	     td('Find records containing:',
+		radio_group({-name=>'words',-values=>\@values,-labels=>\%labels,-default=>'any'}),
+		))),
+	  end_form();
+}
+

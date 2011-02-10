@@ -1,0 +1,456 @@
+#!/usr/bin/perl
+
+use strict;
+
+use Ace::Browser::AceSubs qw(:DEFAULT);
+use ElegansSubs qw/:DEFAULT Bestname format_references FetchGene format_reference/; 
+use CGI qw(:standard  -nosticky  escape *ul);
+use WormBase;
+use vars qw/$WORMBASE $strain $DB $gene $bestname $strains $query/;
+
+use Search::Indexer;
+use Storable qw/store retrieve/;
+
+END {
+    undef $WORMBASE;
+    undef $strain;
+    undef $gene;
+    undef $bestname,
+    undef $strains;
+    undef $query;
+}
+
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+my $version = $DB->version;
+
+$query = param('name') || param('query');
+# Fudge - maybe somebody pressed search but didn't enter anything
+$query = '*' if (param('search') && !$query);
+
+if (!$query && !param('noQueryString')) {
+    PrintTop("Search Strain Database");
+    print_form();
+
+# Fetching a strain (old-style)
+} elsif (defined param('name')) {
+	
+    my $strain = $DB->fetch(Strain => $query);
+    PrintTop($strain,'Strain',$strain ? "Strain Report for $strain" 
+	     : $strains ? "Multiple strains found for $query" : '');
+    print_report($strain);
+
+# Do we have a query submitted by the search? Call the script again. Weird.
+# prints query params on the URL line (use with JavaScript-based highlighling of terms in other pages)
+} elsif (!$ENV{QUERY_STRING} && param('query') && ! param('noQueryString')) {
+    # Strange Unable to fetch posted parameters via -query
+    my $url = url(-absolute=>1,-query=>1);
+    $url =~s/;search=Search//;
+
+    print redirect($url);    
+} else {
+    do_search();
+}
+
+ClosePage;
+exit 0;
+
+
+
+# OLD STYLE ACEDB-POWERED SEARCH. DEPRECATED.
+
+#$WORMBASE = WormBase->new();
+#$WORMBASE->print_prompt(-message  => 'Specify a strain using',
+#			-class    => 'Strain',
+#			-examples => [{'Strain'     => 'CB1'},
+#				      {'Locus'     => 'unc-2'},
+#				      {'Variation' => 'e205'}]);
+
+#if ($query && (!$strain && !$strains)) {
+#print span({-class=>'warning'},qq{No matching objects found for } . 
+#	   b($query). 
+#	   qq{. Strains not yet included in WormBase may be listed at the <a href="http://www.cbs.umn.edu/CGC/Strains/strains.htm">CGC</a>.});
+#}
+#
+#
+#if (eval { @$strains > 1 }) {    
+#    print h3(scalar @$strains . " strains reference or carry " . (($bestname) ? a({-href=>Object2URL($gene)},$bestname) : $query) . ':');
+#    print start_table({-width=>'100%'});
+#    print TR(th({-class=>'dataheader'},'Strain'),
+#	     th({-class=>'dataheader'},'Species'),
+#	     th({-class=>'dataheader'},'Genotype'));
+#
+#  foreach (sort { $a cmp $b } @$strains) {
+#      print TR(td({-class=>'datacell'},ObjectLink($_)),
+#	       td({-class=>'datacell'},$_->Species),
+#	       td({-class=>'datacell'},$_->Genotype));
+#  }
+#  print end_table;
+#}
+
+#$strain = $strains->[0] if $strains && @$strains == 1;
+sub print_report {
+
+    my $strain = shift;
+    StartDataTable;
+    StartSection('Strain');
+    SubSection('' => $strain->name);
+    
+    if ($strain->Genotype) {
+	StartSection('Genotype');
+	SubSection('' => $strain->Genotype);
+    }
+    
+    if ($strain->Contains) {
+	# my $genes = associate_genes($strain);
+	StartSection('Contains');
+	SubSection('Gene'           => map { ObjectLink($_,Bestname($_)) } $strain->Gene);
+	SubSection('Allele'         => $strain->Variation);
+	SubSection('Rearrangement'  => $strain->Rearrangement);
+	SubSection('Clone'          => $strain->Clone);
+	SubSection('Transgene'      => $strain->Transgene);
+    }
+    
+    if ($strain->Properties) {
+	StartSection('Properties');
+	SubSection('Species'          => eval { $strain->Species->name } );
+	SubSection('Males'            => $strain->Males);
+	SubSection('Reference strain' => $strain->Reference_strain);
+	SubSection('Outcrossed'       => $strain->Outcrossed);
+	SubSection('Mutagen'          => $strain->Mutagen);
+	SubSection('Received at CGC'     =>  map {
+	    my $date   = $strain->CGC_received;
+	    $date =~ s/ 00:00:00$//;
+	    "$date"
+	    } $strain->CGC_received);
+
+	#phenotype evidence
+	my ($text);
+	my @phenotypes = $strain->Phenotype;
+	my @phenotype_nots = $strain->Phenotype_not_observed;
+	
+  	foreach my $node (@phenotypes) {
+	
+		my $content .= td(ObjectLink($node,best_phenotype_name($node))) . 
+			td({-width=>'50%'},$node->get('Remark')) . 
+			td(join (br, map { format_reference(-reference=>$_,-format=>'inline_evidence')} $node->at('Paper_evidence')));
+ 			$text .= TR($content);	
+	}
+	
+	$text = 'The following phenotypes were observed in this experiment<br>' . 
+	table({-border=>1}, TR(th('Phenotype'),th('Remark'),th('Evidence')), $text); ## if(defined $text);	
+	
+	# SubSection('Phenotypes', $text);
+	
+  	my $text_NOT;
+  	
+  	foreach my $node (@phenotype_nots) {
+	
+		my $content .= td(ObjectLink($node,best_phenotype_name($node))) . 
+			td({-width=>'50%'},$node->get('Remark')) . 
+			td(join (br, map { format_reference(-reference=>$_,-format=>'inline_evidence')} $node->at('Paper_evidence')));
+ 			$text_NOT .= TR($content);	
+	}
+
+	
+	$text_NOT = 'The following phenotypes were <b>NOT</b> observed in this experiment<br>' . 
+		table({-border=>1}, TR(th('Phenotype'),th('Remark'),th('Evidence')), $text_NOT)
+		; ## if(defined $text_NOT);. '</table>'
+	
+	# SubSection('Phenotypes Not Observed',$text_NOT);
+  	
+	SubSection('Phenotypes',$text . '<br><br>' . $text_NOT) if (@phenotypes || @phenotype_nots); ### 
+  	
+  	}
+
+
+#    unless ($strain->CGC_received || $strain->Location eq 'CGC') {
+#	StartSection('Note');
+#	SubSection(''  =>  map { "Strain not available at CGC"; } $strain->name);
+#    }
+    
+    if ($strain->Location) {
+	StartSection('Location');
+	my $location = $strain->Location eq 'CGC' ? a({-href=>Configuration->Cgc_home,-target=>'_blank'},'CGC') : $strain->Location;
+	SubSection('' => $location);
+    }
+    
+    if ($strain->Made_by) {
+	StartSection('Made by');
+	SubSection('' => $strain->Made_by);
+    }
+    
+    if ($strain->Remark) {
+	StartSection('Remark');
+	SubSection('' => $strain->Remark);
+    }
+    
+    if ($strain->Reference) {
+	StartSection('Reference');
+	my @refs = $strain->Reference;
+	format_references(-references=>\@refs,-format=>'long',-pubmed_link=>'image',-curator=>url_param('curator'));
+  }
+
+  EndDataTable;
+print hr();
+    print_form();
+}
+
+
+
+
+
+####################################
+########## BEGIN SUBS ##############
+####################################
+sub do_search {
+    my $search  = param('search');
+    my $CGConly = param('CGConly');
+    my $words   = param('words');
+    
+    # full path to the lookup.strains file
+
+
+    # Versioned - hardcoded 
+    my $strain_dir = "/usr/local/wormbase/databases";
+    my $strainFile = $strain_dir . "/$version/strains/lookup.strains";
+    my $ix = new Search::Indexer(dir => $strain_dir . "/$version/strains");
+
+    # Not versioned
+#    my $strain_index_dir = Configuration->Strain_index_dir;
+#    my $strainFile = $strain_index_dir . "/lookup.strains";
+#    my $ix = new Search::Indexer(dir => $strain_index_dir );
+
+    my %strain_hash = ();
+
+    my $ref = retrieve($strainFile) || die "cannot retrieve $strainFile : $!\n";
+    %strain_hash = %$ref;
+    
+    if ($words ne "query") {
+	$query=~s/\"//g;
+	$query=~s/\'//g;
+	$query=~s/ AND / /ig;
+	$query=~s/ OR / /ig;
+	$query=~s/ NOT / /ig;
+	$query=~s/\s{2,}/ /g;
+    }
+    
+    if ($words eq "all") {
+	my @words=split(/\s/, $query);
+	$query='';
+	foreach (@words) {
+	    $query=join(' AND ', @words);
+	}
+    }
+    elsif ($words eq "any") {
+	my @words=split(/\s/, $query);
+	$query='';
+	foreach (@words) {
+	    $query=join(' OR ', @words);
+	}
+    }
+    elsif ($words eq "phrase") {
+	$query = qq{".$query."};
+    }
+    else {  # use query
+    }
+    
+    # HACK!  Single wildcard support not available
+    my @tmp_docIds;
+    my $result = $ix->search($query);	
+    if ($query eq '*') {
+	@tmp_docIds = keys %strain_hash;
+    } else {
+	@tmp_docIds = keys %{$result->{scores}};
+    }
+    
+my @docIds;
+    foreach (@tmp_docIds) {
+	if ($CGConly) {
+	    if ($strain_hash{$_}{CGC} eq "Yes" && $strain_hash{$_}{WB} ne 'Yes') {
+		push @docIds, $_;
+	    }
+	} else {
+	    push @docIds, $_;
+	}
+    }
+
+    # One strain found? Redirect automatically.
+    if (scalar @docIds == 1) {
+	my $url = is_available_at_WB($strain_hash{$docIds[0]});
+	redirect($url);
+	exit;
+    }
+
+
+    # Wait to PrintTop *after* possible redirection just to avoid blinking pages.
+    PrintTop("Search Strain Results");
+
+    # No strains found?
+    if (scalar @docIds == 0) {
+	print span({-class=>'warning'},
+		   'No matching strains found for ' 
+		   . b($query) . '.'); 
+    } else {
+	print h3(qq{Your search for "<b>$query</b>" found }, scalar @docIds, " strains:");
+    }
+    
+    # > 1 strain found.
+    print start_ul();
+    my $hilight = '#FFC1C1';
+    foreach my $doc (sort {$strain_hash{$a}{strain} cmp $strain_hash{$b}{strain}} @docIds) {
+	my $url = is_available_at_WB($strain_hash{$doc});
+	my $cgc_style = 
+	    ($strain_hash{$doc}->{CGC} eq 'Yes') ?
+	    $hilight : "#FFFFFF"; 
+	
+	print li(span
+		 ({style=>"background-color:$cgc_style"},
+		  a({-href=>$url},$strain_hash{$doc}{strain}),
+		  $strain_hash{$doc}{genotype}
+		  ));
+    }
+    print end_ul();
+
+    print p(
+	    span({style=>"background-color:$hilight"},
+		 "Highlighted strains are available from the " 
+		 . a({-href=>Configuration->Cgc_home,-target=>'_blank'},'CGC')));
+}
+
+
+
+sub is_available_at_WB {
+    my $strain = shift;
+    # Preferentially use the WormBase styled pages over the pre-generated pages
+    my $htmlRoot = Configuration->Strain_html_root;
+    my $url = ($strain->{WB} eq "Yes") 
+	? "/db/gene/strain?name=" . $strain->{strain} . ";class=Strain"
+	: $htmlRoot . $strain->{file};
+    return $url;
+}
+
+
+
+sub print_form {
+    my @values = qw/any all phrase query/;
+    my %labels = ( any    => 'Any words',
+		   all    => 'All words',
+		   phrase => 'Phrase',
+		   query  => 'Use query syntax');
+    
+    my $url = url(-absolute=>1,-query=>1);
+    print start_form({-action=>$url,-method=>'POST'}),
+    table(
+	  TR(
+	     td(
+		b('Search strain list for:'),
+		),
+	     td(textfield({-name=>'query',-size=>'40'}),
+		submit({-name=>'search',-value=>'Search'}),
+		reset())),
+	  TR(
+	     td(),
+	     td('Search CGC for recently acquired strains not yet available from WormBase',
+		checkbox({-name=>'CGConly',-label=>''}))),
+	  TR(
+	     td(),
+	     td('Find records containing:',
+		radio_group({-name=>'words',-values=>\@values,-labels=>\%labels,-default=>'any'}),
+		)));
+    print 
+	p(i(
+	    'Search using a strain ('
+	    . a({-href=>'/db/gene/strain?query=CB1;class=Strain'},'CB1')
+	    . '), gene name ('
+	    . a({-href=>'/db/gene/strain?query=unc-2;class=Strain'},'unc-2')
+	    . ')'
+	    . ', allele ('
+	    . a({-href=>'/db/gene/strain?query=e205;class=Strain'},'e205')
+	    . ')'
+	    . ' or free text ('
+	    . a({-href=>'/db/gene/strain?query=coiler'},'coiler')
+	    . ').'
+	    ));
+    print end_form();
+}
+
+
+# This is completely deprecated. Hours and hours of development and testing time....
+sub get_strains {
+    my $query = shift;
+    my %seen;
+    my @strains;
+    push @strains,$DB->fetch(Strain => $query);
+    # Short circuit if we are fetching a particular strain
+    return (\@strains) if @strains && @strains == 1 && url_param('name');
+    push @strains,grep {!$seen{$_}++ } $DB->fetch(-query=>qq{find Strain where Variation=$query});
+    push @strains,grep {!$seen{$_}++ } $DB->fetch(-query=>qq{find Strain where Transgene=$query});
+    push @strains,grep {!$seen{$_}++ } $DB->fetch(-query=>qq{find Strain where Genotype="$query"});
+    push @strains,grep {!$seen{$_}++ } $DB->fetch(-query=>qq{find Strain where Genotype="*$query*"});
+
+
+    # Does the query look like a gene?
+    # Try a constrained search of genotype
+    my ($gene,$bestname);
+    unless (@strains) {
+	if ($query =~ /^\w{3,4}\-\d+$/) {
+	    ($gene,$bestname) = FetchGene($DB,$query);
+	    @strains = grep { !$seen{$_}++ } $DB->fetch(-query=>qq{find Strain where Gene=$gene}) if $gene;
+#	} elsif (my $class = $DB->fetch(Gene_class => $query)) {
+#	    # Try to guess if this is a gene class
+#	    # This might be some term like "mex"
+#	    @strains = 
+#		grep { !$seen{$_}++ }
+#	    $DB->fetch(-query=>qq{find Strain where Genotype=*$query*});
+#	    # Should this also return strains that give a Mex phenotype?
+	}
+    }
+
+    # Search remarks but do NOT be greedy - do not include unc-22 for unc-2 searches
+    # but DO look for expression constructs, etc    
+    # Force hits to look like our query
+    push @strains,
+    grep {!$seen{$_}++ }
+    grep { $_->Remark =~ /[p:\-\s\(]$query[\s:\-\)]/ }
+    $DB->fetch(-query=>qq{find Strain where Remark="*$query*"});
+    
+    push @strains,
+    grep {!$seen{$_}++ }
+    grep { $_->Genotype =~ /[p:\-\s\(]$query[\s:\-\)]/ }
+    $DB->fetch(-query=>qq{find Strain where Genotype=*$query*});
+    
+    # Redirect if we just found a single strain - this is a hackish way to rewrite URL
+    if (@strains == 1) {
+	redirect("/db/gene/strain?name=" . $strains[0] . ';class=Strain');
+    }
+    
+    return (\@strains,$gene,$bestname) if @strains;
+    
+    # last gasp, try fetching a gene first
+    @strains = grep { !$seen{$_}++ } grep {$_->class eq 'Strain'} $DB->grep($query);
+    return \@strains if @strains;
+    return undef;
+}
+
+
+
+# TH: I started adding this subroutine until I realized that
+# this information is contained in the flattened genotype string
+sub associate_genes {
+  my $strain = shift;
+  my %union;
+
+  my %genes   = map {$_ => 1 } $strain->Gene;
+  my %alleles;
+  # Rationale: Strains might carry alleles not associated with genes, etc
+  foreach ($strain->Allele) {
+    if (my $gene = $_->Gene) {
+      $union{$gene} = $_;
+      delete $genes{$gene};
+      next;
+    }
+    $alleles{$_}++;
+  }
+  return (\%union,\%alleles,\%genes);
+}

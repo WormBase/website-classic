@@ -1,0 +1,62 @@
+#!/usr/bin/perl
+
+# generic xml display
+# should work with any data model
+
+use lib './lib';
+
+use strict;
+use vars qw($DB);
+
+use Ace 1.65;
+use CGI 2.42 qw/:standard :html3 escape/;
+use CGI::Carp qw/fatalsToBrowser/;
+use Ace::Browser::AceSubs;
+
+my (undef,$class,$name) = split '/',path_info();
+my $format  = param('format') || 'xml';
+
+AceError(<<END) unless $name && $class; 
+Call this script as
+http://www.wormbase.org/db/xml/<i>class</i>/<i>name</i> where "class"
+and "name" correspond to the class and name of the WormBase object of
+interest.  
+END
+;
+
+# fetch database handle
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+my $iterator = $DB->fetch_many(-class=>$class,
+			       -name=> $name, 
+			       -fill=>"true") || AceError("Unknown object: name=$name, class=$class.");
+
+
+if ($format eq 'text') {
+  print header('text/plain');
+  while (my $obj = $iterator->next) {
+    print $obj->asString;
+  }
+} 
+elsif ($format eq 'ace') {
+  print header('text/plain');
+  while (my $obj = $iterator->next) {
+    print $obj->asAce;
+  }
+} 
+elsif ($format eq 'html') {
+  print header('text/html');
+  while (my $obj = $iterator->next) {
+    print $obj->asHTML;
+  }
+} 
+else {
+  print header('text/plain');
+  print qq(<?xml version="1.0" standalone="yes"?>\n\n);
+  while (my $obj = $iterator->next) {
+    my $xml = $obj->asXML;
+    $xml ||= qq(<$class class="$class" value="$name" />\n);
+    $xml    =~ s!class="([^\"\#]+)" value="([^\"\#]+)"!href="/db/xml/$1/$2" class="$1" name="$2"!g;
+#    $xml    =~ s!<(/?[A-Z])!'<'.lc $1!eg;
+    print $xml;
+  }
+}

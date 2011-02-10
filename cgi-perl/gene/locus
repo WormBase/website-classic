@@ -1,0 +1,388 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# file: locus
+# C. elegans gene report
+
+use lib '../lib';
+use strict;
+use vars qw($DB $CONFIG $SECTION $ROWS_PRINTED $BESTNAME $gene);
+use Ace 1.51;
+use Ace::Browser::AceSubs qw(:DEFAULT !TypeSelector AceRedirect 
+			     AceMultipleChoices Configuration);
+use Ace::Browser::GeneSubs qw(PROTEOME ENTREZ SWISSPROT);
+use ElegansSubs qw(:DEFAULT :locus :biblio :sequence PrintLongDescription
+		   StartCache EndCache Bestname format_reference format_references
+		  );
+use CGI 2.42 qw/:standard :html3 *table *blockquote/;
+
+END {
+  undef $gene;
+  undef $BESTNAME;
+}
+
+$CONFIG = Configuration();
+
+# print HTTP header & open the database
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$DB->class('Ace::Object::Wormbase');
+
+StartCache();
+
+# Fetch the requested gene
+my $request = param('name');
+($gene,$BESTNAME) = get_gene($request) if $request;
+
+PrintTop(($gene ? $gene : '','Locus'),$gene ? "Locus report for: " . $BESTNAME : "Locus report");
+print_prompt();
+
+# Request posted, did we recover a gene?
+if ($gene) {
+  # Only process genes which have map positions (ie are loci)
+  redirect_to_gene($gene) if !$gene->Map && $gene->class eq 'Gene';
+  redirect_to_tree($gene) unless $gene->Map;
+  print_report($gene)    if ($gene);
+} elsif ($request) {  # Request posted, no gene recovered
+  redirect_to_sequence($request);
+  PrintWarning($request,'locus') if ($request && !$gene);
+}
+
+PrintBottom();
+
+exit 0;
+
+
+
+
+############################### end of program ################################
+
+sub get_gene {
+  my $request = shift;
+
+  # Searching by a molecular ID
+  my @genes = $DB->fetch(-query=>"find Gene_name $request",-fill=>1);
+
+  # Searching by a WB ID
+  @genes = $DB->fetch(-class=>'Gene',-name=>$request,-fill=>1) unless @genes;
+
+  # Searching by a Variation_name
+  my @variations = $DB->fetch(-class=>'Variation',-name=>$request) unless @genes;
+  @genes = map { $_->Gene } @variations if @variations;
+
+  if (@genes > 1) {
+    my @derefed = map {
+      unless ($_->class eq 'Gene') {
+	eval { $_->Sequence_name_for } || eval { $_->CGC_name_for } || $_ }
+      } @genes;
+    MultipleChoices('gene',\@derefed);
+    exit 0;
+  }
+  return if (!@genes);
+  my $g = $genes[0];
+  if ($g->class eq 'Gene_name') {
+    return ($g->Sequence_name_for || $g->CGC_name_for || $g->Other_name_for,$g);
+  } else {
+    return ($g,Bestname($g));  # These should be Gene objects
+  }
+}
+
+sub print_prompt {
+  my $gene = shift;
+  print start_form;
+  param(-name=>'name',-value=>$BESTNAME || $gene);
+  print
+    p({-class=>'caption'},"Type in a gene symbol, such as ",
+      cite('unc-26'),', ',cite('ced-9'),', or',cite('pal-1'),':'),
+	p("Symbol: ",
+	  textfield(-name=>'name'));
+  print end_form;
+  return;
+}
+
+
+sub print_report {
+  my $gene = shift;
+  print div({-align=>'center'},
+	    table(
+		  TR(
+		     th(
+			[map {a({-href=>"#$_"},"[\L$_]")}
+			 'Identification','Location','Alleles','Mapping Data','References','Submit New Data']))));
+
+  print start_table({-border=>1});
+  StartSection('Identification');
+  print_identification($gene);
+
+  StartSection('Location');
+  print_location($gene);
+
+  StartSection('Alleles');
+  print_alleles($gene);
+
+  StartSection('Mapping Data');
+  print_mapping_data($gene);
+
+  StartSection('References');
+  print_bibliography($gene);
+
+  StartSection('Submit New Data');
+  print_submission_forms($gene);
+
+  EndSection();
+  print end_table();
+}
+
+sub print_bibliography {
+  my $gene = shift;
+  my %references;
+  # Let's not print all the references.  This is redundant.
+  #  my @references = eval {$gene->Reference(-fill=>1)};
+  #  format_references(-references=>\@references,-format=>'long',-pubmed_link=>'image',
+  #		    -curator=>url_param('curator'));
+  my @references = eval { $gene->Reference; };
+  
+  SubSection('',scalar @references . ' references cited. ' . a({-href=>"/db/misc/bibliography?name=$gene"},'[view all]'));
+}
+
+# OUT OF SYNC WITH MODEL
+sub print_identification {
+  my $locus = shift;
+  my $class = eval {$locus->Gene_class->Description};
+  SubSection('Gene Name',ObjectLink(Bestname($locus)) . " (a member of the $class gene class)") if $class;
+  SubSection('Species',i($locus->Species));
+  SubSection('Corresponding Sequenced Gene',eval {$locus->Corresponding_CDS});
+}
+
+sub print_location {
+  my $locus = shift;
+  my ($link_group,undef,$position,undef,$error) = eval { $locus->Map(1)->row };
+  #($link_group,undef,$position,undef,$error) = eval { $locus->Map->row };
+  unless ($link_group) {
+    SubSection('','No map position data available') and return;
+  }
+
+  my ($start,$stop) = ($position-0.5,$position+0.5);
+  my $comment = $locus->Well_ordered(0) ? 'well ordered' : 'not well ordered';
+  SubSection("Genetic Position",a({-href=>Url('pic',"name=$link_group;class=Map;map_start=$start;map_stop=$stop")},
+				  $link_group.sprintf(":%2.2f +/- %2.3f cM (%s)",$position,$error,$comment)));
+  SubSection('Inside Rearrangement',$locus->Inside_rearr);
+  SubSection('Outside Rearrangement',$locus->Outside_rearr);
+  SubSection('Positive clone',$locus->Positive_clone);
+  SubSection('Negative clone',$locus->Negative_clone);
+#   SubSection("Genetic Environs",genetic_map($locus,$link_group,$position));
+
+}
+
+sub print_alleles {
+  my $locus = shift;
+  return if $locus->class eq 'Locus';
+  SubSection("Reference allele",$locus->Reference_allele || 'none');
+  SubSection("Reference Phenotype",MutantPhenotype($locus));
+  my $allele_table = allele_table($locus);
+  SubSection("Alleles",$allele_table);
+}
+
+sub print_mapping_data {
+  my $locus = shift;
+  SubSection('Two Point Data',two_pt_data($locus));
+  SubSection('Multipoint Data',multi_pt_data($locus));
+  SubSection('Positive/Negative Data',pos_neg_data($locus));
+}
+
+sub print_submission_forms {
+  my $submit_forms = $CONFIG->Submit_forms;
+  print TR(th({-colspan=>2},'Submit new data'));
+  foreach my $hash (@$submit_forms) {
+    my ($label,$href) = map { $_,$hash->{$_} } keys %$hash;
+    PrintMultiple($label,a({-href=>$href,-target=>'_blank'},'[submit]'));
+  }
+}
+
+sub allele_table {
+  my $locus = shift;
+  my @alleles = $locus->Allele;
+
+  my $table = table({-border=>1,-class=>'databody'},
+		    TR(th(['Allele','Strain(s)','Laboratory'])),
+		    map {
+		      my @strains = map {ObjectLink($_)} $_->Strain;
+		      @strains    = '&nbsp;' unless @strains;
+		      my @locations = ObjectLink($_->Laboratory);
+		      @locations  = '&nbsp;' unless @locations;
+		      TR(
+			 td(ObjectLink($_, $_->Public_name)),
+			 td(@strains),
+			 td(@locations),
+			 
+			)
+		    } @alleles
+		   );
+  $table;
+}
+
+sub genetic_map {
+  my ($locus,$chrom,$position) = @_;
+  my $url = AceImage($chrom,-dimensions=>[800,400],-coords=>[$position-0.25,$position+0.25]);
+
+  # Create a url suitable for passing through squid
+  # This needs to have the backend host stripped off of it
+  my ($stripped_url) = $url =~ /http:\/\/.*?(\/.*)/;
+  return a({-href=>Url('pic'=>"name=$locus;class=Gene")},img({-src=>$stripped_url,-border=>0}));
+}
+
+
+sub two_pt_data {
+  my $gene = shift;
+  local $^W = 0;
+  my @data = $gene->follow(-tag=>'2_point',
+			   -filled=>1);
+  return unless @data;
+  my $toprow = th(['Genes','Distance','Author','Genotype','Raw Data','Comment']);
+  my @rows;
+  for my $exp (sort { $a->Calc_distance(1) <=> $b->Calc_distance(1) } @data) {
+    push @rows,td([
+		   join("&nbsp;&lt;&gt;&nbsp;",
+			a({-href=>Object2URL($exp->Point_1(2))},Bestname($exp->Point_1(2))),
+			a({-href=>Object2URL($exp->Point_2(2))},Bestname($exp->Point_2(2))),
+		       ),
+		   $exp->Calc_distance(1) || "0.0" . '&nbsp;(' . (0+$exp->Calc_lower_conf(1))
+		   . '-' . (0+$exp->Calc_upper_conf(1))
+		   . ')',
+		   a({-href=>Object2URL($exp->Mapper)},$exp->Mapper),
+		   a({-href=>Object2URL($exp)},$exp->Genotype),
+		   $exp->Results,
+		   cite(join('',$exp->Remark))
+		  ]);
+  }
+  return table({-border=>undef,-width=>'100%'},
+	       TR({-class=>'datatitle'},$toprow),
+	       TR({-class=>'databody'},\@rows)),p();
+}
+
+sub multi_pt_data {
+  my $gene = shift;
+  my @data = $gene->follow(-tag=>'Multi_point',
+			   -filled=>1);
+
+  return unless @data;
+  my $toprow = th(['Results','Author','Comment']);
+  my @rows;
+  for my $exp (@data) {      
+#    next unless $exp->Results(1);
+
+#    my @results = $exp->Results(1)->row;
+      my @crosses = $exp->Results;
+      foreach (@crosses) {
+	  my @results = $_->row;
+	  
+	  shift @results;
+	  my (@loci,$total);
+	  $total = 0;
+	  while (@results) {
+	      my ($label,$locus,$count) = splice(@results,0,3);
+	      $count ||= 0;
+	      $total += $count;
+	      push(@loci,[$locus=>$count]);
+	  }
+	  my $genotype = '';
+	  my $open_paren;
+	  while (@loci) {
+	      my $l = shift @loci;
+	      my $best = Bestname($l->[0]) if ($l->[0]->class eq 'Gene');
+	      $best ||= $l->[0];
+	      if (defined $l->[1] && ($l->[1]+0) == 0) {
+		  $genotype .= "($best";
+		  $open_paren++;
+	      } else {
+		  $genotype .= " $best";
+		  if ($open_paren) {
+		      $genotype .= ")";
+		      undef $open_paren;
+		  }
+		  $genotype .= " ($l->[1]/$total) " if defined($l->[1]);
+	      }
+	  }
+
+	  push @rows,td([
+			 a({-href=>Object2URL($exp)},$genotype . ')'),
+			 a({-href=>Object2URL($exp->Mapper)},$exp->Mapper),
+			 cite(join('',$exp->Remark))
+			 ]
+			);
+      }
+  }
+  return table({-border=>undef,-width=>'100%'},
+	       TR({-class=>'datatitle'},$toprow),
+	       TR({-class=>'databody'},\@rows)),p();
+}
+
+sub pos_neg_data {
+  my $gene = shift;
+  my @data = $gene->follow(-tag=>'Pos_neg_data',
+			   -filled=>1);
+  return unless @data;
+  my $toprow = th(['Results']);
+  my @rows;
+  for my $exp (@data) {
+    my $result = $exp->Results(1);
+    my @items = $exp->Item_1(2);
+    push @items,$exp->Item_2(2);
+    my %done;
+    for my $item (@items) {
+      my $s = "$item";
+      next if $done{$s}++;
+      $result =~ s/\b($s)\b/a({-href=>Object2URL($item)},$1)/gie;
+    }
+    push @rows,td([
+		   $result
+		  ]);
+  }
+  return table({-border=>undef,-width=>'100%'},
+	      TR({-class=>'datatitle'},$toprow),
+	      TR({-class=>'databody'},\@rows)),p();
+}
+
+sub begin_table {
+  my ($msg,$width) = @_;
+  $width ||= '50%';
+  print hr,h3($msg);
+  print start_table({-border=>0,-width=>$width});
+}
+
+
+# Special code:
+# No gene found, but users often type in sequence names
+# and genbank accession numbers.  
+# Try to redirect.
+sub redirect_to_sequence {
+  my $gene_name = shift;
+  my $seq = $DB->fetch(Sequence => $gene_name);
+  if ($seq) {
+    my @genes = $seq->Locus;
+    if (@genes) {
+      AceMultipleChoices('gene','locus', \@genes);
+    } else {
+      AceRedirect('sequence' => $seq) if $seq;
+    }
+    exit 0;
+  }
+}
+
+# Special code:
+# Gene name has been superseded
+sub redirect_to_locus {
+  my $newlocus = shift;
+  AceRedirect('gene',$newlocus);
+  exit 0;
+}
+
+sub redirect_to_tree {
+  my $newlocus = shift;
+  AceRedirect('tree',$newlocus);
+  exit 0;
+}
+
+sub redirect_to_gene {
+  my $gene = shift;
+  AceRedirect('gene',$gene);
+  exit 0;
+}

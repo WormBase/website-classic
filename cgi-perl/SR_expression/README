@@ -1,0 +1,17 @@
+[June 15 2005]
+Todo:
+A. Add image update
+   Create a table hosting :
+B. Allow full dataset download in text delimited format
+
+[June 12 2005]
+Write a script displaying expression patterns for all genes
+A. searchable for cosmid names, cgc names, and strain names
+B. sortable
+C. write a css file
+D. submit all strains that I have identified (30 strains, 33 more to come)
+
+[June 9 2005]
+SRsubmit.pl has replaced SR_expression.pl.
+SR_expression.pl talks to SR_expression database (old schema)
+SRsubmit.pl talks to SRdb (new schema)

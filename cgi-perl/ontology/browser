@@ -1,0 +1,185 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# file: browser
+# Gene Ontology (GO) Browser
+
+use lib '../lib';
+use CGI::Explorer;
+
+use strict;
+use Ace 1.51;
+use Ace::Browser::AceSubs qw(:DEFAULT !TypeSelector);
+use ElegansSubs;
+
+use CGI 2.42 qw(:standard *ul *table);
+
+use vars qw ($DB);
+
+# print HTTP header & open the database
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+my ($object,$class);
+if (param('name')) { ($object,$class) = (join (' ',param('name')),'GO_term'); }
+if (param('close_all')){Delete('o'); Delete('c');}
+
+PrintTop($object,$class,$object ? "GO Browser for $object" : "GO Browser",
+	  '-Target' =>'_top',
+	  '-Class' =>'search');
+print
+  start_form(-action=>url(-relative=>1)),
+  table({-border=>0,-width=>'100%',-class=>'searchbody'},
+    TR(td({-align=>'RIGHT'},'Search GO for:'),
+       td(textfield(-size=>12,-name=>'name'),
+	  checkbox_group(-name=>'exact',-values=>['exact match'],-defaults=>['exact match']),
+          submit(-name=>'show_term',-value=>'Show Term'),
+          submit(-name=>'close_all',-value=>'Close All'))),
+    TR(td({-colspan=>2,-width=>400},
+          i('Click on + to open, - to collapse levels. Click on term for more information.'))
+      )),
+  end_form;
+
+
+#my @roots = $DB->fetch(-query=>'find GO_term !Parent',-fill=>1);
+
+my @nodes    = ();
+my %spawn    = ();
+my %nodes    = ();
+my %label    = ();
+my %mother   = ();
+
+my %children = ();
+my %l        = ();
+
+if(param('name'))              {      @nodes = find_term(); }
+elsif(param('o') or param('c')){ push @nodes,  find_ace($_) foreach param('o');
+			         push @nodes,  find_ace($_) foreach param('c'); }
+else                           { push @nodes,$DB->fetch(-query=>'find GO_term !Parent',-fill=>1);
+				 param(-name=>'c',-values=>@nodes);
+			       }
+unless(@nodes){print '<h3><font style="error">No Match</font></h3>'; PrintBottom(); exit 1;}
+
+my $first = 1;
+foreach my $node (@nodes){
+  my $daughter = $node;
+
+  if($first){
+    $first = 0;
+    $mother{$node} = 1 if daughters($node,\%children);
+    $label{$node}  = label($node,\%l);
+
+    foreach my $gd (daughters($daughter,\%children)){
+      $mother{$gd} = 1 if daughters($gd,\%children);
+      $nodes{$gd} = $gd;
+      $label{$gd} = label($gd,\%l);
+    }
+  }
+
+  for (my $mother = $daughter->Parent(2); $mother; $mother = $mother->Parent(2)) {
+    $mother{$mother} = 1;
+
+    $label{$mother}   = label($mother,\%l);
+    $label{$daughter} = label($daughter,\%l);
+
+    $spawn{$mother}{$daughter}++;
+    $nodes{$mother}     = $mother;
+    $nodes{$daughter}   = $daughter;
+
+    #add the sisters
+    foreach my $sister (daughters($mother,\%children)){
+      $mother{$sister} = 1 if daughters($sister,\%children);
+      $nodes{$sister} = $sister;
+      $label{$sister} = label($sister,\%l);
+      $spawn{$mother}{$sister}++;
+    }
+
+    #and the granddaughters
+    foreach my $gd (daughters($daughter,\%children)){
+      $mother{$gd} = 1 if daughters($gd,\%children);
+      $nodes{$gd} = $gd;
+      $label{$gd} = label($gd,\%l);
+    }
+
+    $daughter = $mother;
+  }
+
+  if(param('name')){
+  } else {
+    foreach my $d (daughters($node,\%children)){
+      $spawn{$node}{$d}++;
+      $nodes{$node} = $node;
+      $nodes{$d}  = $d;
+    }
+  }
+}
+
+
+my @hilites = param('name') ? @nodes : () ;
+
+my $menu = CGI::Explorer->new(-relate  => \%spawn,
+#			      -nodes   => \%nodes,
+                              -labels  => \%label,
+			      -mothers => \%mother,
+			      -open    => 'o',
+			      -close   => 'c',
+			      -search  => 'name',
+			      -hilite  => \@hilites,
+			     );
+
+Delete('show_term');
+Delete('exact');
+Delete('close_all');
+
+$menu->draw;
+Delete('name');
+
+
+PrintBottom();
+
+sub find_term {
+  my $name  = param('name');
+  my $exact = param('exact') ? '' : '*';
+
+  my $close_all = param('close_all');
+  Delete('close_all');
+  Delete('name') if $close_all;
+  return [] unless $name;
+
+  my @terms = find_ace("$exact$name$exact");
+
+}
+
+sub find_ace {
+
+  my $name = shift;
+  my @terms;
+
+  #allow goid search by GO:nnnn
+  if($name =~ /^(GO:\d+)/i){
+    @terms = $DB->fetch(-class=>'GO_term',-name=>$1,-fill=>1);
+    #or goid search by nnnn
+  } elsif ($name =~ /^\s*?(\d+)\s*?/){
+    @terms = $DB->fetch(-class=>'GO_term',-name=>"\"GO:$1\"",-fill=>1);
+    #or by matching the go term text
+  } else {
+    @terms = $DB->fetch(-query=>"find GO_term where term = \"$name\"",-fill=>1);
+  }
+
+  @terms;
+
+}
+
+sub label {
+  my ($term,%z)     = @_;
+
+  $z{$term}       ||= $term->Term;
+  my $desc          = $z{$term};
+  my $label         = a({-href=>Object2URL($term),-onMouseOver=>"window.status='$term'"}, $desc);
+}
+
+sub daughters {
+  my $p        = shift;
+  my %c        = shift;
+
+  $c{$p}     ||= [$p->Instance, $p->Component];
+   @{$c{$p}};
+}

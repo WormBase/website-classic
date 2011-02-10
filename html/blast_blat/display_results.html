@@ -1,0 +1,86 @@
+<!--
+Author: Payan Canaran <canaran@cshl.edu>
+Template for blast_blat page: display_results 
+Copyright@2006 Cold Spring Harbor Laboratory
+$Id: display_results.html,v 1.1.1.1 2010-01-25 15:47:07 tharris Exp $
+-->
+
+<head>
+    <script type="text/javascript" src="/js/wormbase.js"></script>
+    <link rel="stylesheet" type="text/css" href="/blast_blat/blast_pages.css" />
+    <script src="/blast_blat/display_results.js"></script>
+</head>
+
+[% header %]
+
+<div align="center">
+    <table border="0">
+        <tr>
+            <td colspan="2" align="center">
+                <h1>BLAST/BLAT RESULTS</h1>
+            </td>
+
+            <td>
+            <div id="back_button">
+                <a href="/db/searches/blast_blat" onClick="history.go(-1); return false;">Back</a>
+            </div>
+            </td>
+
+        </tr>
+        <tr>
+            <td valign="top">
+                <div class="kviewer_container">
+                    [% IF kviewer_image_content %]
+                        <font class="bold"><font class="italic">C. elegans</font> Chromosome Viewer</font>
+                        <br/>
+                        [% kviewer_image_content %]
+                        [% kviewer_imagemap %]
+                        <br/>
+<!--
+                        <font class="small">
+                        * Chromosome viewer is limited to top [% kviewer_add_limit %] hits, and
+                        links to the Genome Browser are limited to the top [% hsp_genome_link_part_limit %] HSPs<br/>
+-->
+                        </font>
+                        <br/>
+                    [% ELSE %]
+                        <div class="spacer">&nbsp;</div>
+                    [% END %]
+                </div>    
+            </td>
+            <td valign="top">
+                <div class="report_images">
+                    <img src="[% score_key_image_url %]"/>
+                    <p/>
+                    <img src="[% alignment_image_url %]" usemap="#alignment"/>
+                    <br/>
+                    <font class="small">
+                    * Links to the Genome Browser and alignment image are limited to top hits.<br/>
+                    </font>
+                    <map name="alignment">
+                        [% FOREACH image_map_piece IN image_map_pieces %]
+                            <area shape="rect" coords="[% image_map_piece.coords %]" href="[% image_map_piece.href %]">
+                        [% END %]
+                    </map>
+                </div>
+                <br/>
+                <div class="fixed_width">
+                    [% result_file_content %]
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+            </td>
+            <td>
+            </td>
+            <td>
+                <div id="back_button">
+                    <a href="/db/searches/blast_blat" onClick="history.go(-1); return false;">Back</a>
+                </div>
+            </td>
+        </tr>
+    </table>
+</div>
+
+[% footer %]

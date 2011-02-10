@@ -1,0 +1,110 @@
+#!/usr/bin/perl
+
+use strict;
+use Template;
+use CGI qw/:standard escapeHTML Sub *table center/;
+use Carp;
+use ElegansSubs qw(:DEFAULT);
+use Ace::Browser::AceSubs qw(:DEFAULT);
+
+# Create Template obj
+my $include_path = Configuration->Geo_map_templates;
+my $template = Template->new(INCLUDE_PATH => $include_path,
+                             );
+
+# Connect to database
+my $db   = Configuration->Geo_map_db;
+my $user = Configuration->Geo_map_user;
+my $pass = Configuration->Geo_map_pass;
+my $host = Configuration->Mysql_host;
+
+my $dbh= DBI->connect("dbi:mysql:$db;host=$host", $user, $pass, 
+                      {PrintError => 1, RaiseError => 1}
+                      ); 
+
+# Read CGI params
+my ($paper) = param('paper');
+print STDERR "$include_path\n";
+# Check if there is a paper CGI param, it's required
+if (!$paper) {
+    my $message = 'A paper is required for this display!';
+
+    my $vars = {
+            message  => $message,
+            };
+
+    $template->process('geo_map_by_paper_error.html', $vars);
+    exit 0;
+}        
+
+# Use this statement handle param for all
+my $sth;
+
+# Check if this paper id points any valid addresses
+$sth = $dbh->prepare(qq[SELECT count(*) FROM wb_by_paper WHERE paper_id = ? 
+                        AND longitude IS NOT NULL AND latitude IS NOT NULL]);
+$sth->bind_param(1, $paper);
+$sth->execute;
+my ($valid_count) = $sth->fetchrow_array;
+
+if (!$valid_count) {
+    my $message = "Unable to display this paper ($paper), none of the authors could be mapped!";
+
+    my $vars = {
+            message  => $message,
+            };
+
+    $template->process('authors_on_map_error.html', $vars);
+    exit 0;
+}        
+
+# Check the total count of addresses (valid + invalid) and prepare a message
+$sth = $dbh->prepare(qq[SELECT count(*) FROM wb_by_paper WHERE paper_id = ?]);
+$sth->bind_param(1, $paper);
+$sth->execute;
+my ($total_count) = $sth->fetchrow_array;
+
+my $message = "* All $total_count authors are displayed on the map.";
+if ($valid_count < $total_count) {
+    $message = "* $valid_count of $total_count authors are displayed on the map.";
+}    
+
+# Var to store marker info
+my %markers;
+my @markers;
+
+# Retrieve marker info
+$sth = $dbh->prepare(qq[SELECT author_id, name, address, latitude, longitude FROM wb_by_paper WHERE paper_id = ?
+                        AND longitude IS NOT NULL AND latitude IS NOT NULL]);
+$sth->bind_param(1, $paper);
+$sth->execute;
+
+#my $reference;
+
+while (my ($author_id, $name, $address, $latitude, $longitude) = $sth->fetchrow_array) {
+    $author_id =~ s/^[^:]+://;
+    my $author_url = qq[/db/misc/person?name=$author_id;class=Person];
+    $markers{"$latitude:$longitude"}{details} .= qq[<a href="$author_url" target="_blank"><b>$name</b></a><br/>$address<br/><br/>]
+}    
+
+foreach my $pair (keys %markers) {
+    my ($latitude, $longitude) = split(':', $pair);
+    my $details = $markers{$pair}{details};
+    $details =~ s/'/\\'/g;
+    push @markers, { latitude => $latitude, longitude => $longitude, details => $details };
+}
+    
+# Create vars hash
+my $vars = {
+            markers      => \@markers,
+            message      => $message,
+            gmap_api_key => Configuration->Gmap_api_key,
+            };
+
+# Create page
+$template->process('geo_map_by_paper.html', $vars)
+    or croak("Template process failed: " . $template->error());
+
+exit 0;
+
+# [END]

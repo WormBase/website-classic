@@ -1,0 +1,243 @@
+New release of WormBase WS159, Wormpep159 and Wormrna159 Thu May 25 14:14:24 BST 2006
+
+
+WS159 was built by [INSERT NAME HERE]
+======================================================================
+
+This directory includes:
+i)   database.WS159.*.tar.gz    -   compressed data for new release
+ii)  models.wrm.WS159           -   the latest database schema (also in above database files)
+iii) CHROMOSOMES/subdir         -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)  WS159-WS158.dbcomp         -   log file reporting difference from last release
+v)   wormpep159.tar.gz          -   full Wormpep distribution corresponding to WS159
+vi)   wormrna159.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)  confirmed_genes.WS159.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+viii) cDNA2orf.WS159.gz           -   Latest set of ORF connections to each cDNA (EST, OST, mRNA)
+ix)   gene_interpolated_map_positions.WS159.gz    - Interpolated map positions for each coding/RNA gene
+x)    clone_interpolated_map_positions.WS159.gz   - Interpolated map positions for each clone
+xi)   best_blastp_hits.WS159.gz  - for each C. elegans WormPep protein, lists Best blastp match to
+                            human, fly, yeast, C. briggsae, and SwissProt & TrEMBL proteins.
+xii)  best_blastp_hits_brigprot.WS159.gz   - for each C. briggsae protein, lists Best blastp match to
+                                     human, fly, yeast, C. elegans, and SwissProt & TrEMBL proteins.
+xiii) geneIDs.WS159.gz   - list of all current gene identifiers with CGC & molecular names (when known)
+xiv)  PCR_product2gene.WS159.gz   - Mappings between PCR products and overlapping Genes
+
+
+Release notes on the web:
+-------------------------
+http://wwwdev.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS159       	WS158      	change
+----------------------------------------------
+a    	32365888	32365775	+113
+c    	17779855	17779813	 +42
+g    	17756011	17755968	 +43
+t    	32365687	32365578	+109
+n    	0       	0       	  +0
+
+Total	100267441	100267134	+307
+Total number of bases has increased.
+
+
+Chromosomal Changes:
+--------------------
+
+Chromosome: II
+9225832 9225831 0   ->   9225832 9225832 1
+
+Chromosome: III
+3837845 3837844 0   ->   3837845 3837845 1
+12723210 12723225 16   ->   12723211 12723228 18
+12924804 12924803 0   ->   12924807 12925163 357
+
+Chromosome: V
+20248195 20248327 133   ->   20248195 20248273 79
+
+These are the altered clones for WS159
+--------------------------------------
+
+--------------------------------------------------------
+Chrom   Clone         start          size and type
+--------------------------------------------------------
+  5     Y113G7B       65346          54bp  deletion
+  2     ZK1067        41275          1bp   insertion
+  3     C36A4         9281           1bp   insertion
+  3     Y37D8A        108017         357bp insertion
+  3     Y111B2A       230446 230465  2x1bp insertions 
+
+
+
+Gene data set (Live C.elegans genes 23750)
+------------------------------------------
+Molecular_info              22006 (92.7%)
+Concise_description          4178 (17.6%)
+Reference                    5835 (24.6%)
+CGC_approved Gene name       8781 (37%)
+RNAi_result                 19794 (83.3%)
+Microarray_results          19124 (80.5%)
+SAGE_transcript             18180 (76.5%)
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 20095 CDS in autoace, 23170 when counting 3075 alternate splice forms.
+
+The 23170 sequences contain 10,170,801 base pairs in total.
+
+Modified entries              10
+Deleted entries                9
+New entries                   16
+Reappeared entries             1
+
+Net change  +8
+
+
+
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              6695 (28.9%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed   11442 (49.4%)	Some, but not all exon bases are covered by transcript evidence
+Predicted              5033 (21.7%)	No transcriptional evidence at all
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+UniProtKB/Swiss-Prot accessions      3220 (14.0%)
+UniProtKB/TrEMBL accessions         19687 (85.9%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id                22907 (98.9%)
+
+
+
+Gene <-> CDS,Transcript,Pseudogene connections (cgc-approved)
+---------------------------------------------
+Entries with CGC-approved Gene name   7093
+
+
+GeneModel correction progress WS158 -> WS159
+-----------------------------------------
+Confirmed introns not in a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|     22  |  -3271 |
+St Louis 	|      6  |    -9  |
+		+---------+--------+
+
+The change of -3271 is mostly a result of fixing a problem in the previous version.
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Repeats | Change |
+		+---------+--------+
+Cambridge	|    584  |     6  |
+St Louis 	|    750  |     0  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+
+
+There are no gaps remaining in the genome sequence
+---------------
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+
+New Data:
+---------
+
+Phenotype objects have undergone a very large increase for this
+release -- from 128 objects to 1253 objects, reflecting the release of
+the phenotype ontology.  The new phenotype objects will coexist with
+the old (soon to be deprecated) phenotype objects for the time-being.
+RNAi objects for this release are annotated with both old and new
+phenotypes, so RNAi objects will have the current style annotations
+with short names (e.g. Adl, Let, Bli) and will also be linked to
+WBPhenotype objects.  The release of the phenotype ontology correlates
+with significant changes to the #Phenotype_info, ?Phenotype, and
+?Variation models (though the old tags in ?Variation will coexist with
+the new tags in #Phenotype_info for now), and there is a new
+?Phenotype_name model.
+
+
+
+98 Paper objects corresponding to WormBook chapters have been added to
+WormBase. They contain citation information as well as lists of gene,
+cell, variation, clone, transgene and rearrangement objects discussed
+in a particular chapter. This will allow us to provide direct links to
+WormBook from Paper, Gene and other WormBase pages.
+
+
+New Fixes:
+----------
+
+
+Known Problems:
+--------------
+
+
+Other Changes:
+--------------
+
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+
+
+Model Changes:
+------------------------------------
+
+ * Added Homo_homol to Expr_pattern for Wen.
+
+ * Changes to Anatomy_term to allow movement of data from cell and
+   cell_group classes.
+
+ * Minor alterations for Carol's Phenotype update.
+
+ * Made Phenotype related changes, leaving in transitionary tags to hold
+   data until Caltech are ready to complete transfer.
+
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

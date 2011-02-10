@@ -1,0 +1,186 @@
+New Release of acedb WS94, Wormpep94 and Wormrna94 Fri Jan 24 09:47:57 GMT 2003
+
+======================================================================
+
+This directory includes:
+i)	database.WS94.*.tar.gz    -   compressed data for new release
+ii)	models.wrm.WS94           -   the latest database schema (also in above database files)
+iii)	CHROMOSOMES/subdir        -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)	WS94-WS93.dbcomp          -   log file reporting difference from last release
+v)	wormpep94.tar.gz          -   full Wormpep distribution corresponding to WS94
+vi)	wormrna94.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)	confirmed_genes.WS94.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS94
+------------------------------------
+brigdb : 2003-01-07 - updated
+camace : 2003-01-13 - updated
+citace : 2003-01-12 - updated
+cshace : 2003-01-11 - updated
+genace : 2003-01-13 - updated
+stlace : 2003-01-08 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS94       	WS93      	change
+----------------------------------------------
+a    	32364257	32364257	  +0
+c    	17778485	17778485	  +0
+g    	17755882	17755882	  +0
+t    	32365361	32365361	  +0
+n    	95      	95      	  +0
+-    	0       	0       	  +0
+
+Total	100264080	100264080	  +0
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 19,522 CDS in autoace, 21,302 when counting 1,776 alternate splice forms.
+
+The 21,302 sequences contain 9,411,528 base pairs in total.
+
+Modified entries             120
+Deleted entries               83
+New entries                  186
+Reappeared entries             2
+
+Net change  +105
+
+
+
+Status of entries: Confidence level of prediction
+-------------------------------------------------
+Confirmed              3694 (17.3%)
+Partially_confirmed    8800 (41.3%)
+Predicted              8808 (41.3%)
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2054 (9.6%)
+TrEMBL accessions     17420 (81.8%)
+TrEMBLnew accessions   1655 (7.8%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            20986 (98.5%)
+
+
+
+Locus <-> Sequence connections (cgc-approved)
+---------------------------------------------
+Entries with locus connection   3994
+
+
+
+GeneModel correction progress WS93 -> WS94
+-----------------------------------------
+Confirmed introns not is a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|    558  |  -123  |
+St Louis 	|    121  |  -128  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|     24  |    -1  |
+St Louis 	|     23  |     0  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+No synchronisation issues
+
+
+-===================================================================================-
+
+
+
+New Data:
+---------
+New RNAi data from Kamath et al. - Nature 421:231-237 (2003) - now included
+
+Many new CGC approved loci names from work by Hugh Robertson
+
+
+New Fixes:
+----------
+
+
+Known Problems:
+--------------
+
+
+Other Changes:
+--------------
+New Transcript class - all RNA sequences now belong in their own Transcript class.
+Associated with this has been refinements regarding how this data appears in EMBL records
+submitted by the Sanger Institute
+
+All alleles that have a known position in the genome are now mapped dynamically during
+each database build.  Several thousand alleles have been mapped in this way during the
+build of WS94.  This allows us to keep track of alleles that may 'move' when small
+genome sequence corrections are made.  Also we can map which alleles overlap which
+genes in each build (this changes as gene predictions are added/removed/modified)
+
+
+
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+It is hoped that the full set of Knock out consortium alleles will be added to WS95
+and mapped as part of the build.
+
+A new Gene_name index class will be added to facilitate easier searching of any form
+of gene name (CGC approved name, non-CGC approved name, 'other names' for genes, 
+sequence names etc.)
+
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

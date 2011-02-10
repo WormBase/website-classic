@@ -1,0 +1,290 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# file: goterm
+
+use strict;
+
+use CGI qw(:standard *table *TR *th *td *ul *ol escape);
+use Ace;
+use Ace::Browser::AceSubs qw(:DEFAULT Toggle);
+use Ace::Browser::SearchSubs;
+use ElegansSubs qw/:DEFAULT Bestname/;
+use Cache::FileCache;
+use MerlynGO;
+use Data::Dumper;
+use constant MAX_MATCHES => 10;
+
+use vars qw/$term $query $CACHE/;
+
+END {
+  undef $term;
+  undef $query;
+  undef $CACHE;
+}
+
+$CACHE = Cache::FileCache->new
+  ({namespace => 'GOterm',
+    username => 'nobody',
+    default_expires_in => '24 hours',
+    auto_purge_interval => '1 hour',
+    # auto_purge_on_get => 1,
+   });
+
+$term  = GetAceObject();
+$query = param('query');
+if ($query =~ /(WB\w+:?\d+)/) {  # autocomplete hint
+  $query = $1;
+}
+
+
+unless ($term) {
+  PrintTop($term,'GO_Term',"Gene Ontology Search");
+} else {
+  my $name = $term->Name || $term->Term;
+  PrintTop($term,'GO_term',"Summary for GO Term $name ($term)");
+}
+
+display_search_form($term);
+
+if ($query) {
+  my $offset         = AceSearchOffset();
+  my ($objs,$count)  = do_search($query,$offset);
+  display_search($objs,$count,$offset,$query) if $count > 1;
+  display_term($objs->[0]) if $count == 1;
+}
+display_term($term)   if $term;
+PrintBottom();
+exit;
+############################ end program ######################################
+
+sub display_search_form {
+  my $term = shift;
+  print table(
+	      TR({-class=>'searchtitle'},
+		 td("The Gene Ontology is a controlled vocabulary for gene function, location and role.",
+		    "WormBase uses it to classify genes and proteins.",
+		    "Type in some text, such as",example('transport protein'), "or a GO accession number, such as",
+		    example("GO:0003776"),'. Browse the ontology from top down by searching for',example('Gene ontology'),'.'
+		   )
+		),
+	      TR({-class=>'searchbody'},
+		   td(
+		      start_form,
+		      table({-class=>'searchbody'},
+			    TR(
+			       td("Search text or GO accession number: "),
+			       td(textfield(-name=>'query',-size=>40,-default=>$term)),
+			       td(submit(-label=>'Search'))
+			      ),
+			   ),
+		      end_form
+		     )
+		)
+	      );
+}# end sub display
+
+
+sub example {
+  my $query = shift;
+  my $url   = url(-absolute=>1);
+  my $q     = escape($query);
+  return a({-href=>"$url?query=$q"},$query);
+} # end sub
+
+sub do_search {
+  my ($query,$offset) = @_;
+  my $db = OpenDatabase || AceError("Couldn't open database.");
+  my @go_terms;
+  if ($query =~ /^GO:/) {
+    @go_terms = $db->fetch(Go_term => $query);
+  } else {
+    my @objs = $db->grep(-pattern=>$query);
+    @go_terms = grep {$_->class eq 'GO_term'} @objs;
+  }
+  my $count = @go_terms;
+  my $max           = $offset+MAXOBJECTS-1;
+  $max              = $count-1 if $max > $count;
+  my @subset        = @go_terms[$offset..$max];
+  return (\@subset,$count);
+} # end sub do_search
+
+sub display_search {
+    my ($objs,$count,$offset,$pattern) = @_;
+    my $title = $count > 0 ? 
+       p(strong($count),"objects contain the keywords \"$pattern\"")
+     : p({-class=>'error'},'No matching database objects found');
+
+    my @objects = map { ObjectLink($_,$_->Term . " ($_)") } sort {$a->Term cmp $b->Term} 
+        grep {defined($_)} @$objs;  # the defined() fixes some sort of bug I was too lazy to track- LS
+    print a({-name=>'searchagain'},'&nbsp;');
+    AceResultsTable(\@objects,$count,$offset,$title);
+} # end sub display_search
+
+sub display_term {
+  my $term = shift;
+  print table({-width=>'100%'},
+	      TR({-class=>'datatitle'},th($term->Term)),
+	      TR({-class=>'databody'}, td($term->Definition||'No definition available')));
+  printTree($term);
+
+  my %priority = (Protein => 1, Sequence => 2, Motif=>3);
+  my $attributes = a_association($term);
+  #warn "Debugging\n";
+  #warn Dumper($attributes);
+  
+
+  if (keys %$attributes > 1) {
+    print start_table({-width=>'100%'});
+    print TR(th({-class=>'datatitle',-colspan=>2},"The following WormBase object(s) refer to this term"));
+    for my $attr (sort {($priority{$a}||99) <=> ($priority{$b}||99)} grep {!/Index|Descendent/} keys %$attributes) {
+      next unless ref $attributes->{$attr};
+      print_matches($attr,keys %{$attributes->{$attr}});
+    }
+    print end_table;
+  } else {
+    print table({-width=>'100%'},
+		TR(th({-class=>'datatitle',-align=>'left',-colspan=>2},"This term is not used in WormBase."))
+	       );
+  }
+
+  #****************************************************************************
+  # Links to GO terms in other dbs
+  $term =~/GO:0*(\d*)/;
+  my $sgd_term = $1;
+
+  print start_table({-width=>'100%',-cellpadding=>3,-cellspacing=>0});
+  print TR(td('&nbsp'),);
+  print TR({-class=>'searchtitle'},th('Links to other GO report pages'));
+  print TR({-class=>'searchbody'},
+	   td(
+	      table({-width=>'100%'}, TR(
+			td(a({-href =>'http://www.ensembl.org/Homo_sapiens/goview?acc='.$term}, 'Ensembl'), "  "),
+			td(a({-href =>'http://flybase.bio.indiana.edu/.bin/goreport?'.$term}, 'Flybase'), "  "),
+			td(a({-href =>'http://genome-www4.stanford.edu/cgi-bin/SGD/GO/go.pl?goid='.$sgd_term}, 'SGD'), "  "),
+			td(a({-href =>'http://www.informatics.jax.org/searches/GO.cgi?id='.$term}, 'Mouse Genome Database')),
+		       ),),
+	     ),
+	  );
+  print end_table;
+
+  #****************************************************************************
+  print hr,
+    p("More information about this term can be found at",
+      a({-target=>'_blank',-href=>"http://golgi.ebi.ac.uk/ego/QuickGO?mode=display&entry=$term"},"the Interpro GO browser."));
+}# end sub display_term
+
+sub print_matches {
+  my $attr = shift;
+  my $header = 0;
+
+  my ($href,$show) = Toggle("show_$attr",$attr,scalar @_,1,1,MAX_MATCHES);
+  print TR(
+	   th({-class=>'datatitle',-align=>'LEFT',-colspan=>2},$href)
+	  );
+  if ($show) {
+    for my $gene (@_) {
+      my $link = make_link(split($;,$gene));
+
+      print TR(
+	       th({-class=>'datatitle',-align=>'LEFT'},
+		  $header++ ? '&nbsp;' : "$attr associations"
+		 ),
+	       td({-class=>'databody'},$link)
+	      );
+    }
+  }
+} # end sub print_matches
+
+
+sub printTree {
+  my $term = shift;
+
+  print start_table({-width=>'100%',-cellpadding=>3,-cellspacing=>0});
+  print TR({-class=>'searchtitle'},th('Derivation(s)'));
+  print start_TR({-class=>'searchbody'}), start_td;
+
+  my @paths = getpaths($term);
+  my %seen_it;
+  for my $path (@paths) {
+    my $skip;
+    for my $c (@$path) {
+      my ($component,$type) = @$c;
+      print start_ul();
+      next if $seen_it{$component}++ && !$skip;
+
+      $skip++;
+      print li(($component eq $term
+		? "$type ".a_term($component) . " ($component)"
+	        : object_link($component,'GO_term',"$type ".a_term($component) . " ($component) ")
+		)," #".(a_association($component)->{total}||0)),"\n";
+    }
+    if (my @children = i_children($term)) {
+      print ul(li([map { object_link($_,'GO_term',"[i] " . a_term($_) . " ($_)") . ' #'.(a_association($_)->{total}||0) } @children]));
+    }
+    if (my @children = c_children($term)) {
+      print ul(li([map { object_link($_,'GO_term',"[c] " . a_term($_) . " ($_)") . ' #'.(a_association($_)->{total}||0) } @children]));
+    }
+    print scalar(end_ul()."\n") x @$path;
+  }
+
+  print i('[c] = component, [i] = instance');
+  print end_td,end_TR;
+  print end_table;
+}# end sub printTree
+
+sub object_link {
+  my ($name,$class,$title) = @_;
+  my $url     = Object2URL($name,$class);
+  $title ||= $name;
+  return a({-href=>$url},$title);
+} # end sub object_link
+
+sub getpaths {
+  my $term    = shift;
+  my @result;
+  #  my @components = $term->Component_of(-filled=>1);
+  # my @instances  = $term->Instance_of(-filled=>1);
+  my @components = c_parents($term);
+  my @instances  = i_parents($term);
+
+  return [[$term,'']] unless @components || @instances;
+
+  for my $parent (@components) {
+    my @paths = getpaths($parent);
+    push @result,[@$_,[$term,'[c]']] foreach @paths;
+  }
+
+  for my $parent (@instances) {
+    my @paths = getpaths($parent);
+    push @result,[@$_,[$term,'[i]']] foreach @paths;
+  }
+
+  @result;
+} # end sub getpaths
+
+sub make_link {
+  my ($class,$name) = @_;
+  my $db = OpenDatabase || AceError("Couldn't open database.");
+  my $a  = $db->fetch($class=>$name) or return;
+
+  if ($class eq 'Gene') {
+    return a({-href=>Object2URL($a)},Bestname($a) . " ($a)");
+  }
+
+  my $description = $a;
+  my $gene      = eval {$a->Gene};
+  my $title     = eval {$a->Title};
+  my $id        = eval {$a->Brief_identification};
+  $description .= i(" " . a({-href=>Object2URL($gene)},Bestname($gene))) if $gene;
+  $description .= ' '.$id if $id;
+  $description .= ' '.$title if $title;
+  ObjectLink ($a,$description);
+}
+
+#sub count_associations {
+#  my $term = shift;
+#  return $CACHED_COUNTS{"$term"} if exists $CACHED_COUNTS{"$term"};
+#  my @associations = $term->db->fetch(-query=>"find GO_term \"$term\"; follow Descendent; follow Sequence");
+#  my $association_count = @associations || 0;
+#  return $CACHED_COUNTS{"$term"} = "#$association_count";
+#}

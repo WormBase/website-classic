@@ -1,0 +1,247 @@
+#!/usr/bin/perl
+##############################################################
+# REIMPLEMENTATION:                                          #
+#    THIS SCRIPT IS NOW FROZEN! (v1.18)                      #
+#       Please do not make edits to it.                      #
+#       Frozen by: tharris on 02.09.2008                     #   
+##############################################################
+
+
+# A simple little script for displaying gene class data.
+
+use strict;
+use lib '../lib';
+use vars qw($DB @GENE_CLASS $GENE_CLASS);
+use CGI qw(:standard *table);
+use Ace::Browser::AceSubs qw(:DEFAULT);
+use ElegansSubs qw(:DEFAULT Bestname GetEvidence StartCache EndCache);
+
+END {
+  undef @GENE_CLASS;
+  undef $GENE_CLASS;
+}
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+StartCache();
+
+@GENE_CLASS = fetch_gene_class();
+
+if (param('name') && @GENE_CLASS) {
+  $GENE_CLASS = (@GENE_CLASS == 1) ? $GENE_CLASS[0] : '';  # : would be > 1
+}
+
+if (param('name') eq '*') {
+  PrintTop($GENE_CLASS,'Gene Class',"All Gene Classes");
+} else {
+  PrintTop($GENE_CLASS,'Gene Class',$GENE_CLASS ? "Gene Class Summary for $GENE_CLASS" : 'Gene Class Summary');
+}
+
+my $url = url(-absolute=>1,-query=>1);
+print
+  start_form,
+  p({-class=>'caption'},'Enter a three or four letter gene class such as '
+    . a({-href=>$url . '?name=unc'},'unc') . ', '
+    . a({-href=>$url . '?name=lin'},'lin') . ', or '
+    . a({-href=>$url . '?name=egl'},'egl') . ' or an '
+    . a({-href=>$url . '?name=*'},'*') . ' to browse all gene classes: '
+    . textfield(-name=>'name')),
+  end_form;
+
+if (param('name') eq '*') {
+  display_table();
+} elsif (scalar @GENE_CLASS > 1) {
+  print h3("Your search had ", scalar @GENE_CLASS," hits.  Please choose one:");
+  print ol(li([
+	       map {
+		 ObjectLink($_) } @GENE_CLASS]))
+} elsif (param('name') && @GENE_CLASS == 0) {
+  print h3({-class=>'warning'},"No gene classes corresponding to " . param('name') . ' were found.');
+} elsif (param('name') && @GENE_CLASS) {
+    print h4(a({-href=>'#about'},'About gene classes in C. elegans'));
+  display_report();
+}
+#print_notes() unless param('name');
+print_notes();
+
+PrintBottom();
+
+exit 0;
+
+
+sub fetch_gene_class {
+  my $name  = param('name');
+  return unless $name;
+  my @obj = $DB->fetch(-class=>'Gene_class',-name=>$name,-fill=>1);
+  return @obj;
+}
+
+sub display_table {
+  my @rows;
+  foreach my $gc (@GENE_CLASS) {
+    my $lab        = $gc->Designating_laboratory;
+    my $phene      = $gc->Phenotype;
+    my $desc       = $gc->Description;
+    my @genes      = $gc->Genes;
+    push @rows,[$gc,$lab,$desc,$phene,scalar @genes];
+  }
+
+  # Corresponds to position in the @rows array
+  my %cols = (
+	      0 => ['gene class',     10  ],
+	      1 => ['laboratory',     10  ],
+	      2 => ['description',    10  ],
+	      3 => ['phenotype',      35  ],
+	      4 => ['number of genes',10  ]);
+
+  my $sort_by    = url_param('sort');
+  $sort_by = ($sort_by eq '') ? 6 : $sort_by; # Have to do it this way because of 0
+  my $sort_order = (param('order') eq 'ascending') ? 'descending' : 'ascending';
+  my @sorted;
+  if ($sort_by =~ /[0123]/) {   # Alphanumeric sort columns
+    if ($sort_order eq 'ascending') {
+      @sorted = sort { lc ($a->[$sort_by]) cmp lc ($b->[$sort_by]) } @rows;
+    } else {
+      @sorted = sort { lc ($b->[$sort_by]) cmp lc ($a->[$sort_by]) } @rows;
+    }
+  } else {
+    if ($sort_order eq 'ascending') {
+      @sorted = sort { $a->[$sort_by] <=> $b->[$sort_by] } @rows;
+    } else {
+      @sorted = sort { $b->[$sort_by] <=> $a->[$sort_by] } @rows;
+    }
+  }
+
+  # Create column headers linked with the sort options
+  print hr;
+  print start_table();
+  my $url = url(-absolute=>1,-query=>1);
+  $url .= "?name=" . param('name') . ';sort=';
+  print TR(
+	   map {
+	     my ($header,$width) = @{$cols{$_}};
+	     th({-class=>'dataheader',-width=>$width},
+		a({-href=>$url . $_ . ";order=$sort_order"},
+		  $header
+		  . img({-width=>17,-src=>'/images/sort.gif'})
+		 ))}
+	   sort {$a <=> $b} keys %cols);
+  
+  foreach (@sorted) {
+    my ($gc,$lab,$desc,$phene,$genes) = @$_;
+    next if $gc eq '=';  # kludge for sloppy data entry
+    print TR(td({-class=>'datacell'},ObjectLink($gc)),
+	     td({-class=>'datacell'},ObjectLink($lab)),
+	     td({-class=>'datacell'},$desc),
+	     td({-class=>'datacell'},$phene),
+	     td({-class=>'datacell'},$genes));
+  }
+  print end_table;
+}
+
+
+sub display_report {
+  print start_table({-border=>1});
+  StartSection('General Info');
+  SubSection('Gene class',$GENE_CLASS);
+  SubSection('Main name',$GENE_CLASS->Main_name) if $GENE_CLASS->Main_name;
+  SubSection('Other name',$GENE_CLASS->Other_name) if $GENE_CLASS->Other_name;
+  SubSection('Description',$GENE_CLASS->Description) if $GENE_CLASS->Description;
+  SubSection('Phenotype',$GENE_CLASS->Phenotype) if $GENE_CLASS->Phenotype;
+  SubSection('Designating laboratory',$GENE_CLASS->Designating_laboratory);
+  EndSection();
+  
+  my %species2genes;
+  StartSection('Genes');
+  my @genes = $GENE_CLASS->Genes;
+  foreach (@genes) {
+      my $best = Bestname($_);
+      my $link =  ($_->Sequence_name)
+	  ? a({-href=>Object2URL($_)},"$best (" . $_->Sequence_name. ")")
+	  :a({-href=>Object2URL($_)},$best);
+      my $species = $_->Species;
+      push @{$species2genes{$species}},$link;
+  }
+ 
+  # Prioritize elegans
+  my @species = ('Caenorhabditis elegans');
+  push @species, grep { $_ !~ /elegans/ } sort keys %species2genes;
+  
+  foreach my $species (@species) {  
+      my @genes = eval { @{$species2genes{$species}}};
+      next unless @genes;
+      SubSection('',i(scalar @genes . " <b>$species</b> genes in the $GENE_CLASS gene class:"),		 		
+		 Tableize(\@genes,1,4));
+  }
+
+  EndSection();
+
+  my %species2members;
+  StartSection('Old Members');
+  my @old_genes = $GENE_CLASS->Old_member;
+  my @genes = map {$_->Other_name_for} @old_genes;
+  foreach   (@genes) {
+      my $best = Bestname($_);
+      my $link =  ($_->Sequence_name)
+          ? a({-href=>Object2URL($_)},"$best (" . $_->Sequence_name. ")")
+          :a({-href=>Object2URL($_)},$best);
+      my $species = $_->Species;
+      push @{$species2members{$species}},$link;
+  }
+  # Prioritize elegans
+  my @species = ('Caenorhabditis elegans');
+  push @species, grep { $_ !~ /elegans/ } sort keys %species2members;
+
+  foreach my $species (@species) {
+      my @genes = eval { @{$species2members{$species}}};
+      next unless @genes;
+      SubSection('',i(scalar @genes . " <b>$species</b> old members in the $GENE_CLASS gene class:"),
+                 Tableize(\@genes,1,4));
+  }
+  EndSection();
+
+
+  # Find genes formerly in this gene class
+  my @others;
+  foreach my $gene ($DB->fetch(-query=>qq{find Gene where Other_name="$GENE_CLASS*"})) {
+    my $best = Bestname($gene);
+    my @onames = $gene->Other_name;
+    foreach my $other (@onames) {
+      next unless $other =~ /$GENE_CLASS/;
+      my ($sort_key) = $other =~ /$GENE_CLASS\-(.*)/;
+      push (@others,[$gene,$sort_key,$other,$best,$gene->Sequence_name]);
+    }
+  }
+
+  my @linked = map { my ($gene,$sort_key,$other,$best,$mol) = @$_;
+		     if ($mol) {
+		       a({-href=>Object2URL($gene)},"$other ($best; $mol)");
+		     } else {
+		       a({-href=>Object2URL($gene)},"$other ($best)");
+		     } } sort {$a->[1] <=> $b->[1]} @others;
+
+  if (@others) {
+    StartSection("Genes previously in the $GENE_CLASS class");
+    SubSection('',Tableize(\@linked,1,3),
+	      i('Key: previous name (primary name, molecular identity if known)'));
+    EndSection();
+  }
+
+  if ($GENE_CLASS->Remark) {
+    StartSection('Remark');
+    my @remarks = $GENE_CLASS->Remark;
+    SubSection('',join(br,GetEvidence(-obj=>\@remarks,-dont_link=>1)));
+    EndSection();
+  }
+  print end_table;
+}
+
+
+
+sub print_notes {
+  print hr;
+  print h2(a({-name=>'about'},'About gene classes in C. elegans'));
+
+  print p('Please read <a href="http://www.wormbase.org/wiki/index.php/Nomenclature">guidelines</a> for further details on gene nomenclature in nematodes.');
+}
+
+

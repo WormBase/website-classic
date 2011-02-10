@@ -1,0 +1,300 @@
+#!/usr/bin/perl
+# A simple display of sage reagents
+
+use strict;
+use lib '../lib';
+use vars qw/$DB $DBGFF $sage @results $gene $best_name $by_tag/;
+use Ace;
+use Ace::Browser::AceSubs qw(:DEFAULT AceRedirect AceMultipleChoices);
+use ElegansSubs qw(:DEFAULT PrintRefs FetchGene build_citation);
+use CGI qw/:standard :html3 *table/;
+use CGI::Pretty 'html3';
+use CGI::Carp 'fatalsToBrowser';
+
+END {
+  undef $sage;
+  undef @results;
+  undef $gene;
+  undef $best_name;
+  undef $by_tag;
+}
+
+use constant NONE => i('not available');
+use constant PICTURE_WIDTH => 800;
+
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$DB->class('Ace::Object::Wormbase');
+
+
+($sage,$gene,$best_name,$by_tag,@results) = get_object();
+$DBGFF = OpenGFFDB($DB,eval { get_species($sage) || 'c_elegans' }) || AceError("Couldn't open GFF database.") if $sage;
+
+my (@all_tags,$gene_image,$gene_map,$mapped_by,$tag_name);
+if ($sage) {
+
+  if ($by_tag) {
+    $tag_name = $sage->name;
+  }
+
+  if ($gene) {
+    # all tags associated with this gene
+    my @really_all_tags = $gene->SAGE_tag;
+    @all_tags = $by_tag ? grep {$_->name ne $tag_name } @really_all_tags : @really_all_tags;
+    my $class  = $gene->class;
+    my $name   = $gene->name;
+
+    if ($by_tag) {
+      # type of tag-mapping
+      $mapped_by = $gene->Most_three_prime ? "is the most 3' tag for $class $best_name" 
+	  : "has been unambiguously mapped to $class $best_name";
+    }
+
+    # boundaries of segment to display
+    my ($g) = $DBGFF->get_feature_by_name($class => $name);
+    my ($start,$end) = sort {$a<=>$b} ($g->start,$g->end);
+    $start -= 1000;
+    $end += 1000;
+    my $segment = $DBGFF->segment( -name   => $g->ref,
+				   -start  => $start,
+				   -end    => $end );
+=pod
+    my %params = (
+		  segment=>$segment,
+		  tracks => [qw/CG SAGE/],
+		  title  => "SAGE tags for $gene",
+		  keystyle => 'between',
+		  do_map   => 1,
+		  # Purge post WS182
+		  # tmpdir  => AppendImagePath('gene')
+		  drag_n_drop => 0,
+		  );
+
+#    my @argv = ( {segment=>$segment,
+#		 tracks => [qw/CG SAGE/],
+#		 title  => "SAGE tags for $gene",
+#		 keystyle => 'between',
+#		 do_map   => 1,
+#		 # Purge post WS182
+#		 # tmpdir  => AppendImagePath('gene')
+#		 drag_n_drop => 0,
+#		 });
+
+    # highlite the tag in question, could include spliced tags
+    if ($tag_name) {
+	if (my @tags = grep {$_->name eq $tag_name} $g->features('sage_tag')) {
+	    $params{postgrid} = make_postgrid_callback(@tags);
+	    $params{hilite_callback}   = make_hilite_callback($tag_name);
+#	    push @argv, postgrid => make_postgrid_callback(@tags);
+#	    push @argv, hilite_callback   => make_hilite_callback($tag_name);
+	}
+    }
+
+    ($gene_image,$gene_map) = $BROWSER->render_panels( \%params );	
+#    ($gene_image,$gene_map) = $BROWSER->render_panels( @argv );	
+=cut
+	my $type = "t=CG;t=SAGE";
+	my $species=eval {get_species($sage)};
+	$species ||= 'c_elegans' ;
+	$gene_image=InlineImage($type,$species,$segment->ref,$segment->start,$segment->end);
+  }
+}
+
+PrintTop($sage,'SAGE Tag',($sage) ? "SAGE Tag report for: $tag_name" :
+	 (@results) ? 'SAGE Tag report for: ' . param('name') : 'SAGE Tag report');
+
+print_prompt();
+
+#PrintWarning(param('name')) if (param('name') && !@results);
+
+
+print start_table({-border=>1, -width => '100%'});
+if ($gene) {
+  StartSection("Gene $best_name");
+  SubSection('', h4(font({-color=>'black'},"$tag_name $mapped_by")), $gene_image);
+  EndSection();
+}
+
+general_info($sage,@all_tags) if grep defined, $sage, @all_tags;
+
+#print $gene_map if $gene_map;
+
+PrintBottom();
+
+
+###########################
+sub get_object {
+  my $request = param('name');
+  $request or return;
+
+  my @sage = $DB->fetch('SAGE_tag' => $request);
+
+  my ($sage,$gene,$best_name,$search_by_tag);
+
+  unless (@sage) {
+    ($gene,$best_name) = FetchGene($DB,$request);
+    @sage = grep { $_->Unambiguously_mapped(0) || $_->Most_three_prime(0) } $gene->SAGE_tag; 
+    
+    if ($gene && !@sage) {
+      print h1("No SAGE tags found for $gene");
+      exit;
+    }
+  }
+  else {
+    $search_by_tag++;
+  }
+
+  if (@sage) {
+    $sage = shift @sage;
+    unless ($gene) {
+      ($gene) = associated_gene($sage);
+      $best_name = eval{$gene->CGC_name} || eval{$gene->Sequence_name} || eval{$gene->name};
+    }
+  }
+
+  return ($sage,$gene,$best_name,$search_by_tag,@sage);
+}
+
+sub general_info {
+  my @tags = @_;
+
+  my (%gene_count,%gene_ncount);
+  StartSection('Expression data');
+  my $space = '&nbsp;' x 5;
+  my @rows = th({align=>'left'},['Tag/Gene','Experiment','Count'.$space,'Count (per 100K)']);
+
+  my $first = 1;
+  for my $sage (@tags) {
+    my $name = $sage->name;
+    $name =~ s/SAGE://;
+    $name = font({-color=>'red'},$name) if $first && eval{param('class') eq 'SAGE_tag'};
+    undef $first;
+    #StartSection($name);
+    my @results = sort $sage->Results;
+ #   push @rows, th({-colspan=>3},$name);
+
+    for my $r (@results) {
+      my $count = $r->get('Frequency')->right;
+      $gene_count{$r} += $count;
+      my $total = $r->get('Total_tag_count')->right;
+      my $ncount = int(($count/$total * 100_000)+0.5);
+      $gene_ncount{$r} += $ncount;
+      my $human_name = (split ':',$r)[-1];
+      my $experiment = a( {-href=>Object2URL($r,'$human_name'), -target=>'_blank'}, $human_name);
+      push @rows, td([$name,$experiment,$count,$ncount]);
+      $name = '';
+    }
+    
+#    my $table = table({-border=>1},TR(\@rows));
+#    SubSection('',$table);
+#    EndSection;
+    push @rows, td({-colspan=>4},hr) if @tags > 1;
+  }
+
+  if ($gene) {
+#    StartSection($best_name);
+#    push @rows, th({-colspan=>3},$best_name);
+    for my $r (sort keys %gene_count) {
+      my $count = $gene_count{$r};
+      my $ncount = $gene_ncount{$r};
+      my $human_name = (split ':',$r)[-1];
+      my $experiment = a( {-href=>Object2URL($r,'$human_name'), -target=>'_blank'}, $human_name);
+      push @rows, td([$best_name,$experiment,$count,$ncount]);
+      $best_name = '';
+    }
+#    my $table = table({-border=>1},TR(\@rows));
+#    SubSection('',$table);
+#    EndSection;
+
+    for my $r (sort keys %gene_count) {
+      my $count = $gene_count{$r};
+      my $ncount = $gene_ncount{$r};
+      push @rows, td([$best_name,ObjectLink($r),$count,$ncount]);
+      $best_name = '';
+    }
+#    my $table = table({-border=>1},TR(\@rows));
+#    SubSection('',$table);
+#    EndSection;
+
+  }
+  my $table = table({-border=>0,-cellpadding=>5},TR(\@rows));
+  SubSection('',$table);
+  EndSection;
+  print end_table();
+}
+
+
+sub print_prompt {
+  my $url = url(-absolute=>1) . '?name=';
+  print
+    start_form,
+      p({-class=>'caption'},
+	'Type in a SAGE tag name (' . 
+	a({-href=>"${url}SAGE:gaagtggtcc"},'SAGE:gaagtggtcc') , ') or gene name (' .
+	join(', ',
+	     a({-href=>"${url}R13A5.9"},'R13A5.9'),
+	     a({-href=>"${url}vab-1"},'vab-1'),
+	    ) . '):'
+       ),
+	 p("Symbol: ",
+	   textfield(-name=>'name'),
+	  ),
+	    end_form;
+  return;
+}
+
+sub overlapping_transcripts {
+    my @tags = @_;
+    my @result;
+    for my $tag (@tags) {
+	my @transcripts = map { 
+	    $_->features('CDS:curated') 
+	    } map { 
+		$DBGFF->segment(SAGE_transcript => $_)
+		} $tag;
+	push @result, ObjectLink($tag) . " (". ((join ' ',map {ObjectLink($_->info)} @transcripts) || 'no overlapping transcript').")";
+    }
+    @result;
+}
+
+
+sub associated_gene {
+  my $tag = shift;
+  my $r = $DB->fetch(SAGE_tag => $tag);
+  my @genes    = ($r->Gene,$r->Transcript,$r->Pseudogene,$r->Predicted_CDS);
+  my @unambig  = grep { scalar $_->get('Unambiguously_mapped')} @genes;
+  my @three_p  = grep { scalar $_->get('Most_three_prime') } @genes;
+  if (!@unambig && !@three_p) {
+    my @unique = grep {$_->class eq 'Gene' || $_->class eq 'Pseudogene'} @genes;
+    @unambig = @unique if @unique == 1;
+  }
+
+  return @unambig, @three_p;
+}
+
+sub make_hilite_callback {
+  my $name = shift;
+  return sub {
+    my $feature = shift;
+    return 'red' if $feature->name eq $name;
+    return undef;
+  }
+}
+
+sub make_postgrid_callback {
+  my @tags = @_;
+  my @h_regions = map {[$_->start,$_->end,'yellow']} @tags;
+
+  return sub {
+    my $gd     = shift;
+    my $panel  = shift;
+    my $left   = $panel->pad_left;
+    my $top    = $panel->top;
+    my $bottom = $panel->bottom;
+    for my $r (@h_regions) {
+      my ($h_start,$h_end,$h_color) = @$r;
+      my ($start,$end) = $panel->location2pixel($h_start,$h_end);
+      $gd->filledRectangle($left+$start-5,$top,$left+$end+5,$bottom,
+                           $panel->translate_color($h_color));
+    }
+  }
+}

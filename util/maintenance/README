@@ -1,0 +1,6 @@
+The scripts in this directory are for use by the maintainers of
+WormBase.
+
+pod2html.pl - converts all pod documentation in /docs to html, placing
+              the output in /html/docs.
+

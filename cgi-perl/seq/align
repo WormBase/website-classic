@@ -1,0 +1,39 @@
+#!/usr/local/bin/perl
+# -*- Mode: perl -*-
+# file: align
+# Pull alignments out of db
+
+use lib '../lib';
+use strict;
+use vars '$DB';
+use Ace 1.51;
+use Ace::Browser::AceSubs;
+use CGI qw/header param/;
+
+# print HTTP header & open the database
+print header('text/plain');
+AceInit();
+exit 0 unless $DB = OpenDatabase();
+
+exit 0 unless         my $sequence = param('name');
+exit 0 unless defined(my $start    = param('start'));
+exit 0 unless defined(my $end      = param('end'));
+my $peptide = param('peptide');
+my $opt;
+$opt = "-peptide" if defined($peptide);
+
+# default
+my $query = "gif seqget $sequence -coords $start $end ; seqdisplay ; seqalign $opt";
+
+# try to get corresponding protein
+if ($peptide) {
+    my ($pep) = $DB->fetch(-query=>
+			   "find Sequence \"$sequence\" ; follow Corresponding_protein");
+    $query = "gif pepget \"$pep\" ; pepalign " if $pep;
+}
+
+exit 0 unless my $alignment = $DB->raw_query($query);
+
+$alignment=~s!^//.*?\n!!mg;
+$alignment=~s/\0//g;  # get rid of nulls
+print $alignment;

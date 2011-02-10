@@ -1,0 +1,44 @@
+=head2 Fri Sep 17 11:07:12 2010: C<Module> L<Generic-Genome-Browser|Generic-Genome-Browser>
+
+=over 4
+
+=item *
+
+C<installed into: /usr/local/wormbase/website-classic/cgi-perl/karyotype/lib/perl5>
+
+=item *
+
+C<LINKTYPE: dynamic>
+
+=item *
+
+C<VERSION: 1.71b>
+
+=item *
+
+C<EXE_FILES: bin/register_moby_services.pl bin/make_das_conf.pl bin/process_wormbase.pl bin/process_sgd.pl bin/wiggle2gff3.pl>
+
+=back
+
+=head2 Fri Sep 17 11:08:30 2010: C<Module> L<gbrowse_karyotype|gbrowse_karyotype>
+
+=over 4
+
+=item *
+
+C<installed into: /usr/local/wormbase/website-classic/cgi-perl/karyotype/lib/perl5>
+
+=item *
+
+C<LINKTYPE: dynamic>
+
+=item *
+
+C<VERSION: 0.01>
+
+=item *
+
+C<EXE_FILES: >
+
+=back
+

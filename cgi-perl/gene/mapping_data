@@ -1,0 +1,161 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# file: mapping_data
+# C. elegans genetic mapping data report
+
+use lib '../lib';
+
+use strict;
+use vars '$DB';
+use Ace 1.51;
+use Ace::Browser::AceSubs;
+use ElegansSubs qw/:DEFAULT FetchGene/;
+
+use CGI 2.42 qw/:standard *blockquote escape/;
+
+# print HTTP header & open the database
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+my ($gene,$bestname) = FetchGene($DB,param('name'));
+unless ($gene && param('name')) {
+  $gene = $DB->fetch(-class =>'Locus',
+		     -name  => quotemeta param('name'),
+		     -fill  => 1
+		    );
+}
+
+
+
+PrintTop($gene,'Locus',$name ? "Genetic mapping data for: $name" : 'Mapping Data');
+PrintWarning(param('name'))    if param('name') && !$gene;
+print_prompt();
+print_report($gene) if $gene;
+PrintBottom();
+
+exit 0;
+
+sub print_prompt {
+    print
+	start_form({-name=>'form1',-action=>Url(url(-relative=>1))}),
+	p("Gene symbol",
+	  textfield(-name=>'name'),
+	  ),
+	end_form;
+}
+
+sub print_report {
+    my $gene = shift;
+    unless ($gene->Mapping_data) {
+      print p({-class=>'error'},'No genetic mapping data is available for this gene or locus.');
+      return;
+    }
+    print_2_pt_data($gene);
+    print_multi_pt_data($gene);
+    print_pos_neg_data($gene);
+}
+
+sub print_2_pt_data {
+    my $gene = shift;
+    my @data = $gene->follow(-tag=>'2_point',
+			     -filled=>1);
+    return unless @data;
+    print hr,h2({-class=>'heading'},'Two-Point Data');
+    my $toprow = th(['Genes','Distance','Mapper','Genotype','Raw Data','Comment']);
+    my @rows;
+    for my $exp (sort { $a->Calc_distance(1) <=> $b->Calc_distance(1) } @data) {
+	push @rows,td([
+		       join("&nbsp;&lt;&gt;&nbsp;",
+			    a({-href=>Object2URL($exp->Point_1(2))},$exp->Point_1(2)),
+			    a({-href=>Object2URL($exp->Point_2(2))},$exp->Point_2(2)),
+			    ),
+		       $exp->Calc_distance(1) || "0.0" . '&nbsp;(' . (0+$exp->Calc_lower_conf(1))
+		                                    . '-' . (0+$exp->Calc_upper_conf(1))
+		                                    . ')',
+		       a({-href=>Object2URL($exp->Mapper)},$exp->Mapper),
+		       a({-href=>Object2URL($exp)},$exp->Genotype),
+		       $exp->Results,
+		       cite(join('',$exp->Remark))
+		       ]);
+    }
+    print table({-border=>undef,-width=>'100%'},
+		TR({-class=>'datatitle'},$toprow),
+		TR({-class=>'databody'},\@rows)),p();
+}
+
+sub print_multi_pt_data {
+    my $gene = shift;
+    my @data = $gene->follow(-tag=>'Multi_point',
+			     -filled=>1);
+    return unless @data;
+    print hr,h2({-class=>'heading'},'Multi-Point Data');
+    my $toprow = th(['Results','Mapper','Comment']);
+    my @rows;
+    for my $exp (@data) {
+	next unless $exp->Results(1);
+	my @results = $exp->Results(1)->row;
+	shift @results;
+	my (@loci,$total);
+	while (@results) {
+	    my ($label,$locus,$count) = splice(@results,0,3);
+	    $total += $count;
+	    push(@loci,[$locus=>$count]);
+	}
+	my $genotype = '';
+	my $open_paren;
+	while (@loci) {
+	    my $l = shift @loci;
+	    if (defined $l->[1] && ($l->[1]+0) == 0) {
+		$genotype .= "($l->[0]&nbsp;";
+		$open_paren++;
+	    } else {
+		$genotype .= $l->[0];
+		if ($open_paren) {
+		    $genotype .= ")";
+		    undef $open_paren;
+		}
+		$genotype .= "&nbsp;($l->[1]/$total)&nbsp;" if defined($l->[1]);
+	    }
+	}
+
+	push @rows,td([
+		       a({-href=>Object2URL($exp)},$genotype,),
+		       a({-href=>Object2URL($exp->Mapper)},$exp->Mapper),
+		       cite(join('',$exp->Remark))
+		       ]
+		      );
+    }
+    print table({-border=>undef,-width=>'100%'},
+		TR({-class=>'datatitle'},$toprow),
+		TR({-class=>'databody'},\@rows)),p();
+}
+
+sub print_pos_neg_data {
+    my $gene = shift;
+    my @data = $gene->follow(-tag=>'Pos_neg_data',
+			     -filled=>1);
+    return unless @data;
+    print hr,h2({-class=>'heading'},'Deficiency &amp; Duplication Data');
+    my $toprow = th(['Results','Mapper','Genotype','Comment']);
+    my @rows;
+    for my $exp (@data) {
+	my $result = $exp->Results(1);
+	my @items = $exp->Item_1(2);
+	push @items,$exp->Item_2(2);
+	my %done;
+	for my $item (@items) {
+	    my $s = "$item";
+	    next if $done{$s}++;
+	    $result =~ s/\b($s)\b/a({-href=>Object2URL($item)},$1)/gie;
+	}
+	push @rows,td([
+		       $result,
+		       a({-href=>Object2URL($exp->Mapper)},$exp->Mapper),
+		       a({-href=>Object2URL($exp)},$exp->Genotype(1) || 'not given'),
+		       cite(join('',$exp->Remark))
+		       ]);
+
+    }
+    print table({-border=>undef,-width=>'100%'},
+		TR({-class=>'datatitle'},$toprow),
+		TR({-class=>'databody'},\@rows)),p();
+}

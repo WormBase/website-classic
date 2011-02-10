@@ -1,0 +1,18 @@
+This directory contains files for creating 
+archives of WormBase releases.
+
+archives.dtc
+	DiskTracker file of releases archived on DVD
+
+create_archive.pl
+	Create directories for archiving and fetch the
+        sources from dev.wormbase.org
+
+unpack.sh
+	A simple script included in archived releases
+	that simplifies unpacking of prepackaged
+	databases.
+
+
+Todd Harris (harris@cshl.org)
+27 September 2004

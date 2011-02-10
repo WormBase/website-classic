@@ -1,0 +1,155 @@
+New release of acedb WS59, Wormpep69, and WormRNA1 21/11/2001
+=============================================================
+
+This directory includes:
+
+
+i)   database.WS59.*.tar.gz      - the compressed data for the new release
+
+ii)  wspec/ subdirectory         - contains files for the latest database
+                                   schema
+
+iii) CHROMOSOMES/ subdirectory   - contains three files (DNA, GFF, and agp)
+                                   for each chromosome  
+
+iv)  pictures/ subdirectory      - contains assorted C. elegans images 
+
+v)   WS58-WS59.dbcomp            - log file reporting differences between 
+                                   WS58 and WS59 
+
+vi)  wormpep69.tar.gz            - full Wormpep distribution corresponding 
+                                   to WS59
+
+vii  wormrna1.tar.gz		 - latest WormRNA release containing all
+                                   non-coding RNAs in the genome
+
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1) Create a new directory to contain your copy of WormBase, 
+e.g. /users/keith/wormbase
+
+2) Unpack and untar all of the database.*.tar.gz files into 
+this directory. You will need approximately 2-3 Gb of disk space.  
+
+3) Obtain and install a suitable acedb binary for your system 
+(available from www.acedb.org).
+
+4) Use the acedb 'xace' program to open your database, e.g.
+type 'xace /users/keith/wormbase' at the command prompt.
+
+5) See the acedb website for more information about acedb and 
+using xace.
+
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Sequence composition:
+---------------------
+6 sequences >= 100,231,668 bp total
+
+  a 32,286,502    32 %
+  c 17,735,194    18 %
+  g 17,713,313    18 %
+  t 32,279,867    32 %
+  -    216,696     0 %
+  n         96     0 %
+
+
+
+Wormpep data set:
+-----------------
+
+There are 19,425 CDS in autoace, 20,311 when counting (886) alternate 
+splice_forms.  The 20,311 sequences contain 8,919,451 base pairs in
+total.
+
+ Modified entries     168
+ Deleted entries      124
+ New entries          171
+ Reappeared entries     1
+ ------------------------
+ Net Change          + 48
+
+
+
+
+GeneModel correction progress:
+------------------------------
+
+# Confirmed_intron not in CDS GeneModels
+
+           +----------+---------+
+           | Introns  | Change  |
+           +----------+---------+
+Cambrige   |     1128 |  +  603 |
+St Louis   |      990 |  -  259 |
+           +----------+---------+
+
+
+
+Synchronisation with GenBank/EMBL:
+----------------------------------
+
+No current problems with regard to sequence.  
+
+
+
+New data:
+---------
+
+The new SNP data set prepared by Todd Harris at CSHL has been entered
+into this build.  This data comprises approximately 6,000 SNPs.
+
+Many gene name/classes have been updated and many new Locus -> Sequence
+connections have been added.  Data courtesy of Jonathan Hodgkin at the
+CGC.  We are aware that there is still a small backlog of outstanding
+gene updates which we are working towards finishing.
+
+Many new 'confirmed introns' have been entered as Feature_data.  Introns
+have been confirmed by EST and mRNA analysis.
+
+More non-coding RNA sequences have been annotated as part of our new
+WormRNA release (see above).  There are now 757 non-coding RNA sequences
+identified in the genome.  These are all available (in FASTA format) in 
+the new WormRNA release file accompanying the WormBase release.
+
+URLs corresponding to the consensus set of Nematode ESTs from the
+Blaxter lab have been added.
+
+wublastp homologies now use relevant database names/acronyms to
+identity the matching protein.  This is a change from using two
+letter species identifiers.  E.g. a wublastp_yeast to the
+Saccharomyces Genome Database peptide 'YNL185C' is now named
+'SGD:YNL185C' rather than 'SC:YNL185C'.  Other new database
+prefixes are 'ENSEMBL:' and  'GADFLY:' for human and fly homologies 
+respectively.  Swissprot, Trembl, and Wormpep homologies continue 
+to use the respective prefixes of 'SW:', 'TR:', and 'WP:'.
+
+
+
+Proposed changes / forthcoming data:
+------------------------------------
+
+wublastx data (genomic clones searched against reference protein sets
+from yeast, worm, fly, human (as well as against a reduced set of 
+Trembl and Swissprot entries) are still being worked on and should be 
+ready for the next release. Potentially this will be part of a clean
+up of some of the non-Wormpep proteins in Wormbase.  Ideally, all
+proteins in Wormbase will contain a peptide sequence, description
+line (taken from Swissprot/TREMBL where possible) and a species name.
+
+Sequences that are 'confirmed by EST' will be annotated as such in
+the next build to complement those that are already annotated as
+'confirmed by cDNA'.  This work has been done by Kerstin Jekosch.
+This will allow us to greatly increase our set of 'confirmed' genes.
+
+
+

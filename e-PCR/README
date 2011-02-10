@@ -1,0 +1,81 @@
+================================================================
+Electronic PCR (e-PCR) program for finding STSs in DNA sequences
+================================================================
+
+REFERENCE: G.D.Schuler. Sequence mapping by "Electronic PRC".
+           (submitted 23-Dec-96)
+
+FEEDBACK:  schuler@ncbi.nlm.nih.gov
+
+USAGE:  e-PCR <stsfile> <seqfile>
+
+        Where <stsfile> is one of the files in the db directory or
+        one that you supply (see below for format specification) 
+        and <seqfile> is a FASTA-style file containing any number 
+        of sequences.
+
+
+SYSTEMS SUPPORTED
+=================
+SGI/UNIX
+Sun SPARC/Solaris
+Intel PC/Win32 (Win95 or WinNT)
+
+
+INSTALLATION
+============
+Just identify the correct executable for your system and copy to a
+location that is on the search path.  You can use any of the following 
+commands to test the program; they should all produce some output.
+
+    e-PCR db/genethon.sts samples/L78833.nt
+
+    e-PCR db/genethon.sts samples/U47924.nt
+
+    e-PCR db/txmap.sts samples/U47924.nt
+
+
+STS DATABASE FILES
+==================
+genethon.sts     Genethon genetic markers (Dib et al, 1996)
+txmap.sts        Transcript Map markers (Schuler et al, 1996)
+
+
+STS DATABASE FILE SPECIFICATION
+===============================
+The stsfile should contain at least four (optionally five) 
+tab-delimited columns:
+
+col-1:  STS name
+col-2:  left PCR primer
+col-3:  right PCR primer
+col-4:  PCR product size
+col-5:  (optional) additional text to be included in the output
+
+
+PACKING LIST
+============
+
+./README
+
+./bin/sgi/e-PCR
+./bin/solaris/e-PCR
+./bin/win32/e-PCR.exe
+
+./db/genethon.sts   
+./db/txmap.sts      
+
+./samples/L78833.nt  
+./samples/U47924.nt
+
+./src/
+./src/e-PCR.cxx
+./src/fasta-io.cxx
+./src/fasta-io.h
+./src/makefile
+./src/stsmatch.cxx
+./src/stsmatch.h
+./src/util.cxx
+./src/util.h     
+
+

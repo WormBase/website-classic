@@ -1,0 +1,72 @@
+New release of acedb WS50 and wormpep60 07/08/2001
+==================================================
+
+This directory includes:
+   WS50 database.*.tar.gz 
+     files to be installed using INSTALL
+   WS49-WS50.dbcomp
+     Test log reporting differences in Class objects
+     between WS49 and WS50 
+   chromosomes.WS50.tar.gz
+     CHROMOSOMES subdirectory with DNA sequence and GFF files for 
+     the 6 chromsomes
+   wormpep60.tar.gz
+     full wormpep distribution corresponding to WS50 database
+     this contains a log file showing a number of errors in naming 
+     and gene structures that should be fixed
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+Sequence composition:
+---------------------
+6 sequences >= 0, 100178216 total
+  - 247196      0 %
+  a 32260415    32 %
+  c 17720348    18 %
+  g 17698138    18 %
+  n 96  0 %
+  t 32252023    32 %
+
+6 sequences >= 0, 100177676 total
+
+There's a gain of 540 bp compared to WS49.
+
+ 
+Wormpep data set:
+-----------------
+
+there are 19,328 CDS in autoace, 20,041 when counting (713) alternate
+splice_forms
+20,041 sequences totalling 8,812,523 letters
+
+ Modified entries      46
+ Deleted entries       39
+ New entries           40
+ Reappeared entries     0
+ ------------------------
+ Net Change          +  1
+
+There are 77 provisional gene models in WS50.
+
+
+New data:
+---------
+
+No major changes.
+
+
+Known problems:
+---------------
+
+Had to revert back to a previous RNAi dataset from Cold Spring Harbor due
+to some problems with their recent dump.  This has meant that there are 
+fewer RNAi objects in WS50 when compared to WS49.
+
+Known fixes:
+------------
+
+
+
+++++++++++++++++++++++++++++++++++++++++++++

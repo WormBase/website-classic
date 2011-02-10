@@ -1,0 +1,163 @@
+New Release of acedb WS82, Wormpep82 and Wormrna82 16/07/02
+======================================================================
+
+This directory includes:
+
+i)	database.WS82.*.tar.gz   -   compressed data for new release
+
+ii)	models.wrm.WS82          -   the latest database schema (also in above database files)
+
+iii)	CHROMOSOMES/subdir       -   contains 3 files (DNA, GFF & AGP per chromosome)
+
+iv)	WS82-WS81.dbcomp         -   log file reporting difference from last release
+
+v)	wormpep82.tar.gz         -   full Wormpep distribution corresponding to WS82
+
+vi)	wormrna82.tar.gz         -   latest WormRNA release containing non-coding RNA's in the genome
+
+vii)	confirmed_genes.WS83.gz  -   DNA sequences of all genes confirmed by EST &/or cDNA
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS81
+------------------------------------
+brigdb : 2002-06-17
+camace : 2002-07-08 - updated
+citace : 2002-07-06 - updated
+cshace : 2002-06-30 - updated
+genace : 2002-07-08 - updated
+stlace : 2002-07-03 - updated
+
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS82		WS81           	change
+----------------------------------------------
+a    	32341760	32341760	+0
+c    	17763359	17763359	+0
+g    	17743847	17743847	+0
+t    	32340044	32340044	+0
+n    	95		95      	+0
+-    	62800		62800   	+0
+Total	100251905	100251905	+0
+
+Wormpep data set:
+----------------------------
+
+There are 19,461 CDS in autoace, 20,688 when counting (1,227) alternate splice_forms
+
+The 20,688 sequences totalling 9,139,642 base pairs in total.
+
+Modified entries              64
+Deleted entries               44
+New entries                   90
+Reappeared entries             3
+--------------------------------
+Net change                  + 49
+
+
+GeneModel correction progress WS81 -> WS82
+------------------------------------------
+
+Confirmed introns not is a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|   2007  |    -3  |
+St Louis 	|    790  |  -181  |
+		+---------+--------+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|     29  |     0  |
+St Louis 	|    185  |     0  |
+		+---------+--------+
+
+GeneModel status WS82
+---------------------
+
+                     +--------+--------+--------+
+                     |   WS81 |   WS82 | Change |
+                     +--------+--------+--------+
+Confirmed            |   3216 |   3256 | +   40 |
+Partially_confirmed  |   7455 |   9043 | + 1588 |
+Predicted	     |   9968 |   8389 | - 1579 |
+                     +--------+--------+--------+
+                     |  20639 |  20688 | +   49 |
+		     +--------+--------+--------+
+
+59.4% of CDS predictions have supporting transcript evidence.
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+No discrepencies with GenBank/EMBL
+
+
+New Data:
+---------
+
+Partially-automated generation of EST to CDS cross-references.
+This introduces 68,275 new Matching_cDNA tags in the database
+and modifies the status of predictions from predicted to 
+partially_confirmed.
+
+New Fixes:
+----------
+
+
+Known Problems:
+--------------
+
+61 Protein_IDs and 676 Protein accessions (SWISSPROT/TREMBL)
+are absent from this release. We have data pertaining to 530
+of the missing protein accessions and are currently investigating
+the remainder of this data set.
+
+
+Other Changes:
+--------------
+
+WTP data has been removed from WS82 onward. For more information
+mail Paul Sternberg <pws@caltech.edu>
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+
+The C.briggsae sequence data is available and will be incorporated
+into WS83.
+
+New UTR features will be added for WS83.
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

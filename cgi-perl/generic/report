@@ -1,0 +1,64 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# file: report
+# Generic HTML object report
+
+use lib '../lib';
+use strict;
+use vars qw($DB);
+use Ace 1.51;
+use Ace::Browser::AceSubs;
+use ElegansSubs;
+use CGI 2.42 qw/:standard :html3 escape *table *blockquote/;
+
+use constant CLASS   => 'GenericObject';
+use constant EXAMPLE => 'FILL IN';
+
+# print HTTP header & open the database
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+my ($obj_name, $obj);
+$obj_name = param('name');
+$obj = get_obj($obj_name) if $obj_name;
+
+PrintTop($obj,CLASS,$obj ? CLASS . ": $obj" : CLASS . " Search");
+PrintWarning($obj_name) if $obj_name && !$obj;
+print_prompt();
+print_report($obj) if $obj;
+PrintBottom();
+
+
+sub get_obj {
+  my $name = shift;
+  my ($obj) = $DB->fetch(-class =>CLASS,
+			 -name  => $name);
+  return $obj;
+}
+
+sub print_prompt {
+  print
+    start_form,
+    p({-class=>'caption'},"Type in a ".CLASS." symbol, such as ",
+      cite(EXAMPLE),':'),
+    p("Symbol: ",
+      textfield(-name=>'name')),
+    end_form;
+}
+
+sub print_report {
+  my $obj = shift;
+
+  print hr,h2({-class=>'heading'},'Interesting Information');
+  print start_table({-border=>1});
+  print TR(
+	   th({-class=>'datatitle'},'Object Class'),
+	   td({-class=>'databody'},$obj->class)
+	   );
+  print TR(
+	   th({-class=>'datatitle'},'Object Name'),
+	   td({-class=>'databody'},$obj->name)
+	   );
+  print end_table;
+
+}
+

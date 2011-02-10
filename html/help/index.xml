@@ -1,0 +1,119 @@
+<!--
+
+This is a the help file for the main index page.
+
+$Id: index.xml,v 1.1.1.1 2010-01-25 15:47:29 tharris Exp $
+
+Sheldon McKay <mckays@cshl.edu>
+
+-->
+
+<xml>
+  <section section_id="Genome">
+  <![CDATA[
+  <b>Genome:</b> Browse the <i>C. elegans</i> and other genomes
+  with the Generic Genome Browser, a part of the Generic Model
+  Organism Database (GMOD) project.
+  ]]>
+ </section>
+
+  <section section_id="Blast / Blat">
+  <![CDATA[
+  <b>BLAST/BLAT:</b> Search for a sequence in protein, genomic DNA
+  and EST databases. <font color=green>NOTE: A new user interface 
+  has been released.</font>
+  ]]>
+ </section>
+
+  <section section_id="WormMart">
+  <![CDATA[
+   <b>WormMart:</b> A data mining resource that provides easy and interactive 
+   access to data en masse. In particular, WormMart enables users to retrieve 
+   sequences and genome annotations using a variety of filters to constrain 
+   retrieved results. <font color=green>NOTE: An improved user interface has
+   been released.</font>
+  ]]>
+ </section>
+
+  <section section_id="Markers">
+  <![CDATA[
+   <b>Markers:</b> This page is designed to assist in the selection of SNPS and visible
+   genetic markers for mapping experiments. Provided with a genetic interval, it will
+   display all visible markers and SNPs within that interval, as well as strains
+   carrying those SNPs
+  ]]>
+  </section>
+
+  <section section_id="Batch Sequences">
+  <![CDATA[
+   <b>Batch Sequences:</b> A batch sequence dumper that allows you to export sequences
+   with various types of filters.
+  ]]>
+  </section>
+
+  <section section_id="Genetic Maps">
+  <![CDATA[
+    <b>Genetic Maps:</b> Examine chromosomes and genetic intervals with this ACeDB-style
+    genetic map viewer.
+  ]]>
+  </section>
+
+  <section section_id="Submit">
+  <![CDATA[
+   <b>Submit data to Wormbase:</b>  We offer multiple submission options
+   and can also provide assistance in formatting and processing for easy incorporation
+   into WormBase. By submitting your data to WormBase, you help to ensure its long-term
+   availability as well as place it within a rich, highly cross-referenced context.
+   <p>Click this link for more information.
+  ]]>
+  </section>
+
+  <section section_id="Searches">
+  <![CDATA[
+    <b>Searches</b> A portal to the various types of simple and complex searches
+    that can be done in WormBase.  <p>Look here if you are interested in bulk data, data
+    mining and more sophisticated WormBase queries.
+  ]]>
+  </section>
+
+ <section section_id="Literature"> 
+  <![CDATA[
+    <b>Literature Search:</b> Perform a detailed
+    search of <i>C. elegans</i> papers and abstracts
+    with Textpresso.
+  ]]>
+ </section>
+
+ <section section_id="XML">
+  <![CDATA[
+   <b>Results as XML:</b> For power users/data miners.  This
+   option will dump the data directly from the acedb database object
+   in XML format.<br>You may also wish to consider using WormMart.
+  ]]>
+ </section>
+
+ <section section_id="Suggest">
+  <![CDATA[
+  <b>Wormbase Suggest:</b> Based on what you type, 
+  wormbase does a quick database search and suggests
+  optimized queries.<br>
+  <ul style="padding-top:10px;font-size:90%;margin-left:0">
+  <li>You can ignore the suggestions.
+  <br>
+  <li>To choose a selection, use your mouse or arrow down and hit 'enter'.
+  <br>
+  <li>Uncheck this box to disable autocompletion.
+  </ul>
+  ]]>
+ </section>
+
+ <section section_id="Exact">
+  <![CDATA[
+  <b>Exact match:</b> Selecting this option will force the
+  database search to consider only results that exactly match the
+  query phrase.  For example, an exact search would look for
+  'pharyngeal gland cell' <i>vs.</i> 'pharyngeal', 'gland' and/or 'cell'.
+  ]]>
+ </section>
+
+</xml>

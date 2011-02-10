@@ -1,0 +1,134 @@
+
+[ --- DEBUG MESSAGE --- ]
+ENV Variables %ENV
+CVSROOT: formaggio.cshl.org:/usr/local/cvs_repository
+CVS_RSH: ssh
+DISPLAY: localhost:12.0
+EDITOR: nedit
+GROUP: canaran
+HOME: /home/canaran
+HOST: brie3.cshl.org
+HOSTNAME: brie3.cshl.org
+HOSTTYPE: i386-linux
+LANG: en_US
+LESS: -Men
+LESSOPEN: |lesspipe.sh %s
+LOGNAME: canaran
+LS_COLORS: no=00:fi=00:di=01;34:ln=01;36:pi=40;33:so=01;35:bd=40;33;01:cd=40;33;01:or=01;05;37;41:mi=01;05;37;41:ex=01;32:*.cmd=01;32:*.exe=01;32:*.com=01;32:*.btm=01;32:*.bat=01;32:*.sh=01;32:*.csh=01;32:*.tar=01;31:*.tgz=01;31:*.arj=01;31:*.taz=01;31:*.lzh=01;31:*.zip=01;31:*.z=01;31:*.Z=01;31:*.gz=01;31:*.bz2=01;31:*.bz=01;31:*.tz=01;31:*.rpm=01;31:*.cpio=01;31:*.jpg=01;35:*.gif=01;35:*.bmp=01;35:*.xbm=01;35:*.xpm=01;35:*.png=01;35:*.tif=01;35:
+MACHTYPE: i386
+MAIL: /var/mail/canaran
+NNTPSERVER: isp-west.usenetserver.com
+OPENWINHOME: /usr/openwin
+ORGANIZATION: Cold Spring Harbor Laboratory
+OSTYPE: linux
+PATH: /home/canaran/bin:/usr/local/bin:/usr/X11/bin:/usr/X11R6/bin:/usr/local/acedb/bin:/usr/local/java/bin:/usr/bin:/bin:/usr/sbin/:/sbin:.
+PWD: /home/canaran/wormbase/searches/advanced
+REMOTEHOST: fontina.cshl.org
+REPLYTO: canaran@cshl.org
+SHELL: /bin/tcsh
+SHLVL: 1
+SSH_CLIENT: 143.48.31.81 38981 22
+SSH_TTY: /dev/pts/6
+TERM: xterm
+TMPDIR: 
+USER: canaran
+VENDOR: intel
+VISUAL: nedit
+[ --- END OF DEBUG MESSAGE --- ]
+
+
+[ --- DEBUG MESSAGE --- ]
+INC Variables %INC
+/usr/local/lib/perl5/5.6.1/i686-linux/auto/POSIX/autosplit.ix: /usr/local/lib/perl5/5.6.1/i686-linux/auto/POSIX/autosplit.ix
+/usr/local/lib/perl5/5.6.1/i686-linux/auto/POSIX/load_imports.al: /usr/local/lib/perl5/5.6.1/i686-linux/auto/POSIX/load_imports.al
+AutoLoader.pm: /usr/local/lib/perl5/5.6.1/AutoLoader.pm
+Bio/AnnotatableI.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/AnnotatableI.pm
+Bio/Annotation/Collection.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/Annotation/Collection.pm
+Bio/Annotation/SimpleValue.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/Annotation/SimpleValue.pm
+Bio/Annotation/TypeManager.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/Annotation/TypeManager.pm
+Bio/AnnotationCollectionI.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/AnnotationCollectionI.pm
+Bio/AnnotationI.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/AnnotationI.pm
+Bio/DB/GFF.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/DB/GFF.pm
+Bio/DB/GFF/Aggregator.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/DB/GFF/Aggregator.pm
+Bio/DB/GFF/Featname.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/DB/GFF/Featname.pm
+Bio/DB/GFF/Feature.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/DB/GFF/Feature.pm
+Bio/DB/GFF/Homol.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/DB/GFF/Homol.pm
+Bio/DB/GFF/RelSegment.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/DB/GFF/RelSegment.pm
+Bio/DB/GFF/Segment.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/DB/GFF/Segment.pm
+Bio/DB/GFF/Typename.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/DB/GFF/Typename.pm
+Bio/DB/GFF/Util/Rearrange.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/DB/GFF/Util/Rearrange.pm
+Bio/DB/InMemoryCache.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/DB/InMemoryCache.pm
+Bio/DB/RandomAccessI.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/DB/RandomAccessI.pm
+Bio/DB/SeqI.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/DB/SeqI.pm
+Bio/Das/FeatureTypeI.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/Das/FeatureTypeI.pm
+Bio/Das/SegmentI.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/Das/SegmentI.pm
+Bio/DasI.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/DasI.pm
+Bio/DescribableI.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/DescribableI.pm
+Bio/FeatureHolderI.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/FeatureHolderI.pm
+Bio/IdentifiableI.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/IdentifiableI.pm
+Bio/Location/CoordinatePolicyI.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/Location/CoordinatePolicyI.pm
+Bio/Location/WidestCoordPolicy.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/Location/WidestCoordPolicy.pm
+Bio/LocationI.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/LocationI.pm
+Bio/PrimarySeq.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/PrimarySeq.pm
+Bio/PrimarySeqI.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/PrimarySeqI.pm
+Bio/RangeI.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/RangeI.pm
+Bio/Root/IO.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/Root/IO.pm
+Bio/Root/Root.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/Root/Root.pm
+Bio/Root/RootI.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/Root/RootI.pm
+Bio/Root/Version.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/Root/Version.pm
+Bio/Seq.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/Seq.pm
+Bio/SeqFeature/CollectionI.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/SeqFeature/CollectionI.pm
+Bio/SeqFeatureI.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/SeqFeatureI.pm
+Bio/SeqI.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/SeqI.pm
+Bio/SeqUtils.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/SeqUtils.pm
+Bio/Tools/CodonTable.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/Tools/CodonTable.pm
+Bio/Tools/IUPAC.pm: /usr/local/lib/perl5/site_perl/5.6.1/Bio/Tools/IUPAC.pm
+CGI.pm: /usr/local/lib/perl5/5.6.1/CGI.pm
+CGI/Util.pm: /usr/local/lib/perl5/5.6.1/CGI/Util.pm
+Carp.pm: /usr/local/lib/perl5/5.6.1/Carp.pm
+Carp/Heavy.pm: /usr/local/lib/perl5/5.6.1/Carp/Heavy.pm
+Config.pm: /usr/local/lib/perl5/5.6.1/i686-linux/Config.pm
+Cwd.pm: /usr/local/lib/perl5/5.6.1/Cwd.pm
+Data/Dumper.pm: /usr/local/lib/perl5/5.6.1/i686-linux/Data/Dumper.pm
+Debug.pm: /home/canaran/mylib/Debug.pm
+Errno.pm: /usr/local/lib/perl5/5.6.1/i686-linux/Errno.pm
+Exporter.pm: /usr/local/lib/perl5/5.6.1/Exporter.pm
+Exporter/Heavy.pm: /usr/local/lib/perl5/5.6.1/Exporter/Heavy.pm
+Fcntl.pm: /usr/local/lib/perl5/5.6.1/i686-linux/Fcntl.pm
+File/Basename.pm: /usr/local/lib/perl5/5.6.1/File/Basename.pm
+File/Glob.pm: /usr/local/lib/perl5/5.6.1/i686-linux/File/Glob.pm
+File/Path.pm: /usr/local/lib/perl5/5.6.1/File/Path.pm
+File/Spec.pm: /usr/local/lib/perl5/5.6.1/File/Spec.pm
+File/Spec/Unix.pm: /usr/local/lib/perl5/5.6.1/File/Spec/Unix.pm
+File/Temp.pm: /usr/local/lib/perl5/5.6.1/File/Temp.pm
+IO.pm: /usr/local/lib/perl5/5.6.1/i686-linux/IO.pm
+IO/Handle.pm: /usr/local/lib/perl5/5.6.1/i686-linux/IO/Handle.pm
+POSIX.pm: /usr/local/lib/perl5/5.6.1/i686-linux/POSIX.pm
+SelectSaver.pm: /usr/local/lib/perl5/5.6.1/SelectSaver.pm
+Symbol.pm: /usr/local/lib/perl5/5.6.1/Symbol.pm
+Time/Format.pm: /usr/local/lib/perl5/site_perl/5.6.1/Time/Format.pm
+XSLoader.pm: /usr/local/lib/perl5/5.6.1/i686-linux/XSLoader.pm
+base.pm: /usr/local/lib/perl5/5.6.1/base.pm
+constant.pm: /usr/local/lib/perl5/5.6.1/constant.pm
+integer.pm: /usr/local/lib/perl5/5.6.1/integer.pm
+lib.pm: /usr/local/lib/perl5/5.6.1/lib.pm
+overload.pm: /usr/local/lib/perl5/5.6.1/overload.pm
+re.pm: /usr/local/lib/perl5/5.6.1/i686-linux/re.pm
+strict.pm: /usr/local/lib/perl5/5.6.1/strict.pm
+subs.pm: /usr/local/lib/perl5/5.6.1/subs.pm
+vars.pm: /usr/local/lib/perl5/5.6.1/vars.pm
+warnings.pm: /usr/local/lib/perl5/5.6.1/warnings.pm
+warnings/register.pm: /usr/local/lib/perl5/5.6.1/warnings/register.pm
+[ --- END OF DEBUG MESSAGE --- ]
+
+
+[ITEM: AC3] [feature: processed_transcript:curated(AC3.1)][location: AC3:10371138-10372450] [info: AC3.1] [strand: 1] [method: processed_transcript] [class: CDS] [group: AC3.1]
+[ITEM: AC3] [feature: processed_transcript:curated(AC3.2)][location: AC3:10374261-10378807] [info: AC3.2] [strand: 1] [method: processed_transcript] [class: CDS] [group: AC3.2]
+[ITEM: AC3] [feature: processed_transcript:curated(AC3.3)][location: AC3:10384367-10383008] [info: AC3.3] [strand: -1] [method: processed_transcript] [class: CDS] [group: AC3.3]
+[ITEM: AC3] [feature: processed_transcript:curated(AC3.4)][location: AC3:10385680-10388266] [info: AC3.4] [strand: 1] [method: processed_transcript] [class: CDS] [group: AC3.4]
+[ITEM: AC3] [feature: processed_transcript:curated(AC3.5)][location: AC3:10391109-10395938] [info: AC3.5] [strand: 1] [method: processed_transcript] [class: CDS] [group: AC3.5]
+[ITEM: AC3] [feature: processed_transcript:curated(AC3.6)][location: AC3:10397805-10396113] [info: AC3.6] [strand: -1] [method: processed_transcript] [class: CDS] [group: AC3.6]
+[ITEM: AC3] [feature: processed_transcript:curated(AC3.7)][location: AC3:10398297-10400316] [info: AC3.7] [strand: 1] [method: processed_transcript] [class: CDS] [group: AC3.7]
+[ITEM: AC3] [feature: processed_transcript:curated(AC3.8)][location: AC3:10401392-10403804] [info: AC3.8] [strand: 1] [method: processed_transcript] [class: CDS] [group: AC3.8]
+[ITEM: AC3] [feature: processed_transcript:curated(F15H10.8)][location: AC3:10405382-10404085] [info: F15H10.8] [strand: -1] [method: processed_transcript] [class: CDS] [group: F15H10.8]
+[ITEM: AC3] [feature: processed_transcript:curated(K07C5.8)][location: AC3:10364907-10367761] [info: K07C5.8] [strand: 1] [method: processed_transcript] [class: CDS] [group: K07C5.8]

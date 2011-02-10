@@ -1,0 +1,173 @@
+New release of acedb WS61, Wormpep71, and WormRNA2 04/01/2002
+=============================================================
+
+This directory includes:
+
+
+i)   database.WS61.*.tar.gz      - the compressed data for the new release
+
+ii)  models.wrm.WS61             - the latest database schema (also included
+                                   in the above database files)
+
+iii) CHROMOSOMES/ subdirectory   - contains three files (DNA, GFF, and agp)
+                                   for each chromosome  
+
+iv)  WS60-WS61.dbcomp            - log file reporting differences between 
+                                   WS59 and WS60 
+
+v)   wormpep71.tar.gz            - full Wormpep distribution corresponding 
+                                   to WS60
+
+vi)  wormrna2.tar.gz		 - latest WormRNA release containing 
+                                   non-coding RNAs in the genome
+
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1) Create a new directory to contain your copy of WormBase, 
+e.g. /users/keith/wormbase
+
+2) Unpack and untar all of the database.*.tar.gz files into 
+this directory. You will need approximately 2-3 Gb of disk space.  
+
+3) Obtain and install a suitable acedb binary for your system 
+(available from www.acedb.org).
+
+4) Use the acedb 'xace' program to open your database, e.g.
+type 'xace /users/keith/wormbase' at the command prompt.
+
+5) See the acedb website for more information about acedb and 
+using xace.
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Genome sequence composition:
+----------------------------
+6 sequences >= 100,246,925 bp total
+
+  a 32,315,520    32 %
+  c 17,749,381    18 %
+  g 17,727,639    18 %
+  t 32,310,590    32 %
+  -    143,699     0 %
+  n         96     0 %
+
+
+Remaining gaps:
+---------------
+
+For more info mail worm@sanger.ac.uk
+
+# These gaps are covered by a 950Kb SseI fragment 
+III      1005794  1028770  37     F       AC087078.1      1       22976   +
+III      1028770  1029770  38     N       1000
+III      1029770  1075570  39     F       AC084156.1      1       45800   +
+
+III      1085494  1105061  41     F       AC084157.1      1       19567   +
+III      1105061  1106061  42     N       1000
+III      1106061  1131924  43     F       AC092690.1      1       25863   +
+ 
+# False gap which will be excluded in WS62
+III      3353243  3410990  98     F       AC024809.1      1       57747   +
+III      3410990  3411090  99     N       100
+III      3411090  3450365 100     F       Z34800.1        1       39275   +
+
+# Gap is approx 22 kb long and almost contiguous
+IV      16417476 16451113 491     F       AL161711.2      1       33637   +
+IV      16451113 16451213 492     N       100
+IV      16451213 16720726 493     F       AL132952.1      1       269513  +
+ 
+# Gaps are covered by YAC clones in production at St Louis
+X              1     2650   1     F       AL031272.2      1       2649    +
+X           2650    63550   2     N       60900
+X          63550    93314   3     F       Z83097.1        1       29764   +
+X          93314    94314   4     N       1000
+X          94314   105525   5     F       AC087735.2      1       11211   +
+
+X         162467   285322   8     F       AC084159.1      1       122855  +
+X         285322   315722   9     N       30400
+X         315722   330262  10     F       AC024789.1      1       14540   +
+
+Also there is no right telomeric end for Chromosome II.
+ 
+Wormpep data set:
+-----------------
+
+There are 19,454 CDS in autoace, 20,353 when counting (906) alternate 
+splice_forms.  The 20,353 sequences contain 8,937,331 base pairs in
+total.
+
+ Modified entries      48
+ Deleted entries       18
+ New entries           16
+ Reappeared entries     1
+ ------------------------
+ Net Change          -  1
+
+
+
+GeneModel correction progress:
+------------------------------
+
+Number of confirmed introns not in a CDS gene model:
+
+           +----------+---------+
+           | Introns  | Change  |
+           +----------+---------+
+Cambridge  |     1885 |  +  695 |
+St Louis   |      757 |  -  201 |
+           +----------+---------+
+
+
+Members of known repeat families that overlap predicted exons:
+
+           +----------+---------+
+           | Repeats  | Change  |
+           +----------+---------+
+Cambrige   |       28 |  +   0  |
+St Louis   |        0 |      -  |  
+           +----------+---------+
+
+
+
+Synchronisation with GenBank/EMBL:
+----------------------------------
+
+No current problems with regard to sequence.  
+
+New data:
+---------
+
+Known problems:
+---------------
+
+The WABA mappings are incorrect due to the handling of '-'s in the chromosome 
+consensus sequences. A patch for these will be available early next week (07/01/02).
+
+Other changes:
+--------------
+
+
+Proposed changes / forthcoming data:
+------------------------------------
+
+wublastx data (genomic clones searched against reference protein sets
+from yeast, worm, fly, human (as well as against a reduced set of 
+Trembl and Swissprot entries) was still being worked on at the time of this build.
+This data is being appraised and will be included in WS62.
+
+GO terms for Erich.
+
+Removal of hmmfs mapped repeats in Cambridge data to be replaced by RepeatMasker. This
+is more sensitive, faster and will tidy much of the legacy repeat data in our database.
+This is a first step toward mapping new repeat families in the worm.
+
+
+

@@ -1,0 +1,200 @@
+/*body
+{	
+	background: #e9effa;
+	margin: 5px 0;
+	font: 1em Verdana, Arial, Helvetica, sans-serif;
+	color: #000;
+}
+
+h1, h2, h3, h4
+{	font-family: "trebuchet ms", "lucida grande", arial, sans-serif;
+}
+
+
+h1 { font-size: 2em; text-align: center;}
+h2 { font-size: 1.6em; text-align: center; color: #006;}
+h3 { font-size: 1.4em; color: #006; }
+h4 { font-size: 1.2em; color: #006; }
+
+
+a
+{	color: #006;
+	text-decoration: none;
+	padding: 0.1em 2px;
+	background-color: transparent;
+}
+
+a:hover
+{	color: #fff;
+	background: #3875D7;
+	border: none;
+}
+
+
+a.img
+{	background: #fff;
+	border: none;
+}
+
+a.img img
+{	border: 1px solid #fff;
+	padding: 2px;
+}
+
+a.img:hover img, a.img:active img
+{	border: 1px solid #3875D7;
+}
+ 
+a.anchor {	visibility: hidden;
+}
+*/
+
+.form {
+  margin-left:100px;
+  padding: 10px;
+  text-align:left;
+}
+
+.row { 
+  padding:5px;
+}
+
+#aspect_row { 
+  display:block;
+  margin-left:40px;
+}
+
+.field_name { 
+  width:100px;
+  float:left;
+  font-weight:bold;
+}
+
+
+.field { 
+
+}
+
+#ontology.form {
+	vertical-align: top;
+}
+
+
+
+#ontology_link_self {
+	color: red;
+}
+
+#ontology_link_self a {
+	color: blue;
+}
+
+#ontology_link_self a:hover {
+	color: yellow;
+}
+
+#obj_count {
+	color: green;
+}
+
+#expand {
+
+}
+
+#expand a {
+	color: blue;
+}
+
+#expand a:hover {
+	color: yellow;
+}
+
+#annotations_link {
+//	font-style: italic;
+}
+
+#annotations_link a {
+	color: blue;
+}
+
+#annotations_link a:hover {
+	color: yellow;
+}
+
+#annotations_link_text {
+	font-style: italic;
+}
+
+#annotations_link_text a {
+
+}
+
+#annotations_link_text a:hover {
+
+}
+
+#not {
+//	color: red;
+	padding: 0px;
+//	font-style: italic;
+}
+
+.annotations {
+	padding: 0px 20px 0px 20px;
+	text-align: center;
+}
+
+.annotations_header {	
+	font-weight: bold;
+	text-align: center;
+}
+
+#error {
+	font-weight: bold;
+	padding: 20 30;
+}
+#search_results {
+	font-weight: bold;
+	padding: 10px ;
+//	color: blue;
+}
+
+#term_tag {
+	text-align: left;
+	size: 30%;
+	font-weight: bold;
+	padding: 0 20 0 20;
+}
+
+#term_data {
+	text-align: left;
+	padding: 0 20 0 20;
+}
+
+#path_number {
+	padding: 0 20 0 20;
+	font-weight: bold;
+}
+
+#home {
+	text-align: right;
+//	padding: 0 20 0 20;
+	font-weight: bold;
+	position: absolute;
+	right: 20;
+	top: 10;
+}
+
+#namespace {
+	text-align: left;
+//	padding: 10;
+	padding: 20;
+	font-weight: bold;	
+	color: blue;
+}
+
+#standout {
+	color: red;
+}
+
+

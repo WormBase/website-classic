@@ -1,0 +1,84 @@
+#!/usr/bin/perl
+
+use CGI qw(:standard :cgi-lib);
+use CGI::Carp qw/fatalsToBrowser warningsToBrowser/;
+use Data::Dumper;
+require RPC::XML;
+require RPC::XML::Client;
+
+use strict;
+
+my $service_uri=$ENV{CISORTHO_BACKEND_SERVICE};
+my $scriptdir=$ENV{CISORTHO_BACKEND_SCRIPT_DIR};
+my $tmpdir=$ENV{CISORTHO_FRONTEND_TMPDIR};
+
+
+#$CGITempFile::TMPDIRECTORY = $tmpdir;
+
+
+my $MAX_UPLOAD_BYTES = 10;
+#my $seqno = sprintf "%5d", join("", (localtime(time)));
+my @ltime = localtime(time);
+#my $seqno = unpack("%32C*",join('',@ltime[0..2], values %ENV));
+my $seqno = sprintf "%s\n", join '', @ltime;
+
+chomp $seqno;
+
+my $tmpfilename = 'temp'.$seqno;
+my $tmpfilepath = "$tmpdir/$tmpfilename";
+
+#my $tmpfile = new CGITempFile($seqno);
+
+sub hook {
+	my ($filename, $buffer, $bytes_read, $outfile) = @_;
+	local *OUT;
+
+	open OUT, ">>".$outfile or die "Cannot open tmpfile $outfile\n";
+	print OUT $buffer;
+	#print "Last command \$? = $?\n";
+	close OUT;
+	#print  "Read $bytes_read bytes from file $filename into tmpfile $tmpfilename\n";
+}
+
+
+CGI::upload_hook(\&hook, $tmpfilepath, 0);
+
+
+my %Input=Vars();
+
+
+
+#print &pre(Dumper \%ENV);
+
+my $cli = RPC::XML::Client->new($service_uri);
+my @request_args = ($scriptdir, $scriptdir, $tmpdir, $tmpfilepath,
+					map { $Input{$_} } qw(ones_offset gene_radius species dna));
+
+#print &pre(Dumper \@request_args);
+#my $response = $cli->send_request('cisortho.test_identity');
+
+# this relies on having $tmpfilepath available to frontend and backend...
+my $response = $cli->send_request('cisortho.map_intervals', \@request_args);
+
+my $new_uri = $ENV{CISORTHO_FRONTEND_OUTURI}."/$tmpfilename.html";
+my $new_path = $ENV{CISORTHO_FRONTEND_OUTDIR}."/$tmpfilename.html";
+
+local *OUT;
+open OUT, ">$new_path";
+
+print OUT
+  &start_html(-title=>'Results Page',
+			  -dtd=>['-//W3C//DTD XHTML 1.0 Strict//EN',
+					 'http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd'],
+			  -style=>{-src=>"../../cisortho.css"},
+			  -head=>meta({-http_equiv=>'refresh', -content=>'10'})
+			  ),
+
+  'Your results are in progress.  This page will refresh automatically',
+  &pre($response->as_string);
+  &end_html;
+
+close OUT;
+
+print &redirect(-uri=>$new_uri,-nph=>1);
+

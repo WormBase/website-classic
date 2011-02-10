@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="22104"
+   name=""
+   committed-date="2009-09-23T14:46:22.524431Z"
+   url="https://gmod.svn.sourceforge.net/svnroot/gmod/Generic-Genome-Browser/branches/stable/conf/languages"
+   last-author="lstein"
+   kind="dir"
+   uuid="224a875b-6a50-0410-9993-82261b5d0d45"
+   revision="22118"/>
+<entry
+   committed-rev="15832"
+   name="ru.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2009-04-02T15:55:20.000000Z"
+   checksum="22b42290640682821101b278699a21af"
+   last-author="scottcain"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="15829"
+   name="es.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2009-04-01T18:44:44.000000Z"
+   checksum="f20dc3b6be8ca7187d9454eee5ddd4da"
+   last-author="scottcain"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="15829"
+   name="fr.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2009-04-01T18:44:44.000000Z"
+   checksum="3b1c817b53c1b0718c4f2ae6c9b2947c"
+   last-author="scottcain"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="15266"
+   name="de.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2008-08-07T15:45:53.000000Z"
+   checksum="3a8cf60ae3c0f91f99a1f65cf358febf"
+   last-author="scottcain"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="15838"
+   name="ko.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2009-04-08T14:31:31.000000Z"
+   checksum="c41810862f05d5ef3ec030b6270ad3c0"
+   last-author="scottcain"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="15824"
+   name="nl.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2009-03-25T17:24:12.000000Z"
+   checksum="647d4230b73203bd9973f2698d56a96a"
+   last-author="scottcain"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="15837"
+   name="ja.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2009-04-06T16:01:11.000000Z"
+   checksum="0e1395e81a5b6aff0af5f3ecb86aa7c8"
+   last-author="scottcain"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="15832"
+   name="is.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2009-04-02T15:55:20.000000Z"
+   checksum="80ed96aca35d93128a8df239ec322c8f"
+   last-author="scottcain"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="14184"
+   name="pl.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2005-11-16T15:54:34.000000Z"
+   checksum="59dc1aa1efe04c5a771a2bac797a0c8e"
+   last-author="scottcain"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="15829"
+   name="it.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2009-04-01T18:44:44.000000Z"
+   checksum="77c6f67cfc95b3146cd9b99d4b781d7d"
+   last-author="scottcain"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="15829"
+   name="zh.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2009-04-01T18:44:44.000000Z"
+   checksum="6b314b9bea5884ab8c17cd4f4c3ca848"
+   last-author="scottcain"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="15829"
+   name="zh_cn.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2009-04-01T18:44:44.000000Z"
+   checksum="f3d9c7d3ff7c69dbaa2387f4438bb7f7"
+   last-author="scottcain"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="22104"
+   name="POSIX.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2009-09-23T14:46:22.524431Z"
+   checksum="167c59d81b5bed21f6465ffe4a98f836"
+   last-author="lstein"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="22104"
+   name="en.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2009-09-23T14:46:22.524431Z"
+   checksum="d345f14db71dcf6fd9706af6727c7d3d"
+   last-author="lstein"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+</wc-entries>

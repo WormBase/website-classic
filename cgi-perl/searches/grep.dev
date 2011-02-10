@@ -1,0 +1,280 @@
+#!/usr/bin/perl -w
+
+use strict;
+
+use lib '../lib';
+use vars qw($DB %FILLTAGS $TMP_DIR %CLASS_ORDER $AUTOEXPAND_LIMIT %valid_searches $search_pattern @classes $search_type $session_id $autoexpand);
+
+use Ace 1.80;
+use CGI qw(:standard :html3 escape -no_xhtml *table *TR *td *ul);
+use CGI qw(:standard );
+use CGI::Carp qw(fatalsToBrowser);
+use Ace::Browser::AceSubs qw(:DEFAULT 
+	Configuration ResolveUrl 
+        Toggle			     
+	AceRedirect DoRedirect);
+use Ace::Browser::SearchSubs;
+use ElegansSubs;
+
+use Data::Dumper;
+use File::Temp qw/ tempfile tempdir /;
+
+$TMP_DIR = '/tmp/wormbase_grep_search'; # This will need to be put in some config file in the future
+
+# This segment cleans temp_dir
+my $clean_cmd = "find $TMP_DIR -name \'*.wormbase_grep_search\' -cmin +30 -exec rm -f {} \\;";
+system $clean_cmd;
+
+%FILLTAGS = (
+	     Paper => 'Title',
+	     Protein=>'Description',
+	     Gene_class=>'Description',
+	     Sequence => 'Title',
+	     Anatomy_term => 'Term',
+	     CDS          => 'Brief_identification',
+	     GO_term      => 'Term',
+	     Sequence     => 'Method',
+	     Allele       => 'Gene',
+	     Clone        => 'Type',
+	    );
+
+%CLASS_ORDER = (
+	'Gene'				=> 30,
+	'CDS'				=> 29,
+	'Locus'				=> 28,
+	'Protein'			=> 27,
+	'Strain'			=> 26,
+	'Clone'				=> 25,
+	'Cell'				=> 24,
+	'Paper'				=> 23,
+	'Allele'			=> 22,
+	'Author'			=> 21,
+	'Person'			=> 20,
+	);
+%valid_searches = map {$_=>1} ('exact','grep','long grep');
+
+$search_pattern = param('name');
+@classes        = param('class');
+$search_type    = param('search_type') || 'grep';
+$session_id     = param('session_id');
+$autoexpand     = param('autoexpand');
+
+$AUTOEXPAND_LIMIT = 0;
+if ($autoexpand) { $AUTOEXPAND_LIMIT = 5; } 
+
+PrintTop(undef,undef,undef,
+	 '-Title' =>'Search WormBase',
+	 '-Target' =>'_top',
+	 '-Class' =>'search',
+	);
+
+# fetch database handle
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+
+AceError("'$search_type' is an invalid type of search") 
+        unless $valid_searches{$search_type};
+
+print_prompt();
+print_results($search_pattern,$search_type,\@classes,$session_id);
+PrintBottom;
+
+exit 0;
+
+sub print_prompt {
+  my $classlist = Configuration->Simple;
+
+  # Exception - This search will not work for Author/Person, removing it at this point
+  my @clean_classlist; foreach (@$classlist) { next if /Author/ and /Person/; push(@clean_classlist, $_); }
+  $classlist = \@clean_classlist;
+	
+  my @classes = @{$classlist}[map {2*$_} (0..@$classlist/2-1)];  # keep keys, preserving the order
+  AceSearchTable({-name=>'searchform'},
+		 'Search WormBase',
+		 table({-border=>0},
+		       TR(
+			  td(i('Object type:'),
+			     popup_menu(-name=>'class',
+					-values=>\@classes,
+					-labels=>{@$classlist},
+					-default=>'Any')),
+			  td(i('Text to search for:'),
+			     textfield(-name=>'name',-size=>30)),
+			  hidden(-name=>'autoexpand', -default=>['1']),
+			  td(submit(-name=>'Search'))),
+		       TR(
+			  td({-colspan=>3},
+			     i('Search type'),
+			     radio_group(-name   =>'search_type',
+					 -values =>['exact','grep','long grep'],
+					 -labels => {
+						     exact       => 'Match name (fast)',
+						     grep        => 'Match some contents (slow)',
+						     'long grep' => 'Match all contents (slower)',
+						    },
+					 -default => 'grep'
+					)
+			    )
+			 )
+		      )
+		 );
+}
+
+sub print_results {
+  my ($pattern,$search_type,$classes,$session_id) = @_;
+
+  unless ($pattern) { 	
+  	DisplayInstructions('Search WormBase',
+			     		'Please enter search criteria and click search',
+			     		'Results will be retrieved grouped by class'
+						);
+	return 1;
+	}
+	
+  my ($objects, $supp);
+  if ($session_id) { ($objects, $supp) = get_by_session_id($session_id) }
+  else {
+	$objects = exact_match($pattern,$classes)   if $search_type eq 'exact';
+	$objects = grep_match($pattern,$classes,0)  if $search_type eq 'grep';
+	$objects = grep_match($pattern,$classes,1)  if $search_type eq 'long grep';
+	$session_id = dump_objects($objects);
+	param('session_id', $session_id);
+	}
+
+  # Place control bar here: Autoexpand_on/off, Collapse all
+  my $control_bar_url = url(-absolute=>1,-path_info=>1,-query=>1);
+
+  my $autoexpand_link;
+  my $autoexpand_url = $control_bar_url;	
+  if ($AUTOEXPAND_LIMIT) { # This means that the autoexpand is currently on, only off should be displayed
+	$autoexpand_url =~ s/autoexpand=[^;\#]+/autoexpand=0/;
+	$autoexpand_link = a({href=>$autoexpand_url}, "[Turn Autoexpand Off]");
+	}
+  else {
+	$autoexpand_url =~ s/autoexpand=[^;\#]+/autoexpand=1/;
+	$autoexpand_link = a({href=>$autoexpand_url}, "[Turn Autoexpand On]");
+  	}
+
+  my $collapse_all_url = $control_bar_url;
+  $collapse_all_url =~ s/open=[^;\#]+/open=/;
+  $collapse_all_url =~ s/autoexpand=[^;\#]+/autoexpand=0/; # Collapsing turns off autoexpand
+  my $collapse_all_link = a({href=>$collapse_all_url}, "[Collapse All]");
+
+  print "$autoexpand_link &nbsp; $collapse_all_link <br>";
+  # End of control bar
+  
+  
+  print p(b(scalar @$objects)," objects returned");
+  # classify by class
+  my %classified;
+  foreach (@$objects) {
+    my $class = $_->class;
+    push @{$classified{$class}},$_;
+  }
+  
+  for my $c (sort { $CLASS_ORDER{$b} <=> $CLASS_ORDER{$a} || $a cmp $b} keys %classified) {
+    my $count = @{$classified{$c}};
+    my $plural = "s" unless $c =~ /s$/ || $count == 1;
+	my $label = "$c$plural <b>($count)</b>";
+    
+    if (Toggle($c,$label,$count,0,0,$AUTOEXPAND_LIMIT)) {
+      my (@rows,$color);
+      for my $obj (@{$classified{$c}}) {
+	    my $description;
+	    if  ($FILLTAGS{$c}) {
+		  my $tag = $FILLTAGS{$c};
+		  my $name = $obj->name;
+		  $description = $supp->{$c}->{$name}->{$tag} or
+		  $description = $obj->get($tag=>1), append_tag($session_id, "$c\t$name\t$tag\t$description");
+		}
+	    
+		my $link = join ' ',ObjectLink($obj),$description;
+
+		# Exception - we want to display "bestname" for Gene objects
+		if ($c eq 'Gene') { 
+		  my $name = $obj->name;
+		  my $best_name;
+		  $best_name = $supp->{$c}->{$name}->{best_name} or
+		  $best_name = ElegansSubs::Bestname($obj), append_tag($session_id, "$c\t$name\tbest_name\t$best_name");
+		  $link =~ s/>$name</>$best_name ($name)</;	
+		  }
+		  	
+		push @rows,td({bgcolor=>$color++%2 ? 'white' : "lightblue" },$link);
+      }
+      print blockquote(table({-width=>'100%'},TR(\@rows)));
+    }
+  }
+}
+
+sub exact_match {
+  my ($pattern,$classes) = @_;
+  my @classes = grep {!/any/i} @$classes;
+  unless (@classes) {
+    my %classes = @{Configuration->Simple};
+    @classes    = grep {!/any/i} keys %classes;
+  }
+  my @results;
+  foreach (@classes) {
+    push @results,$DB->fetch(-class=>$_,-name=>$pattern);
+  }
+  \@results;
+}
+
+
+sub grep_match {
+  my ($pattern,$classes,$long) = @_;
+  my %classes = map {$_=>1} grep {!/any/i} @$classes;
+
+  my @open    = split /\s+/,param('open');
+  my @fill    = (-filled => 1) if @FILLTAGS{@open};
+
+  my @results = $DB->grep(-pattern => $pattern,
+			  -long    => $long||0,
+			  @fill,
+			 );
+  if (%classes) {
+    @results = grep {$classes{$_->class}} @results;
+  }
+  \@results;
+}
+
+sub dump_objects {
+	my ($objects) = @_;
+	
+	# Make temp file
+	my ($out_fh, $out_file) = tempfile('XXXXXXXX', DIR => $TMP_DIR, SUFFIX => '.wormbase_grep_search');
+	my ($session_id) = $out_file =~ /([^\/]+)\.wormbase_grep_search$/;
+	
+	foreach my $object (@$objects) {
+		print $out_fh join("\t", $object->class, $object->name) . "\n";
+		}
+	
+	return $session_id;
+	}
+
+sub get_by_session_id {
+	my ($session_id) = @_;
+	
+	my $file = "$TMP_DIR/$session_id.wormbase_grep_search";
+	
+	my @objects;
+	my %supp;
+	open (IN, "<$file") or AceError("Cannot read file by session_id: $session_id");
+	while (<IN>) {
+		chomp;
+		my ($class, $name, $tag, $value) = split("\t", $_);
+		push @objects, new Ace::Object($class, $name, $DB) unless exists $supp{$class}{$name};
+		$supp{$class}{$name}{$tag} = $value;
+	 	}
+
+	return \@objects, \%supp;
+	}	
+
+sub append_tag {
+	my ($session_id, $line) = @_;
+	
+	my $file = "$TMP_DIR/$session_id.wormbase_grep_search";
+	open (OUT, ">>$file") or AceError("Cannot write file by session_id: $session_id");
+	print OUT "$line\n";
+	
+	return 1;
+	}

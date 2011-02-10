@@ -1,0 +1,43 @@
+A {
+text-decoration : none; 
+font-style: normal; 
+font-family: sans-serif;
+color: #000000; 
+    }
+A.cell {
+text-decoration : none;
+	font-weight: lighter;
+	font-size: 10pt;
+	font-family: sans-serif;
+    color: #4568B5;
+    }
+    
+A.jumpto {
+    text-decoration : none;
+	font-style: normal;
+	font-weight: bold;
+	font-size: 10pt;
+	font-family: sans-serif;
+    color: #4568B5; 
+    }
+
+BODY              { background-color: white;
+	            font-style: normal;
+		    font-size: 10pt;
+	            font-family: sans-serif; 
+	            letter-spacing: normal;
+                  }
+LI {font-size: 15pt;
+}
+
+P.celllist {color: black;
+	  border-width: 1pt;
+          font-family: Arial,Geneva,  sans-serif;
+          border-style: solid;
+/*           padding: 1em; */
+          border-color: #4568B5;
+          background-color: white ;
+}
+
+	  
+	  

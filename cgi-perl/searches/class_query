@@ -1,0 +1,163 @@
+#!/usr/bin/perl
+
+use lib '../lib';
+
+use strict;
+use vars qw($DB);
+
+use Ace;
+use CGI qw/:standard :html3 escape *table/;
+use CGI::Carp qw/fatalsToBrowser/;
+use Ace::Browser::AceSubs qw(:DEFAULT DoRedirect Style);
+use Ace::Browser::SearchSubs;
+use ElegansSubs;
+
+my $query          = param('query');
+my $search_class   = param('class');
+my $search_pattern = param('pattern');
+my $aql            = param('aql');
+my $offset         = AceSearchOffset();
+
+# fetch database handle
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+my ($objs,$count,$msg);
+if ($query) {
+  ($objs,$count) = do_search($query,$offset);
+} elsif ($search_class) {
+  $search_pattern ||= '*';
+  ($objs,$count,$msg) = do_browse($search_class,$search_pattern || '*',$offset) if $search_class;
+}
+DoRedirect(@$objs) if $count==1;
+
+if ($aql && param('format') eq 'Text output') {
+  aql_text_dump($aql);
+  exit 0;
+}
+
+PrintTop(undef,undef,undef,
+	 '-Title' =>'Class Browser',
+	 '-Style' => Style(),
+#	 '-Target' =>'_top',
+	 '-Class' =>'search');
+
+
+print $msg if defined $msg;
+display_search_form($query,$search_class,$aql);
+display_search($objs,$count,$offset,$query)     if $search_class || $query;
+display_aql($aql)                               if $aql;
+
+PrintBottom();
+
+sub display_search_form {
+  my ($query,$search_class,$aql) = @_;
+  my $none = !$query && !$search_class && !$aql;
+
+  my @classlist = $DB->classes;
+
+  if ($none or $search_class) {
+    DisplayInstructions('Class Browser',
+			'This search provides name-based access to all the Acedb classes.',
+			'Enter a search pattern and select the type of object you\'re looking for.'
+		       );
+
+    AceSearchTable_class_browser('Wormbase Class Browser',
+				 table({-align=>'center'},
+				       TR(
+					  td(
+					     td({-class=>'large'},
+						'Search pattern (optional):',textfield(-name=>'pattern',-size=>'10'),
+						'in class',
+						popup_menu(-name=>'class',-Values=>\@classlist),
+						submit(-label=>'Search ACeDB')
+					       ),
+					    ),
+					 ),			
+				      ),
+				);
+    
+  }
+}
+
+
+sub AceSearchTable_class_browser {
+  my ($title,@body) = @_;
+  print
+    start_form(),
+    a({-name=>'search'},''),
+    table({-border=>0,-width=>'100%'},
+	  TR(th({-class=>'searchtitle'},$title),
+	     TR({-valign=>'CENTER'},
+		td({-class=>'searchbody'},@body)))),
+    end_form;
+}
+
+sub do_search {
+  my ($query,$offset) = @_;
+  my $count;
+  my (@objs) = $DB->find(-query=> $query,
+			 -count  => MAXOBJECTS,
+			 -offset => $offset,
+			 -total => \$count);
+  print "$query $offset";
+  return unless @objs;
+  return (\@objs,$count);
+}
+
+sub display_search {
+    my ($objs,$count,$offset,$query) = @_;
+    unless ($count) {
+      print p(strong({-class=>'error'},"No objects found. Please try again."));
+      return;
+    }
+    my $title = p(strong($count),"objects satisfying the query",strong($query));
+    my @objects = map { a({-href=>Object2URL($_)},"$_") } @$objs;
+    AceResultsTable(\@objects,$count,$offset,$title) if @objects;
+}
+
+sub do_browse {
+  my ($class,$pattern,$offset) = @_;
+  my ($count,$msg); 
+  my (@objs) = $DB->fetch(-class=>$class,-pattern=>$pattern,
+			  -count=>MAXOBJECTS,-offset=>$offset);
+
+  # Did we 1) not find anything and 2) already try a wildcarded search?
+  # No reason to do another. 
+  if (!@objs && $pattern !~ /\*$/) {
+    $msg = p({-class=>'error'},qq(No matching objects found with "$pattern".  Autocompleting to "*$pattern*"));
+    @objs = $DB->fetch(-class=>$class,-pattern=>"*$pattern*",
+		       -count=>MAXOBJECTS,-offset=>$offset);    
+  }
+  $count = scalar @objs;
+  return unless @objs;
+  return (\@objs,$count,$msg);
+}
+
+sub display_aql {
+  my $query = shift;
+  $DB->error('');
+  my @rows = $DB->aql($query);
+  print p(b({-class=>'error'},$DB->error)) if $DB->error;
+  my $count = @rows;
+  print a({-name=>'searchagain'},'&nbsp;');
+  print start_table({-border=>1,-width=>'50%'});
+  print caption("$count rows returned");
+  if (@rows) {
+    print TR(th([map {$_->class} @{$rows[0]}]));
+  }
+  for my $row (@rows) {
+    my @cells = map { $_->isObject ? ObjectLink($_) : $_ } @$row;
+    print TR(td(\@cells));
+  }
+  print end_table;
+}
+
+sub aql_text_dump {
+  my $query = shift;
+  print header('text/plain');
+  $DB->error('');
+  my @rows = $DB->aql($query);
+  print $DB->error if $DB->error;
+  for my $row (@rows) {
+    print join "\t",@$row,"\n";
+  }
+}

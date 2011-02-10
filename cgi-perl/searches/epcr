@@ -1,0 +1,422 @@
+#!/usr/bin/perl
+# runs PCR on the partitioned file 
+
+use lib '../lib';
+use strict;
+use Ace::Browser::AceSubs qw(:DEFAULT AceAddCookie);
+use CGI qw/:standard escapeHTML Sub *table/;
+use File::Temp qw(tempfile);
+use ElegansSubs;
+use Bio::DB::GFF;
+
+# hard-coded
+#use constant DATABASE_ROOT   => '/usr/local/wormbase/databases/%s/epcr/c_elegans';
+use constant DATABASE_ROOT   => '/usr/local/wormbase/databases/%s/blast/c_elegans';
+use constant EPCR       => '/usr/local/wormbase/util/e-PCR';
+use constant EPCR_PUB   => 'http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?cmd=Retrieve&db=PubMed&list_uids=9149949&dopt=Abstract';
+use constant BROWSER    => '/db/gb2/gbrowse?source=c_elegans;name=%s;auto=%s';
+use constant GENBANK    => 'http://www.ncbi.nlm.nih.gov/htbin-post/Entrez/query?db=n&form=1&field=Sequence+ID&term=%s';
+use vars               qw($GFFDB $ACE);
+
+$ACE   = OpenDatabase() || AceError("Couldn't open database.");
+$GFFDB = OpenDBGFF($ACE,'elegans');
+
+my $version = $ACE->status->{database}{version};
+
+our $EPCR_DB_LOCATION = sprintf(DATABASE_ROOT,$version);
+
+my %settings          = cookie('e-PCR settings');
+$settings{format}     = param('format')     if defined param('format');
+$settings{entry_type} = param('entry_type') if defined param('entry_type');
+$settings{M}      = param('M')      if defined param('M');
+$settings{N}      = param('N')      if defined param('N');
+$settings{M}           ||= 50;
+$settings{N}           ||= 0;
+$settings{entry_type}  ||= 'sts';
+
+my $cookie = cookie(-name  => 'e-PCR settings',
+		    -value => \%settings,
+		    -expires => '+3M');
+AceAddCookie($cookie);
+
+my $data = param('sts');
+if ($data) {
+  print_results($data,\%settings);
+} else {
+  PrintTop(undef,undef,undef,
+	   '-Title'  =>'e-PCR Search',
+	   '-Class'  =>'search');
+  print_prompt(\%settings);
+  PrintBottom();
+}
+
+sub print_prompt {
+  my $settings = shift;
+  print h1('e-PCR Search');
+  print p("This search uses Greg Schuler's",a({-href=>EPCR_PUB,-target=>'_blank'},'e-PCR'),
+	  "program to search for STSs in the current C. elegans genome.",
+	  'Enter a list of primer pairs to find using the following format:');
+  print pre(<<END);
+<b>Name     Left Oligo               Right Oligo              Length</b>
+assay_1  CGATAAACAATCAACGGCATAAT  TTTGAAACTGATATAGAGGGGCA  1188
+assay_2  AAGGTTATTTATGCGGTGGAAAT  AGCACTTTGAGCTTGATGAAATC  2191
+assay_3  AGATTGGAACGATAACGCAGATA  TTTGCCAATTTGCATTTTATTTT  1603
+END
+;
+  print p('Alternatively, select',i('List of assay names'),
+          'and enter a list of PCR product names already in WormBase to see what genes they intersect.');
+  print p('You may also select',i('List of positions'),
+          'and enter a list of positions in this format:');
+  print pre(<<END);
+<b>Name     Position</b>
+assay_1  II:4332211..4338292
+assay_2  IV:12089228..12091923
+END
+
+  print start_form(-method => 'POST'),
+        table({-class=>'searchbody',-border=>0},
+          TR({-class=>'searchtitle'},th({-colspan=>2},'e-PCR Search')),
+          TR(td({-colspan=>2},textarea(-name=>'sts',-rows=>15,-cols=>80,-wrap=>'off'))),
+          TR(td({-colspan=>2},b('This is a'),radio_group(-name=>'entry_type',
+							 -value=>['sts','id','pos'],
+							 -labels=>{sts=>'List of primer pairs',
+								   id =>'List of assay names',
+								   pos =>'List of positions',
+								  },
+							 -default=>$settings{entry_type}))),
+	  TR({-class=>'searchtitle'},
+	     td({-colspan=>2},
+		'Allow product length difference of:',
+		textfield(-name=>'M',-value=>50,-size=>4,-default=>$settings->{M}),'bp&nbsp;&nbsp;',
+		'Allow oligo mismatches of:',popup_menu(-name=>'N',-values=>[0,1,2,3,4],-default=>$settings->{N}),'bp')),
+	  TR({-class=>'searchtitle'},
+	     td(b('Results in:'),
+		radio_group(-name    => 'format',
+			    -values  => ['text','html'],
+			    -labels  => {text => 'Text-only format',
+					 html => 'HTML with hyperlinks'},
+			    -default => $settings->{format},
+			   )),
+	     th(submit('Run e-PCR'))),
+	 ),
+    end_form;
+  print p(em('This may take several minutes to run.  Hit the stop or back buttons to abort.'));
+}
+
+sub print_results {
+  my ($data,$settings) = @_;
+  if ($settings{entry_type} eq 'id') {
+    print_results_by_id($data,$settings);
+  } elsif ($settings{entry_type} eq 'sts') {
+    print_results_by_sts($data,$settings);
+  } elsif ($settings{entry_type} eq 'pos') {
+    print_results_by_pos($data,$settings);
+  }
+}
+
+sub print_results_by_sts {
+  my ($data,$settings) = @_;
+
+  my $TMP = $ENV{TMP} || -d ('/tmp') ? '/tmp' : '/usr/tmp';
+  my ($fh,$filename) = tempfile("epcr-XXXXXXX",DIR=>$TMP);
+  my (@invalid,%names);
+
+  # clean up the entry please
+  my @lines = split /\r?\n|\r/,$data;
+  foreach (@lines) {
+    my ($name,$left,$right,$length) = split /\s+/;
+    next unless defined $name;
+    next if lc($name) eq 'name';  # in case they followed directions too literally
+    
+    warn "$left $right $length $name";
+    unless ( eval { die unless $left  =~ /^[gatcn]+$/i;
+		    die unless $right =~ /^[gatcn]+$/i;
+		    $length = 1500 unless defined $length;
+		    die unless $length =~ /^\d+$/;
+		    1;
+		  } ) {
+      push @invalid,$_;
+      next;
+    }
+
+    $names{$name}++;
+    print $fh join("\t",$name,uc $left,uc $right,$length),"\n";
+  }
+  close $fh;
+
+  my @options;
+  push @options,"M=$settings->{M}" if exists $settings->{M} && $settings->{M} =~ /^(\d+)$/;
+  push @options,"N=$settings->{N}" if exists $settings->{N}
+    && $settings->{N} =~ /^(\d+)$/
+      && $settings->{N} < 5;
+
+  my $command  = join ' ',EPCR,$filename,$EPCR_DB_LOCATION . "/genomic.fa",@options;
+  open (E,"$command |") || AceError("Couldn't run e-PCR program: $!");
+
+  my $callback = sub {
+    my $line = <E>;
+    return unless defined $line;
+    chomp($line);
+    my ($ref,$position,@assay) = split /\s+/,$line;
+    my $assay = "@assay";  # in case the assay contains whitespace
+    my ($start,$stop) = split /\.\./,$position;
+    return ($assay,$ref,$start,$stop);
+  };
+
+  if (param('format') eq 'html') {
+    print_html($callback,\%names,\@invalid);
+  } else {
+    print_text($callback,\%names,\@invalid);
+  }
+  close E || AceError("Couldn't run e-PCR program: $!");
+#  unlink $filename;
+}
+
+sub print_text {
+  my $callback = shift;
+  my ($names,$invalid_lines) = @_;
+
+  print header(-type=>'text/plain');
+  print "# assay	chromosome	start	end	genbank	start	end	link/cosmid	start	end	gene	exons covered	total exons\n\n";
+
+  while (my($assay,@args) = $callback->()) {
+    my ($ref,$start,$stop,$gb,$cosmid,$genes) = resolve_coordinates(@args) or next;
+    delete $names->{$assay};
+    if (@$genes) {
+      foreach (@$genes) {
+	print join ("\t",$assay,$ref,$start,$stop,@$gb,@$cosmid,@$_),"\n";
+      }
+    } else {
+      print join ("\t",$assay,$ref,$start,$stop,@$gb,@$cosmid),"\n";
+    }
+  }
+
+  # error reporting
+  if (%$names) {
+    print "\n# NOT FOUND: ";
+    print join(" ",keys %$names),"\n";
+  }
+  if (@$invalid_lines) {
+    print "\n# INVALID LINES:\n";
+    print '# ',join("\n# ",@$invalid_lines),"\n";
+  }
+
+}
+
+sub print_results_by_id {
+  my ($data,$settings) = @_;
+  my @ids = split /\s+/,$data;
+  my %names         = map {$_=>1} @ids;
+  my @invalid       = ();  # none
+  my $callback = sub {
+    return unless @ids;
+    my $id = shift @ids;
+    return ($id,PCR_Product=>$id);
+  };
+
+  if (param('format') eq 'html') {
+    print_html($callback,\%names,\@invalid);
+  } else {
+    print_text($callback,\%names,\@invalid);
+  }
+
+}
+
+
+sub print_results_by_pos {
+  my ($data,$settings) = @_;
+  my @lines = split /\r?\n|\r/,$data;
+  my %names;
+  my @invalid       = ();  # none
+  my $callback = sub {
+    return unless @lines;
+    my $line = shift @lines;
+    my ($name,$position ) = split /\s+/,$line;
+    $position = $name unless defined $position;
+    if ($position =~ /([\w._-]+):(-?[\d,]+)(?:-|\.\.|,)?(-?[\d,]+)$/) {
+      return ($name,-name=>$1,-start=>$2,-stop=>$3);
+    } else {
+      return ($name,$position);
+    }
+  };
+
+  if (param('format') eq 'html') {
+    print_html($callback,\%names,\@invalid);
+  } else {
+    print_text($callback,\%names,\@invalid);
+  }
+
+}
+
+sub print_html {
+  my $callback = shift;
+  my ($names,$invalid_lines) = @_;
+
+  PrintTop(undef,undef,undef,
+	   '-Title'  =>'e-PCR Search Results',
+	   '-Class'  =>'search');
+  print start_table({-class=>'databody',-width=>'100%'});
+  print TR({-class=>'datatitle'},
+	   th({-colspan=>7},'e-PCR Results')
+	  );
+  print TR({-class=>'datatitle'},
+	   th([
+	       'Assay',
+	       'Chromosomal Pos',
+	       'Genbank Pos',
+	       'Cosmid/Link Pos',
+	       'Genes Covered',
+	       'Exons Covered',
+	       'Exons in Gene'
+	      ]));
+
+  while (my($assay,@args) = $callback->()) {
+    my ($ref,$start,$stop,$gb,$canonical,$genes) = resolve_coordinates(@args) or next;
+    delete $names->{$assay};
+
+    my $genome_link    = sprintf(BROWSER,"$ref:$start..$stop","$ref+pcr_assay+$assay+$start..$stop");
+    my $gb_link        = sprintf(Configuration->Genbank,$gb->[0]);
+    my $canonical_link = Object2URL($canonical->[0],'Sequence');
+
+    my $first_gene  = shift @$genes;
+    print TR(td([
+		 (param('entry_type') eq 'id') ? a({-href=>Object2URL($assay,'PCR_product')},$assay) : $assay,
+		 a({-href=>$genome_link,-target=>'_blank'},"$ref: $start..$stop"),
+		 @$gb ? a({-href=>$gb_link,-target=>'_blank'},"$gb->[0]: $gb->[1]..$gb->[2]")
+		      : '&nbsp;',
+		 @$canonical ? a({-href=>$canonical_link,-target=>'_blank'},"$canonical->[0]: $canonical->[1]..$canonical->[2]")
+		             : '&nbsp;',
+		 a({-href=>Object2URL($first_gene->[0],'CDS'),-target=>'_blank'},$first_gene->[0]),
+		 $first_gene->[1],
+		 $first_gene->[2]
+		]));
+    for my $additional_gene (@$genes) {
+      print TR(td([
+		   '&nbsp;',
+		   '&nbsp;',
+		   '&nbsp;',
+		   '&nbsp;',
+		   a({-href=>Object2URL($additional_gene->[0],'CDS'),-target=>'_blank'},$additional_gene->[0]),
+		   $additional_gene->[1],
+		   $additional_gene->[2]
+		]));
+    }
+  }
+  print TR({-class=>'datatitle'},th({-colspan=>7},start_form(),submit('Search Again'),end_form()));
+  print end_table;
+
+  # error reporting
+  if (%$names) {
+    print h2({-class=>'error'},'NOT FOUND:');
+    print ul(li([keys %$names]));
+  }
+  if (@$invalid_lines) {
+    print h2({-class=>'error'},'INVALID LINES:');
+    print ul(li($invalid_lines));
+  }
+
+  PrintBottom();
+}
+
+sub resolve_coordinates {
+  my @args      = @_;
+  my $db        = $GFFDB;
+  my ($segment)   = $db->segment(@args);
+  if ($segment) {
+    $segment->absolute(1);
+    my ($ref,$start,$stop) = ($segment->ref,$segment->low,$segment->high);
+    my ($gb,$canonical,$gene) = segment2goodstuff($segment);
+    return ($ref,$start,$stop,$gb,$canonical,$gene);
+  } elsif (@args == 3) { # i.e. in (ref,start=>stop) format
+    return (@args,[],[],[]);
+  }
+  return;
+}
+
+sub segment2goodstuff {
+  my $segment = shift;
+  my ($ref,$start,$stop) = ($segment->ref,$segment->low,$segment->high);
+
+  my (@genes,$gb,$c);
+  # Not correct for WS126
+  my @features = $segment->features('coding_exon:curated','region:Genbank',
+				    'region:Genomic_canonical','region:Link');
+  my %features;
+  foreach (@features) {
+    push @{$features{$_->source}},$_;
+  }
+
+  # This will need to be changed for WS126
+  # Each partial gene is an exon...consolidate these into unique genes
+  # This is astoundingly baroque
+  my $full_genes = {}; 
+  foreach my $partial_gene (@{$features{curated}}) {
+    # fetch the full gene, please
+    my ($full_gene) = grep {$_->name eq $partial_gene->name} $partial_gene->features('CDS');
+     $segment->ref($full_gene);
+
+    my $full_cds = $GFFDB->segment(-name=>$full_gene,-class=>'CDS');    
+
+    my @exons = $full_cds->features('coding_exon:curated');
+
+    $full_genes->{$full_gene->name}->{total} = scalar @exons;
+    
+    foreach (@exons) { $_->ref($full_gene);  }
+    @exons  = sort {$a->start<=>$b->start} @exons;
+    for (my $e=0; $e < @exons; $e++) {
+	# Track partial coverage
+	if ((($segment->low > $exons[$e]->stop) && ($segment->high > $exons[$e]->start))
+	    || (($segment->low < $exons[$e]->stop) && ($segment->high < $exons[$e]->start))) {
+	    push(@{ $full_genes->{$full_gene->name}->{partially_covered}},$e+1);
+	}
+
+      next if $exons[$e]->stop  < $segment->low;
+      next if $exons[$e]->start > $segment->high;
+     # one-based indexing for biologists!
+     push(@{ $full_genes->{$full_gene->name}->{covered}},$e+1);
+    }
+    
+#    my @total_exons = $segment->features('coding_exon:curated');
+#    my @total_exons = $full_cds->features('coding_exon:curated');
+#    $full_genes->{$full_gene->name}->{total} = scalar @total_exons;
+  }
+
+  foreach (keys %{$full_genes}) {
+      my $total = $full_genes->{$_}->{total};
+      my %seen;
+      my @covered = grep {!$seen{$_}++} sort { $a <=> $b } eval { @{$full_genes->{$_}->{covered}} };
+      unless (@covered) {
+	  my %partial;
+	  my @temp = grep {!$partial{$_}++} sort { $a <=> $b } eval { @{$full_genes->{$_}->{partially_covered}} };
+	  @covered = map { $_ . ' (partial)'} @temp;
+      }
+      push @genes,[$_,join(', ',@covered),$total];
+  }
+
+  # choose the one genbank entry that we are closest to the center of
+  # (ignore case of spanning a genbank entry for now....)
+  $gb = [undef,undef,undef];
+  if (my @genbank = eval { @{$features{Genbank} } }) {
+    my $middle = ($stop+$start)/2;
+    my %distance_from_middle = map {$_ => abs(0.5-($middle-$_->low)/$_->length)} @genbank;
+    my ($middle_most) = sort {$distance_from_middle{$a}<=>$distance_from_middle{$b}} @genbank;
+    $segment->ref($middle_most);
+    $gb = [$middle_most->name,$segment->start,$segment->stop];
+  }
+
+  # find either a genomic canonical or a link that covers the region entirely
+  my $shortest_canonical;
+  for my $c (@{$features{Genomic_canonical}},@{$features{Link}}) {
+    next unless $c->contains($segment);  # must contain segment completely
+    $shortest_canonical = $c if !defined($shortest_canonical) || $c->length < $shortest_canonical->length;
+  }
+  
+  $c = [undef,undef,undef];
+  if ($shortest_canonical) {
+    $segment->ref($shortest_canonical);
+    $c = [$shortest_canonical->name,$segment->start,$segment->stop];
+  }
+
+  return ($gb,$c,\@genes);
+}
+

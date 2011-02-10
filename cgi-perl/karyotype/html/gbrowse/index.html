@@ -1,0 +1,144 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html> <head>
+<title>Generic Genome Browser</title>
+<link rel="stylesheet" href="tutorial/tutorial.css">
+</head>
+
+<body>
+<h1>Generic Genome Browser</h1>
+
+<a href="http://www.gmod.org/"><img src="gmod_cog.jpeg" border="0" align="RIGHT"></a>
+
+<p>
+
+Welcome to the Generic Genome Browser!
+
+<h2>Example Database</h2>
+
+<p>
+
+An example in-memory database for S. cerevisiae chromosomes 1 and 2 has been
+installed for you.  Try it at this URL:
+
+<blockquote>
+<a href="/cgi-bin/gbrowse/yeast">http://localhost/cgi-bin/gbrowse/yeast</a>
+</blockquote>
+
+
+<h2>Directory Paths</h2>
+
+<p>
+
+For future reference, here is where you've installed GBrowse's various
+components:
+
+<dl>
+  <dt>GBrowse documentation, stylesheets and in-memory databases.
+  <dd><b>/usr/local/wormbase/website-classic/cgi-perl/karyotype/html/gbrowse</b> (also available for browsing at
+      <a href="/gbrowse">http://localhost/gbrowse</a>)
+      <p>
+  <dt>GBrowse configuration files
+  <dd><b>/usr/local/wormbase/website-classic/cgi-perl/karyotype/conf/gbrowse.conf</b>
+      <p>
+  <dt>GBrowse CGI (web) scripts
+  <dd><ul>
+          <li><b>/usr/local/wormbase/website-classic/cgi-perl/karyotype/gbrowse</b>
+          <li><b>/usr/local/wormbase/website-classic/cgi-perl/karyotype/gbrowse_img</b>
+          <li><b>/usr/local/wormbase/website-classic/cgi-perl/karyotype/gbrowse_details</b>
+          <li><b>/usr/local/wormbase/website-classic/cgi-perl/karyotype/gbrowse_est</b>
+          <li><b>/usr/local/wormbase/website-classic/cgi-perl/karyotype/gbrowse_syn</b>
+          <li><b>/usr/local/wormbase/website-classic/cgi-perl/karyotype/gbrowse_moby</b>
+      </ul>
+      <p>
+  <dt>Online tutorial
+  <dd><b>/usr/local/wormbase/website-classic/cgi-perl/karyotype/html/gbrowse/tutorial</b> (available for browsing at <a href="tutorial/tutorial.html">http://localhost/gbrowse/tutorial/tutorial.html</a>).
+      <p>
+  <dt>Reference manuals
+  <dd><a href="http://www.gmod.org/wiki/index.php/GBrowse_Install_HOWTO"><b>GBrowse Install HOWTO</b></a>.
+      <p>
+  <dd><a href="http://www.gmod.org/wiki/index.php/CONFIGURE_HOWTO"><b>GBrowse Configuration HOWTO</b></a>.
+    <p>
+  <dd><b>/usr/local/wormbase/website-classic/cgi-perl/karyotype/html/gbrowse/docs/pod/MAKE_IMAGES_HOWTO.html</b> gives directions for creating stand-alone pictures with the gbrowse_img script (at <a href="docs/pod/MAKE_IMAGES_HOWTO.html">http://localhost/gbrowse/docs/pod/MAKE_IMAGES_HOWTO.html</a>).
+    <p>
+  <dd><b>/usr/local/wormbase/website-classic/cgi-perl/karyotype/html/gbrowse/docs/pod/README-gff-files.html</b> describes methods for obtaining GBrowse compatible GFF files from WormBase, FlyBase, SGD and NCBI/human (at <a href="docs/pod/README-gff-files.html">http://localhost/gbrowse/docs/pod/README-gff-files.html</a>).
+    <p>
+  <dd><b>/usr/local/wormbase/website-classic/cgi-perl/karyotype/html/gbrowse/docs/pod/PLUGINS_HOWTO.html</b> gives directions for creating plugins (at <a href="docs/pod/PLUGINS_HOWTO.html">http://localhost/gbrowse/docs/pod/PLUGINS_HOWTO.html</a>).
+    <p>
+  <dd><b>/usr/local/wormbase/website-classic/cgi-perl/karyotype/html/gbrowse/docs/pod/README-chado.html</b> gives notes for using GBrowse with chado (at <a href="docs/pod/README-chado.html">http://localhost/gbrowse/docs/pod/README-chado.html</a>).
+    <p>
+  <dd><b>/usr/local/wormbase/website-classic/cgi-perl/karyotype/html/gbrowse/docs/pod/DAS_HOWTO.html</b> gives notes for using GBrowse as a Distributed Annotation System (DAS) server and client (at <a href="docs/pod/DAS_HOWTO.html">http://localhost/gbrowse/docs/pod/DAS_HOWTO.html</a>).
+    <p>
+  <dd><b>/usr/local/wormbase/website-classic/cgi-perl/karyotype/html/gbrowse/docs/pod/ORACLE_AND_POSTGRESQL.html</b> gives notes for running GBrowse on top of Oracle and PostgreSQL database servers (at <a href="docs/pod/ORACLE_AND_POSTGRESQL.html">http://localhost/gbrowse/docs/pod/ORACLE_AND_POSTGRESQL.html</a>).
+      <p>
+  <dd><b>/usr/local/wormbase/website-classic/cgi-perl/karyotype/html/gbrowse/docs/pod/BIOSQL_ADAPTER_HOWTO.html</b> has instructions for running GBrowse on top of a BioSQL database (at <a href="docs/pod/BIOSQL_ADAPTER_HOWTO.html">http://localhost/gbrowse/docs/pod/BIOSQL_ADAPTER_HOWTO.html</a>).
+      <p>
+  <dd><b>/usr/local/wormbase/website-classic/cgi-perl/karyotype/html/gbrowse/docs/pod/GENBANK_HOWTO.html</b> has notes for loading and browsing GenBank formated files (at <a href="docs/pod/GENBANK_HOWTO.html">http://localhost/gbrowse/docs/pod/GENBANK_HOWTO.html</a>).
+      <p>
+  <dd><b>/usr/local/wormbase/website-classic/cgi-perl/karyotype/html/gbrowse/docs/pod/INSTALL.MacOSX.html</b> has notes for installing GBrowse on MacOSX (at <a href="docs/pod/INSTALL.MacOSX.html">http://localhost/gbrowse/docs/pod/INSTALL.MacOSX.html</a>).
+      <p>
+  <dt>Contributed modules and utilities
+  <dd><b>/usr/local/wormbase/website-classic/cgi-perl/karyotype/html/gbrowse/contrib</b>
+      <p>
+</dl>
+
+<b>READMEs:</b>
+<table width="500">
+  <tr>
+    <td><a href="README">README</a></td><td><a href="README.berkeleydb">README.berkeleydb</a></td>
+  </tr><tr>
+    <td><a href="README.fedora">README.fedora</a></td><td><a href="README.gff3">README.gff3</a></td>
+  </tr><tr>
+    <td><a href="README.MacOSX">README.MacOSX</a></td><td><a href="README.sessions">README.sessions</a></td>
+  </tr><tr>
+    <td><a href="README.Ubuntu">README.Ubuntu</a></td>
+  </tr>
+</table>
+
+<p>
+
+<h2>More Data Sets</h2>
+
+Chromosomal annotations are described using GFF3 files, which usually
+have the suffix .gff or .gff3. To load larger data sets it is
+suggested that you create a MySQL database and use the
+<i>bp_load_seqfeature.pl</i> script which should have been installed
+when you installed BioPerl. Some databases may use the older GFF2
+format, in which case you should load using
+<i>bp_bulk_load_gff.pl</i>.
+
+<p>
+
+You will find suitable data files at the following model organism databases:
+
+<dl>
+  <dt><i>S. cerevisiae</i>
+  <dd><a href="ftp://genome-ftp.stanford.edu/pub/yeast/chromosomal_feature">SGD</a>
+  <dt><i>D. melanogaster</i>
+  <dd><a href="ftp://ftp.flybase.net/releases/current/">FlyBase</a>
+  <dt><i>C. elegans</i>
+  <dd><a href="http://www.wormbase.org/wiki/index.php/Downloads#GFF3">WormBase</a>
+  <dt><i>M. musculus (GFF2 only)</i>
+  <dd><a href="ftp://ftp.informatics.jax.org/pub/reports/MGI_GTGUP.gff">MGD</a>
+  <dt><i>R. rattus (GFF2 only)</i>
+  <dd><a href="ftp://rgd.mcw.edu/pub/RGD_genome_annotations/V3.1/GFF_files/">RGD</a>
+  <dt><i>D. discoideum</i>
+  <dd><a href="http://dictybase.org/Downloads/">Dictybase</a>
+  <dt><i>H. sapiens (GFF2 only)</i>
+  <dd><a href="http://www.hapmap.org/downloads/gbrowse/">HapMap</a>
+  <dt><i>A. thaliana (GFF2 only)</i>
+  <dd><a href="ftp://ftp.arabidopsis.org/home/tair/Sequences/whole_chromosomes/GFF/tigr5_gff">TAIR</a>
+</dl>
+
+<p>
+
+Check the <a href="contrib">contrib directory</a> for contributed
+configuration files for some of the common model organisms.
+
+<hr>
+<address>Lincoln D. Stein, lstein@cshl.org<br>
+<a href="http://www.cshl.org/">Cold Spring Harbor Laboratory</a></address>
+<!-- hhmts start -->
+Last modified: Tue Mar 18 11:36:16 EDT 2008
+<!-- hhmts end -->
+</body> </html>
+

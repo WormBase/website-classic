@@ -1,0 +1,4 @@
+cgiUrl=http://www.wormbase.org/perl/ace/elegans/mapview/geneticmap
+aceHost=www.wormbase.org
+acePort=2005
+

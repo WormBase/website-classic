@@ -1,0 +1,13 @@
+21	ensembl	chromosome_band	1	2900000	.	.	.	Parent 21;label p13;Alias p13;stain gvar
+21	ensembl	chromosome_band	2900001	6300000	.	.	.	Parent 21;label p12;Alias p12;stain stalk
+21	ensembl	chromosome_band	6300001	10000000	.	.	.	Parent 21;label p11.2;Alias p11.2;stain gvar
+21	ensembl	centromere	10000001	13200000	.	.	.	Parent 21;label 21_cent;Alias 21_cent
+21	ensembl	chromosome_band	13200001	15300000	.	.	.	Parent 21;label q11.2;Alias q11.2;stain gneg
+21	ensembl	chromosome_band	15300001	22900000	.	.	.	Parent 21;label q21.1;Alias q21.1;stain gpos100
+21	ensembl	chromosome_band	22900001	25800000	.	.	.	Parent 21;label q21.2;Alias q21.2;stain gneg
+21	ensembl	chromosome_band	25800001	30500000	.	.	.	Parent 21;label q21.3;Alias q21.3;stain gpos75
+21	ensembl	chromosome_band	30500001	34700000	.	.	.	Parent 21;label q22.11;Alias q22.11;stain gneg
+21	ensembl	chromosome_band	34700001	36700000	.	.	.	Parent 21;label q22.12;Alias q22.12;stain gpos50
+21	ensembl	chromosome_band	36700001	38600000	.	.	.	Parent 21;label q22.13;Alias q22.13;stain gneg
+21	ensembl	chromosome_band	38600001	41400000	.	.	.	Parent 21;label q22.2;Alias q22.2;stain gpos50
+21	ensembl	chromosome_band	41400001	46944323	.	.	.	Parent 21;label q22.3;Alias q22.3;stain gneg

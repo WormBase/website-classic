@@ -1,0 +1,566 @@
+#!/usr/bin/perl
+# -*- Mode: perl -*-
+# C. elegans RNAi report
+
+use lib '../lib';
+
+use strict;
+use Ace;
+use Ace::Browser::AceSubs qw(:DEFAULT Toggle AceMultipleChoices);
+#use Ace::Browser::GeneSubs;
+use Bio::Graphics::Browser;
+
+use ElegansSubs qw(:DEFAULT FetchGene Bestname MultipleChoices 
+		   format_references
+		   DisplayPhenotypes
+		   is_NOT_phene
+		   );
+use CGI qw/:standard :html3 escape *table *TR *td *blockquote embed *center center *div *iframe/;
+use vars qw($DB $DBGFF $WORMBASE $rnai_name);
+use WormBase;
+
+use WormBase::Util::Rearrange;
+
+END {
+  undef $WORMBASE;
+#   undef $BROWSER;
+  undef $rnai_name;
+}
+
+
+# print HTTP header & open the database
+$DB    = OpenDatabase()        || AceError("Couldn't open database.");
+
+# open the browser for drawing pictures
+# $BROWSER ||= Bio::Graphics::Browser->new or AceError('Cannot open picture generator');
+# $BROWSER->read_configuration(Configuration->Gff_conf)  or AceError("Can't read gff configuration");
+# $BROWSER->source('c_elegans');
+# $BROWSER->width(PICTURE_WIDTH);
+# $BROWSER->config->set('general','empty_tracks' => 'suppress');
+# $BROWSER->config->set('general','keystyle'     => 'none');
+
+$WORMBASE = WormBase->new($DB);
+
+my (@rnai);
+if ($rnai_name = param('name')) {
+  @rnai = get_rnai($rnai_name);
+}
+
+my $obj = $rnai[0]->class eq 'RNAi' ? $rnai[0] : eval { $rnai[0]->RNAi_result || $rnai[0]->RNAi } if @rnai;
+$DBGFF = OpenGFFDB($DB,get_species($obj))   || AceError("Couldn't open GFF database.") if $obj;
+
+
+my $title;
+if (@rnai > 1) {
+  $title = param('name');
+} elsif ($obj) {
+  $title = $obj->History_name ? $obj->History_name : $obj;
+} else {
+
+}
+
+PrintTop($obj,'RNAi',($obj ? "RNAi Report For: " . $title : 'RNAi Report'));
+PrintWarning($rnai_name,'RNAi experiment') if $rnai_name && !@rnai;
+print_prompt();
+if (@rnai == 1) {
+  print_report($rnai[0]);
+} elsif (@rnai > 1) {
+  if (param('view') eq 'all') {
+      if (param('phenotype')) {
+	  print h3(build_subtitle());
+      } else {
+	  print h3("Multiple RNAi experiments target $title");
+      }
+      
+      print start_table({-cellpadding=>1,-width=>'100%',-border=>1});
+      print TR({-class=>'searchtitle'},td(h3('Reagents/experiments')),td({-align=>'center'},h3('Genomic environs')));
+      print start_TR(),
+      td({-valign=>'top',-style=>"border-right: 2px solid gray;padding:10px 0px 0px 10px"},join(br,map { a{-href=>"#$_"},($_->History_name ? $_->History_name : $_) } @rnai));
+      genomic_environs($rnai[0],undef,'multiple');
+      
+    foreach (@rnai) {
+      print h3("RNAi experiment: " . ($_->History_name ? $_->History_name : $_));
+      print_report($_,'multiple');
+    }
+  } else {
+    display_multiple(\@rnai);
+  }
+}
+
+display_notes() if $obj;
+PrintBottom();
+
+####################################
+########### BEGIN SUBS #############
+####################################
+
+sub get_rnai {
+    my $c = shift;
+    my @rnai;
+    if ($c =~ /^WBRNAi/) {
+	@rnai = $DB->fetch(RNAi => $c);	
+	# History RNAi object names
+    } elsif (@rnai = $DB->fetch(-query=>qq{find RNAi where History_name="$c"})) {  
+    } elsif (my $sequence = $DB->fetch(Sequence => $c)) {
+	# No rnai name.  Maybe a sequence, Locus, or Transcript 
+	if (my @g = $sequence->CDS_Child) {
+	    # This is not working
+	    my @results = grep { eval { $_->RNAi || $_->RNAi_result} }  @g;
+	    return @results;
+	} else {
+	    return $sequence->RNAi;
+	}
+    } elsif ( my ($gene,$bestname) = FetchGene($DB,$c)) {
+	@rnai = eval { $gene->RNAi_result } if ($gene);
+
+	# Maybe we are searching by transcript
+    } elsif ( my $sequence = $DB->fetch(CDS => $c)) {
+	@rnai = $sequence->RNAi_result;
+    }
+#    if (@rnai > 10) {
+#      Ace_Choices(scalar @rnai,$rnai[0]->class => \@rnai);
+#    }
+    
+    # Filter results by phenotype
+    if (my $phenotype = param('phenotype')) {
+	my @purged;
+	foreach my $rnai (@rnai) {
+	    my @phenes = $rnai->Phenotype;
+	    foreach (@phenes) {
+		next unless $_ eq $phenotype;
+		push @purged,$rnai;
+	    }
+	}
+	return @purged;
+    }
+    return @rnai;
+}
+
+
+
+sub print_prompt {
+  $WORMBASE->print_prompt(-message  => 'Type in',
+			  -class    => 'RNAi',
+			  -examples => [{'RNAi'     => 'JA:B0414.1'},
+					{'Locus'   => 'unc-26'},
+					{'Gene'    => 'R13A5.9'},
+				       ]);
+}
+
+
+sub display_multiple {
+  my $rnai = shift;
+  print h3(build_subtitle());
+	
+  if (my $phene = param('phenotype')) {
+      my $target = url(-query=>1,-absolute=>1);
+      
+      (my $purged = $target) =~ s/;phenotype=$phene//;
+      print h4('Display detailed reports in a single page:'),
+      ul(li(a({-href=>$target . ';view=all'},'for these experiments alone')),
+	 li(a({-href=>$purged . ';view=all'},"for all experiments targetting $rnai_name")));
+  } else {
+      print h4('Display detailed reports for these experiments ' . a({-href=>url(-query=>1,-absolute=>1) . ';view=all'},'in a single page.'));
+  }
+  print start_table({-border=>1});
+  print TR(th(['Experiment','Historical name','Reagent','Primary targets','Secondary targets','Phenotypes','Associated movies?']));
+  foreach (@$rnai) {
+    my $history = $_->History_name ? $_->History_name : '';
+    my $reagent = $_->PCR_product;
+    $reagent  ||= $_->Sequence;
+    my $targets = classify_targets($_);
+    my $has_movies = $_->Movie ? 'yes' : 'no';
+    my %targets;
+    foreach ('Primary targets','Secondary targets') {
+      my @genes = eval { @{$targets->{$_}} };
+      my ($genes) = join(br,map { join('; ',format_gene($_)) } @genes) if @genes;
+      $genes ||= 'None identified';
+      $targets{$_} = $genes;
+    }
+
+    my $hunter = Configuration->Hunter;
+
+    # Display NOT phenotypes
+    my $data = ParseHash(-nodes=>[$_->Phenotype]);
+    my ($positives,$negatives) = is_NOT_phene($data);
+    
+    # The return value is actually a more complicated list.
+    # For our purposes, we just need object names
+    my @observed     = map { $_->{node} } @$positives;
+    my @not_observed = map { $_->{node} } @$negatives;
+
+    print TR(
+	     td(ObjectLink($_)),
+	     td($history),
+	     td(a({-href=>"$hunter$reagent;label=LOCI%3Aoverview-CG-PCR-RNAi_BEST-RNAi_OTHER"},$reagent)),
+	     td({-width=>'15%'},$targets{'Primary targets'}),
+	     td($targets{'Secondary targets'}),
+	     td((@observed > 0
+		 ? b('Observed')
+		 . br
+		 . join(br,map { ObjectLink($_,best_phenotype_name($_)) } @observed)
+		 . br
+		 : ''),
+		(@not_observed > 0
+		 ? b('Not observed')
+		 . br
+		 . join(br,map { ObjectLink($_,best_phenotype_name($_)) } @not_observed)
+		 : '')),		
+	     td($has_movies)
+	     );
+}
+  print end_table;
+}
+
+sub build_subtitle {   
+    if (param('phenotype')) {
+	my $phene = $DB->fetch(Phenotype => param('phenotype'));
+	my $name = best_phenotype_name($phene);
+	my $subtitle = "Displaying RNAi experiments targetting $rnai_name limited to those annotated as \"$name\" phenotype.";
+	return $subtitle;
+    } else {
+	return "Your query for $rnai_name matched multiple RNAi experiments.";
+    }
+}
+
+sub print_report {
+  my ($exp,$multiple) = @_;
+
+  my $targets = classify_targets($exp);
+
+  print start_table({-border=>1});
+
+  StartSection('Identification');
+  identification($exp,$targets);
+
+  StartSection('Source');
+  source($exp);
+
+  StartSection('Experimental conditions');
+  experimental_conditions($exp);
+
+
+  StartSection('Phenotypes');     
+  my @phenotypes = $exp->Phenotype;
+#  foreach ($exp->Interaction) {
+#      my @types = $_->Interaction_type;
+#      foreach (@types) {
+#	  push @phenotypes,map { $_->right } grep { $_ eq 'Interaction_phenotype' } $_->col;
+#      }
+#  }
+  DisplayPhenotypes(@phenotypes) if (@phenotypes);
+
+  # This might be an RNAi object connected to a gene regulation object
+  if (my @regulation = $exp->Gene_regulation) {
+    SubSection('Affect on gene regulation',
+	       join(br,
+		    map {$_->Summary . ' '
+			     . a({-href => Object2URL($_)},
+				 '[details]') } @regulation));
+		}
+	       
+
+
+  StartSection('Supporting movies and images');
+  supporting_movies($exp);
+
+  unless ($multiple) {
+      StartSection('Genomic environs');
+      #    if ($multiple > 1) {
+      #      SubSection('',a({-href=>'#genomic_image'},'See image above'));
+      #    } else {
+      #      print a({-name=>'genomic_image'},'');
+      genomic_environs($exp,$targets);
+      #    }
+  }
+  
+  EndSection;
+  print end_table;
+  print hr;
+}
+
+
+sub identification {
+  my ($exp,$targets) = @_;
+
+  my $history_name = $exp->History_name || $exp;
+  SubSection('Historical name',$history_name) if ($history_name ne $exp);
+  SubSection('WormBase RNAi ID',$exp);
+
+  foreach ('Primary targets','Secondary targets') {
+    my @genes = eval { @{$targets->{$_}} };
+    my ($genes) = join(br,map { join('; ',format_gene($_)) } @genes) if @genes;
+    $genes ||= 'None identified';
+    SubSection(a({-href=>'#notes'},$_),$genes);
+  }
+
+  # 2006.01.04 - NOTE:  There are multiple PCR products per RNAi experiment --Fixed 2010.01.18
+  my @reagent = $exp->PCR_product;
+  my $sequence = $exp->Sequence;
+  my $assay = ($exp->PCR_product) ? 'PCR product' : 'Sequence';
+
+  SubSection("$assay used in assay",
+	     ($assay eq 'PCR product' ? 
+	      map{ObjectLink($_)} @reagent : $sequence));
+
+  # Fetch the MRC GeneService name, if available
+  my @gs = map { eval { $_->Clone->Database(3) } || 'Not available' } @reagent;
+  SubSection('GeneService ID',
+	     map {a({-href=>Configuration->Geneservice},$_)} @gs);
+}
+
+
+sub source {
+  my $exp = shift;
+  my ($experiment_link,$experiment_url,$link_location);
+  # experiment URL also used to construct links to movies
+  my $history_name = $exp->History_name;
+  if ($exp->Laboratory eq 'KK' || $exp->Laboratory eq 'PF') {
+    ($experiment_link = $history_name) =~ s/^KK://;
+    $experiment_url = Configuration->Rnaidb.$experiment_link;
+    $experiment_link = a({-href=>$experiment_url},$history_name);
+    $link_location = a({-href=>'http://www.rnai.org/'},'RNAiDB');
+  } elsif ($exp->Laboratory eq 'TH'){
+    # Links to PhenoBank are stored as remarks
+    my @remark = map {escapeHTML($_)} $exp->Remark;
+    ($experiment_link) = "[" 
+      . join('; ',map { a({-href=>$_},/GeneID=(.*)&/) } grep { /phenobank/ } @remark) . ']';
+    $link_location = a({-href=>Configuration->Phenobank},'PhenoBank');
+  }
+
+  my @remark = map {escapeHTML($_)} $exp->Remark;
+  @remark = grep { !/phenobank/ } @remark;
+
+  SubSection('Laboratory',map { ObjectLink($_) } $exp->Laboratory);
+
+  SubSection("Further details available at $link_location",$experiment_link);
+
+  if (my @refs = $exp->Reference) {
+    SubSection('Reference',format_references(-references=>\@refs,-format=>'long',-pubmed_link=>'image',
+				     -suppress_years=>1));
+  } else {
+    my $author = join(' ',map { ObjectLink($_) } $exp->Author);
+    SubSection('Authors',$author);
+    my $date = $exp->Date;
+    $date =~ s/ 00:00:00$//;
+    SubSection('Publication date',$date);
+  }
+  SubSection('Remarks',@remark);
+}
+
+
+
+
+
+
+sub experimental_conditions {
+  my $exp = shift;
+  SubSection('Species',$exp->Species);
+  SubSection('Genotype',$exp->Genotype);
+  SubSection('Strain',$exp->Strain);
+  my $interaction = $exp->Interaction;
+  
+  SubSection('Interaction',join(' - ',map {
+      a({-href=>ObjectLink($_)},Bestname($_)) } $interaction->Interactor)) if $interaction;
+  SubSection('Treatment',$exp->Treatment);
+  SubSection('Life stage',$exp->Life_stage);
+  SubSection('Delivered by',$exp->Delivered_by);
+}
+
+
+
+
+# Generate genomic environs pictures
+sub genomic_environs {
+  my ($exp,$targets,$multiple) = @_;
+  $targets ||= classify_targets($exp);
+
+  my $cell;
+  foreach ('Primary targets','Secondary targets') {
+    my $details;
+    next unless eval { @{$targets->{$_}} };
+    foreach (@{$targets->{$_}}) {
+      $details .= b(format_gene($_)) . br;
+      my ($segment) = sort {$b->length<=>$a->length} map{$DBGFF->segment(Sequence=>$_)} $_;
+      $details .= center(genomic_picture($segment,$exp));
+    }
+    if ($multiple) {
+      #      print h4($_);
+      #      print $details;
+      $cell = h4($_) . $details;
+    } else {
+      SubSection($_,$details);
+    }
+  }
+  if ($multiple) {
+    print td({-valign=>'top'},$cell);
+  }
+  if ($multiple) {
+    print end_TR(),end_table(),hr;
+  }
+}
+
+
+sub supporting_movies {
+  my $exp = shift;
+  my ($support,$embed);
+  my ($experiment_link,$experiment_url,$link_location);
+  # experiment URL also used to construct links to movies
+  my $history_name = $exp->History_name;
+  if ($exp->Laboratory eq 'KK' || $exp->Laboratory eq 'PF') {
+    ($experiment_link = $history_name) =~ s/^KK://;
+    $experiment_url = Configuration->Rnaidb . $experiment_link;
+    $experiment_link = a({-href=>$experiment_url},$history_name);
+    $link_location = a({-href=>'http://www.rnai.org/'},'RNAiDB');
+  } elsif ($exp->Laboratory eq 'TH'){
+    # Links to PhenoBank are stored as remarks
+    my @remark = map {escapeHTML($_)} $exp->Remark;
+    ($experiment_link) = join('; ',map { a({-href=>$_},/GeneID=(.*)&/) } grep { /phenobank/ } @remark);
+    $experiment_link = '[' . $experiment_link . ']';
+    $experiment_url = join(' ', grep { /phenobank/ } @remark);
+    $link_location = a({-href=>Configuration->Phenobank},'PhenoBank');
+  }
+
+  if (my $movielink = Configuration->Rnai_movie_path) {
+    my (@links,@embed,@remarks);
+    for my $movie ($exp->Movie) {
+      my $link = $movie =~ /^(http|ftp):/ ? $movie : "$movielink$movie";
+      push @links,a({-href=>$link},$movie);
+      push @embed,embed({-src=>$link,
+			 -width=>300,
+			 -height=>250,
+			 -controller=>'true',
+			 -loop=>"true",
+			 -volume=>"75",
+			 -bgcolor=>"white",
+			 -pluginspace=>"http://www.apple.com/quicktime/download"});
+      push @remarks,(map {escapeHTML($_)} eval { $movie->Remark });
+    }
+    $support = join ', ',@links;
+
+    $embed   = "\n";
+    $embed  .= start_table({-border=>0,-width=>'100%'})."\n";
+#    $embed  .= TR({-class=>'datatitle'},th('Supporting Images and Movies'))."\n";
+    for (my $i=0;$i<@embed;$i++) {
+      my $label = escapeHTML($remarks[$i]);
+      my ($link,$printit) = Toggle($i+1,$remarks[$i]);
+      $embed .= TR(td({-align=>'LEFT',-class=>'databody'},$link))."\n";
+      $embed .= TR(td({-align=>'CENTER',-class=>'databody'},$embed[$i]))."\n" if $printit;
+    }
+    my $none = $experiment_url ? qq(None available in Wormbase.  Please check the <a href="$experiment_url">submitter\'s web site</a>.)
+      : qq(None available in WormBase.);
+    $embed .= TR(th({-align=>'CENTER',-class=>'databody'},$none))."\n" unless @embed;
+    $embed  .= end_table."\n";
+    SubSection('',$embed);
+  }
+}
+
+
+
+sub genomic_picture {
+  my ($segment,$exp) = @_;
+  my $assay = ($exp->PCR_product) ? 'PCR product' : 'Sequence';
+  return unless $segment;
+
+  my $absref   = $segment->abs_ref;
+  my $absstart = $segment->abs_start;
+  my $absend   = $segment->abs_end;
+  ($absstart,$absend) = ($absend,$absstart) if $absstart>$absend;
+
+  my $length = $segment->length;
+
+  # add another 10% to left and right
+  my $start = int($absstart - 0.1*$length);
+  my $stop  = int($absend   + 0.1*$length);
+=pod
+  my $db = $segment->factory;
+  my ($new_segment) = $db->segment(-name=>$absref,
+				   -start=>$start,
+				   -stop=>$stop);
+
+  my $img = $BROWSER->render_panels({segment=>$new_segment,
+				    options => {ESTB => 3},
+				    tracks =>[
+					      'NG',
+					      'CG',
+					      'RNAi_BEST',
+#					    ($assay eq 'Sequence' ? 'ESTB' : 'PCR'),
+					      ],
+					title  => "Genomic segment: $absref:$absstart..$absend",
+				    do_map  => 0,
+					drag_n_drop => 0,
+					# Purge post WS182
+#tmpdir  => AppendImagePath('rnai')
+				  });
+
+  $img =~ s/border="0"/border="1"/;
+  $img =~ s/detailed view/browse region/g;
+  $img =~ s/usemap=\S+//;
+=cut
+  # NOW USING SQUID / CUSTOM URLS TO FIND PROPER BACK END SERVER
+  # Append the full URL so that tmp images are appropriately referenced
+  # It should be possible to do this in Bio::Graphics.  Unfortunately, specifying the
+  # protocol, host, and port in the conf file does not work (tries to create a tmp 
+  # directory using those values)
+  #####my $host = CGI->url(-base=>1);
+  # my $host = 'http://' . $ENV{SERVER_NAME}; 
+  #$img =~ s/\/ace_images/$host\/ace_images/g;
+  my $SPECIES = 'c_elegans';
+  my $type = $SPECIES =~ /elegans/ ? "t=NG;t=CG;t=RNAi_BEST":"";
+  return InlineImage($type,$SPECIES,$absref,$start,$stop);
+}
+
+
+# This approach classifies genes and predicted genes as primary or
+# secondary targets according using attached Evidence hashes
+sub classify_targets {
+  my $exp = shift;
+  my %seen;
+  my %categories;
+
+  my @genes = grep { !$seen{$_->Molecular_name}++ } $exp->Gene;
+  push (@genes,grep {!$seen{$_}++} $exp->Predicted_gene);
+
+  foreach my $gene (@genes) {
+    my @types = $gene->col;
+    foreach (@types) {
+	my ($remark) = $_->col;
+	my $status = ($remark =~ /primary/) ? 'Primary targets' : 'Secondary targets';
+	push @{$categories{$status}},$gene;
+    }
+  }
+  return \%categories;
+}
+
+sub format_gene { 
+    my $gene = shift;
+    my $target;
+    if ($gene->class eq 'Gene') {
+	my $name = $gene->Molecular_name;
+	$name .= " (" . $gene->CGC_name . ")" if $gene->CGC_name;
+	$target = a({-href=>Object2URL($gene)},$name);
+    } else {
+	$target = ObjectLink($gene);
+    }
+    return $target;
+}
+
+
+sub display_notes {
+print a({name=>'notes'},''),h3('Notes'),
+  pre('Primary targets
+
+Primary targets have sequence identity to the RNAi probe of at least
+95% over a stretch of at least 100 nucleotides, identified using a
+combination of BLAST and BLAT algorithms.  These are usually the
+intended target genes of an RNAi experiment.
+
+Secondary targets
+
+Secondary targets have between 80 and 94.99% sequence identity over a
+stretch of at least 200 nucleotides to the RNAi probe. Targets (and
+overlapping genes) that satisfy these criteria may or may not be
+susceptible to an RNAi effect with the given probe and represent
+secondary (unintended) genomic targets of an RNAi experiment.');
+
+}

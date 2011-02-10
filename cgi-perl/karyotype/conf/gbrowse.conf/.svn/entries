@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="22104"
+   name=""
+   committed-date="2009-09-23T14:46:22.524431Z"
+   url="https://gmod.svn.sourceforge.net/svnroot/gmod/Generic-Genome-Browser/branches/stable/conf"
+   last-author="lstein"
+   kind="dir"
+   uuid="224a875b-6a50-0410-9993-82261b5d0d45"
+   revision="22118"/>
+<entry
+   name="plugins"
+   kind="dir"/>
+<entry
+   name="languages"
+   kind="dir"/>
+<entry
+   committed-rev="14162"
+   name="enzymes.txt"
+   text-time="2009-09-27T20:05:57.000000Z"
+   committed-date="2005-10-25T17:05:30.000000Z"
+   checksum="cefe536d0f6e3b0f7347596d0d3b443a"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="15871"
+   name="yeast.conf"
+   text-time="2009-09-27T20:05:57.000000Z"
+   committed-date="2009-05-12T02:21:50.000000Z"
+   checksum="85588a017bc42db2e7c55ab2206ef17e"
+   last-author="scottcain"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   name="MobyServices"
+   kind="dir"/>
+<entry
+   committed-rev="14162"
+   name="log4perl.conf"
+   text-time="2009-09-27T20:05:57.000000Z"
+   committed-date="2005-10-25T17:05:30.000000Z"
+   checksum="73afdbc79cf7c3610102a4b23369ac19"
+   kind="file"
+   prop-time="2009-09-27T20:05:57.000000Z"/>
+</wc-entries>

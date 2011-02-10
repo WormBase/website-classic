@@ -1,0 +1,81 @@
+2005.11.16 - Building a GBrowse-based genetic map
+--------------------------------------------------
+
+Creating a new GBrowse-based genetic map.
+
+Required data sets
+1) genetic markers in genetic coordinates                                     DONE
+2) genetic markers in sequence coordinates (chromosomal bp) which we have     DON'T HAVE YET
+3) genetic markers in physical contig coordinates (fmap units)                DON'T HAVE YET
+
+4) genetic markers with confidence intervals                                  DUMP TOMORROW
+
+5) contigs in genetic coordinates
+6) contigs in contig coordinates (fmap units) (which we have)
+7) contigs in sequence coordinates (chromosomal bp) (we have)
+
+
+
+Tracks:
+All genes
+Genetic markers (that have been used in 3-factor mapping)
+Genetic markers (that have been placed on pmap)
+
+Confidence intervals for strictly genetic markers
+Snip-SNPs
+SNPs
+
+
+
+
+-----
+
+1.  Dump out markers, genetic confidence intervals, etc
+
+ $ bin/dump_markers.pl
+
+Columns are:
+0	Chromosome
+1	WBGene ID
+2	Molecuar_name
+3	Public_name
+4	Start (bp)
+5	Stop  (bp)
+6	Strand
+7	Map   (Map or Interpolated_map_position)
+8	Type (one of mapped or interpolated)
+
+
+
+3.  Find the maximal limits of the chromosome according to the genetic
+    map and physical map:
+
+
+  $ genet
+
+
+
+
+
+
+
+
+Notes from SAB:
+
+Defining the set
+Take all genes that have been used as flanking markers to create set
+From that set remove all those that have only an inferred map position
+
+Seperate tracks:
+	Deletions
+	Duplications (JAH - of decreasing utility)
+	SNPs - predicted
+	Snip-SNPs
+	Deletions that have been used for mapping
+		(or in the Rothman set)
+
+Likelihood plug in from Richard
+
+Take fosmids and interpolate them onto the genetic map
+	(Sanger will supply
+

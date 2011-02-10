@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="utf-8"?>
+<wc-entries
+   xmlns="svn:">
+<entry
+   committed-rev="15873"
+   name=""
+   committed-date="2009-05-14T21:43:47.000000Z"
+   url="https://gmod.svn.sourceforge.net/svnroot/gmod/Generic-Genome-Browser/branches/stable/conf/plugins"
+   last-author="sheldon_mckay"
+   kind="dir"
+   uuid="224a875b-6a50-0410-9993-82261b5d0d45"
+   revision="22118"/>
+<entry
+   committed-rev="14054"
+   name="GeneFinder.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2005-07-21T19:42:38.000000Z"
+   checksum="a840429693414a2c28bb0b991111bc2c"
+   last-author="lstein"
+   kind="file"
+   prop-time="2009-09-27T20:05:54.000000Z"/>
+<entry
+   committed-rev="14726"
+   name="FastaDumper.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2007-04-17T17:47:51.000000Z"
+   checksum="f74ee34f48a8a87a350515a755d06c57"
+   last-author="lstein"
+   kind="file"
+   prop-time="2009-09-27T20:05:54.000000Z"/>
+<entry
+   committed-rev="15611"
+   name="SinWave.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2008-12-02T23:56:53.000000Z"
+   checksum="fc49eaf534e6c6cb70d9a4e8b56ac0ef"
+   last-author="lstein"
+   kind="file"
+   prop-time="2009-09-27T20:05:54.000000Z"/>
+<entry
+   committed-rev="15439"
+   name="Submitter.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2008-09-15T14:51:23.000000Z"
+   checksum="f6e841d719be96695f3cbc05ab336353"
+   last-author="lstein"
+   kind="file"
+   prop-time="2009-09-27T20:05:54.000000Z"/>
+<entry
+   committed-rev="15123"
+   name="RandomGene.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2008-04-28T18:00:58.000000Z"
+   checksum="97be8a815afc3deea77accdb0018e242"
+   last-author="lstein"
+   kind="file"
+   prop-time="2009-09-27T20:05:54.000000Z"/>
+<entry
+   committed-rev="15873"
+   name="PrimerDesigner.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2009-05-14T21:43:47.000000Z"
+   checksum="63a62c5727329be7e067177a27063ebc"
+   last-author="sheldon_mckay"
+   kind="file"
+   prop-time="2009-09-27T20:05:54.000000Z"/>
+<entry
+   committed-rev="15118"
+   name="GFFDumper.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2008-04-17T01:09:57.000000Z"
+   checksum="58c4ffefa632ab9b7eb5d42631694ebc"
+   last-author="sheldon_mckay"
+   kind="file"
+   prop-time="2009-09-27T20:05:54.000000Z"/>
+<entry
+   committed-rev="14162"
+   name="test.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2005-10-25T17:05:30.000000Z"
+   checksum="d457b506cdcbcac096a3174d0903d765"
+   kind="file"
+   prop-time="2009-09-27T20:05:54.000000Z"/>
+<entry
+   committed-rev="15705"
+   name="Aligner.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2009-01-14T16:16:28.000000Z"
+   checksum="75b375055c8bc6015d44241c7271b845"
+   last-author="lstein"
+   kind="file"
+   prop-time="2009-09-27T20:05:54.000000Z"/>
+<entry
+   committed-rev="15240"
+   name="Blat.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2008-07-28T23:08:42.000000Z"
+   checksum="d1fca8055f6e7dc91b245838c03bab75"
+   last-author="lstein"
+   kind="file"
+   prop-time="2009-09-27T20:05:54.000000Z"/>
+<entry
+   committed-rev="15259"
+   name="AttributeHiliter.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2008-08-06T19:07:18.000000Z"
+   checksum="2afd7e82676faabbafc2d15926704840"
+   last-author="lstein"
+   kind="file"
+   prop-time="2009-09-27T20:05:54.000000Z"/>
+<entry
+   committed-rev="15705"
+   name="FilterTest.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2009-01-14T16:16:28.000000Z"
+   checksum="38feff789b51a162eef9b22b10d924c6"
+   last-author="lstein"
+   kind="file"
+   prop-time="2009-09-27T20:05:54.000000Z"/>
+<entry
+   committed-rev="14852"
+   name="Spectrogram.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2007-09-28T08:03:31.000000Z"
+   checksum="4fa610b601f74a3254bfd1b961dbeeee"
+   last-author="sheldon_mckay"
+   kind="file"
+   prop-time="2009-09-27T20:05:54.000000Z"/>
+<entry
+   committed-rev="15142"
+   name="GFFToGalaxyDumper.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2008-05-12T14:06:53.000000Z"
+   checksum="0a6dd7e9617c69859e7f8d33291ec6a9"
+   last-author="lstein"
+   kind="file"
+   prop-time="2009-09-27T20:05:54.000000Z"/>
+<entry
+   committed-rev="14819"
+   name="RestrictionAnnotator.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2007-08-27T21:00:29.000000Z"
+   checksum="b9b5644980d3a8a6d34f30ff6f3d6a57"
+   last-author="lstein"
+   kind="file"
+   prop-time="2009-09-27T20:05:54.000000Z"/>
+<entry
+   committed-rev="15259"
+   name="ProteinDumper.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2008-08-06T19:07:18.000000Z"
+   checksum="7eb24f0eaca276001746535392932b7c"
+   last-author="lstein"
+   kind="file"
+   prop-time="2009-09-27T20:05:54.000000Z"/>
+<entry
+   committed-rev="13960"
+   name="CMapDumper.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2005-03-07T18:25:46.000000Z"
+   checksum="cfda8357c1d945dac22c41fa6723b642"
+   last-author="mwz444"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="14401"
+   name="BatchDumper.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2006-07-13T14:53:17.000000Z"
+   checksum="e4da413cd77af020bbeaca85f4e824b7"
+   last-author="lstein"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="14695"
+   name="CreateBlastDB.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2007-03-26T14:10:54.000000Z"
+   checksum="e891bcee0c77acbed430a6d30ee96882"
+   last-author="briano"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="15321"
+   name="AlignTwoSequences.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2008-08-19T20:59:30.000000Z"
+   checksum="9373f6b9cddf2cc72bd18781f279a3ee"
+   last-author="scottcain"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="15240"
+   name="OligoFinder.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2008-07-28T23:08:42.000000Z"
+   checksum="e3d8e61b96879c3a9822569669b63e93"
+   last-author="lstein"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="15259"
+   name="TextDumper.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2008-08-06T19:07:18.000000Z"
+   checksum="eedee7dfd4af3642d1ec3dfdc5c0b5df"
+   last-author="lstein"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+<entry
+   committed-rev="15258"
+   name="ReverseFinder.pm"
+   text-time="2009-09-27T20:05:55.000000Z"
+   committed-date="2008-08-06T16:21:01.000000Z"
+   checksum="760c59f78acca819dbb171caecbe8655"
+   last-author="lstein"
+   kind="file"
+   prop-time="2009-09-27T20:05:55.000000Z"/>
+</wc-entries>

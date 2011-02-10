@@ -1,0 +1,221 @@
+New release of WormBase WS147, Wormpep147 and Wormrna147 Thu Aug 18 16:59:45 BST 2005
+
+
+WS147 was built by Paul Davis
+======================================================================
+
+This directory includes:
+i)   database.WS147.*.tar.gz    -   compressed data for new release
+ii)  models.wrm.WS147           -   the latest database schema (also in above database files)
+iii) CHROMOSOMES/subdir         -   contains 3 files (DNA, GFF & AGP per chromosome)
+iv)  WS147-WS146.dbcomp         -   log file reporting difference from last release
+v)   wormpep147.tar.gz          -   full Wormpep distribution corresponding to WS147
+vi)   wormrna147.tar.gz          -   latest WormRNA release containing non-coding RNA's in the genome
+vii)  confirmed_genes.WS147.gz   -   DNA sequences of all genes confirmed by EST &/or cDNA
+viii) cDNA2orf.WS147.gz           -   Latest set of ORF connections to each cDNA (EST, OST, mRNA)
+ix)   gene_interpolated_map_positions.WS147.gz    - Interpolated map positions for each coding/RNA gene
+x)    clone_interpolated_map_positions.WS147.gz   - Interpolated map positions for each clone
+xi)   best_blastp_hits.WS147.gz  - for each C. elegans WormPep protein, lists Best blastp match to
+                            human, fly, yeast, C. briggsae, and SwissProt & TrEMBL proteins.
+xii)  best_blastp_hits_brigprot.WS147.gz   - for each C. briggsae protein, lists Best blastp match to
+                                     human, fly, yeast, C. elegans, and SwissProt & TrEMBL proteins.
+xiii) geneIDs.WS147.gz   - list of all current gene identifiers with CGC & molecular names (when known)
+xiv)  PCR_product2gene.WS147.gz   - Mappings between PCR products and overlapping Genes
+
+
+Release notes on the web:
+-------------------------
+http://www.sanger.ac.uk/Projects/C_elegans/WORMBASE
+
+
+
+Primary databases used in build WS147
+------------------------------------
+brigdb : 2004-03-12
+camace : 2005-08-01 - updated
+citace : 2005-07-29 - updated
+cshace : 2005-03-07
+genace : 2005-08-01 - updated
+stlace : 2005-07-29 - updated
+
+
+Genome sequence composition:
+----------------------------
+
+       	WS147       	WS146      	change
+----------------------------------------------
+a    	32366710	32366710	  +0
+c    	17780361	17780361	  +0
+g    	17756436	17756436	  +0
+t    	32366406	32366406	  +0
+n    	0       	0       	  +0
+-    	0       	0       	  +0
+
+Total	100269913	100269913	  +0
+
+
+Gene data set (Live C.elegans genes 23919)
+------------------------------------------
+Molecular_info              22111 (92.4%)
+Concise_description          4091 (17.1%)
+Reference                    4644 (19.4%)
+CGC_approved Gene name       8191 (34.2%)
+RNAi_result                 19783 (82.7%)
+Microarray_results          19118 (79.9%)
+SAGE_transcript             18300 (76.5%)
+
+
+
+
+Wormpep data set:
+----------------------------
+
+There are 20055 CDS in autoace, 22806 when counting 2751 alternate splice forms.
+
+The 22806 sequences contain 10,023,921 base pairs in total.
+
+Modified entries              41
+Deleted entries               24
+New entries                   28
+Reappeared entries             1
+
+Net change  +5
+
+
+
+Status of entries: Confidence level of prediction (based on the amount of transcript evidence)
+-------------------------------------------------
+Confirmed              6445 (28.3%)	Every base of every exon has transcription evidence (mRNA, EST etc.)
+Partially_confirmed   11414 (50.0%)	Some, but not all exon bases are covered by transcript evidence
+Predicted              4947 (21.7%)	No transcriptional evidence at all
+
+
+
+Status of entries: Protein Accessions
+-------------------------------------
+Swissprot accessions   2945 (12.9%)
+TrEMBL accessions     19532 (85.6%)
+TrEMBLnew accessions      0 (0.0%)
+
+
+
+Status of entries: Protein_ID's in EMBL
+---------------------------------------
+Protein_id            22477 (98.6%)
+
+
+
+Gene <-> CDS,Transcript,Pseudogene connections (cgc-approved)
+---------------------------------------------
+Entries with CGC-approved Gene name   6449
+
+
+GeneModel correction progress WS146 -> WS147
+-----------------------------------------
+Confirmed introns not in a CDS gene model;
+
+		+---------+--------+
+		| Introns | Change |
+		+---------+--------+
+Cambridge	|    186  |    -1  |
+St Louis 	|     82  |   -10  |
+		+---------+--------+
+
+
+Members of known repeat families that overlap predicted exons;
+
+		+---------+--------+
+		| Repeats | Change |
+		+---------+--------+
+Cambridge	|    593  |    -3  |
+St Louis 	|    794  |    -5  |
+		+---------+--------+
+
+
+
+Synchronisation with GenBank / EMBL:
+------------------------------------
+
+CHROMOSOME_I	sequence AL032679
+CHROMOSOME_I	sequence AC024206
+CHROMOSOME_I	sequence AC024796
+CHROMOSOME_I	sequence AF003139
+CHROMOSOME_II	sequence AL590344
+CHROMOSOME_II	sequence AL032669
+CHROMOSOME_II	sequence AF025458
+CHROMOSOME_II	sequence AF024493
+CHROMOSOME_II	sequence U80453
+CHROMOSOME_III	sequence AL031226
+CHROMOSOME_III	sequence AF078783
+CHROMOSOME_III	sequence AF040660
+CHROMOSOME_III	sequence AF099913
+CHROMOSOME_IV	sequence AL032676
+CHROMOSOME_IV	sequence AC006742
+CHROMOSOME_IV	sequence AF067615
+CHROMOSOME_IV	sequence AF078781
+CHROMOSOME_V	sequence AL031270
+CHROMOSOME_V	sequence AF068714
+CHROMOSOME_V	sequence AC006744
+CHROMOSOME_V	sequence AF101312
+CHROMOSOME_X	sequence AL031272
+CHROMOSOME_X	sequence AL954368
+CHROMOSOME_X	sequence AL954365
+CHROMOSOME_X	sequence BX000427
+
+There are no gaps remaining in the genome sequence
+---------------
+For more info mail worm@sanger.ac.uk
+-===================================================================================-
+
+
+
+New Data:
+---------
+1) Large increase in Microarray_results due to recent publications.
+
+New Fixes:
+----------
+1) Variation schema and data was out of sync for WS146, this has been partially 
+   resolved for WS147 by grouping Description tags and info under a Pheynotype_remark 
+   tag. This will be fully resolved for WS148 as the model is being rolled back while 
+   curators get to work representing this data as Phenotype objects.
+
+Known Problems:
+--------------
+
+
+Other Changes:
+--------------
+
+Proposed Changes / Forthcoming Data:
+------------------------------------
+1) New Expression_cluster class to replace Cluster to represent microarray result 
+   clusters.
+
+Forthcoming Model Changes:
+--------------------------
+
+1) Expression_cluster model.
+
+-===================================================================================-
+
+
+Quick installation guide for UNIX/Linux systems
+-----------------------------------------------
+
+1. Create a new directory to contain your copy of WormBase,
+	e.g. /users/yourname/wormbase
+
+2. Unpack and untar all of the database.*.tar.gz files into
+	this directory. You will need approximately 2-3 Gb of disk space.
+
+3. Obtain and install a suitable acedb binary for your system
+	(available from www.acedb.org).
+
+4. Use the acedb 'xace' program to open your database, e.g.
+	type 'xace /users/yourname/wormbase' at the command prompt.
+
+5. See the acedb website for more information about acedb and
+	using xace.
+
+____________  END _____________

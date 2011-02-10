@@ -1,0 +1,171 @@
+#!/usr/bin/perl
+##############################################################
+# REIMPLEMENTATION:                                          #
+#    THIS SCRIPT IS NOW FROZEN! (v1.5)                       #
+#       Please do not make edits to it.                      #
+#       Frozen by: tharris on 02.09.2008                     #   
+##############################################################
+
+# Display for "Structure_data" (KOGs)
+use strict;
+use lib '../lib';
+use vars qw/$DB $structure_data/;
+use Ace;
+use Ace::Browser::AceSubs;
+use ElegansSubs qw(:DEFAULT PrintRefs Bestname format_references);
+use CGI qw/:standard :html3 *table/;
+
+END {
+  undef $structure_data;
+}
+
+use constant STRUCTURE_DATA_SIMILARITY => 75; # Percent similarity cut-off to display
+                                              # mapped Structure_data objects
+
+use constant NONE => i('not available');
+$DB = OpenDatabase() || AceError("Couldn't open database.");
+$DB->class('Ace::Object::Wormbase');
+
+$structure_data = get_object();
+
+PrintTop($structure_data,'Structure_data',($structure_data) ? "Structure Data Report for: $structure_data" : 'Structure Data Report');
+print_prompt();
+PrintWarning(param('name')) if (param('name') && !$structure_data);
+
+if ($structure_data) {
+  general_info();
+  target_details();
+  homology();
+  }
+
+PrintBottom();
+
+exit 0;
+
+sub get_object {
+  my $request = param('name');
+  $request or return;
+
+  # Fetch Acedb object  
+  my @obj = $DB->fetch('Structure_data' => $request);
+  return ($obj[0]) if @obj;
+  }
+
+sub print_prompt {
+  my $url = url(-absolute=>1) . '?name=';
+  print
+    start_form,
+    p({-class=>'caption'},
+	join(' ',
+	     'Type in a structure_data identifier, e.g. ' . a({-href=>$url . 'WBStructure001250'},'WBStructure001250') )),
+	p("Identifier: ", textfield(-name=>'name')),
+	end_form;
+  return;
+}
+
+
+sub general_info {
+  print start_table({-border=>1});
+  StartSection('General Information');
+  SubSection('Name',$structure_data);
+
+  my $db_info = $structure_data->Db_info;
+  my @db_rows = $db_info->row if $db_info;
+  my $database = $db_rows[1];
+  my $native_id = $db_rows[3];
+
+  my $formatted_native_id = $native_id;
+  if ($database eq 'PDB') { $formatted_native_id =~ s/_.+$//; }
+    
+  my $formatted_database = $database;
+  $formatted_database =~ s/^Northeast Structural Genomics Consortium$/NESGC/;
+  $formatted_database =~ s/^NYSGXRC$/NYSGRC/;
+  $formatted_database =~ s/^OPPF: Oxford Protein Production Facility$/NON-OPPF/;
+  $formatted_database =~ s/^RSGI$/NON-RSGI/;
+
+  my $external_link = $formatted_database eq 'PDB' ? a({-href=>sprintf(Configuration->Protein_links->{PDB},$formatted_native_id), -target=>'_blank'}, $native_id)
+                                                   : a({-href=>sprintf(Configuration->Protein_links->{TARGETDB},$formatted_native_id, $formatted_database), -target=>'_blank'}, $native_id);
+  SubSection('Database',$database);
+  SubSection('Target Id',"$external_link (external link)");  
+}
+
+sub target_details {
+  print start_table({-border=>1});
+  StartSection('Target Details');
+
+  my $protein = $structure_data->Protein;
+  my $peptide = $protein->Peptide if $protein;
+  my $sequence = $peptide->asPeptide if $peptide;
+  
+  # Format sequence
+  $sequence =~ s/^>[^\n]*\n+//;
+  $sequence =~ s/\n+//g;
+  $sequence =~ s/(.{40})/$1<BR>/g;
+  
+  SubSection('Sequence',$sequence);  
+
+  my @status = map {s/_/ /g; $_;} $structure_data->Status;
+  
+  push (@status, '', a({-href => '/etc/structure_status_tags.html'}, '[click here for a list of all tags]'));
+  
+  SubSection('Status',join('<BR>', @status));
+}
+
+sub homology {
+  print start_table({-border=>1});
+  StartSection('Homology');
+
+  my @homols = $structure_data->Pep_homol;
+
+  my $wormpep_release = $structure_data->Wormpep_release;
+  my $structure_data_similarity = STRUCTURE_DATA_SIMILARITY;
+  
+  my @info;
+  foreach my $homol (@homols){
+    # Pep_homol	WP:CE01784	blat_structure	95.16	2	62	154	214
+    my @homol_rows = $homol->row;
+    my $homol_protein = $homol_rows[0];
+    my $percent_similarity = $homol_rows[2];
+
+    next unless ($percent_similarity >= STRUCTURE_DATA_SIMILARITY);
+
+    my $formatted_homol_protein = a({-href => Object2URL($homol_protein)}, $homol_protein);
+
+    push @info, [$formatted_homol_protein, $percent_similarity]; 
+  }
+
+  my @table_datas;    
+  foreach my $info (sort {$b->[1] <=> $a->[1]} @info) {
+    my $table_data = TR(
+                        td($info->[0]),
+                        td($info->[1]),
+                        );
+                       
+    push (@table_datas, $table_data);
+  }
+
+
+  my $section_text;
+
+  if (@table_datas) {
+  $section_text .= <<END_SECTION_DATA;
+Sequence data imported from <a href="http://targetdb.pdb.org/">TargetDB</a> and <a href="http://www.rcsb.org/pdb/">PDB</a>
+ and has been mapped to WormPep Release $wormpep_release.<br>
+ WormPep that map with at least $structure_data_similarity percent similarity are displayed.
+ <br><br>
+END_SECTION_DATA
+
+  $section_text .= table({-border=>1, -width=>'70%'},
+                         TR(
+                            td(b('WormPep Protein')), 
+                            td(b('Percent Similarity (%)')),                             
+                            ),
+                         @table_datas
+                         ); 
+  }
+  
+  SubSection('Homology',$section_text) if $section_text;
+
+  EndSection;
+}
+
