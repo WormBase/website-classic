@@ -3794,46 +3794,47 @@ sub FetchGene {
       undef @gene_names;
   } elsif (my @gene_classes = $DB->fetch(-class=>'Gene_class',-name=>$query,-fill=>1)) {
       @genes = map { $_->Genes } @gene_classes;
-  } elsif (my @transcripts = $DB->fetch(-class=>'Transcript',-name=>$query,-fill=>1)) {
-      @genes = map { eval { $_->Corresponding_CDS->Gene } } @transcripts;
-  } elsif (my @ests = $DB->fetch(-class=>'Sequence',-name=>$query,-fill=>1)) {
-    foreach (@ests) {
-      if (my $gene = $_->Gene(-filled=>1)) {
-	push @genes,$gene;
-      } elsif (my $cds = $_->Matching_CDS(-filled=>1)) {
-	my $gene = $cds->Gene(-filled=>1);
-	push @genes,$gene if $gene;
-      }
-    }
 
-    #    # Temporary kludge for handling briggsae non-gene CDSes.  DAMN!
-    #  } elsif (my @cds = $DB->fetch(-class=>'CDS',-name=>$query)) {
-    #    my %seen;
-    #    my @unique_cds = grep { !$seen{$_}++ } @cds;
-    #    if (@unique_cds > 1 && !$suppress_multiples) {
-    #      MultipleChoices('gene',\@unique_cds);
-    #      exit 0;
-    #    }
-    #    return ($query,@unique_cds[0]);
-# UNNECESSARY
+# 2011.02.11: TH: Disabling for now.
+# These should ALL be handling by queries in the Gene_name class
 #  } elsif (my @transcripts = $DB->fetch(-class=>'Transcript',-name=>$query,-fill=>1)) {
-#    @genes = map { eval { $_->Corresponding_CDS->Gene} } @transcripts;
-# DISABLED
-  } elsif (my @variations = $DB->fetch(-class=>'Variation',-name=>$query,-fill=>1)) {
-      @genes = map { eval { $_->Gene} } @variations;
-}
+#      @genes = map { eval { $_->Corresponding_CDS->Gene } } @transcripts;
+#  } elsif (my @ests = $DB->fetch(-class=>'Sequence',-name=>$query,-fill=>1)) {
+#    foreach (@ests) {
+#      if (my $gene = $_->Gene(-filled=>1)) {
+#	push @genes,$gene;
+#      } elsif (my $cds = $_->Matching_CDS(-filled=>1)) {
+#	my $gene = $cds->Gene(-filled=>1);
+#	push @genes,$gene if $gene;
+#      }
+#    }
+#
+#    #    # Temporary kludge for handling briggsae non-gene CDSes.  DAMN!
+#    #  } elsif (my @cds = $DB->fetch(-class=>'CDS',-name=>$query)) {
+#    #    my %seen;
+#    #    my @unique_cds = grep { !$seen{$_}++ } @cds;
+#    #    if (@unique_cds > 1 && !$suppress_multiples) {
+#    #      MultipleChoices('gene',\@unique_cds);
+#    #      exit 0;
+#    #    }
+#    #    return ($query,@unique_cds[0]);
+#  } elsif (my @variations = $DB->fetch(-class=>'Variation',-name=>$query,-fill=>1)) {
+#      @genes = map { eval { $_->Gene} } @variations;
+#  }
+  }
 
   # Try finding genes using general terms
   # 1. Homology_group
   # 2. Concise_description
   # 3. Gene_class
 
-  unless (@genes) {
-      my @homol = $DB->fetch(-query=>qq{find Homology_group where Title=*$query*});
-      @genes = map { eval { $_->Protein->Corresponding_CDS->Gene } } @homol;
-      push (@genes,map { $_->Genes } $DB->fetch(-query=>qq{find Gene_class where Description="*$query*"}));
-      push (@genes,$DB->fetch(-query=>qq{find Gene where Concise_description=*$query*}));
-  }
+# TH: Disabloed on 2011.02.11
+#  unless (@genes) {
+#      my @homol = $DB->fetch(-query=>qq{find Homology_group where Title=*$query*});
+#      @genes = map { eval { $_->Protein->Corresponding_CDS->Gene } } @homol;
+#      push (@genes,map { $_->Genes } $DB->fetch(-query=>qq{find Gene_class where Description="*$query*"}));
+#      push (@genes,$DB->fetch(-query=>qq{find Gene where Concise_description=*$query*}));
+#  }
 
   unless (@genes) {
       my @accession_number = $DB->fetch(Accession_number => $query);
@@ -3852,34 +3853,35 @@ sub FetchGene {
   #    @genes = map {$_->fetch} grep {!$seen{$_}++} map {$_->Gene} @transcripts;
   #  }
 
-  # These may be gene predictions which remain only as CDS objects
-  unless (@genes) {
-    #warn "CACHE: $query empty; falling through to CDS check";
-    if (my $cds = $DB->fetch(-class=>'CDS',-name=>$query)) {
-	# HACK HACK HACK
-	# FetchGene is called by the sequence page
-	# Unfortunately, there are orphan CDSs with no attached Gene objects
-	# and that are not tagged as history
-	# The code below results in an endless Redirect
-	my $url = url();
-	if ($cds->Method eq 'twinscan') {
-	    if ($url !~ /sequence/) {
-		AceRedirect('sequence' => $cds);
-	    } else {
-		return $cds;
-	    }
-	}
-
-	# This could also test for the absence of a method
-	if ($url =~ /sequence/) {
-	    AceRedirect('gene' => $cds) unless ($cds->Method eq 'history' || $cds->Method eq 'Genefinder' || $cds->Method eq '');
-	} else {
-	    # We won't redirect to the sequence display if this is a history object
-	    # In that case the Gene Page has a built in history display
-	    AceRedirect('sequence'=>$cds) unless ($cds->Method eq 'history');
-	}
-    }
-  }
+# TH: Disabled 2011.02.11
+#  # These may be gene predictions which remain only as CDS objects
+#  unless (@genes) {
+#    #warn "CACHE: $query empty; falling through to CDS check";
+#    if (my $cds = $DB->fetch(-class=>'CDS',-name=>$query)) {
+#	# HACK HACK HACK
+#	# FetchGene is called by the sequence page
+#	# Unfortunately, there are orphan CDSs with no attached Gene objects
+#	# and that are not tagged as history
+#	# The code below results in an endless Redirect
+#	my $url = url();
+#	if ($cds->Method eq 'twinscan') {
+#	    if ($url !~ /sequence/) {
+#		AceRedirect('sequence' => $cds);
+#	    } else {
+#		return $cds;
+#	    }
+#	}
+#
+#	# This could also test for the absence of a method
+#	if ($url =~ /sequence/) {
+#	    AceRedirect('gene' => $cds) unless ($cds->Method eq 'history' || $cds->Method eq 'Genefinder' || $cds->Method eq '');
+#	} else {
+#	    # We won't redirect to the sequence display if this is a history object
+#	    # In that case the Gene Page has a built in history display
+#	    AceRedirect('sequence'=>$cds) unless ($cds->Method eq 'history');
+#	}
+#    }
+#    }
 
   # Analyze the Other_name_for of the Gene_name to see if the gene
   # corresponds to another named gene.
