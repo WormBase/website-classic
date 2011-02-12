@@ -14,7 +14,7 @@ $PASSWORD = '';
 
 # Location of the mysql databases
 $MYSQL_HOST = 'localhost';
-$MYSQL_USER = 'www-data';
+$MYSQL_USER = 'nobody';
 $MYSQL_PASS = '';
 
 # turn on extra debugging code
@@ -31,7 +31,7 @@ $MIRROR      = 'Development Site';
 $DEVELOPMENT = 1;       # 0 = false, 1 = true
 
 # Page caching.
-$CACHE = '/usr/local/wormbase/shared/cache/website-classic';
+$CACHE = '/usr/local/wormbase/tmp/website-classic/cache';
 
 # The following options control the location and
 # lifespan of acedb object caching.
