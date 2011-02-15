@@ -25,10 +25,12 @@ $MASTER      = 0;       # 0 = false, 1 = true
 
 # Include a brief description of the mirror site here
 # (ie Caltech WormBase Mirror)
-$MIRROR      = 'Development Site';
+#$MIRROR      = 'Development Site';
+$MIRROR      = '';
 
 # we are a development site
-$DEVELOPMENT = 1;       # 0 = false, 1 = true
+#$DEVELOPMENT = 1;       # 0 = false, 1 = true
+$DEVELOPMENT = 0;       # 0 = false, 1 = true
 
 # Page caching.
 $CACHE = '/usr/local/wormbase/tmp/website-classic/cache';
