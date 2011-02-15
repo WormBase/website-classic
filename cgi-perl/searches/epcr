@@ -12,7 +12,7 @@ use Bio::DB::GFF;
 # hard-coded
 #use constant DATABASE_ROOT   => '/usr/local/wormbase/databases/%s/epcr/c_elegans';
 use constant DATABASE_ROOT   => '/usr/local/wormbase/databases/%s/blast/c_elegans';
-use constant EPCR       => '/usr/local/wormbase/util/e-PCR';
+use constant EPCR       => '/usr/local/wormbase/services/e-PCR';
 use constant EPCR_PUB   => 'http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?cmd=Retrieve&db=PubMed&list_uids=9149949&dopt=Abstract';
 use constant BROWSER    => '/db/gb2/gbrowse?source=c_elegans;name=%s;auto=%s';
 use constant GENBANK    => 'http://www.ncbi.nlm.nih.gov/htbin-post/Entrez/query?db=n&form=1&field=Sequence+ID&term=%s';

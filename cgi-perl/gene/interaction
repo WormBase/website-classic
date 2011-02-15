@@ -183,6 +183,7 @@ sub get_all_interaction_data{
 }
 
 sub print_interaction_data_list {
+
 	my ($interaction_data_ar,$sort_index) = @_;
 	## get array of arrays
 	my @unsorted_interaction_data = @{$interaction_data_ar};
@@ -200,8 +201,8 @@ sub print_interaction_data_list {
 	
 	print start_table({-border=>1});
     print TR({},
- 			th({-align=>'center',-width => '15%',-class=>'databody'},'Interactor 1'),  
-			th({-align=>'center',-width => '15%',-class=>'databody'},'Interactor 2'), 		
+ 			th({-align=>'center',-width => '15%',-class=>'databody'},'Interactor Set 1'),  
+			th({-align=>'center',-width => '15%',-class=>'databody'},'Interactor Set 2'), 		
 			th({-align=>'center',-width => '15%',-class=>'databody'},'Effector to Effected'),	
             th({-align=>'center',-width => '15%',-class=>'databody'},'Type'),	
             th({-align=>'center',-width => '15%',-class=>'databody'},'Phenotype'),            
@@ -211,29 +212,35 @@ sub print_interaction_data_list {
 	
 	foreach my $interaction_data_ar (@sorted_interaction_data){
 		my($interaction_id,$type,$effector_id,$effector_name,$effected_id,$effected_name,$phenotype_id,$direction,$phenotype_name) = @{$interaction_data_ar};
+
+
+		####
 		
-		if(!($effector_name)){
-			$effector_name = 'gene';
-		}
-		if(!($effected_name)){
-			$effected_name = 'gene';
-		}
+		### split up effectors and effected
+		
+			my @effector_data;
+			my @effected_data;
+			
+			@effector_data = split /\&/,$effector_id;
+			@effected_data  = split /\&/,$effected_id;
+			
+			my $effector_links = list_interactor_links(\@effector_data);
+			my $effected_links = list_interactor_links(\@effected_data);
+		
+		###
+
 		my $interaction_url = "/db/gene/interaction?name=".$interaction_id;
 		my $interaction_link = a({-href=>$interaction_url},$interaction_id);
-		
-		my $effector_url = "/db/gene/gene/?name=".$effector_id;
-		my $effector_link = a({-href=>$effector_url},$effector_name);
-		
-		my $effected_url = "/db/gene/gene/?name=".$effected_id;
-		my $effected_link = a({-href=>$effected_url},$effected_name);
-		
+				
 		my $phenotype_url = "/db/misc/phenotype?name=" . $phenotype_id;
 		my $phenotype_link = a({-href=>$phenotype_url},$phenotype_name);
 		
+		###
+		
 		
 		print TR({},
-				td({-align=>'center',-width => '15%',-class=>'databody'},$effector_link),	
-				td({-align=>'center',-width => '15%',-class=>'databody'},$effected_link),			
+				td({-align=>'center',-width => '15%',-class=>'databody'},$effector_links),	
+				td({-align=>'center',-width => '15%',-class=>'databody'},$effected_links),			
 				td({-align=>'center',-width => '15%',-class=>'databody'},$directions{$direction}),
 	            td({-align=>'center',-width => '15%',-class=>'databody'},$type),
 	            td({-align=>'center',-width => '15%',-class=>'databody'},$phenotype_link),	            
@@ -243,7 +250,34 @@ sub print_interaction_data_list {
 	print end_table();
 }
 
-sub get_gene_interaction_data{
+sub list_interactor_links {
+
+	my $interactors_ar = shift;
+	my @links;
+	
+	foreach my $interactor (@$interactors_ar) {
+	
+		my ($int_id, $int_name) = split /\#/,$interactor;
+			
+			if(!($int_name)){
+				$int_name = 'gene';
+		}
+		
+		my $int_url = "/db/gene/gene/?name=" . $int_id;
+		my $int_link = a({-href=>$int_url},$int_name);
+		
+		push @links,  $int_link;
+	}
+	
+	my $link_list = join ", ", @links;
+	
+	return $link_list;
+}
+
+
+
+sub get_gene_interaction_data	{
+
 	my ($datafile,$gene_id) = @_;
 	my $gene_data_lines = `grep $gene_id $datafile`;
 	my @gene_data_lines = split /\n/,$gene_data_lines;
@@ -257,11 +291,9 @@ sub get_gene_interaction_data{
 	return @interaction_data;
 }
 
+sub print_interaction_data {
 
-
-sub print_interaction_data{
-	my ($int_id) = @_;
-	
+	my ($int_id) = @_;	
 	my $inteaction_data_hr = get_interaction_data($int_id);
 	
     print start_table({-border=>1,width=>"100%"});        
@@ -282,46 +314,113 @@ sub print_interaction_data{
 	$rnai = ${$inteaction_data_hr}{'rnai'};
 
     StartSection('Interaction Summary');    
-    SubSection("Type",$type_data);
-    SubSection("Phenotype",a({-href=>Object2URL($phenotype_data)},$phenotype_name)) if $phenotype_data;
-    SubSection("RNAi Report", a({-href=>Object2URL($rnai)},$rnai)) if $rnai;
-    SubSection("Remark", $remark) if $remark;
-	SubSection("Reference", map { a({-href=>Object2URL($_)},$_->Brief_citation) } @$reference_data) if $reference_data;
+    	SubSection("Type",$type_data);
+    	SubSection("Phenotype",a({-href=>Object2URL($phenotype_data)},$	phenotype_name)) if $phenotype_data;
+    	SubSection("RNAi Report", a({-href=>Object2URL($rnai)},$rnai)) if $rnai;
+    	SubSection("Remark", $remark) if $remark;
+		SubSection("Reference", map { a({-href=>Object2URL($_)},$_->Brief_citation) } @$reference_data) if $reference_data;
 
 
-    EndSection(); 
+     EndSection();    
      	 
     #### effector info #####
-    
+        
+    StartSection('Interactors');
+
     if (${$inteaction_data_hr}{'effector'}){
     
-		my $effector = ${$inteaction_data_hr}{'effector'};
+		my $effectors_ar = ${$inteaction_data_hr}{'effector'};
 	
-		display_interactor_data("Effector",$effector);
+		## start table here;
+		my $table;
+		$table = start_table({-border=>1});
+		
+		$table .= TR({},
+ 			th({-align=>'center',-width => '20%',-class=>'databody'},'Gene'),  
+			th({-align=>'center',-width => '20%',-class=>'databody'},'Protein'), 		
+			th({-align=>'center',-width => '60%',-class=>'databody'},'No. of other interactions')
+    	);
+
 	
+		## add rows
+		
+		foreach my $effector (@$effectors_ar) {
+		
+			$table .= display_interactor_data_row("Effector",$effector);
+		}
+		
+		## end table
+		
+		$table .= end_table();  
+		SubSection('Effector',$table);
+		
 		### effected info
 		
-		my $effected = ${$inteaction_data_hr}{'effected'};
+		my $effecteds_ar = ${$inteaction_data_hr}{'effected'};
 		
-		display_interactor_data('Effected',$effected);
+		## start table here;
+		my $table;
+		$table = start_table({-border=>1});
+		
+		$table .= TR({},
+ 			th({-align=>'center',-width => '20%',-class=>'databody'},'Gene'),  
+			th({-align=>'center',-width => '20%',-class=>'databody'},'Protein'), 		
+			th({-align=>'center',-width => '60%',-class=>'databody'},'No. of other interactions')
+    	);
+
+	
+		## add rows
+		
+		
+		foreach my $effected (@$effecteds_ar) {
+		
+			$table .= display_interactor_data_row('Effected',$effected);
+		}
+		
+		## end table
+		
+		$table .= end_table();  
+		SubSection('Effected',$table);
     }
     
 	else {
-	
-		my $nd1 = ${$inteaction_data_hr}{'nd1'};
-		display_interactor_data("Non-directional Interactor 1",$nd1);
 		
-		my $nd2 = ${$inteaction_data_hr}{'nd2'};
-		display_interactor_data("Non-directional Interactor 2",$nd2);
+		
+		my $nds_ar = ${$inteaction_data_hr}{'nd'};
+		
+		## start table here;
+		
+		my $table;
+		$table = start_table({-border=>1});
+		
+		$table .= TR({},
+ 			th({-align=>'center',-width => '20%',-class=>'databody'},'Gene'),  
+			th({-align=>'center',-width => '20%',-class=>'databody'},'Protein'), 		
+			th({-align=>'center',-width => '60%',-class=>'databody'},'No. of other interactions')
+    	);
+
 	
+		## add rows		
+
+		foreach my $nd (@$nds_ar) {
+		
+			$table .= display_interactor_data_row("Non-directional Interactor",$nd);
+		}
+		
+		## end table
+		
+		$table .= end_table();   
+		
+		SubSection('Non-directional Interactor',$table);
+
 	}
 
     EndSection();
 
-	print end_table();      
+	# print end_table();      
 }
 
-sub display_interactor_data{
+sub display_interactor_data {
 	
 	my ($interactor_type,$gene_id) = @_;
 	my $interactor_data_hr = get_interactor_data($gene_id);
@@ -349,23 +448,7 @@ sub display_interactor_data{
 	SubSection("Protein","$protein_list",hr);
 	}
 	
-	my $go_terms_hr = ${$interactor_data_hr}{'go_terms'};
-	
-	if(%{$go_terms_hr}){
-		my @term_list;
-		foreach my $go_term (sort keys %{$go_terms_hr}){
-			my $term_url = "/db/ontology/gene?name=".${$go_terms_hr}{$go_term};
-			my $term_link = a({-href=>$term_url},$go_term);
-			push @term_list,$term_link;
-		}
-
-
-	my $term_list = join "<br>", @term_list;
-	# tableize(@term_list);
-	SubSection("GO terms","$term_list",hr);
-	# SubSection("GO terms",tableize(@term_list),hr);
-	}	
-	
+	my $go_terms_hr = ${$interactor_data_hr}{'go_terms'};	
 	my $interactions_ar = ${$interactor_data_hr}{'interactions'};
 	my @interactions_list;
 	foreach my $interaction (@{$interactions_ar}){
@@ -375,25 +458,69 @@ sub display_interactor_data{
 	}
 	
 	my $interaction_count = @interactions_list;
-	if ($interactions_ar && ($interaction_count > 10)) {
-		my @truncated_interactions_list = @interactions_list[0 .. 9];
-		my $last_int_index = $interaction_count - 1;
-		my @rest_of_interactions = @interactions_list[10 .. $last_int_index];
-		
-		SubSection("Interactions","@truncated_interactions_list",hr);
-		my $rest_of_interactions = @rest_of_interactions;
-		my $interaction_list_url = "/db/gene/interaction?list=".$gene_id;
-		my $interaction_list_link = a({-href=>$interaction_list_url},'Go to full list of interactions.');
-		SubSection("Additional Interactions","There are(is) ".$rest_of_interactions." more interaction(s). ".$interaction_list_link,hr);
-	}
-	else{
-		SubSection("Interactions","@interactions_list",hr);	
-	}
+	my $interaction_list_url = "/db/gene/interaction?list=".$gene_id;
+	my $interaction_list_link = a({-href=>$interaction_list_url},'Go to full list of interactions.');
 	
+		
+	SubSection("Additional Interactions","There are(is) ". $interaction_count ." more interaction(s) in which this gene is involved. ". $interaction_list_link,hr);
 	
 
     EndSection();
 }
+
+sub display_interactor_data_row {
+	
+	my ($interactor_type,$gene_id) = @_;
+	my $interactor_data_hr = get_interactor_data($gene_id);
+	my $gene_name = ${$interactor_data_hr}{'gene_name'};
+	my $protein_list;
+	my $row;
+
+
+	if($gene_name){
+
+	}else{
+
+		$gene_name = $gene_id;
+	}
+
+	my $gene_url = "/db/gene/gene?name=".$gene_id;
+	my $gene_link = a({-href=>$gene_url},$gene_name);
+
+	my $proteins_ar = ${$interactor_data_hr}{'proteins'};
+	if(@{$proteins_ar}){
+		my @protein_list;
+		foreach my $protein (@{$proteins_ar}){
+		my $protein_url = "/db/seq/protein?class=Protein;name=".$protein;
+		my $protein_link = a({-href=>$protein_url},$protein);
+		push @protein_list,$protein_link;
+		}
+	$protein_list = join " \| ",@protein_list;
+
+	}
+	
+	my $go_terms_hr = ${$interactor_data_hr}{'go_terms'};	
+	my $interactions_ar = ${$interactor_data_hr}{'interactions'};
+	my @interactions_list;
+	
+	my $interaction_count = @$interactions_ar;
+	my $interaction_list_url = "/db/gene/interaction?list=".$gene_id;
+	my $interaction_list_link = a({-href=>$interaction_list_url},$interaction_count);
+
+
+
+	$row = TR({},
+ 			td({-align=>'center',-width => '33%',-class=>'databody'},$gene_link),  
+			td({-align=>'center',-width => '33%',-class=>'databody'},$protein_list), 		
+			td({-align=>'center',-width => '33%',-class=>'databody'},$interaction_list_link)
+    );
+
+	return $row;
+	
+
+	
+}
+
 
 ##### cnp from tree_lister!!!! #######
 sub build_hash{
@@ -410,17 +537,66 @@ sub build_hash{
 
 ##### end cnp from tree_lister!!!! #######
 
+
 sub get_interaction_data {
+
 	my ($interaction) = @_;
 	my %data;
     my $it = $interaction->Interaction_type;
 
 	$data{'type'} = $it;
-	$data{'rnai'} = $it->Interaction_RNAi->right; ## $it_data->{'Interaction_RNAi'}
+	eval{$data{'rnai'} = $it->Interaction_RNAi->right;}; ## $it_data->{'Interaction_RNAi'}
 	
-	my $phenotype = $it->Interaction_phenotype->right;
+	my $phenotype;
+	
+	eval{$phenotype = $it->Interaction_phenotype->right;};
+	
 	$data{'phenotype'} = $phenotype;
-	$data{'phenotype_name'} = $phenotype->Primary_name;
+	eval{$data{'phenotype_name'} = $phenotype->Primary_name;};
+	$data{'remark'} = $interaction->Remark;
+	
+	my @non_directional_interactors;
+	my @effectors;
+	my @effecteds;
+	
+	eval {
+		@non_directional_interactors = $it->Non_directional->col;
+	};
+	
+	if ( @non_directional_interactors ) {
+	
+		$data{'nd'} =  \@non_directional_interactors; 
+	}
+	
+	else {
+		
+		@effectors = $it->Effector->col;
+		@effecteds = $it->Effected->col;
+		
+		$data{'effector'} = \@effectors;
+		$data{'effected'} = \@effecteds;
+	}
+	
+	my @papers = $interaction->Paper;
+	$data{'reference'} = \@papers;
+    return \%data;  ## returns text
+}
+
+
+sub get_interaction_data_old {
+	my ($interaction) = @_;
+	my %data;
+    my $it = $interaction->Interaction_type;
+
+	$data{'type'} = $it;
+	eval{$data{'rnai'} = $it->Interaction_RNAi->right;}; ## $it_data->{'Interaction_RNAi'}
+	
+	my $phenotype;
+	eval{$phenotype = $it->Interaction_phenotype->right;};
+	$data{'phenotype'} = $phenotype;
+	eval{$data{'phenotype_name'} = $phenotype->Primary_name;};
+	
+	
 	$data{'remark'} = $interaction->Remark;
 	
 	my @non_directional_interactors;
@@ -446,6 +622,7 @@ sub get_interaction_data {
 }
 
 sub get_interactor_data {
+
 	my ($gene_obj) = @_;
 	my %data;
 	my $gene_name = $gene_obj->CGC_name;
