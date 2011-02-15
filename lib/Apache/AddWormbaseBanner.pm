@@ -83,6 +83,11 @@ sub handler {
    $cache++;
   }
 
+  # My pregenerated pages.
+  if ($r->uri =~ /cache/) {
+      $cache++;
+  }
+      
   $r->send_http_header;
   return OK if $r->header_only;
 

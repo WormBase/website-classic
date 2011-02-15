@@ -116,6 +116,16 @@ if (param('name')) {
 }
 
 
+# Do we have a pre-cached version of this page?
+my $html_root = Configuration->Gene_html_root;
+#my $url = "$html_root/$GENE.html";
+
+if (-e "$html_root/$version/gene/$GENE.html") {
+    redirect("/cache/$version/gene/$GENE.html");
+    exit;
+}
+
+
 # Norie: This should all be in config
 my $interaction_data_dir = "/usr/local/wormbase/databases/$version/interaction";
 my $datafile = $interaction_data_dir."/compiled_interaction_data.txt";
@@ -395,7 +405,7 @@ sub fetch_sequences {
     my @cds = $GENE->Corresponding_CDS;
     foreach (@cds) {
 	next if defined $seen{$_};
-	my @transcripts = grep {!$seen{$_}++} $_->Corresponding_transcript;
+	my @transcripts = grep {!$seen{$_}++} eval { $_->Corresponding_transcript };
 	push (@seqs,(@transcripts)? @transcripts : $_);
     }
     @seqs = $GENE->Corresponding_Pseudogene unless @seqs;

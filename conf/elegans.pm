@@ -1024,6 +1024,8 @@ $STRAIN_HTML_ROOT = "/strains";
 # full path to the lookup.strains file
 $STRAIN_FILE      = $STRAIN_INDEX_DIR . '/lookup.strains';
 
+$GENE_HTML_ROOT = "$WORMBASE/html/cache";
+
 # Ontology Browser configuration
 $ONTOLOGY_SOCKET_PATH = "$WORMBASE/sockets";
 
