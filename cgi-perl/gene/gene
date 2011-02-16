@@ -117,13 +117,25 @@ if (param('name')) {
 
 
 # Do we have a pre-cached version of this page?
-my $html_root = Configuration->Gene_html_root;
-#my $url = "$html_root/$GENE.html";
+my $gene_root = Configuration->Gene_html_root;
+if (-e "$gene_root/$version/gene/$GENE.html") {
+    open IN,"$gene_root/$version/gene/$GENE.html";
 
-if (-e "$html_root/$version/gene/$GENE.html") {
-    redirect("/cache/$version/gene/$GENE.html");
+    # This doesn't seem very efficient.
+    print header();
+    while (<IN>) {
+       print $_;
+    }
+    close IN;
+   
+    # Or just redirect
+    # redirect("/cache/$version/gene/$GENE.html");
+    # Or I will use apache-fu for redirection to /cache/
+    # redirect("/gene/$version/$GENE.html");
     exit;
 }
+
+
 
 
 # Norie: This should all be in config
