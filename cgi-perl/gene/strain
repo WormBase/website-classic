@@ -105,7 +105,13 @@ sub print_report {
 	# my $genes = associate_genes($strain);
 	StartSection('Contains');
 	SubSection('Gene'           => map { ObjectLink($_,Bestname($_)) } $strain->Gene);
-	SubSection('Allele'         => $strain->Variation);
+	
+	my $variation =  $strain->Variation;
+	my $variation_name = $variation->Public_name;
+	my $variation_url = "/db/gene/variation?name=$variation";
+	my $variation_link = a({-href=>$variation_url},$variation_name);
+		
+	SubSection('Allele', $variation_link);
 	SubSection('Rearrangement'  => $strain->Rearrangement);
 	SubSection('Clone'          => $strain->Clone);
 	SubSection('Transgene'      => $strain->Transgene);
@@ -175,9 +181,19 @@ sub print_report {
 	SubSection('' => $location);
     }
     
-    if ($strain->Made_by) {
-	StartSection('Made by');
-	SubSection('' => $strain->Made_by);
+    my $maker;
+    
+    eval {$maker = $strain->Made_by;};
+    
+    if ($maker) {
+    
+		StartSection('Made by');
+	
+		my $maker_name = $maker->Standard_name;
+		my $maker_url = "/db/misc/person?name=$maker";
+		my $maker_link = a({-href => $maker_url}, $maker_name);
+		
+		SubSection('', $maker_link); ## $maker_name
     }
     
     if ($strain->Remark) {
