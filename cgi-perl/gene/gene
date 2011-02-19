@@ -121,6 +121,8 @@ my $gene_root = Configuration->Gene_html_root;
 if (-e "$gene_root/$version/gene/$GENE.html") {
     open IN,"$gene_root/$version/gene/$GENE.html";
 
+    warn  "Serving a page from the precache ($GENE). Yay";
+
     # This doesn't seem very efficient.
     print header();
     while (<IN>) {
