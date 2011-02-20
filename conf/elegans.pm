@@ -286,7 +286,7 @@ $MY_FOOTER =
 	       # Provide an absolute URL for now so that mirrors need
 	       # not support WormMart directly.
 	       wormmart       => { name  => '<font color="#FFFFFF">WormMart</font>',
-				   url   => "http://caprica.caltech.edu:9002",
+				   url   => "http://caprica.caltech.edu:9002/biomart/martview",
 				 },
 
 #	       genome_dumper => { name   => '<font color="#FFFFFF">Batch Sequences</font>',
