@@ -118,7 +118,7 @@ if (param('name')) {
 
 # Do we have a pre-cached version of this page?
 my $gene_root = Configuration->Gene_html_root;
-if (-e "$gene_root/$version/gene/$GENE.html") {
+if (!param('details') && -e "$gene_root/$version/gene/$GENE.html") {
     open IN,"$gene_root/$version/gene/$GENE.html";
 
     warn  "Serving a page from the precache ($GENE). Yay";
@@ -3495,8 +3495,11 @@ sub print_transcript_details {
 #  }
   
   my $dna = $sequence->asDNA if $sequence;
-
-  $dna    =~ s/^>.+//;  # strip off fasta cruft
+#  my @lines = split("\n",$dna);
+#  pop @lines;
+#  $dna
+  
+  $dna  =~ s/>.+//;  # strip off fasta cruft
   $dna  =~ s/\n//g;
   my @exons = $sequence->Source_exons if $sequence;
   return unless @exons;
@@ -3520,7 +3523,7 @@ sub print_transcript_details {
   my $trans = fetch_gff_gene($transcript) or return;
   $trans->ref($trans);  # local coordinates
   #  my @segments     = eval { $trans->sub_SeqFeature };
-  
+
   my @segments;
   if ($transcript =~ /^(CBG|cb)/ || eval {$transcript->Species =~ /briggsae/i}) {
       @segments = $trans->features(qw/coding_exon:hybrid/);
@@ -3532,7 +3535,7 @@ sub print_transcript_details {
 				 three_prime_UTR:Coding_transcript/);
   }
   my $dna = $trans->dna;
-
+  
   return unless $dna;  # kludge to handle transcripts.
   @markup = ();
   $counter = 0;
