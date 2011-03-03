@@ -364,23 +364,24 @@ sub format_objects  {
 		. (($joined_evidence) ? "; $joined_evidence" : '');
 	    push @rows,[ObjectLink($_,$href),$_];
 	} 
-#	elsif ($tag eq 'Variation') {
-#		my $is_not = is_not($_,$phenotype);
-#		push @rows,[ObjectLink($_,$_).(($is_not) ? " (phenotype not observed in this experiment)" : ''),$_];
-#	} 
+	elsif ($tag eq 'Variation') {
+		my $variation_url = 'db/gene/variation?name=' . $_;
+		my $variation_name = $_->Public_name;
+		my $variation_link = a({-href=>$variation_url}, $variation_name);
+		push @rows, [$variation_link];
+	} 
+	elsif ($tag eq 'Not_in_Variation') {
+		my $variation_url = 'db/gene/variation?name=' . $_;
+		my $variation_name = $_->Public_name;
+		my $variation_link = a({-href=>$variation_url}, $variation_name);
+		push @rows, [$variation_link];
+	}
 	 else {
 	    push @rows,[ObjectLink($_),$_];
 	}
     }
-
-#    if ($tag eq 'RNAi') {
-#	my @sorted_not = map { $_->[0] } sort { $a->[1] cmp $b->[1] } @not_observed;
-#	my @sorted = map { $_->[0] } sort { $a->[1] cmp $b->[1] } @observed;
-#	return (\@sorted_not,\@sorted);
-#    } else {
 	my @sorted = map { $_->[0] } sort { $a->[1] cmp $b->[1] } @rows;
 	return @sorted;
-#    }
 }
 
 

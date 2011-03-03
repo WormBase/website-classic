@@ -82,7 +82,7 @@ sub print_report {
       
       # Check if this paper id points any valid addresses
       my $sth = $dbh->prepare(qq[SELECT count(*) FROM wb_by_paper WHERE paper_id = ? 
-                             AND lo	ngitude IS NOT NULL AND latitude IS NOT NULL]);
+                             AND longitude IS NOT NULL AND latitude IS NOT NULL]);
       $sth->bind_param(1, $paper);	
       $sth->execute;	  
       my ($valid_count) =	$sth->fetchrow_array;

@@ -38,7 +38,7 @@ if (!$query && !param('noQueryString')) {
     my $strain = $DB->fetch(Strain => $query);
     PrintTop($strain,'Strain',$strain ? "Strain Report for $strain" 
 	     : $strains ? "Multiple strains found for $query" : '');
-    print_report($strain);
+    print_report($strain) if $strain;
 
 # Do we have a query submitted by the search? Call the script again. Weird.
 # prints query params on the URL line (use with JavaScript-based highlighling of terms in other pages)
@@ -94,20 +94,24 @@ sub print_report {
     my $strain = shift;
     StartDataTable;
     StartSection('Strain');
-    SubSection('' => $strain->name);
+    my $strain_name = $strain->name if $strain;
+    SubSection('' => $strain_name);
     
-    if ($strain->Genotype) {
+    my $strain_genotype = $strain->Genotype if $strain;
+    if ($strain_genotype) {
 	StartSection('Genotype');
-	SubSection('' => $strain->Genotype);
+	SubSection('' => $strain_genotype);
     }
     
-    if ($strain->Contains) {
+    my $strain_contains = $strain->Contains if $strain;
+    if ($strain_contains) {
 	# my $genes = associate_genes($strain);
 	StartSection('Contains');
-	SubSection('Gene'           => map { ObjectLink($_,Bestname($_)) } $strain->Gene);
+	my @strain_genes = $strain->Gene;
+	SubSection('Gene'           => map { ObjectLink($_,Bestname($_)) } @strain_genes);
 	
 	my $variation =  $strain->Variation;
-	my $variation_name = $variation->Public_name;
+	my $variation_name = $variation->Public_name if $variation;
 	my $variation_url = "/db/gene/variation?name=$variation";
 	my $variation_link = a({-href=>$variation_url},$variation_name);
 		
@@ -117,18 +121,19 @@ sub print_report {
 	SubSection('Transgene'      => $strain->Transgene);
     }
     
-    if ($strain->Properties) {
+    my $strain_properties = $strain->Properties if $strain;
+    if ($strain_properties) {
 	StartSection('Properties');
-	SubSection('Species'          => eval { $strain->Species->name } );
-	SubSection('Males'            => $strain->Males);
-	SubSection('Reference strain' => $strain->Reference_strain);
-	SubSection('Outcrossed'       => $strain->Outcrossed);
-	SubSection('Mutagen'          => $strain->Mutagen);
+	SubSection('Species'          => eval {$strain->Species->name } );
+	SubSection('Males'            => eval {$strain->Males} );
+	SubSection('Reference strain' => eval {$strain->Reference_strain} );
+	SubSection('Outcrossed'       => eval {$strain->Outcrossed});
+	SubSection('Mutagen'          => eval {$strain->Mutagen} );
 	SubSection('Received at CGC'     =>  map {
 	    my $date   = $strain->CGC_received;
 	    $date =~ s/ 00:00:00$//;
 	    "$date"
-	    } $strain->CGC_received);
+	    }  eval {$strain->CGC_received} );
 
 	#phenotype evidence
 	my ($text);

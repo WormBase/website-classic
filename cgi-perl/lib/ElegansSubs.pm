@@ -1152,7 +1152,8 @@ END
 	  $url = Configuration->Wormmart_url;
 #	  $url ||= 'http://www.wormbase.org/Multi/martview';
 #	  $url ||= 'http://biomart.wormbase.org/biomart/martview';
-	  $url = 'http://biomart.wormbase.org/biomart/martview';
+#	  $url = 'http://biomart.wormbase.org/biomart/martview';
+	  $url ||= 'http://caprica.caltech.edu:9002/biomart/martview';
       }
 
       if ($active) {
