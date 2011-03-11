@@ -117,11 +117,13 @@ if (param('name')) {
 
 
 # Do we have a pre-cached version of this page?
-my $gene_root = sprintf(Configuration->Static_cache_root,$version).
+my $gene_root = sprintf(Configuration->Static_cache_root,$version);
+
 if (!param('details') && -e "$gene_root/gene/$GENE.html") {
     open IN,"$gene_root/gene/$GENE.html";
 
-    warn  "Serving a page from the precache ($GENE). Yay";
+    # warn  "Serving a page from the precache ($GENE). Yay";
+    # print "Serving a page from $gene_root/gene/$GENE.html";
 
     # This doesn't seem very efficient.
     print header();
