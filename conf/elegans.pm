@@ -1024,7 +1024,7 @@ $STRAIN_HTML_ROOT = "/strains";
 # full path to the lookup.strains file
 $STRAIN_FILE      = $STRAIN_INDEX_DIR . '/lookup.strains';
 
-$STATIC_CACHE_ROOT = "$APPLICATION_root/%s/cache";
+$STATIC_CACHE_ROOT = "$APPLICATION_ROOT/databases/%s/cache";
 
 # Ontology Browser configuration
 $ONTOLOGY_SOCKET_PATH = "$WORMBASE/sockets";
