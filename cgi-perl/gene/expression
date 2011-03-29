@@ -137,7 +137,7 @@ elsif (@$EP) {
   print_movies($ep);
   print_pictures($ep);
 
-  print_sanctioned_flickr_images($ep);
+#  print_sanctioned_flickr_images($ep);
   print_biblio($ep);
 }
 elsif (param('name')) {
@@ -899,7 +899,8 @@ sub print_sanctioned_flickr_images {
     
     # 1. Display sanctioned images from the WormBase user
     my $user     = $flickr->find_user({username => 'wormbase'});
-    my $user_id  = $user->id;
+    my $user_id;
+    $user_id = eval{$user->id;};
     my $photos;
 
     if ($user_id) {
@@ -933,7 +934,7 @@ sub print_sanctioned_flickr_images {
 					   tags    => [$ep],
 				       });
     
-    if (@$photos == 0) {
+    if ($photos == 0) { 
 	foreach (@$photos) {
 	    push @related,display_photo($_);
 	}
