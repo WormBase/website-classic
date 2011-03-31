@@ -376,7 +376,7 @@ sub error { print h3({-class=>'error'},p(shift)); }
 sub fetch_alleles {
   my $gene = shift;
   my $ref = $gene->Reference_Allele;
-  my $alleles = join(', ',map { ($_ eq $ref) ? b(ObjectLink($_)) : ObjectLink($_) } $gene->Allele);
+  my $alleles = join(', ',map { ($_ eq $ref) ? b(ObjectLink($_,$_->Public_name)) : ObjectLink($_,$_->Public_name) } $gene->Allele);
   return b("Alleles: ") . $alleles if $alleles;
   return undef;
 }
