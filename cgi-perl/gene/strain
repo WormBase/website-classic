@@ -137,7 +137,7 @@ sub print_report {
 
 	#phenotype evidence
 	my ($text);
-	my @phenotypes = $strain->Phenotype;
+	my @phenotypes     = $strain->Phenotype;
 	my @phenotype_nots = $strain->Phenotype_not_observed;
 	
   	foreach my $node (@phenotypes) {
