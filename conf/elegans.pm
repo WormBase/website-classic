@@ -419,7 +419,7 @@ $MY_FOOTER =
 			     label => 'Lab Listing'},
 
 	     life_stage => { url   => "$ROOT/misc/life_stage",
-			     label => 'Life Stage'},
+			     label => 'Life StaSge'},
 
 	     locus      => { url   => "$ROOT/gene/locus",
 			     label => 'Locus Summary'},

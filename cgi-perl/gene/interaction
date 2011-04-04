@@ -570,8 +570,8 @@ sub get_interaction_data {
 	
 	else {
 		
-		@effectors = $it->Effector->col;
-		@effecteds = $it->Effected->col;
+		@effectors = $it->Effector->col if $it->Effector;
+		@effecteds = $it->Effected->col if $it->Effected;
 		
 		$data{'effector'} = \@effectors;
 		$data{'effected'} = \@effecteds;

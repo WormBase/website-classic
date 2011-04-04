@@ -84,6 +84,33 @@ $script    = url({-relative=>1});
 # fetch database handle
 $DB = OpenDatabase() || AceError("Couldn't open database.");
 
+
+my $version = $DB->version;
+# Do we have a pre-cached version of this page?
+my $cache_root = sprintf(Configuration->Static_cache_root,$version);
+
+if (!param('details') && -e "$cache_root/protein/$name.html") {
+    open IN,"$cache_root/protein/$name.html";
+
+    # warn  "Serving a page from the precache ($GENE). Yay";
+    # print "Serving a page from $gene_root/gene/$GENE.html";
+
+    # This doesn't seem very efficient.
+    print header();
+    while (<IN>) {
+       print $_;
+    }
+    close IN;
+   
+    # Or just redirect
+    # redirect("/cache/$version/gene/$GENE.html");
+    # Or I will use apache-fu for redirection to /cache/
+    # redirect("/gene/$version/$GENE.html");
+    exit;
+}
+
+
+
 # StartCache();
 END { EndCache(); }
 

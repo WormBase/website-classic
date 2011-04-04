@@ -45,6 +45,9 @@ my @forms = (
 
              ['section', 'Nomenclature'],
              ['New Gene Class Name Proposal'       , ['http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/gene_name.cgi']],
+
+             ['section', 'Strain Data'],
+             ['Wild Isolate Strain Data'       , ['http://tazendra.caltech.edu/~azurebrd/cgi-bin/forms/wild_isolate.cgi']],
             );
 
 print h2('WormBase Online Data Submission forms');
