@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# This script parses an SMF XML dump and places it injects it into the DOM
+# This script parses an SMF XML dump and injects it into the DOM
 # Call it as such
 # http://www.wormbase.org/db/misc/feed2recent?
 # url parameters:
@@ -23,21 +23,24 @@ $ua->agent("WormBaseFeedParser/0.1");
 
 my $feed = url_param('src');
 
-my $request = HTTP::Request->new('GET',$feed);
-my $response = $ua->request($request);
-
+my $response = do_request($feed);
+my @lines;
 if ($response->is_success) {
-    
     # Parse out the content and store the defaults in the object
     my $content = $response->content;
-    my @lines;
+    
+#    # Sometimes the query suceeds but no content is returned. Try again.
+#    unless ($content) {
+#	
+#	$response = do_request($feed);
+#	$content = $response->content if $response->is_success;
+#    }
 
     push @lines,'<div id="rss-box">';
 #    push @lines,'<ul>';
     
 #    	push @lines,$content;
     # Parsing a WordPress feed - 5 items only
-
     if ($feed =~ /blog/)  {
 	my $parsed = XMLin($content,forcearray => [qw/item/],keyattr=>[]);
 	my $count;
@@ -173,7 +176,7 @@ if ($response->is_success) {
 #}
 #
 #    push @lines,'</ul></div>';
-	
+
 	print header("Content-type: application/x-javascript");
 	foreach (@lines) {
 	    print "document.write('" . $_ . "');\n";
@@ -197,7 +200,15 @@ if ($response->is_success) {
 
 sub format_title {
     my ($post_link,$title) = @_;
-    return '<div class="entry">' .
-	h3(a({href=>$post_link},"&raquo; $title"));
+    return '<div class="entry"><h3><a href="' . $post_link . '">&raquo; ' . $title . '</a></h3>';
 }
 
+
+
+
+sub do_request {
+    my $feed = shift;
+    my $request  = HTTP::Request->new('GET',$feed);
+    my $response = $ua->request($request);
+    return $response;
+}
