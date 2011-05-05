@@ -185,7 +185,7 @@ sub display_instructions {
 	
 	print 
 		h1("Neuron Search"),
-	 	h2("Step 1: Search for Neurons for Display (Or Click below to View all 302 Neurons)"),
+	 	h2("Step 1: Search for Neurons for Display (Or Click below to View all 302 Hermaphrodite Neurons)"),
   		submit(-name=>'neuron302', -label=>"View All Neurons (Warning! Big File)"), " or\n",
 		submit(-name=>'text302', -label=>"View All Neurons (Text file)");
 }
