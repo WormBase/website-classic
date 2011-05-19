@@ -527,7 +527,7 @@ sub print_sequence_position {
 	    my $factory = $_->factory;
 	    my ($r,$s,$e) = ($_->abs_ref,$_->abs_start,$_->abs_end);
 #      a({-href=>$SPECIES =~ /briggsae/ ? "/db/seq/gbrowse?source=briggsae;name=$r:$s..$e" : HunterUrl($r,$s,$e)},"$r:$s..$e bp");
-	    a({-href=>"/db/gb2/gbrowse?source=$SPECIES;name=$r:$s..$e"},"$r:$s..$e bp [View Genome Browser]");
+	    a({-href=>"/db/gb2/gbrowse/$SPECIES?name=$r:$s..$e"},"$r:$s..$e bp [View Genome Browser]");
 	}
 	       } $longest);  # This is a kludge to handle sequences with no methods (ie broken)
     
