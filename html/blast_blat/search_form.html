@@ -97,7 +97,7 @@ $Id: search_form.html,v 1.3 2010-08-23 17:46:23 norie Exp $
     <select id="database" name="database">
         <option [% selected_elegans_genome %]  value="elegans_genome"  query-app="nucl:blastn prot:tblastn">C. elegans ([% wormbase_version %]) genome [BLAST]</option>
         <option [% selected_elegans_protein %] value="elegans_protein" query-app="prot:blastp nucl:blastx" >C. elegans ([% wormbase_version %]) proteins [BLAST]</option>
-        <option value="elegans_gene"                query-app="nucl:blastn prot:tblastn">C. elegans ([% wormbase_version %]) genes [BLAST]</option>
+        <option value="elegans_gene"                query-app="nucl:blastn prot:tblastn">C. elegans ([% wormbase_version %]) genomic clones [BLAST]</option>
         <option value="elegans_est"                 query-app="nucl:blastn prot:tblastn">C. elegans ([% wormbase_version %]) ESTs [BLAST]</option>
         <option value="elegans_genome"              query-app="nucl:blat">C. elegans ([% wormbase_version %]) genome [BLAT]</option>
         
