@@ -2335,7 +2335,7 @@ sub Best_BLAST_Table {
 	$species =~ s/^(\w)\w* /$1. /;
 
 	my $description = $best{$method}{hit}->Description || $best{$method}{hit}->Gene_name;
-	if ($method =~ /worm|briggsae|remanei|japonica|brenneri/) {
+	if ($method =~ /worm|briggsae|remanei|japonica|brenneri|pristionchus/) {
 	    $description ||= eval{$best{$method}{hit}->Corresponding_CDS->Brief_identification};
 	    # Kludge: display a description using the CDS
 	    if (!$description) {
@@ -2372,7 +2372,7 @@ sub Best_BLAST_Table {
 	    }
 
 	    my $link_rule = $links->{$prefix};
-	
+
 	    ### incorporate fix for H-invitational hits here
 	    # to the tune of changing the url to http://www.jbirc.jbic.or.jp/hinv/spsoup/transcript_view?hit_id=HIT000038191 if 
 	    # $hit contains  the string HIT

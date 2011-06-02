@@ -1193,6 +1193,7 @@ $SW_MAP     = "$CONF/slidableworm.conf";
 		  RP      => '/db/seq/protein?class=Protein;name=RP:%s',		  
 		  CN      => '/db/seq/protein?class=Protein;name=CN:%s',
 		  JA      => '/db/seq/protein?class=Protein;name=JA:%s',
+		  PP      => '/db/seq/protein?class=Protein;name=PP:%s',
 		  VG      => 'http://vega.sanger.ac.uk/Homo_sapiens/protview?peptide=%s&amp;db=core',
 		  SW      => 'http://www.ebi.uniprot.org/entry/%s',
 		  SPTREMBL=> 'http://www.ebi.uniprot.org/entry/%s',

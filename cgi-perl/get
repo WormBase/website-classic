@@ -44,6 +44,13 @@ if ($class eq 'Sequence' || $class eq 'Cell') {
     # This is probably not the BEST place for this
     # solution, but it does prevent redirecting ALL loci
     # to the gene page...
+
+    # TH 2011.06: caltech has created phenotype links for GSA markup where the capitalization
+    # is wrong.  This is a hack to fix. UGLY!
+} elsif (my $object = $db->fetch($class => lc($name))) {
+    my $url = Object2URL($object);
+    print redirect($url);
+
 } elsif ($class =~ /Protein/) {
   # Someone may have linked in via a standarized protein ID suchs as UNC-26
   # Have to fetch the gene first, then traverse to the protein via the CDS.
