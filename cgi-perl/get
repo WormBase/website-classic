@@ -10,24 +10,24 @@ use Ace::Browser::AceSubs;
 use ElegansSubs qw/FetchGene/;
 
 my $class = param('class');
+my $name = param('name');
 
 # Let these queries be handled directly by their respective pages.
 if ($class eq 'Sequence' || $class eq 'Cell') {
-    my $target = Object2URL(param('name'),$class);
+    my $target = Object2URL($name,$class);
     print redirect($target);
-
+    
 } elsif ($class eq 'Variation') {
-  my $db = OpenDatabase;
-  my $name = param('name');
-  my $variation;
-  if ($name =~ /^WBVar/) {
-      $variation = $db->fetch(Variation => "$name");  
-  } else {
-      my $var_name = $db->fetch(Variation_name => $name);
-      if ($var_name) {
-	  $variation = $var_name->Public_name_for || $var_name->Other_name_for;
-      }
-  }
+    my $db = OpenDatabase;
+    my $variation;
+    if ($name =~ /^WBVar/) {
+	$variation = $db->fetch(Variation => "$name");  
+    } else {
+	my $var_name = $db->fetch(Variation_name => $name);
+	if ($var_name) {
+	    $variation = $var_name->Public_name_for || $var_name->Other_name_for;
+	}
+    }
   if ($variation) {
       my $url = Object2URL($variation);
       print redirect($url);
@@ -45,12 +45,22 @@ if ($class eq 'Sequence' || $class eq 'Cell') {
     # solution, but it does prevent redirecting ALL loci
     # to the gene page...
 
-    # TH 2011.06: caltech has created phenotype links for GSA markup where the capitalization
-    # is wrong.  This is a hack to fix. UGLY!
-} elsif (my $object = $db->fetch($class => lc($name))) {
+    # TH 2011.06: caltech has linked GSA articles using Phenotype instead of Phenotype_name
+} elsif ($class eq 'Phenotype') {
+    my $db = OpenDatabase;
+    my $object = $db->fetch($class => $name);
+    unless ($object) {
+	$object = $db->fetch(Phenotype_name => $name);
+	if ($object) {
+	    my $phenotype = $object->Synonym_for;
+	    my $url = Object2URL($phenotype);
+	    print redirect($url) if $url;    
+	    next;
+	}
+    }
     my $url = Object2URL($object);
-    print redirect($url);
-
+    print redirect($url) if $url;
+    
 } elsif ($class =~ /Protein/) {
   # Someone may have linked in via a standarized protein ID suchs as UNC-26
   # Have to fetch the gene first, then traverse to the protein via the CDS.
@@ -66,24 +76,26 @@ if ($class eq 'Sequence' || $class eq 'Cell') {
   my $url = Object2URL($object);
   print redirect($url);
 } else {
-  PrintTop();
-  print
-    start_form(-name=>'question'),
-      table(
+
+    PrintTop();
+    print
+	start_form(-name=>'question'),
+	table(
 	    TR (th('Name'),td(textfield(-name=>'name',-onChange=>'document.question.submit()')),
 		th('Class'),td(textfield(-name=>'class',-size=>15,-onChange=>'document.question.submit()')),
 		td(submit({-style=>'background: white',-name=>'Change'}))),
-	   ),
-     end_form;
-  PrintBottom();
-  exit 0;
+	),
+	end_form;
+    PrintBottom();
+    exit 0;
 }
+
 
 
 
 sub get_loci {
   my $db = OpenDatabase;
-  my ($gene,$bestname) = FetchGene($db,param('name'));
+  my ($gene,$bestname) = FetchGene($db,$name);
   return $gene;
 }
 
