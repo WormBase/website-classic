@@ -9,8 +9,6 @@ use File::Temp qw(tempfile);
 use ElegansSubs;
 use Bio::DB::GFF;
 
-# hard-coded
-#use constant DATABASE_ROOT   => '/usr/local/wormbase/databases/%s/epcr/c_elegans';
 use constant DATABASE_ROOT   => '/usr/local/wormbase/databases/%s/blast/c_elegans';
 use constant EPCR       => '/usr/local/wormbase/services/e-PCR';
 use constant EPCR_PUB   => 'http://www.ncbi.nlm.nih.gov/entrez/query.fcgi?cmd=Retrieve&db=PubMed&list_uids=9149949&dopt=Abstract';
@@ -19,7 +17,7 @@ use constant GENBANK    => 'http://www.ncbi.nlm.nih.gov/htbin-post/Entrez/query?
 use vars               qw($GFFDB $ACE);
 
 $ACE   = OpenDatabase() || AceError("Couldn't open database.");
-$GFFDB = OpenDBGFF($ACE,'elegans');
+$GFFDB = OpenDBGFF($ACE,'c_elegans');
 
 my $version = $ACE->status->{database}{version};
 

@@ -6,11 +6,14 @@
 use strict;
 use lib './lib';
 use CGI 2.42 qw(:standard start_form table TR th td textfield submit end_form redirect);
+
 use Ace::Browser::AceSubs;
+use vars qw/$class $name/;
+
 use ElegansSubs qw/FetchGene/;
 
-my $class = param('class');
-my $name = param('name');
+$class = param('class');
+$name = param('name');
 
 # Let these queries be handled directly by their respective pages.
 if ($class eq 'Sequence' || $class eq 'Cell') {
