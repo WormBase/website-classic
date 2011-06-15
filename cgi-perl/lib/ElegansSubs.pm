@@ -1226,8 +1226,8 @@ sub toggle_style {
 
  -->
 </style>
-<script src="/gbrowse2/js/toggle.js" type="text/javascript"></script>
-<script src="/gbrowse2/js/x_cook.js" type="text/javascript"></script>
+<script src="/js/toggle.js" type="text/javascript"></script>
+<script src="/js/x_cook.js" type="text/javascript"></script>
 END
 }
 
