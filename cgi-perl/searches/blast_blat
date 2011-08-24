@@ -129,13 +129,13 @@ our %BLAST_DATABASES = (
 			},
 			c_angaria_genome => {
 				type => "nucl",
-				location =>"$BLAST_DIR/c_an/genomic.fa"
+				location =>"$BLAST_DIR/c_angaria/genomic.fa"
 			
 			},
 			
 			c_angaria_protein => {
 			    type     => "prot",
-			    location => "$BLAST_DIR/c_an/peptide.fa"
+			    location => "$BLAST_DIR/c_angaria/peptide.fa"
 			}
 			
 			
@@ -345,7 +345,12 @@ sub process_input {
 
         # Currently only DNA searches are supported, if expanded adjust query and db types accordingly
         $command_line =
-          qq[$BLAT_CLIENT -out=blast -t=dna -q=dna localhost $database_port $database_location $query_file $out_file >& $out_file.err];
+	   qq[$BLAT_CLIENT -out=blast -t=dna -q=dna localhost $database_port $database_location $query_file $out_file >& $out_file.err];
+	# Standalone blat would look something like this:
+#	$command_line = 
+#	    qq[blat -stepSize=5 -repMatch=2253 -minScore=0 -minIdentity=0 $SPECIES/genomic.2bit $query_file $out_file >& $out_file.err];
+
+
     }
 
     else {

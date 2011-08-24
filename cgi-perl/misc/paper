@@ -105,8 +105,8 @@ sub print_report {
 			   -format => 'long'
 			   );
   print $ref;
-  
-  if ($abs && (my $abstext = $DB->fetch(LongText=>$abs))) {
+  my $abstext = $DB->fetch(LongText=>$abs); ## && ()
+  if ($abs  && $abstext) {
       my $text = $abstext->right;
       $text = rewrap(\$text);
       

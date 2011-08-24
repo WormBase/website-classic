@@ -844,7 +844,6 @@ sub print_function {
 	## fastgene interaction  system ##
 
 	print_gene_interaction_data($datafile,$GENE);
-
 	## old system calls 
 
     # my $gene_id = $GENE->name;
@@ -1463,7 +1462,6 @@ sub print_gene_interaction_data_old {
 }
 
 sub print_gene_interaction_data {
-
 	my ($data,$gene_id) = @_;
 	my $gene_data_lines = `grep $gene_id $data`;
 	my @gene_data_lines = split /\n/,$gene_data_lines;

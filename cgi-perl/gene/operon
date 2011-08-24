@@ -227,10 +227,13 @@ sub get_all_struct_data {
 sub by_loc {
   my $segment_a = $DBGFF->segment('Gene' => $a);
   my $segment_b = $DBGFF->segment('Gene' => $b);
-  if(($segment_a->abs_start - $segment_a->abs_stop) < 0) {
-    $segment_a->abs_start <=> $segment_b->abs_start;
+  my $segment_a_abs_start = $segment_a->abs_start if $segment_a;
+  my $segment_b_abs_start = $segment_b->abs_start if $segment_b;
+  my $segment_a_abs_stop =$segment_a->abs_stop if $segment_a;
+  if(($segment_a_abs_start - $segment_a_abs_stop) < 0) {
+    $segment_a_abs_start <=> $segment_b_abs_start;
   } else {
-    $segment_b->abs_start <=> $segment_a->abs_start;
+    $segment_b_abs_start <=> $segment_a_abs_start;
   }
 }
 
