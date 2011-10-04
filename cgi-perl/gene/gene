@@ -3461,7 +3461,7 @@ sub classify_papers {
 # DNA markup for details page
 sub print_transcript_details {
   my $transcript = shift;
-  my $markup = Bio::Graphics::Browser::Markup->new;
+  my $markup = Bio::Graphics::Browser2::Markup->new;
   $markup->add_style('utr'  => 'FGCOLOR gray');
   $markup->add_style('cds'  => 'BGCOLOR cyan');
   $markup->add_style('cds0' => 'BGCOLOR yellow');

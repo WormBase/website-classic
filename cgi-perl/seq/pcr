@@ -7,7 +7,7 @@ use lib '../lib';
 use strict;
 use Ace 1.51;
 use Ace::Browser::AceSubs;
-use Bio::Graphics::Browser;
+use Bio::Graphics::Browser2;
 use ElegansSubs;
 use CGI 2.42 qw(:standard :html3 escape *table *TR *td);
 use WormBase;
