@@ -55,16 +55,16 @@ if ($transg) {
     SubSection('' => eval { $transg->Summary } );
   }
 
-    if ($transg->Driven_by) {
+#    if ($transg->Driven_by) {
 	my $driven_by = $transg->Driven_by_gene;
 	StartSection('Driven by');
 	
 	my $transgene_driven_by;
-	eval{$transgene_driven_by = $transg->Driven_by_CDS_promoter};
+	eval{$transgene_driven_by = $transg->Driven_by_construct};
 	
 	SubSection('Driven by sequence',$transgene_driven_by);
 	SubSection('Driven by gene',join(", ",map { ObjectLink($_,Bestname($_)) } $transg->Driven_by_gene));
-    }
+ #   }
     
   if ($transg->Reporter_product) {
     
@@ -89,29 +89,29 @@ if ($transg) {
   }
 
 
-  if ($transg->Isolation) {
+#  if ($transg->Isolation) {
 
     StartSection('Isolation');
     SubSection('Author'                   => $transg->Author);
     SubSection('Clone'                    => $transg->Clone);
     SubSection('Fragment'                 => $transg->Fragment);
-    SubSection('Injected into CGC strain' => $transg->Injected_into_CGC_strain);
-    SubSection('Injected into'            => $transg->Injected_into);
-    my $other = $transg->Integrated_by;
-    if ($other =~ /Other_integration_method/) {
-					     SubSection('Integrated by'            => $transg->Integrated_by->right);
-					    } else {
-					      SubSection('Integrated by'            => $transg->Integrated_by);
-					    }
-  }
+#    SubSection('Injected into CGC strain' => $transg->Injected_into_CGC_strain);
+    SubSection('Injected into'            => $transg->Strain);
+#    my $other = $transg->Integrated_by;
+#    if ($other =~ /Other_integration_method/) {
+#					     SubSection('Integrated by'            => $transg->Integrated_by->right);
+#					    } else {
+#					      SubSection('Integrated by'            => $transg->Integrated_by);
+#					    }
+ # }
   
 
-  if ($transg->Location) {
-    StartSection('Location');
-    SubSection('' => map {ObjectLink($_,
-				     $_ . '. ' .eval{$_->Representative->Standard_name . " (".$_->Address(2).')'})
-			} $transg->Location);
-  }
+#  if ($transg->Location) {
+#    StartSection('Location');
+#    SubSection('' => map {ObjectLink($_,
+#				     $_ . '. ' .eval{$_->Representative->Standard_name . " (".$_->Address(2).')'})
+#			} $transg->Location);
+#  }
 
   if ($transg->Strain) {
     StartSection('Strain');

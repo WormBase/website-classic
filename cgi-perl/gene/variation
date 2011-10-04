@@ -49,7 +49,7 @@ use Ace;
 use Ace::Browser::AceSubs qw(:DEFAULT !TypeSelector AceRedirect AceMultipleChoices Configuration);
 use ElegansSubs qw(:DEFAULT GetEvidence format_references Bestname GetInterpolatedPosition AlleleDescription Bestname format_reference GetEvidenceNew DisplayPhenotypes ParseHash);
 use CGI qw/:standard *table *blockquote *ul *td *TR *div *pre *span *start_table *end_table *iframe/;
-use Bio::Graphics::Browser;
+use Bio::Graphics::Browser2;
 use Bio::Graphics::Panel;
 use Bio::Graphics::Feature;
 use lib '../lib';
@@ -81,7 +81,7 @@ END {
 
 $DB    = OpenDatabase() || AceError("Couldn't open database.");
 
-$BROWSER ||= Bio::Graphics::Browser->new(Configuration->Gff_conf) or AceError('Cannot open picture generator');
+$BROWSER ||= Bio::Graphics::Browser2->new(Configuration->Gff_conf) or AceError('Cannot open picture generator');
 #$BROWSER->read_configuration(Configuration->Gff_conf)  or AceError("Can't read gff configuration");
 #$BROWSER->source('c_elegans');
 #$BROWSER->width(PICTURE_WIDTH);
@@ -2039,7 +2039,7 @@ sub no_info {
 
 package Container;
 use Bio::Perl;
-use Bio::Graphics::Browser::Markup;
+use Bio::Graphics::Browser2::Markup;
 use Bio::DB::GFF;
 use CGI qw/:standard/;
 use lib '../lib';
@@ -2835,7 +2835,7 @@ sub do_markup {
     
     # Here, variation might be a specially formatted string (ie '----' for a deletion)
     my @markup;
-    my $markup = Bio::Graphics::Browser::Markup->new;
+    my $markup = Bio::Graphics::Browser2::Markup->new;
     $markup->add_style('utr'  => 'FGCOLOR gray');
     $markup->add_style('cds0'  => 'BGCOLOR yellow');
     $markup->add_style('cds1'  => 'BGCOLOR orange');

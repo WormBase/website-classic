@@ -33,7 +33,7 @@ use ElegansSubs qw(:DEFAULT :locus PrintLongDescription
 		   );
 
 #		   FetchObject
-use Bio::Graphics::Browser::Markup;
+use Bio::Graphics::Browser2::Markup;
 use WormBase;
 use WormBase::Table;
 use GD::Graph::pie;

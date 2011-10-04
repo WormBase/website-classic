@@ -9,7 +9,7 @@ use Ace;
 use Ace::Browser::AceSubs qw(:DEFAULT Toggle AceMultipleChoices);
 
 #use Ace::Browser::GeneSubs;
-use Bio::Graphics::Browser;
+use Bio::Graphics::Browser2;
 
 use ElegansSubs qw(:DEFAULT FetchGene Bestname MultipleChoices
   format_references

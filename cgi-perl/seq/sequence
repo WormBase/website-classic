@@ -12,7 +12,7 @@ use CGI::Carp;
 
 use Ace 1.51;
 use Ace::Browser::AceSubs qw(:DEFAULT AceMultipleChoices Toggle !TypeSelector Configuration AceRedirect);
-use Bio::Graphics::Browser::Markup;
+use Bio::Graphics::Browser2::Markup;
 use Ace::Sequence;
 use ElegansSubs  qw(:DEFAULT PrintLongDescription GetInterpolatedPosition FindPosition
                      overlapping_microarray AddCommas OverlappingPCR
