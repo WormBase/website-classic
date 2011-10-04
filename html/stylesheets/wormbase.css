@@ -1739,3 +1739,27 @@ long clunky elements.
     background-color: white;
 }
 
+
+#top-system-message {
+  background: #406F9C;
+  color:white;
+  margin:0em;
+  text-align:center;
+  font-weight:bold; 
+  position:fixed;
+  top:0;
+  left:0;
+  z-index:999999;
+  border-bottom:1px solid black;
+}
+
+#top-system-message a{
+  color:white;
+  text-decoration:underline;
+}
+
+.system-message {
+  height:20px;
+  width:100%;
+  padding:0.2em 0;
+}

@@ -37,6 +37,7 @@ if ($query =~ /(excludes|includes):(.*)/) {
 # $by_chrom populated for whole chrom searches
 # $by_gene for gene-specific searches
 ($rearg,$by_chrom,$by_gene,$gene,$bestname) = get_object() if ($query);
+
 my ($title,$class);
 if ($rearg) {
   $title = "Rearrangement Report for $rearg";
@@ -780,7 +781,7 @@ sub link_rearg_position {
 
 sub get_object {
   # Simple search for rearrangements
-  my $rearg = $DB->fetch(Rearrangement=>$query);
+  my ($rearg) = $DB->fetch(Rearrangement=>$query);
   return $rearg if ($rearg);
 
   # Maybe users entered a chromosome

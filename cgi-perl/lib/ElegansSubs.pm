@@ -1099,6 +1099,7 @@ END
 # 	    ))
 #       , br({-clear=>'all'});
 
+  my $system_message = '<div id="top-system-message" class="system-message">Try <a href="http://beta.wormbase.org">WormBase 2 (beta)</a>!</div><div class="system-message" ></div>';
   my $banner_image =  img({-src=>$image_right,-alt=>'WormBase Banner',-border=>0,-align=>'right'});
 
   if ($homepage || $searchpage) {
@@ -1203,7 +1204,7 @@ END
               : Configuration->Mirror      ?  h4(Configuration->Mirror,'. Master is at <a href="http://www.wormbase.org">www.wormbase.org</a>')
               : br({-clear => 'all'});
 
-  return join '', "\n<!-- Begin WormBase Header -->\n",$javascript,$return_table,$banner_image,$warning;
+  return join '', "\n<!-- Begin WormBase Header -->\n",$javascript,$system_message,$return_table,$banner_image,$warning;
 }
 
 

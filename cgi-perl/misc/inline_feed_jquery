@@ -59,7 +59,7 @@ if ($response->is_success) {
 	    $date =~ /\w\w\w,\s(\d\d\s\w\w\w\s\d\d\d\d)/;
 	    my $formatted_date = $1;
 	    # The title
-        push @lines, '<li class="ellipsis"><div class=\"date\" id=\"fade\">' . $formatted_date . '</div>';
+        push @lines, '<div class="result"><li class="ellipsis"><div class=\"date\" id=\"fade\">' . $formatted_date . '</div>';
 	    push @lines,format_title($post_link,"$post_subject");
         push @lines, '</li>';
 # 	    push @lines, "<div class=\"date\" id=\"fade\">$formatted_date</div>";
@@ -83,7 +83,7 @@ if ($response->is_success) {
 #         if (scalar($description) > 150){
           push @lines, '<div class="more">';
           push @lines, '<div class="ui-icon ui-icon-triangle-1-s"></div>';
-          push @lines, '</div>';
+          push @lines, '</div></div>';
 #         }
 
 # 	    push @lines,'</div>';	
@@ -92,7 +92,8 @@ if ($response->is_success) {
 	
 	# Parsing a SMF forum feed    
     } else {
-	my $parsed = XMLin($content,forcearray => [qw/recent-post/], keyattr=>[]);
+    $content =~ s/\t+/' '/g;
+    my $parsed = XMLin($content,forcearray => [qw/recent-post/], keyattr=>[]);
 
 	my $count;
 	foreach my $post (@{$parsed->{"recent-post"}}) {
@@ -122,7 +123,7 @@ if ($response->is_success) {
 #	    push @lines,
 #	    '<div class="entry">' .
 #		h3(a({href=>$post_link},"&raquo; $post_subject"));
-	    push @lines,'<li class="ellipsis">' . format_title($post_link,$post_subject) . '</li>';
+	    push @lines,'<div class="result"><li class="ellipsis">' . format_title($post_link,$post_subject) . '</li>';
 	    
 # 	    push @lines,'<span class="byline">';
         push @lines,$post->{time};
@@ -148,7 +149,7 @@ if ($response->is_success) {
 	    # The time
 # 	    push @lines,' ' . $post->{time};
 # 	    push @lines,'</span>';
-# 	    push @lines,'</div>';	
+	    push @lines,'</div>';	
 	    last if $count == 3;
 	}
     }
