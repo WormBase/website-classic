@@ -9,8 +9,8 @@ use Ace 1.51;
 use Ace::Browser::AceSubs qw(:DEFAULT AceMultipleChoices);
 use ElegansSubs qw(:DEFAULT :sequence :biblio GBrowseLink GetInterpolatedPosition);
 use CGI 2.42 qw/:standard :html3 escape *table *blockquote :imagemap/;
-use Bio::Graphics::Browser;
-use Bio::Graphics::Browser::Markup;
+use Bio::Graphics::Browser2;
+use Bio::Graphics::Browser2::Markup;
 use WormBase;
 use vars qw($DB $DBGFF $PmapGFF @PMAP_SEGMENTS @GMAP_SEGMENTS $WORMBASE);
 
