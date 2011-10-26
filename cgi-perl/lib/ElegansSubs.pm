@@ -713,15 +713,15 @@ sub GBrowseLink {
   AddCommas($s,$e);
   $start = int($start - 0.25*($stop-$start));
   $stop  = int($stop  + 0.25*($stop-$start));
-  if (Configuration->Use_gbrowse1) {
-  # Gbrowse 1
-      return a({-href=>"/db/seq/gbrowse/c_elegans?ref=$ref;start=$start;stop=$stop"},
-	       "$refname:$s..$e");
-  } else {
+#  if (Configuration->Use_gbrowse1) {
+#  # Gbrowse 1
+#      return a({-href=>"/db/seq/gbrowse/c_elegans?ref=$ref;start=$start;stop=$stop"},
+#	       "$refname:$s..$e");
+#  } else {
       # GBrowse2
       return a({-href=>"/db/gb2/gbrowse/c_elegans?ref=$ref;start=$start;stop=$stop"},
 	       "$refname:$s..$e");
-  }
+#  }
 }
 
 sub AddCommas {
