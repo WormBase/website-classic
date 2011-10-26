@@ -38,13 +38,13 @@ if ($query) {
     
 #    my $strain = $DB->fetch(Strain => $query);
     my ($strains) = get_strains($query);
-    if (@$strains > 1) {
+    if ($strains && @$strains > 1) {
 	PrintTop(undef,'Strain',"Multiple strains found for $query");
 	print ul(map { li( a({-href=>Object2URL($_)},"$_: " . $_->Genotype) ) } @$strains );
 #	foreach (@$strains) {
 #	    print li(Object2URL($_,$_->Genotype));
 #	}
-    } elsif (@$strains == 1) {
+    } elsif ($strains && @$strains == 1) {
 	PrintTop($strains->[0],'Strain',"Strain report for " . $strain->[0]);
 	print_report($strains->[0]) if @$strains == 1;
     } else {
@@ -416,6 +416,7 @@ sub get_strains {
     return (\@strains) if @strains && @strains == 1 && url_param('name');
     
     push @strains,grep {!$seen{$_}++ } $DB->fetch(-query=>qq{find Strain where Gene="$query"});
+
     return (\@strains) if @strains;  # short circuit as we often search for strains.
 
     push @strains,grep {!$seen{$_}++ } $DB->fetch(-query=>qq{find Strain where Variation=$query});
@@ -463,7 +464,7 @@ sub get_strains {
     
     # last gasp, try fetching a gene first
     @strains = grep { !$seen{$_}++ } grep {$_->class eq 'Strain'} $DB->grep($query);
-    return \@strains if @strains;
+    return \@strains if @strains > 0;
     return undef;
 }
 
