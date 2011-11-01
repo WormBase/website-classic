@@ -98,6 +98,9 @@ if ($class eq 'Sequence' || $class eq 'Cell') {
 
 sub get_loci {
   my $db = OpenDatabase;
+  if ($name =~ /bbs-1/) {
+      print redirect("http://www.wormbase.org/db/gene/gene?name=WBGene00000241;class=Gene");
+  }
   my ($gene,$bestname) = FetchGene($db,$name);
   return $gene;
 }

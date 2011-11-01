@@ -125,12 +125,9 @@ sub print_report {
 	my @strain_genes = $strain->Gene;
 	SubSection('Gene'           => map { ObjectLink($_,Bestname($_)) } @strain_genes);
 	
-	my $variation =  $strain->Variation;
-	my $variation_name = $variation->Public_name if $variation;
-	my $variation_url = "/db/gene/variation?name=$variation";
-	my $variation_link = a({-href=>$variation_url},$variation_name);
+	my @variation =  $strain->Variation;
+	SubSection('Variation',Tableize([ map { ObjectLink($_,$_->Public_name) } $strain->Variation ],0,10)) if $strain->Variation;
 		
-	SubSection('Allele', $variation_link);
 	SubSection('Rearrangement'  => $strain->Rearrangement);
 	SubSection('Clone'          => $strain->Clone);
 	SubSection('Transgene'      => $strain->Transgene);
