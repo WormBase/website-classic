@@ -910,7 +910,7 @@ sub print_function {
 		   
 		   div({style=>'width:75%;background-color:#CCCCFF;margin-right:auto;padding:10px;border:2px solid blue;margin-bottom:5px'},
 		       h3("SPELL Microarray Resource now available"),    
-		       p('Interested users may also wish to try the C. elegans <a href="http://spell.caltech.edu:3000/search/">SPELL microarray resource</a> which provides much greater sophistication in query and display of microarray data.'),
+		       p('Interested users may also wish to try the C. elegans <a href="http://ec2-50-18-0-2.us-west-1.compute.amazonaws.com:3000/">SPELL microarray resource</a> which provides much greater sophistication in query and display of microarray data.'),
 		       p('For details, please see <a href="http://wiki.wormbase.org/index.php/SPELL">documentation</a> on the <a href="http://wiki.wormbase.org/">WormBase Wiki</a>.')),
 		   $GENE->Microarray_results(-filled=>1));
 	$timing{microarray_expression} = time() - $start; $start = time();
@@ -3035,7 +3035,7 @@ sub print_genetic {
     SubSection('Transposon insertions',Tableize(\@insertions,1));    
 
   my @strains = get_strains();
-  if (@strains > 10) {
+  if (@strains > 50) {
     SubSection("Strains carrying $BESTNAME",Tableize([@strains[0..9]]),DisplayMoreLink(\@strains,'strains')
 	       . br . "Strains carrying $BESTNAME alone are listed in "
 	       . b('boldface.')
@@ -3391,13 +3391,25 @@ sub get_strains {
     my @genes = $_->Gene;
     my $cgc   = ($_->Location eq 'CGC') ? 1 : 0;
     my $linked = ObjectLink($_);
-    push @singletons,$linked if (@genes == 1 && !$_->Transgene);
-    push @cgc,$linked if $cgc;
-    push @others,$linked;
-  }
-  push @strains,map { b($_) } sort { $a cmp $b } @singletons;
-  push @strains,map { i($_) } sort { $a cmp $b } @cgc;
-  push @strains,sort { $a cmp $b } @others;
+
+    if (@genes == 1 && $cgc) {
+	push @strains,b(i($linked));
+    } elsif (@genes == 1 && !$_->Transgene) {
+	push @strains,b($linked);
+   } elsif ($cgc) {
+	push @strains,i($linked);
+    } else {
+	push @strains,$linked;
+    }
+  } 
+  
+#    push @singletons,$linked if (@genes == 1 && !$_->Transgene);
+#    push @cgc,$linked if $cgc;
+#    push @others,$linked;
+#  }
+#  push @strains,map { b($_) } sort { $a cmp $b } @singletons;
+#  push @strains,map { i($_) } sort { $a cmp $b } @cgc;
+#  push @strains,sort { $a cmp $b } @others;
   return @strains;
 }
 
