@@ -1019,7 +1019,7 @@ sub print_sequence {
   my $unspliced = lc $seq_obj->dna;
   my $length = length($unspliced);
   if (eval { $s->Coding_pseudogene } || eval {$s->Coding} || eval {$s->Corresponding_CDS}) {
-    my $markup = Bio::Graphics::Browser::Markup->new;
+    my $markup = Bio::Graphics::Browser2::Markup->new;
     $markup->add_style('utr'  => 'FGCOLOR gray');
     $markup->add_style('cds'  => 'BGCOLOR cyan');
     $markup->add_style('cds0' => 'BGCOLOR yellow');
