@@ -50,6 +50,8 @@ END {
 # Pull out some parameters
 $query      = param('name');
 $query_type = param('query_type');
+my $host = param('host');
+
 my $is_test = param('is_test');
 
 $ontology = id2ontology($query);
@@ -64,16 +66,25 @@ my @path_array = ($query);
 		 po => 'Phenotype',
 		 ao => 'Anatomy_term');
 		
+# my %ontology2page = (
+# 				 go => 'ontology/gene',
+# 				 po => 'misc/phenotype',
+# 				 ao => 'ontology/anatomy');	
+# 				 
+
 my %ontology2page = (
-				 go => 'ontology/gene',
-				 po => 'misc/phenotype',
-				 ao => 'ontology/anatomy');	
+				 go => 'species/all/go_term',
+				 po => 'species/all/phenotype',
+				 ao => 'species/all/anatomy_term');	
+				 
+				 
+				 
 
 if ($is_test){
-	$script_url = '/db/ontology/tree_lister';
-}
+	$script_url = '/db/ontology/tree_lister'; 
+	}
 else{
-	$script_url = '/db/'.$ontology2page{$ontology};
+	$script_url = 'http://' . $host . '/'.$ontology2page{$ontology}; 
 }
 
 		
@@ -261,7 +272,7 @@ sub ontology_link{
 	my $ontology = id2ontology($id);
 	my $association_count = ${$id2association_counts_hr}{$id};
 	my $total_association_count = ${$id2total_association_counts_hr}{$id};
-	my $url = "$script_url\?name\=$id";
+	my $url = "$script_url\/$id";
 	if ($test){
 		$url = $url."&is_test=1";
 	}

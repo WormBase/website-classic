@@ -1271,8 +1271,9 @@ sub extract_hit_info {
     my $gbrowse_root = qq[/db/gb2/gbrowse/$gbrowse_root_id]
       if $gbrowse_root_id;
     my $expand_root =
-      qq[http://www.wormbase.org/db/gb2/gbrowse_img/$gbrowse_root_id]
+      qq[/db/gb2/gbrowse_img/$gbrowse_root_id]
       if $gbrowse_root_id;
+      #qq[http://www.wormbase.org/db/gb2/gbrowse_img/$gbrowse_root_id]
 
     # Scenario 1 - decription contains chromosome location; C. elegans
     if ($hit_description =~ /\/map=(CHROMOSOME_|)([^\/]+)\/(\d+),(\d+)/) {
@@ -1308,7 +1309,7 @@ sub extract_hit_info {
         $hit_expand_link = $expand_root . qq[?]
           . join(
             ";",
-            'type=CG;width=450', qq[name=${hit_name}], @hsp_genome_link_parts
+            'width=450', qq[name=${hit_name}], @hsp_genome_link_parts
           )
           if $expand_root;
 
@@ -1393,7 +1394,7 @@ sub extract_hit_info {
         $hit_expand_link = $expand_root . qq[?]
           . join(
             ";",
-            'type=CG;width=450',
+            'width=450',
             qq[name=${hit_name}:${view_start}..${view_end}],
             @hsp_genome_link_parts
           )
@@ -1467,7 +1468,7 @@ sub extract_hit_info {
         $hit_expand_link = $expand_root . qq[?]
           . join(
             ";",
-            'type=CG;width=450', qq[name=${hit_name}], @hsp_genome_link_parts
+            'width=450', qq[name=${hit_name}], @hsp_genome_link_parts
           )
           if $expand_root;
 

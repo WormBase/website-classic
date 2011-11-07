@@ -77,13 +77,11 @@ if ($response->is_success) {
 #	    $description =~ s/\n/ /g;  # get rid of paragraphs
 #	    my $truncated_description = join(" ",split(/\w/,$description));
 
-	    push @lines,'<div class="news-byline text-min" style="height:auto;max-height:2.4em;">';
+	    push @lines,'<div class="news-byline text-min">';
 	    push @lines,$description;
 	    push @lines,'</div>';
 #         if (scalar($description) > 150){
-          push @lines, '<div class="more">';
-          push @lines, '<div class="ui-icon ui-icon-triangle-1-s"></div>';
-          push @lines, '</div></div>';
+          push @lines, '</div>';
 #         }
 
 # 	    push @lines,'</div>';	
