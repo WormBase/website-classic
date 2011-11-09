@@ -119,6 +119,7 @@ if (param('name')) {
 # Do we have a pre-cached version of this page?
 my $gene_root = sprintf(Configuration->Static_cache_root,$version);
 
+unless(param('development')){ 
 if (!param('details') && -e "$gene_root/gene/$GENE.html") {
     open IN,"$gene_root/gene/$GENE.html";
 
@@ -138,7 +139,7 @@ if (!param('details') && -e "$gene_root/gene/$GENE.html") {
     # redirect("/gene/$version/$GENE.html");
     exit;
 }
-
+}
 
 
 
@@ -2230,8 +2231,12 @@ my $xgene_data_not = get_xgene_data($GENE);
 my $phenotype_names_hr  = get_phenotype_names($phenotype_data,$variation_data);
 my $phenotype_names_not_hr  = get_phenotype_names($phenotype_data_not,$variation_data_not);
 
-my $rnai_details_table = print_rnai_details_table($details, $phenotype_names_hr);
-my $rnai_not_details_table = print_rnai_details_table($details_not,$phenotype_names_not_hr);
+my $results=_build__rnai_results();
+my $rnai_details_table = print_rnai_details_table_new($results->{phenotypes_observed});
+my $rnai_not_details_table = print_rnai_details_table_new($results->{phenotypes_not_observed});
+
+# my $rnai_details_table = print_rnai_details_table($details, $phenotype_names_hr);
+# my $rnai_not_details_table = print_rnai_details_table($details_not,$phenotype_names_not_hr);
 
 
 my $pheno_table = print_phenotype_table($phenotype_data,
@@ -2585,6 +2590,88 @@ foreach my $xgene_data_line (@$xgene_data_ar) {
 	
 	return $table;
 } ## end print_phenotype_table
+
+##borrow code from new sites --- not using local files but getting rnai information from ace object directly
+sub _build__rnai_results {
+	 
+	my %results;
+	for my $rnai ($GENE->RNAi_result) {
+ 
+		my $ref = $rnai->Reference || '';
+	
+		my $genotype = $rnai->Genotype || eval { $rnai->Strain->Genotype } || '';
+
+		my @phenotypes = (
+		    $rnai->Phenotype,
+		    map { $_->right }
+			grep { $_ eq 'Interaction_phenotype' }
+			map  { $_->col }
+			map  { $_->Interaction_type }
+			$rnai->Interaction(-filltag => 'Interaction_type'),
+		);
+		
+		my @phenotypes_nobs = $rnai->Phenotype_not_observed;
+	
+		$results{phenotypes_observed}{$rnai} = {reference=>$ref,
+							 genotype=>$genotype,
+							phenotype=>\@phenotypes}
+		  if @phenotypes;
+
+		$results{phenotypes_not_observed}{$rnai} = {reference=>$ref,
+							 genotype=>$genotype,
+							phenotype=>\@phenotypes_nobs}
+		  if @phenotypes_nobs;
+	}
+	return \%results;
+}
+
+sub print_rnai_details_table_new {
+
+	my ($rnai_details_ar) = @_;
+	
+	my $table = start_table({-border=>1});
+	
+	$table .= TR(
+		td({-align => 'left', -width => '25%' }, i('Experiment')),
+		td({-align => 'left', -width => '25%' }, i('Phenotypes')),
+		td({-align => 'left', -width => '25%' }, i('Strain/Genotype')),
+		td({-align => 'left', -width => '25%' }, i('Cited in'))
+	);
+	
+	
+	
+	for my $rnai (sort keys %{$rnai_details_ar}) {
+	
+		my $formated_ref=$rnai_details_ar->{$rnai}->{reference};
+		$formated_ref = format_reference(-reference=>$formated_ref,-format=>'short') if($formated_ref ne '');
+
+		my @phenotype_set;
+		foreach my $phene (@{$rnai_details_ar->{$rnai}->{phenotype}}) {
+		
+			my $phene_url = "/db/misc/phenotype?class=Phenotype;name=" . $phene;
+			my $phene_link = a({-href=>$phene_url}, $phene->Primary_name);
+			push @phenotype_set,$phene_link;
+	
+		}
+		
+		my $rnai_url = "/db/seq/rnai?class=RNAi;name=" . $rnai;
+		my $rnai_link = a({-href=>$rnai_url}, $rnai);
+		
+		my $phenotype_set = join "<BR>", @phenotype_set;
+		
+		$table .= TR(
+					td({-align => 'left', -width => '25%' }, $rnai_link),
+					td({-align => 'left', -width => '25%' }, $phenotype_set),
+					td({-align => 'left', -width => '25%' }, $rnai_details_ar->{$rnai}->{genotype}),
+					td({-align => 'left', -width => '25%' }, $formated_ref)  
+				);  ### $ref
+
+		
+	}
+	
+	$table .= end_table();
+	return $table;
+}
 
 sub print_rnai_details_table {
 
