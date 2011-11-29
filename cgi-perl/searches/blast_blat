@@ -98,6 +98,14 @@ our %BLAST_DATABASES = (
 #			    type     => "nucl",
 #			    location => "$BLAST_DIR/c_remanei/genes.fa"
 #			    },
+			suum_genome => {
+			    type     => "nucl",
+			    location => "$BLAST_DIR/a_suum/genomic.fa"
+			    },
+	   		suum_protein => {
+			    type     => "prot",
+			    location => "$BLAST_DIR/a_suum/peptide.fa"
+			    },
 			malayi_genome => {
 			    type     => "nucl",
 			    location => "$BLAST_DIR/b_malayi/genomic.fa",
