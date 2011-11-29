@@ -2231,25 +2231,27 @@ my $xgene_data_not = get_xgene_data($GENE);
 my $phenotype_names_hr  = get_phenotype_names($phenotype_data,$variation_data);
 my $phenotype_names_not_hr  = get_phenotype_names($phenotype_data_not,$variation_data_not);
 
-my $results=_build__rnai_results();
-my $rnai_details_table = print_rnai_details_table_new($results->{phenotypes_observed});
-my $rnai_not_details_table = print_rnai_details_table_new($results->{phenotypes_not_observed});
+my $rnai_results=_build__rnai_results();
+my $rnai_details_table = print_rnai_details_table_new($rnai_results->{phenotypes_observed});
+my $rnai_not_details_table = print_rnai_details_table_new($rnai_results->{phenotypes_not_observed});
 
 # my $rnai_details_table = print_rnai_details_table($details, $phenotype_names_hr);
 # my $rnai_not_details_table = print_rnai_details_table($details_not,$phenotype_names_not_hr);
-
-
-my $pheno_table = print_phenotype_table($phenotype_data,
+my $pheno_results = _build__phenotypes($rnai_results);
+my $pheno_table = print_phenotype_table_new($pheno_results->{observed});
+my $pheno_table_not = print_phenotype_table_new($pheno_results->{not_observed});
+=pod
+  my $pheno_table = print_phenotype_table($phenotype_data,
 										$variation_data,
 										$phenotype_names_hr,
 										$xgene_data,
 										$variation_name_hr);
-my $pheno_table_not = print_phenotype_table($phenotype_data_not,
+  my $pheno_table_not = print_phenotype_table($phenotype_data_not,
 											$variation_data_not,
 											$phenotype_names_not_hr,
 											$xgene_data_not,
 											$variation_name_hr_not);
-
+=cut
 my $phene_html = "&nbsp;<br>";
 $phene_html .= i("The following phenotypes have been observed in $BESTNAME");
 $phene_html .= "<br>&nbsp;<br>$pheno_table";
@@ -2590,6 +2592,106 @@ foreach my $xgene_data_line (@$xgene_data_ar) {
 	
 	return $table;
 } ## end print_phenotype_table
+
+sub print_phenotype_table_new {
+
+## get data
+my ($pheno_details_ar) = @_;
+my $table = start_table({-border => 1}); ## $cgi->
+			$table .= TR(
+					td({-align => 'left', -width => '50%' }, i('Phenotype')),
+					td({-align => 'left', -width => '50%' }, i('Supporting Evidence'))
+				);
+
+
+
+## consolidate phenotype list and get phenotype names
+    while ( my ($key,$value) = each %{$pheno_details_ar}) {
+
+	my $phenotype_link = ObjectLink($value->{object},$value->{object}->Primary_name);# a({-href=>"/db/misc/phenotype?class=Phenotype;name=" . $key}, $key );
+	my $supporting_evidence = "";
+	 
+	if($value->{allele}) {
+	    my @allele_links;
+	    while( my ($k,$v) =each %{$value->{allele}}){push @allele_links, $v;};
+	    $supporting_evidence .= "Alleles:". join(",",@allele_links) . "<br>"; 
+
+	}elsif($value->{transgene}){
+	    my @xgene_links;
+              while( my ($k,$v) =each %{$value->{transgene}}) {push @xgene_links, $v;};
+	     $supporting_evidence .= "Transgene(s):". join(",",@xgene_links) . "<br>";
+	}elsif($value->{rnai_count}){
+	    $supporting_evidence .=  "Supported by " . $value->{rnai_count} . " RNAi experiment(s)";
+	
+	}
+	 
+	$table .= TR(
+				td({-align => 'left', -width => '50%' }, $phenotype_link),
+				td({-align => 'left', -width => '50%' }, $supporting_evidence)
+				);
+
+      }
+	 
+$table .= end_table();
+
+return $table;
+} ## end print_phenotype_table_new
+
+##borrow code from new sites --- not using local files but generating phenotype information from ace object directly
+sub _build__phenotypes {
+    my ($rnai_results)=@_;
+    my %phenotypes;
+ 
+    # gather xgene info
+    for my $xgene ($GENE->Drives_Transgene, $GENE->Transgene_product) {
+        my $packed_xgene = ObjectLink($xgene); #a({-href=>"/db/gene/transgene?class=Transgene;name=" . $xgene},$xgene);
+
+        foreach ($xgene->Phenotype) {
+             $phenotypes{observed}{$_}{object}          //= $_;
+            $phenotypes{observed}{$_}{transgene}{$xgene} = $packed_xgene;
+        }
+
+        foreach ($xgene->Phenotype_not_observed) {
+             $phenotypes{not_observed}{$_}{object}          //= $_;
+            $phenotypes{not_observed}{$_}{transgene}{$xgene} = $packed_xgene;
+        }
+    }
+
+    # gather variation info
+    for my $allele ($GENE->Allele) {
+        my $seq_status = $allele->SeqStatus;
+
+        my $packed_allele = a({-href=>"/db/gene/variation?class=Variation;name=" . $allele,
+			    -boldface => $seq_status ? scalar($seq_status =~ /sequenced/i) : 0,}, $allele);
+
+        foreach ($allele->Phenotype) {
+             $phenotypes{observed}{$_}{object}        //= $_;
+            $phenotypes{observed}{$_}{allele}{$allele} = $packed_allele;
+        }
+
+        foreach ($allele->Phenotype_not_observed) {
+             $phenotypes{not_observed}{$_}{object}        //= $_;
+            $phenotypes{not_observed}{$_}{allele}{$allele} = $packed_allele;
+        }
+
+        # ?Variation /Rescued/ ...
+    }
+
+    # extract rnai info
+     foreach my $obs (sort keys  %$rnai_results){
+	   my $phentype = $obs;
+           $obs =~ s/phenotypes_//g;
+	   while ( my ($key,$value) = each( %{$rnai_results->{$phentype}}) ){
+		foreach (@{$value->{phenotype}} ) {
+		      $phenotypes{$obs}{$_}{object}=$_;;
+		      $phenotypes{$obs}{$_}{rnai_count}++;
+		}
+	    }
+    }
+    
+
+    return \%phenotypes;
+}
 
 ##borrow code from new sites --- not using local files but getting rnai information from ace object directly
 sub _build__rnai_results {
