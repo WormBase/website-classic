@@ -3449,7 +3449,7 @@ sub setup_cache {
  		     cache_options => { 
  				       cache_root         => $WORMBASE_CACHE,
 				       default_expires_in => '4 weeks',
-				       max_size           => $CACHE_SIZE,  # 100 meg cache
+				       max_size           => 1024 * 1024 * 100,
 				      }
 		    }
 		   );
