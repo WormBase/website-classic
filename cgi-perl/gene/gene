@@ -3180,7 +3180,7 @@ sub other_notes {
       push @notes,"This gene is contained in gene cluster $cluster.\n";
     }
     #    push @notes,GetEvidence($GENE->Remark,1) if $GENE->Remark;
-    push @notes,map { GetEvidence(-obj=>$_,-dont_link=>1) } $GENE->Remark if $GENE->Remark;
+#    push @notes,map { GetEvidence(-obj=>$_,-dont_link=>1) } $GENE->Remark if $GENE->Remark;
   }
 
   # Add a brief remark for Transposon CDS entries
