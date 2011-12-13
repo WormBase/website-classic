@@ -3179,8 +3179,8 @@ sub other_notes {
       my $cluster = join ' ',map{a({-href=>Url('gene'=>"name=$_")},$_)} @contained_in;
       push @notes,"This gene is contained in gene cluster $cluster.\n";
     }
-    #    push @notes,GetEvidence($GENE->Remark,1) if $GENE->Remark;
-#    push @notes,map { GetEvidence(-obj=>$_,-dont_link=>1) } $GENE->Remark if $GENE->Remark;
+#        push @notes,GetEvidence($GENE->Remark,1) if $GENE->Remark;
+    push @notes,map { GetEvidence(-obj=>$_,-dont_link=>1) } $GENE->Remark if eval { $GENE->Remark };
   }
 
   # Add a brief remark for Transposon CDS entries
@@ -3963,9 +3963,9 @@ sub check_live {
 
 #  my ($history,$is_transposon) = print_history($GENE);   # Gene or protein history?
 
-  my @remarks = $GENE->Remark;
+  my @remarks = eval { $GENE->Remark };
   if (my @history_cds = $GENE->Corresponding_CDS_history) {
-    push (@remarks,map { $_->Remark } @history_cds);
+    push (@remarks,map { eval { $_->Remark } } @history_cds);
   }
   if (@remarks) {
     print h2('Notes:');
