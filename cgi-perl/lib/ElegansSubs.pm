@@ -2824,8 +2824,9 @@ sub build_citation {
 #     fix a bug in some data records    
     if ($paper->Gazette_article) {
 	$journal ||= "Worm Breeder's Gazette";
-	my $target = CGI::escape ("[" . $paper->Name . "]");
-	$journal = a({ -href=>Configuration->Wbg . $target },$journal);
+#	my $target = CGI::escape ("[" . $paper->Name . "]");
+	my $target = $paper->Name;
+	$journal = a({ -href=>Configuration->Wbg . $target, -target => '_blank'},$journal);
     }
 
     # Volume

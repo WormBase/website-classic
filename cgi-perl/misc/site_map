@@ -281,16 +281,16 @@ $PAGES->{'The Genome And Comparative Genomics'} =
       desc  => 'The Genome Browser provides a highly configurable graphical view of the genome.',
       search_type => 'sequences'
     },
-    { title => 'C. elegans / C. briggsae aligner',
-      url   => '/db/seq/ebsyn',
-      desc => 'The Synteny aligner currently provides alignments
-      between specific regions of C. elegans and C. briggsae. These
-      regions are predetermined based on nucleotide similarity using
-      the WABA algorithm and a secondary algorithm that attempts to
-      connect regions with high degree of nucleotide similarity with
-      only small regions of non-collinearity.',
-      search_type => 'sequences'
-    },
+#    { title => 'C. elegans / C. briggsae aligner',
+#      url   => '/db/seq/ebsyn',
+#      desc => 'The Synteny aligner currently provides alignments
+#      between specific regions of C. elegans and C. briggsae. These
+#      regions are predetermined based on nucleotide similarity using
+#      the WABA algorithm and a secondary algorithm that attempts to
+#      connect regions with high degree of nucleotide similarity with
+#      only small regions of non-collinearity.',
+#      search_type => 'sequences'
+#    },
   ];
 
 $PAGES->{Sequences} =

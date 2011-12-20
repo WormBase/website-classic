@@ -1093,7 +1093,7 @@ $TREMBL         = 'http://www.ebi.uniprot.org/entry/%s',
 $WB_NOMENCLATURE            = 'http://wiki.wormbase.org/index.php/Nomenclature';
 $CGC_HOME       = 'http://www.cbs.umn.edu/CGC/';
 $REACTOME       = 'http://www.genomeknowledge.org/cgi-bin/search?QUERY=%s&QUERY_CLASS=DatabaseIdentifier';
-$WBG            = 'http://elegans.swmed.edu/wli/';
+$WBG            = 'http://www.wormbook.org/wli/';
 $KIM_MOUNTAINS  = 'http://www.sciencemag.org/feature/data/kim1061603/gl/gene_list.html';
 
 # The DOI resolver for WormBook chapters
