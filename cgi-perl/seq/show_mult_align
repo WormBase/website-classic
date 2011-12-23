@@ -5,8 +5,8 @@ use strict;
 use Ace;
 use Ace::Browser::AceSubs qw(:DEFAULT);
 use CGI qw(-nosticky :standard); # import standard CGI functions to be able to write an HTML page
-use Bio::Graphics::Browser::PadAlignment;
-use Bio::Graphics::Browser::Markup;
+#use Bio::Graphics::Browser::PadAlignment;
+#use Bio::Graphics::Browser::Markup;
 use ElegansSubs qw(:DEFAULT);
 use Data::Dumper;
 use DBI;
