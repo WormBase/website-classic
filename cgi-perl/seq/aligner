@@ -9,13 +9,13 @@ use Ace 1.51;
 use CGI qw(:standard *pre -no_xhtml :center);
 # use Ace::Sequence;
 use Ace::Browser::AceSubs;
-use Bio::Graphics::Browser::Util;
+use Bio::Graphics::Browser2::Util;
 use ElegansSubs qw/:DEFAULT FetchGene/;
 use Seqview;
-use Bio::Graphics::Browser::PadAlignment;
+use Bio::Graphics::Browser2::PadAlignment;
 use LWP::Simple;
 use Data::Dumper;
-use Bio::Graphics::Browser::Markup;
+use Bio::Graphics::Browser2::Markup;
 
 
 # Aligner expects Sequence objects - these should automatically be
