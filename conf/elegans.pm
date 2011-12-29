@@ -268,7 +268,7 @@ $MY_FOOTER =
 			   size     => [100,20], 
 			 },
 	       synteny => { name      => '<font color="#FFFFFF">Synteny</font>',
-			    url      => "http://www.wormbase.org/cgi-bin/gbrowse_syn/compara/",
+			    url      => "http://www.wormbase.org/db/gb2/gbrowse_syn/compara/",
 			    size     => [100,20],
 			  },
 	       blast => { name       => '<font color="#FFFFFF">Blast / Blat</font>',
