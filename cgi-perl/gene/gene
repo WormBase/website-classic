@@ -798,6 +798,12 @@ sub print_function {
     my ($all_phenes, $rnai_data) = fast_phenotype_summary() if ($GENE->Allele || $GENE->RNAi_result);
     $timing{phenotypes_via_alleles} = time() - $start; $start = time();
 
+    my $caveat = <<END;
+    <p><i>2012.01.18: We are aware of a possible inconsistency in the presentation of RNAi phenotypes; we encourage you to confirm these data.</i></p>
+END
+;
+    $rnai_data = $caveat . $rnai_data;
+
     # TESTING.  Print a div that will be the phenotypes target
 	# print div({-id=>"phenotypes_via_alleles"},"Phenotypes");
 
