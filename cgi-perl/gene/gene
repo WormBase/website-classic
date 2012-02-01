@@ -917,7 +917,7 @@ END
 		   
 		   div({style=>'width:75%;background-color:#CCCCFF;margin-right:auto;padding:10px;border:2px solid blue;margin-bottom:5px'},
 		       h3("SPELL Microarray Resource now available"),    
-		       p('Interested users may also wish to try the C. elegans <a href="http://ec2-50-18-0-2.us-west-1.compute.amazonaws.com:3000/">SPELL microarray resource</a> which provides much greater sophistication in query and display of microarray data.'),
+		       p('Interested users may also wish to try the C. elegans <a href="http://50.18.180.228:3000/">SPELL microarray resource</a> which provides much greater sophistication in query and display of microarray data.'),
 		       p('For details, please see <a href="http://wiki.wormbase.org/index.php/SPELL">documentation</a> on the <a href="http://wiki.wormbase.org/">WormBase Wiki</a>.')),
 		   $GENE->Microarray_results(-filled=>1));
 	$timing{microarray_expression} = time() - $start; $start = time();
