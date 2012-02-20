@@ -13,7 +13,7 @@ use Ace::Browser::AceSubs;
 use ElegansSubs qw(:DEFAULT Bestname);
 use CGI qw(:standard *table *TR *td *iframe);
 use WormBase;
-use Bio::Graphics::Browser::Markup;
+use Bio::Graphics::Browser2::Markup;
 use vars qw/$DB $DBGFF $WORMBASE $operon $SPECIES/;
 
 END {
