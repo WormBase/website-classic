@@ -5,15 +5,15 @@ warn "loading wormbase perl definitions...";
 #use local::lib '/usr/local/wormbase/extlib/classic';
 
 use lib
-    '/usr/local/wormbase/extlib/lib/perl5/x86_64-linux-gnu-thread-multi',
-    '/usr/local/wormbase/extlib/lib/perl5',
-    '/usr/local/wormbase/extlib',
-    '/usr/local/wormbase/extlib/lib',
-    '/usr/local/wormbase/website/classic/lib',
-    '/usr/local/wormbase/website/classic/cgi-perl/lib',
-    '/usr/local/wormbase/website/classic/lib/Bio',
-    '/usr/local/wormbase/website/classic/lib/Bio/DB',
-    '/usr/local/wormbase/website/classic/lib/Bio/DB/Aggregator';
+    '/usr/local/wormbase/website/legacy/extlib/lib/perl5/x86_64-linux-gnu-thread-multi',
+    '/usr/local/wormbase/website/legacy/extlib/lib/perl5',
+    '/usr/local/wormbase/website/legacy/extlib',
+    '/usr/local/wormbase/website/legacy/extlib/lib',
+    '/usr/local/wormbase/website/legacy/lib',
+    '/usr/local/wormbase/website/legacy/cgi-perl/lib',
+    '/usr/local/wormbase/website/legacy/lib/Bio',
+    '/usr/local/wormbase/website/legacy/lib/Bio/DB',
+    '/usr/local/wormbase/website/legacy/lib/Bio/DB/Aggregator';
        
 use Carp;
 use Ace;

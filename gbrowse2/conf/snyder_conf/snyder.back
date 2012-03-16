@@ -1,0 +1,625 @@
+# SNYDER TRACKS
+
+# combinded tracks:
+
+[Snyder_ANTIGFP_WIG_COMB:200000]
+glyph        = wiggle_density
+height       = 8
+
+[Snyder_ANTIGFP_WIG_COMB]
+feature      = WIG:1850
+               WIG:2007
+               WIG:1986
+               WIG:1953
+               WIG:2010
+               WIG:1967
+glyph        = wiggle_xyplot
+glyph select = wiggle_density wiggle_xyplot
+graph_type   = histogram
+bump density = 250
+category     = modENCODE Tracks: Snyder Group: Signal Graphs (anti GFP)
+pos_color    = blue
+neg_color    = orange
+data_source_id = 582 584 585 589 591 593
+track_id     = 1850 2007 1986 1953 2010 1967
+sort_order   = sub ($$) {shift->feature->name cmp shift->feature->name}
+stranded     = 0
+height       = 20
+connector    = solid
+fgcolor      = black
+bgcolor      = blue
+#autoscale    = local
+variance_band= 1
+min_score    = 0
+max_score    = 200
+database     = snyder
+bicolor_pivot= zero
+smoothing    = mean
+label        = sub { return sprintf("%-15s",shift->name); }
+label_position = left
+label density= 100
+smoothing_window = 16
+select       = name Embryo_PHA4 L1.Starved_PHA4 L1_PHA4 L4.YA_AMA1 L4.YA_DAF16 L3_MAB5 
+key          = Combined (anti GFP)
+group_on     =
+link         = sub { my $src = shift->source;
+                     my %subs = (1850=>582,
+                                 2007=>584,
+                                 1986=>585,
+                                 1953=>589,
+                                 2010=>591,
+                                 1967=>593);
+                     return "http://submit.modencode.org/submit/public/citation/$subs{$src}?wpName=Anonymous&wpPassword=modencode"; }
+citation = <h1>
+   Identification of Binding Regions for Transcription Factors (Snyder project, Snyder subgroup)
+ </h1>
+ <h2>General Description</h2>
+ We are identifying the DNA binding sites for 300 transcription factors in C. elegans. Each transcription factor gene is tagged with the same GFP fusion protein, permitting validation of the gene's correct spatio-temporal expression pattern in transgenic animals.  Chromatin immunoprecipitation on each strain is peformed using an anti-GFP antibody, and any bound DNA is deep-sequenced using Solexa GA2 technology. 
+ <br/><br/>
+ <h2>Protocols</h2>
+ <ol>
+     <li>
+       <b>Growth and isolation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Worm_Growth_and_Harvest:MS:1&oldid=19118">Worm Growth and Harvest</a>
+     </li>
+     <li>
+       <b>Sample preparation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=ChIP:MS:1&oldid=19120">ChIP</a>, <a href="http://wiki.modencode.org/project/index.php?title=DNA_Sequencing_Illumina:MS:1&oldid=19139">Illumina Deep Sequencing</a>
+     </li>
+     <li>
+       <b>Data Analysis:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Illumina_Data_Analysis:MS:1&oldid=21752">Illumina Data Analysis</a>, <a href="http://wiki.modencode.org/project/index.php?title=Illumina_Data_Merging:MS:1&oldid=21679">Illumina Data Merging</a>
+     </li>
+     <li>
+       <b>Other Protocols:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=ChIP-Seq_Peak-calling:MS:1&oldid=19142">Peak Calling</a>
+     </li>
+ </ol>
+ <h2>Reagents</h2>
+ <ol>
+     <li>
+       <b>Animals:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:L4-Young_Adult:MS:1&oldid=19737">L4-Young Adult</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:embryo:MS:1&oldid=19065">embryo</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:starved_L1:MS:1&oldid=19067">starved L1</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:fed_L1:MS:1&oldid=20167">fed L1</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:L3:MS:1&oldid=19069">L3</a>
+     </li>
+     <li>
+       <b>Antibodies:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Ab:Anti-eGFP:MS:1&oldid=17974">Anti-eGFP</a>
+     </li>
+     <li>
+       <b>External Links:</b>
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389308">GSM389308</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389310">GSM389310</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389311">GSM389311</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389313">GSM389313</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363860">GSM363860</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363861">GSM363861</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363862">GSM363862</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363863">GSM363863</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389308">GSM389308</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389310">GSM389310</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389311">GSM389311</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389313">GSM389313</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389646">GSM389646</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389648">GSM389648</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389649">GSM389649</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389651">GSM389651</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391226">GSM391226</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391227">GSM391227</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391228">GSM391228</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391229">GSM391229</a>
+     </li>
+ </ol>
+ <br />
+ <b>Release Date:</b> 2009-05-28
+
+
+[Snyder_ANTIAMA_WIG_COMB:200000]
+glyph        = wiggle_density
+height       = 8
+
+[Snyder_ANTIAMA_WIG_COMB]
+feature      = WIG:2000
+               WIG:2017
+               WIG:1993
+               WIG:1960
+               WIG:2033
+               WIG:1975
+glyph        = wiggle_xyplot
+glyph select = wiggle_density wiggle_xyplot
+bump density = 250
+category     = modENCODE Tracks: Snyder Group: Signal Graphs (anti Pol II)
+pos_color    = blue
+neg_color    = orange
+data_source_id = 586 587 588 590 592 594
+track_id     = 2000 2017 1993 1960 2033 1975
+sort_order   = sub ($$) {shift->feature->name cmp shift->feature->name}
+stranded     = 0
+height       = 20
+connector    = solid
+fgcolor      = black
+bgcolor      = blue
+#autoscale    = local
+variance_band= 1
+min_score    = 0
+max_score    = 200
+database     = snyder
+bicolor_pivot= zero
+smoothing    = mean
+label        = sub { return sprintf("%-15s",shift->name); }
+label_position = left
+label density= 100
+smoothing_window = 10
+select       = name Embryo_PHA4 L1.Starved_PHA4 L1_PHA4 L4.YA_AMA1 L4.YA_DAF16 L3_MAB5
+key          = Combined (anti Pol II)
+group_on     =
+link         = sub { my $src = shift->source;
+                     my %subs = (2000=>586,
+                                 2017=>587,
+				 1993=>588,
+                                 1960=>590,
+                                 2033=>592,
+                                 1975=>594);
+                     return "http://submit.modencode.org/submit/public/citation/$subs{$src}?wpName=Anonymous&wpPassword=modencode"; }
+citation = <h1>
+   Identification of Binding Regions for Transcription Factors (Snyder project, Snyder subgroup)
+ </h1>
+ <h2>General Description</h2>
+ We are identifying the DNA binding sites for 300 transcription factors in C. elegans. Each transcription factor gene is tagged with the same GFP fusion protein, permitting validation of the gene's correct spatio-temporal expression pattern in transgenic animals.  Chromatin immunoprecipitation on each strain is peformed using an anti-GFP antibody, and any bound DNA is deep-sequenced using Solexa GA2 technology. 
+ <br/><br/>
+ <h2>Protocols</h2>
+ <ol>
+     <li>
+       <b>Growth and isolation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Worm_Growth_and_Harvest:MS:1&oldid=19118">Worm Growth and Harvest</a>
+     </li>
+     <li>
+       <b>Sample preparation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=ChIP:MS:1&oldid=19120">ChIP</a>, <a href="http://wiki.modencode.org/project/index.php?title=DNA_Sequencing_Illumina:MS:1&oldid=19139">Illumina Deep Sequencing</a>
+     </li>
+     <li>
+       <b>Data Analysis:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Illumina_Data_Analysis:MS:1&oldid=21752">Illumina Data Analysis</a>, <a href="http://wiki.modencode.org/project/index.php?title=Illumina_Data_Merging:MS:1&oldid=21679">Illumina Data Merging</a>
+     </li>
+     <li>
+       <b>Other Protocols:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=ChIP-Seq_Peak-calling:MS:1&oldid=19142">Peak Calling</a>
+     </li>
+ </ol>
+ <h2>Reagents</h2>
+ <ol>
+     <li>
+       <b>Animals:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:embryo:MS:1&oldid=19065">embryo</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:starved_L1:MS:1&oldid=19067">starved L1</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:fed_L1:MS:1&oldid=20167">fed L1</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:L3:MS:1&oldid=19069">L3</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:L4-Young_Adult:MS:1&oldid=19737">L4-Young Adult</a>
+     </li>
+     <li>
+       <b>Antibodies:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Ab:RNA_Polymerase_II:MS:1&oldid=19074">RNA Polymerase II</a>
+     </li>
+     <li>
+       <b>External Links:</b>
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389308">GSM389308</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389310">GSM389310</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389311">GSM389311</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389313">GSM389313</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363860">GSM363860</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363861">GSM363861</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363862">GSM363862</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363863">GSM363863</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389308">GSM389308</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389310">GSM389310</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389311">GSM389311</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389313">GSM389313</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389646">GSM389646</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389648">GSM389648</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389649">GSM389649</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389651">GSM389651</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391226">GSM391226</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391227">GSM391227</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391228">GSM391228</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391229">GSM391229</a>
+     </li>
+ </ol>
+ <br />
+ <b>Release Date:</b> 2009-05-28
+
+
+
+# raplicates:
+
+[Snyder_ANTIGFP_WIG_REPS:200000]
+glyph        = wiggle_density
+height       = 8
+
+[Snyder_ANTIGFP_WIG_REPS]
+feature      = WIG:1853
+               WIG:1854
+               WIG:2020
+               WIG:2027
+               WIG:1989
+               WIG:1990
+               WIG:1955
+               WIG:1958
+               WIG:2012
+               WIG:2013
+               WIG:1969
+               WIG:1971
+glyph        = wiggle_xyplot
+glyph select = wiggle_density wiggle_xyplot
+bump density = 250
+category     = modENCODE Tracks: Snyder Group: Signal Graphs (anti GFP)
+pos_color    = blue
+neg_color    = orange
+data_source_id = 582 584 585 589 591 593
+track_id     = 1853 1854 2020 2027 1989 1990 1955 1958 2012 2013 1969 1971
+sort_order   = sub ($$) {shift->feature->name cmp shift->feature->name}
+stranded     = 0
+height       = 20
+connector    = solid
+fgcolor      = black
+bgcolor      = blue
+#autoscale    = local
+variance_band= 1
+min_score    = 0
+max_score    = 200
+database     = snyder
+bicolor_pivot= zero
+smoothing    = mean
+label        = sub { return sprintf("%-20s",shift->name); }
+label_position = left
+label density= 100
+smoothing_window = 10
+select       = name Embryo_PHA4.rep1 L1.Starved_PHA4.rep1 L1_PHA4.rep1 L4.YA_AMA1.rep1 L4.YA_DAF16.rep1 L3_MAB5.rep1 Embryo_PHA4.rep2 L1.Starved_PHA4.rep2 L1_PHA4.rep2 L4.YA_AMA1.rep2 L4.YA_DAF16.rep2 L3_MAB5.rep2
+key          = Replicates (anti GFP)
+group_on     =
+link         = sub { my $src = shift->source;
+                     my %subs =(1853=>582,
+		     		1854=>582,
+			     	2020=>584,
+			        2027=>584,
+	  		        1989=>585,
+	  		        1990=>585,
+				1955=>589,
+				1958=>589,
+				2012=>591,
+				2013=>591,
+				1969=>593,
+				1971=>593);
+		    return "http://submit.modencode.org/submit/public/citation/$subs{$src}?wpName=Anonymous&wpPassword=modencode"; }
+citation = <h1>
+   Identification of Binding Regions for Transcription Factors (Snyder project, Snyder subgroup)
+ </h1>
+ <h2>General Description</h2>
+ We are identifying the DNA binding sites for 300 transcription factors in C. elegans. Each transcription factor gene is tagged with the same GFP fusion protein, permitting validation of the gene's correct spatio-temporal expression pattern in transgenic animals.  Chromatin immunoprecipitation on each strain is peformed using an anti-GFP antibody, and any bound DNA is deep-sequenced using Solexa GA2 technology. 
+ <br/><br/>
+ <h2>Protocols</h2>
+ <ol>
+     <li>
+       <b>Growth and isolation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Worm_Growth_and_Harvest:MS:1&oldid=19118">Worm Growth and Harvest</a>
+     </li>
+     <li>
+       <b>Sample preparation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=ChIP:MS:1&oldid=19120">ChIP</a>, <a href="http://wiki.modencode.org/project/index.php?title=DNA_Sequencing_Illumina:MS:1&oldid=19139">Illumina Deep Sequencing</a>
+     </li>
+     <li>
+       <b>Data Analysis:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Illumina_Data_Analysis:MS:1&oldid=21752">Illumina Data Analysis</a>, <a href="http://wiki.modencode.org/project/index.php?title=Illumina_Data_Merging:MS:1&oldid=21679">Illumina Data Merging</a>
+     </li>
+     <li>
+       <b>Other Protocols:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=ChIP-Seq_Peak-calling:MS:1&oldid=19142">Peak Calling</a>
+     </li>
+ </ol>
+ <h2>Reagents</h2>
+ <ol>
+     <li>
+       <b>Animals:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:L4-Young_Adult:MS:1&oldid=19737">L4-Young Adult</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:embryo:MS:1&oldid=19065">embryo</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:starved_L1:MS:1&oldid=19067">starved L1</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:fed_L1:MS:1&oldid=20167">fed L1</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:L3:MS:1&oldid=19069">L3</a>
+     </li>
+     <li>
+       <b>Antibodies:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Ab:Anti-eGFP:MS:1&oldid=17974">Anti-eGFP</a>
+     </li>
+     <li>
+       <b>External Links:</b>
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389308">GSM389308</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389310">GSM389310</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389311">GSM389311</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389313">GSM389313</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363860">GSM363860</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363861">GSM363861</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363862">GSM363862</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363863">GSM363863</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389308">GSM389308</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389310">GSM389310</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389311">GSM389311</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389313">GSM389313</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389646">GSM389646</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389648">GSM389648</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389649">GSM389649</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389651">GSM389651</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391226">GSM391226</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391227">GSM391227</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391228">GSM391228</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391229">GSM391229</a>
+     </li>
+ </ol>
+ <br />
+ <b>Release Date:</b> 2009-05-28
+
+
+[Snyder_ANTIAMA_WIG_REPS:200000]
+glyph        = wiggle_density
+height       = 8
+
+[Snyder_ANTIAMA_WIG_REPS]
+feature      = WIG:2003
+               WIG:2004
+               WIG:2029
+               WIG:2040
+               WIG:1996
+               WIG:1997
+               WIG:1962
+               WIG:1965
+               WIG:2035
+               WIG:2039
+               WIG:1977
+               WIG:1979
+glyph        = wiggle_xyplot
+glyph select = wiggle_density wiggle_xyplot
+bump density = 250
+category     = modENCODE Tracks: Snyder Group: Signal Graphs (anti Pol II)
+pos_color    = blue
+neg_color    = orange
+data_source_id = 586 587 588 590 592 594
+track_id     = 2003 2004 2029 2040 1996 1997 1962 1965 2035 2039 1977 1979
+sort_order   = sub ($$) {shift->feature->name cmp shift->feature->name}
+stranded     = 0
+height       = 20
+connector    = solid
+fgcolor      = black
+bgcolor      = blue
+variance_band= 1
+#autoscale    = local
+min_score    = 0
+max_score    = 200
+database     = snyder
+bicolor_pivot= zero
+smoothing    = mean
+label        = sub { return sprintf("%-20s",shift->name); }
+label_position = left
+label density= 100
+smoothing_window = 10
+select       = name Embryo_PHA4.rep1 L1.Starved_PHA4.rep1 L1_PHA4.rep1 L4.YA_AMA1.rep1 L4.YA_DAF16.rep1 L3_MAB5.rep1 Embryo_PHA4.rep2 L1.Starved_PHA4.rep2 L1_PHA4.rep2 L4.YA_AMA1.rep2 L4.YA_DAF16.rep2 L3_MAB5.rep2
+key          = Replicates (anti Pol II)
+group_on     =
+link         = sub { my $src = shift->source;
+                     my %subs =(2003=>586,
+				2004=>586,
+				2029=>587,
+				2040=>587,
+				1996=>588,
+				1997=>588,
+				1962=>590,
+				1965=>590,
+				2035=>592,
+				2039=>592,
+				1977=>594,
+				1979=>594);
+			return "http://submit.modencode.org/submit/public/citation/$subs{$src}?wpName=Anonymous&wpPassword=modencode"; }
+citation = <h1>
+   Identification of Binding Regions for Transcription Factors (Snyder project, Snyder subgroup)
+ </h1>
+ <h2>General Description</h2>
+ We are identifying the DNA binding sites for 300 transcription factors in C. elegans. Each transcription factor gene is tagged with the same GFP fusion protein, permitting validation of the gene's correct spatio-temporal expression pattern in transgenic animals.  Chromatin immunoprecipitation on each strain is peformed using an anti-GFP antibody, and any bound DNA is deep-sequenced using Solexa GA2 technology. 
+ <br/><br/>
+ <h2>Protocols</h2>
+ <ol>
+     <li>
+       <b>Growth and isolation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Worm_Growth_and_Harvest:MS:1&oldid=19118">Worm Growth and Harvest</a>
+     </li>
+     <li>
+       <b>Sample preparation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=ChIP:MS:1&oldid=19120">ChIP</a>, <a href="http://wiki.modencode.org/project/index.php?title=DNA_Sequencing_Illumina:MS:1&oldid=19139">Illumina Deep Sequencing</a>
+     </li>
+     <li>
+       <b>Data Analysis:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Illumina_Data_Analysis:MS:1&oldid=21752">Illumina Data Analysis</a>, <a href="http://wiki.modencode.org/project/index.php?title=Illumina_Data_Merging:MS:1&oldid=21679">Illumina Data Merging</a>
+     </li>
+     <li>
+       <b>Other Protocols:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=ChIP-Seq_Peak-calling:MS:1&oldid=19142">Peak Calling</a>
+     </li>
+ </ol>
+ <h2>Reagents</h2>
+ <ol>
+     <li>
+       <b>Animals:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:embryo:MS:1&oldid=19065">embryo</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:starved_L1:MS:1&oldid=19067">starved L1</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:fed_L1:MS:1&oldid=20167">fed L1</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:L3:MS:1&oldid=19069">L3</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:L4-Young_Adult:MS:1&oldid=19737">L4-Young Adult</a>
+     </li>
+     <li>
+       <b>Antibodies:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Ab:RNA_Polymerase_II:MS:1&oldid=19074">RNA Polymerase II</a>
+     </li>
+     <li>
+       <b>External Links:</b>
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389308">GSM389308</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389310">GSM389310</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389311">GSM389311</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389313">GSM389313</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363860">GSM363860</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363861">GSM363861</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363862">GSM363862</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363863">GSM363863</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389308">GSM389308</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389310">GSM389310</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389311">GSM389311</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389313">GSM389313</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389646">GSM389646</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389648">GSM389648</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389649">GSM389649</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389651">GSM389651</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391226">GSM391226</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391227">GSM391227</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391228">GSM391228</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391229">GSM391229</a>
+     </li>
+ </ol>
+ <br />
+ <b>Release Date:</b> 2009-05-28
+
+
+
+# Transcription binding sites:
+
+[Snyder_GFP_BS]
+feature       = binding_site:1849_PHA4_emb_GFP
+                binding_site:2006_PHA4_StarvedL1_GFP
+		binding_site:1985_PHA4_FedL1_GFP
+		binding_site:1951_AMA1_L4YA_GFP
+		binding_site:2008_DAF16_L4YA_GFP
+		binding_site:1966_MAB5_L3_GFP
+glyph         = heat_map
+vary_fg       = 1
+fgcolor       = blue
+start_color   = blue
+end_color     = green
+data_source_id = 582 584 585 589 591 593
+track_id      = 1849 2006 1985 1951 2008 1966
+select        = name L1_PHA4 Embryo_PHA4 L1.Starved_PHA4 L4.YA_AMA1 L4.YA_DAF16 L3_MAB5
+stranded      = 0
+connector     = false
+bump density  = 250
+label density = 100
+box_subparts  = 1
+database      = snyder
+category      = modENCODE Tracks: Snyder Group: Binding Sites
+label         = sub{ return sprintf("%-15s",shift->name); }
+label_position = left
+sort_order    = sub ($$) {shift->feature->name cmp shift->feature->name}
+key           = Binding Sites (anti GFP)
+group_on =
+balloon hover = sub {my $f = shift;
+                     my $score = $f->score;
+                     return $score ? join (" ",$f->name,"(Score:".$score.")") : $f->name;}
+citation = <h1>
+   Identification of Binding Regions for Transcription Factors (Snyder project, Snyder subgroup)
+ </h1>
+ <h2>General Description</h2>
+ We are identifying the DNA binding sites for 300 transcription factors in C. elegans. Each transcription factor gene is tagged with the same GFP fusion protein, permitting validation of the gene's correct spatio-temporal expression pattern in transgenic animals.  Chromatin immunoprecipitation on each strain is peformed using an anti-GFP antibody, and any bound DNA is deep-sequenced using Solexa GA2 technology.
+ <br/><br/>
+ <h2>Protocols</h2>
+ <ol>
+     <li>
+       <b>Growth and isolation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Worm_Growth_and_Harvest:MS:1&oldid=19118">Worm Growth and Harvest</a>
+     </li>
+     <li>
+       <b>Sample preparation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=ChIP:MS:1&oldid=19120">ChIP</a>, <a href="http://wiki.modencode.org/project/index.php?title=DNA_Sequencing_Illumina:MS:1&oldid=19139">Illumina Deep Sequencing</a>
+     </li>
+     <li>
+       <b>Data Analysis:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Illumina_Data_Analysis:MS:1&oldid=21752">Illumina Data Analysis</a>, <a href="http://wiki.modencode.org/project/index.php?title=Illumina_Data_Merging:MS:1&oldid=21679">Illumina Data Merging</a>
+     </li>
+     <li>
+       <b>Other Protocols:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=ChIP-Seq_Peak-calling:MS:1&oldid=19142">Peak Calling</a>
+     </li>
+ </ol>
+ <h2>Reagents</h2>
+ <ol>
+     <li>
+       <b>Animals:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:L4-Young_Adult:MS:1&oldid=19737">L4-Young Adult</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:embryo:MS:1&oldid=19065">embryo</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:starved_L1:MS:1&oldid=19067">starved L1</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:fed_L1:MS:1&oldid=20167">fed L1</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:L3:MS:1&oldid=19069">L3</a>
+     </li>
+     <li>
+       <b>Antibodies:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Ab:RNA_Polymerase_II:MS:1&oldid=19074">RNA Polymerase II</a>
+     </li>
+     <li>
+       <b>External Links:</b>
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389308">GSM389308</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389310">GSM389310</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389311">GSM389311</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389313">GSM389313</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363860">GSM363860</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363861">GSM363861</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363862">GSM363862</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363863">GSM363863</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389308">GSM389308</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389310">GSM389310</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389311">GSM389311</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389313">GSM389313</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389646">GSM389646</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389648">GSM389648</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389649">GSM389649</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389651">GSM389651</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391226">GSM391226</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391227">GSM391227</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391228">GSM391228</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391229">GSM391229</a>
+     </li>
+ </ol>
+ <br />
+ <b>Release Date:</b> 2009-05-28
+
+
+[Snyder_AMA_BS]
+feature       = binding_site:1999_PHA4_emb_POLII
+		binding_site:2016_PHA4_FedL1_POLII
+		binding_site:1992_PHA4_StarvedL1_POLII
+		binding_site:1959_AMA1_L4YA_POLII
+		binding_site:2032_DAF16_L4YA_POLII
+		binding_site:1973_MAB5_L3_POLII
+#filter        = sub {shift->source =~ /(1999|2016|1992|1959|2032|1973)_/;}
+glyph         = heat_map
+vary_fg       = 1
+fgcolor       = blue
+start_color   = blue
+end_color     = green
+data_source_id = 586 587 588 590 592 594
+track_id      = 1999 2016 1992 1959 2032 1973
+select        = name L1_PHA4 Embryo_PHA4 L1.Starved_PHA4 L4.YA_AMA1 L4.YA_DAF16 L3_MAB5
+stranded      = 0
+connector     = false
+bump density  = 250
+label density = 100
+box_subparts  = 1
+database      = snyder
+category      = modENCODE Tracks: Snyder Group: Binding Sites
+label         = sub{ return sprintf("%-15s",shift->name); }
+label_position = left
+sort_order    = sub ($$) {shift->feature->name cmp shift->feature->name}
+key           = Binding Sites (anti Pol II)
+group_on =
+balloon hover = sub {my $f = shift;
+		     my $score = $f->score;
+                     return $score ? join (" ",$f->name,"(Score:".$score.")") : $f->name;}
+citation = <h1>
+   Identification of Binding Regions for Transcription Factors (Snyder project, Snyder subgroup)
+ </h1>
+ <h2>General Description</h2>
+ We are identifying the DNA binding sites for 300 transcription factors in C. elegans. Each transcription factor gene is tagged with the same GFP fusion protein, permitting validation of the gene's correct spatio-temporal expression pattern in transgenic animals.  Chromatin immunoprecipitation on each strain is peformed using an anti-GFP antibody, and any bound DNA is deep-sequenced using Solexa GA2 technology.
+ <br/><br/>
+ <h2>Protocols</h2>
+ <ol>
+     <li>
+       <b>Growth and isolation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Worm_Growth_and_Harvest:MS:1&oldid=19118">Worm Growth and Harvest</a>
+     </li>
+     <li>
+       <b>Sample preparation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=ChIP:MS:1&oldid=19120">ChIP</a>, <a href="http://wiki.modencode.org/project/index.php?title=DNA_Sequencing_Illumina:MS:1&oldid=19139">Illumina Deep Sequencing</a>
+     </li>
+     <li>
+       <b>Data Analysis:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Illumina_Data_Analysis:MS:1&oldid=21752">Illumina Data Analysis</a>, <a href="http://wiki.modencode.org/project/index.php?title=Illumina_Data_Merging:MS:1&oldid=21679">Illumina Data Merging</a>
+     </li>
+     <li>
+       <b>Other Protocols:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=ChIP-Seq_Peak-calling:MS:1&oldid=19142">Peak Calling</a>
+     </li>
+ </ol>
+ <h2>Reagents</h2>
+ <ol>
+     <li>
+       <b>Animals:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:L4-Young_Adult:MS:1&oldid=19737">L4-Young Adult</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:embryo:MS:1&oldid=19065">embryo</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:starved_L1:MS:1&oldid=19067">starved L1</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:fed_L1:MS:1&oldid=20167">fed L1</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=DevStageWorm:L3:MS:1&oldid=19069">L3</a>
+     </li>
+     <li>
+       <b>Antibodies:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Ab:RNA_Polymerase_II:MS:1&oldid=19074">RNA Polymerase II</a>
+     </li>
+     <li>
+       <b>External Links:</b>
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389308">GSM389308</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389310">GSM389310</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389311">GSM389311</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389313">GSM389313</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363860">GSM363860</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363861">GSM363861</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363862">GSM363862</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM363863">GSM363863</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389308">GSM389308</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389310">GSM389310</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389311">GSM389311</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389313">GSM389313</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389646">GSM389646</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389648">GSM389648</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389649">GSM389649</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM389651">GSM389651</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391226">GSM391226</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391227">GSM391227</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391228">GSM391228</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM391229">GSM391229</a>
+     </li>
+ </ol>
+ <br />
+ <b>Release Date:</b> 2009-05-28
+

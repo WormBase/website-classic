@@ -10,7 +10,7 @@ $APPLICATION_ROOT = '/usr/local/wormbase';
 # Where all temp files shold be written
 $TMP_DIR = $APPLICATION_ROOT . "/tmp";
 
-$WORMBASE = '/usr/local/wormbase/website/classic';  # location of our stuff on filesystem
+$WORMBASE = '/usr/local/wormbase/website/legacy';  # location of our stuff on filesystem
 $WB       = '';        # Prefix to append to URLs
 $ROOT     = "$WB/db";  # where the scripts live in URL space
 $CONF     = "$WORMBASE/conf";  # where the configuration files live
@@ -209,8 +209,8 @@ $BLAST_MAXHITS = 20;
 # ======== BLAT ===========
 $BLAT_EXECUTABLE   = '/usr/local/blat/bin/blat';
 %BLAT_DB_DIRS      = (
-					'Elegans'           => '/usr/local/wormbase/website/classic/databases/blat/c_elegans',
-					'Briggsae_genomic'  => '/usr/local/wormbase/website/classic/databases/blat/c_briggsae'
+					'Elegans'           => '/usr/local/wormbase/website/legacy/databases/blat/c_elegans',
+					'Briggsae_genomic'  => '/usr/local/wormbase/website/legacy/databases/blat/c_briggsae'
                     );
 $BLAT_CLIENT_EXECUTABLE = '/usr/local/blat/bin/gfClient',
 $BLAT_SERVER_EXECUTABLE = '/usr/local/blat/bin/gfServer',

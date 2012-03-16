@@ -1,0 +1,62 @@
+[GENERAL]
+description =  OrthoCluster Imperfect Synteny Blocks
+
+# The synteny database
+join        = dbi:mysql:database=gbrowse_syn_join_orthocluster_imperfect;host=localhost;user=www-data
+
+#     symbolic src   config file (without the ".conf")    Description
+source_map =      Cele     c_elegans_synteny     "C. elegans"
+                  Crem     c_remanei_synteny     "C. remanei"
+                  Cbri     c_briggsae_synteny    "C. briggsae"
+	          Cbre     c_brenneri_synteny    "C. brenneri"
+                  Cjap     c_japonica_synteny    "C. japonica"
+	          Ppac     p_pacificus_synteny   "P. pacificus"
+
+buttons     = /gbrowse2/images/buttons
+tmpimages   = /gbrowse_syn/tmp
+
+header = sub {
+    my $header = `cat /usr/local/wormbase/website/legacy/gbrowse2/conf/synteny/header.html`;
+    return $header;
+ }
+
+imagewidth    = 800
+stylesheet    = /stylesheets/wormbase.css
+cache time    = 1
+#config_extension = conf
+
+grid coordinates  = exact
+min_alignment_size = 0.0001
+
+# example searches to display
+examples = Cele X:1050001..1150000
+           Cbri chrX:620000..670000
+           Cele R193.2
+
+zoom levels = 5000 10000 25000 50000 100000 200000 500000 1000000
+
+# species-specific databases
+[c_elegans_synteny]
+tracks    = CG 
+color     = green
+
+[c_remanei_synteny]
+tracks    = CG
+color     = red
+
+[c_briggsae_synteny]
+tracks    = CG
+color     = blue
+
+[c_brenneri_synteny]
+tracks    = CG
+color     = purple
+
+[c_japonica_synteny]
+tracks    = CG
+color     = black
+
+[p_pacificus_synteny]
+tracks    = CG
+color     = steelblue
+

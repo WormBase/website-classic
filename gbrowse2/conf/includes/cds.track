@@ -1,0 +1,16 @@
+#feature      = coding:curated
+#feature      = coding:Coding_transcript
+glyph        = cds
+frame0f      = cadetblue
+frame1f      = blue
+frame2f      = darkblue
+frame0r      = darkred
+frame1r      = red
+frame2r      = crimson
+category     = Genes
+description  = 0
+require_subparts = 1
+height       = 13
+label        = sub { my $feature = shift; return "Frame usage for $feature " . $feature->name  }
+key          = Coding Segments
+citation     = This track shows the reading frames of coding segments (also known as "CDS" features).  

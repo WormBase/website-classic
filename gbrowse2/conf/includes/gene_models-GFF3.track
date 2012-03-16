@@ -1,0 +1,5 @@
+# Configuration specific for GFF3 entries
+#feature  = CDS:WormBase    # or gene with the gene glyph
+#glyph    = transcript2     # or gene, but it lacks callbacks
+feature      = gene:WormBase
+glyph        = gene

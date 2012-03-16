@@ -1,0 +1,101 @@
+# This is the detail select menu (+ucsc plugin) for all the Tier II and Tier III species.
+# This is also used in C.elegans, however the detail menu is overrriden to include more options
+# This is not used in the genetic and physical maps.
+
+
+[DETAIL SELECT MENU]
+width = 260
+html  = <table style="width:100%">
+         <tr>
+           <th style="background:lightsteelblue;cell-padding:5">
+             SELECTION
+             <span style="right:0px;position:absolute;color:blue;cursor:pointer"
+                   onclick="SelectArea.prototype.cancelRubber()">
+               [X]
+             </span>
+           </th>
+         </tr>
+         <tr>
+           <td>
+             <a href="javascript:SelectArea.prototype.clearAndSubmit()">
+              Zoom in
+             </a>
+           </td>
+         </tr>
+        <!-- <tr>
+           <td onmouseup="SelectArea.prototype.cancelRubber()">
+             <a href="?plugin=FastaDumper;plugin_action=Go;name=SELECTION" target="_new">
+              Dump selection as FASTA
+             </a>
+           </td>
+         </tr>
+         <tr>
+           <td onmouseup="SelectArea.prototype.cancelRubber()">
+             <a href="?name=SELECTION;plugin=Submitter;plugin_do=Go;Submitter.target=UCSC_BLAT" target="_new">
+               BLAT this sequence
+             </a>
+           </td>
+         </tr>
+         <tr>
+           <td onmouseup="SelectArea.prototype.cancelRubber()">
+             <a href="?name=SELECTION;plugin=Submitter;plugin_do=Go;Submitter.target=NCBI_BLAST" target="_new">
+               BLAST this sequence
+             </a>
+           </td>
+         </tr>-->
+       </table>
+
+[Submitter:plugin]
+submitter = [UCSC_BLAT]
+            url        = http://genome.ucsc.edu/cgi-bin/hgBlat
+            seq_label  = userSeq
+            output     = hyperlink
+            type       = DNA
+            extra_html = Genome:
+                         <SELECT name=org>
+                         <OPTION VALUE="Human">Human</OPTION>
+                         <OPTION VALUE="Chimp">Chimp</OPTION>
+                         <OPTION VALUE="Mouse">Mouse</OPTION>
+                         <OPTION VALUE="Rat">Rat</OPTION>
+                         <OPTION VALUE="Cat">Cat</OPTION>
+                         <OPTION VALUE="Dog">Dog</OPTION>
+                         <OPTION VALUE="Horse">Horse</OPTION>
+                         <OPTION VALUE="Cow">Cow</OPTION>
+                         <OPTION VALUE="Chicken">Chicken</OPTION>
+                         <OPTION VALUE="X. tropicalis">X. tropicalis</OPTION>
+                         <OPTION VALUE="Zebrafish">Zebrafish</OPTION>
+                         <OPTION VALUE="Tetraodon">Tetraodon</OPTION>
+                         <OPTION VALUE="Fugu">Fugu</OPTION>
+                         <OPTION VALUE="C. intestinalis">C. intestinalis</OPTION>
+                         <OPTION VALUE="S. purpuratus">S. purpuratus</OPTION>
+                         <OPTION SELECTED VALUE="C. elegans">C. elegans</OPTION>
+                         <OPTION VALUE="C. brenneri">C. brenneri</OPTION>
+                         <OPTION VALUE="C. briggsae">C. briggsae</OPTION>
+                         <OPTION VALUE="C. remanei">C. remanei</OPTION>
+                         <OPTION VALUE="C. japonica">C. japonica</OPTION>
+                         <OPTION VALUE="D. melanogaster">D. melanogaster</OPTION>
+                         <OPTION VALUE="D. simulans">D. simulans</OPTION>
+                         <OPTION VALUE="D. sechellia">D. sechellia</OPTION>
+                         <OPTION VALUE="D. yakuba">D. yakuba</OPTION>
+                         <OPTION VALUE="D. erecta">D. erecta</OPTION>
+                         <OPTION VALUE="D. ananassae">D. ananassae</OPTION>
+                         <OPTION VALUE="D. pseudoobscura">D. pseudoobscura</OPTION>
+                         <OPTION VALUE="D. persimilis">D. persimilis</OPTION>
+                         <OPTION VALUE="D. virilis">D. virilis</OPTION>
+                         <OPTION VALUE="D. mojavensis">D. mojavensis</OPTION>
+                         <OPTION VALUE="D. grimshawi">D. grimshawi</OPTION>
+                         <OPTION VALUE="A. gambiae">A. gambiae</OPTION>
+                         <OPTION VALUE="A. mellifera">A. mellifera</OPTION>
+                         <OPTION VALUE="S. cerevisiae">S. cerevisiae</OPTION>
+                         <OPTION VALUE="SARS">SARS</OPTION>
+                         </SELECT>
+
+            [NCBI_BLAST]
+            confirm   = 1
+            url       = http://www.ncbi.nlm.nih.gov/blast/Blast.cgi
+            seq_label = QUERY
+            PAGE      = Nucleotides
+            PROGRAM   = blastn
+            DATABASE  = nr
+            CLIENT    = web
+            CMD       = put

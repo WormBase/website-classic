@@ -1,0 +1,672 @@
+[LIEB_WIG_CHIPCHIP_HIS:40001]
+glyph        = wiggle_density
+height       = 8
+smoothing window  = 1
+
+[LIEB_WIG_CHIPCHIP_HIS]
+feature      = WIG:141
+               WIG:142
+               WIG:144
+               WIG:145
+	       WIG:2290
+track source = 141 142 144 145 2290
+data source  = 168 176 188 175 691
+glyph        = wiggle_xyplot
+glyph select = wiggle_density wiggle_xyplot
+autoscale     = local
+variance_band = 1
+graph type   = histogram
+database     = lieb
+bump density = 250
+select       = name H3K4ME3 H3K9ME3_N2_L3 H3K36ME3_N2_L3 H3_N2_L3 H3K9ME3_N2_EEMB
+category     = modENCODE Tracks: Lieb Group: Histone Modifications
+pos_color    = blue
+neg_color    = orange
+sort_order   = sub ($$) {int(shift->feature->{'attributes'}->{'rank'}[0]) <=> int(shift->feature->{'attributes'}->{'rank'}[0])}
+stranded     = 0
+height       = 20
+connector    = solid
+fgcolor      = black
+bgcolor      = lightgrey
+label density= 100
+smoothing    = mean
+smoothing_window = 10
+key          = ChIP-chip arrays
+group_on =
+bicolor_pivot= zero
+label_position= left
+label        = sub {  my $name = shift->name;
+		      $name =~s/^.+?_//;
+                      $name =~s/(.+)_N2(.*)/$1$2/;
+                      return $name =~/(.+)_(.+?)$/ ? sprintf "%-13s %-6s",$1,$2 : sprintf "%-15s",$name;
+                    }
+sort_order   = sub ($$) { my $n1 = shift->feature->name;
+                          my $n2 = shift->feature->name;
+                          $n1=~s/^.+?_//;
+                          $n2=~s/^.+?_//;
+                          return $n1 cmp $n2;}
+link         = sub { my $src = shift->source;
+                     my %subs =(141  => 168,
+                                142  => 176,
+                                144  => 188,
+                                145  => 175,
+				2290 => 691);
+                     return "http://submit.modencode.org/submit/public/citation/$subs{$src}?wpName=Anonymous&wpPassword=modencode"; }
+citation = <h1>
+   Histone modifications(Lieb project, Ahringer subgroup)
+ </h1>
+ <h2>General Description</h2>
+ The focus of our analysis will be elements that specify nucleosome positioning and occupancy, control domains of gene expression, induce repression of the X chromosome, guide mitotic segregation and genome duplication, govern homolog pairing and recombination during meiosis, and organize chromosome positioning within the nucleus. 126 strategically selected targets include key histone modifications, histone variants, RNA polymerase II isoforms, dosage-compensation proteins, centromere components, homolog-pairing facilitators, recombination markers, and nuclear-envelope constituents.<br/>
+ We will integrate information generated with existing knowledge on the biology of the targets, perform ChIP-chip analysis on mutant and RNAi extracts lacking selected target proteins, use extrachromosomal arrays to assess the ability of candidate identified sequence motifs to recruit targets in vivo, identify tissue-specific patterns of selected targets, and create integrated, quantitative models of transcription and whole-chromosome functions. 
+ <br/><br/>
+ <h2>Protocols</h2>
+ <ol>
+     <li>
+       <b>Growth and isolation:</b>
+       <a href="http://modencode.oicr.on.ca/project/index.php?title=Worm_L3_growth_and_harvest:JL:PK1&oldid=12784">Worm L3 growth and harvest:JL:PK1</a>, <a href="http://modencode.oicr.on.ca/project/index.php?title=Worm_L3_extraction:JL:PK1&oldid=12782">Worm L3 extraction:JL:PK1</a>,<a href="http://wiki.modencode.org/project/index.php?title=Worm_embryo_growth_and_harvest:JL:SS3&oldid=18959">Worm embryo growth and harvest:JL:SS3</a>, <a href="http://wiki.modencode.org/project/index.php?title=Worm_embryo_extraction:JL:SS5&oldid=22623">Worm embryo extraction:JL:SS5</a>
+     </li>
+     <li>
+       <b>Sample preparation:</b>
+       <a href="http://modencode.oicr.on.ca/project/index.php?title=Worm_Chromatin_Immunoprecipitation:JL:PK1&oldid=13490">Worm Chromatin Immunoprecipitation:JL:PK1</a>, <a href="http://modencode.oicr.on.ca/project/index.php?title=Worm_LM-PCR_Amplification_for_ChIP-chip:JL:PK1&oldid=12788">Worm LM-PCR Amplification for ChIP-chip:JL:PK1</a>, <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip_label_hyb_nimblegen:JL:1&oldid=12740">ChIP-chip label hyb nimblegen:JL:1</a>, <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip_scanning_nimblegen:JL:1&oldid=15651">ChIP-chip scanning nimblegen:JL:1</a>
+     </li>
+     <li>
+       <b>Other Protocols:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip_normalization_standard_MA2C:JL:1&oldid=12744">ChIP-chip normalization standard MA2C:JL:1</a>
+     </li>
+ </ol>
+ <h2>Experimental Reagents</h2>
+ <ol>
+     <li>
+       <b>Antibodies:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Ab:AB1791_H3_:JL:1&oldid=15750">C. elegans  AB1791_H3 rabbit polyclonal antibody</a>,
+       <a href="http://wiki.modencode.org/project/index.php/Ab:UP07442_H3K9ME3:JL:1">C. elegans UP07442_H3K9ME3 rabbit polyclonal antibody</a>,
+       <a href="http://wiki.modencode.org/project/index.php/Ab:AR0169_H3K4ME3:JL:1">C. elegans AR0169_H3K4ME3 rabbit polyclonal antibody</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=Ab:AB9050_H3K36ME3:JL:1&oldid=15751">C. elegans  AB9050_H3K36ME3 rabbit polyclonal antibody</a> 
+     </li>
+     <li>
+       <b>Arrays:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Array:NimbleGen_C_elegans_ChIP_HX1&oldid=15853">NimbleGen C elegans ChIP HX1</a>
+     </li>
+ </ol>
+ <h2> Sample Details </h2>
+ <ol>
+     <li>
+       <b>Animals/Lines:</b>
+       N2, AB1791_H3_N2_L3_2LM, AB1791_H3_N2_L3_3LM, UP07442_H3K9ME3_N2_EEMB_2_OID18184, UP07442_H3K9ME3_N2_EEMB_3_OID18184
+     </li>
+ </ol>
+ <br />
+ <ul>
+ </ul>
+ <br />
+ <b>Release Date:</b> 2009-07-27
+
+
+[LIEB_WIG_CHIPCHIP_POL2:40001]
+glyph        = wiggle_density
+height       = 8
+smoothing window  = 1
+
+[LIEB_WIG_CHIPCHIP_POL2]
+feature      = WIG:108
+               WIG:2078
+	       WIG:2602
+               WIG:2237
+track source = 108 2078 2602 2237
+data source  = 174 213 599 663
+glyph        = wiggle_xyplot
+glyph select = wiggle_density wiggle_xyplot
+autoscale     = local
+variance_band = 1
+graph type   = histogram
+database     = lieb
+bump density = 250
+select       = name PolII_N2_MXEMB2 PolII_N2_EEMB PolII_N2_L4 PolII_N2_MXEMB
+category     = modENCODE Tracks: Lieb Group: RNA Polymerase II Isoforms
+pos_color    = blue
+neg_color    = orange
+sort_order   = sub ($$) {int(shift->feature->{'attributes'}->{'rank'}[0]) <=> int(shift->feature->{'attributes'}->{'rank'}[0])}
+stranded     = 0
+height       = 20
+connector    = solid
+fgcolor      = black
+bgcolor      = lightgrey
+label density= 100
+smoothing    = mean
+smoothing_window = 10
+key          = ChIP-chip arrays
+group_on =
+bicolor_pivot= zero
+label_position= left
+label        = sub {  my $name = shift->name;
+		      $name =~s/^.+?_//;
+                      $name =~s/(.+)_N2(.*)/$1$2/;
+                      return $name =~/(.+)_(.+?)$/ ? sprintf "%-13s %-6s",$1,$2 : sprintf "%-15s",$name;
+                    }
+link         = sub { my $src = shift->source;
+                     my %subs =(2078 => 44,
+		     		2602 => 599,
+				2237 => 663,
+                                108 =>  174);
+                     return "http://submit.modencode.org/submit/public/citation/$subs{$src}?wpName=Anonymous&wpPassword=modencode"; }
+citation = <h1>
+   RNA Polymerase II Isoforms (Lieb project, Ahringer subgroup)
+ </h1>
+ <h2>General Description</h2>
+ The focus of our analysis will be elements that specify nucleosome positioning and occupancy, control domains of gene expression, induce repression of the X chromosome, guide mitotic segregation and genome duplication, govern homolog pairing and recombination during meiosis, and organize chromosome positioning within the nucleus. 126 strategically selected targets include key histone modifications, histone variants, RNA polymerase II isoforms, dosage-compensation proteins, centromere components, homolog-pairing facilitators, recombination markers, and nuclear-envelope constituents.<br/>
+ We will integrate information generated with existing knowledge on the biology of the targets, perform ChIP-chip analysis on mutant and RNAi extracts lacking selected target proteins, use extrachromosomal arrays to assess the ability of candidate identified sequence motifs to recruit targets in vivo, identify tissue-specific patterns of selected targets, and create integrated, quantitative models of transcription and whole-chromosome functions.
+ <br/><br/>  
+ <h2>Protocols</h2>
+ <ol>
+     <li>    
+       <b>Growth and isolation:</b>
+       <a href="http://modencode.oicr.on.ca/project/index.php?title=Worm_L3_growth_and_harvest:JL:PK1&oldid=12784">Worm L3 growth and harvest:JL:PK1</a>, <a href="http://modencode.oicr.on.ca/project/index.php?title=Worm_L3_extraction:JL:PK1&oldid=12782">Worm L3 extraction:JL:PK1</a>,<a href="http://wiki.modencode.org/project/index.php?title=Worm_embryo_growth_and_harvest:JL:SS3&oldid=18959">Worm embryo growth and harvest:JL:SS3</a>, <a href="http://wiki.modencode.org/project/index.php?title=Worm_embryo_extraction:JL:SS5&oldid=22623">Worm embryo extraction:JL:SS5</a>
+     </li>   
+     <li>
+       <b>Sample preparation:</b>
+       <a href="http://modencode.oicr.on.ca/project/index.php?title=Worm_Chromatin_Immunoprecipitation:JL:PK1&oldid=13490">Worm Chromatin Immunoprecipitation:JL:PK1</a>, <a href="http://modencode.oicr.on.ca/project/index.php?title=Worm_LM-PCR_Amplification_for_ChIP-chip:JL:PK1&oldid=12788">Worm LM-PCR Amplification for ChIP-chip:JL:PK1</a>, <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip_label_hyb_nimblegen:JL:1&oldid=12740">ChIP-chip label hyb nimblegen:JL:1</a>, <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip_scanning_nimblegen:JL:1&oldid=15651">ChIP-chip scanning nimblegen:JL:1</a>
+     </li>
+     <li>
+       <b>Other Protocols:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip_normalization_standard_MA2C:JL:1&oldid=12744">ChIP-chip normalization standard MA2C:JL:1</a>
+     </li>
+ </ol>
+ <h2>Experimental Reagents</h2>
+ <ol>
+     <li>
+       <b>Antibodies:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Ab:4H8:1&oldid=15986">ab5408</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=Ab:8WG16:JL:CVMMS126R&oldid=21898">Ab:8WG16:JL:CVMMS126R</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=Ab:No_Antibody_Control:1&oldid=17462">No Antibody Control</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=Ab:ABAB817_8WG16:JL:1&oldid=22455">ABAB817_8WG16</a>
+     </li>
+     <li>
+       <b>Arrays:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Array:NimbleGen_C_elegans_ChIP_HX1&oldid=15853">NimbleGen C elegans ChIP HX1</a>
+     </li>
+ </ol>
+ <h2> Sample Details </h2>
+ <ol>
+     <li>
+       <b>Animals/Lines:</b>
+       N2, ABAB5408_4H8_N2_MXEMB_2, UNC_jlieb_cwhittle_RNAPII_N2emb_ChIP2, Caenorhabditis elegans
+     </li>
+     <li>
+       <b>External Links:</b>
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM257637">GSM257637</a>, 
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM257638">GSM257638</a>, 
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM257642">GSM257642</a>,
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM257654">GSM257654</a>
+     </li>
+ </ol>
+ <br />
+ <ul>
+ </ul>
+ <br />
+ <b>Release Date:</b> 2009-07-27
+
+
+[LIEB_WIG_CHIPCHIP_HVARS:40001]
+glyph        = wiggle_density
+height       = 8
+smoothing window  = 1
+
+[LIEB_WIG_CHIPCHIP_HVARS]
+feature      = WIG:2067
+track source = 2067
+data source  = 212
+glyph        = wiggle_xyplot
+glyph select = wiggle_density wiggle_xyplot
+autoscale     = local
+variance_band = 1
+graph type   = histogram
+database     = lieb
+bump density = 250
+#select       = name HTZ-1
+category     = modENCODE Tracks: Lieb Group: Histone Variants
+pos_color    = blue
+neg_color    = orange
+sort_order   = sub ($$) {int(shift->feature->{'attributes'}->{'rank'}[0]) <=> int(shift->feature->{'attributes'}->{'rank'}[0])}
+stranded     = 0
+height       = 20
+connector    = solid
+fgcolor      = black
+bgcolor      = lightgrey
+label density= 100
+smoothing    = mean
+smoothing_window = 10
+key          = ChIP-chip arrays
+group_on =
+bicolor_pivot= zero
+label_position= left
+label        = sub {  my $name = shift->name;
+                      $name =~s/^.+?_//;
+                      $name =~s/(.+)_N2(.*)/$1$2/;
+                      return $name =~/(.+)_(.+?)$/ ? sprintf "%-13s %-6s",$1,$2 : sprintf "%-15s",$name;
+                    }
+link         = sub { my $src = shift->source;
+                     my %subs =(2067 => 43);
+                     return "http://submit.modencode.org/submit/public/citation/$subs{$src}?wpName=Anonymous&wpPassword=modencode"; }
+citation = <h1>
+   Histone Variants (Lieb project, Lieb subgroup)
+ </h1>
+ <h2>General Description</h2>
+ Chromatin was prepared from C. elegans embryos and cross-linked with formaldehyde.  Sonicated chromatin was immunoprecipitated with an affinity-purified polyclonal anti-HTZ-1 antibody.  After whole genome amplification, NimbleGen genomic tiling microarrays were used in two-color hybridization experiments to compare the signal from the input DNA versus the fragments pulled-down in the ChIP. The median of four normalized log2(ratios) are shown in this track. Ref: <a href="http://www.ncbi.nlm.nih.gov/sites/entrez?Db=Pubmed&term=18787694[UID]"> PMID 18787694</a>
+ <br/><br/>
+ <h2>Protocols</h2>
+ <ol>
+     <li>
+       <b>Growth and isolation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Worm_embryo_growth_and_harvest:JL:CW1&oldid=18578">Worm embryo growth and harvest vCW1</a>, <a href="http://wiki.modencode.org/project/index.php?title=Worm_embryo_extraction:JL:CW1&oldid=18568">Worm embryo extraction vCW1</a>
+     </li>
+     <li>
+       <b>Sample preparation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Worm_Chromatin_Immunoprecipitation:JL:CW1&oldid=18541">Worm Chromatin Immunoprecipitation vCW1</a>, <a href="http://wiki.modencode.org/project/index.php?title=Worm_LM-PCR_Amplification_for_ChIP-chip:JL:1&oldid=18550">Worm LM-PCR Amplification for ChIP-chip v1</a>, <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip_label_hyb_nimblegen:JL:1&oldid=18296">ChIP-chip label hyb nimblegen v1</a>, <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip_scanning_nimblegen:JL:1&oldid=18310">ChIP-chip scanning nimblegen v1</a>
+     </li>
+     <li>
+       <b>Other Protocols:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip_normalization_standard_zscore:JL:1&oldid=22101">ChIP-chip normalization standard zscore v1</a>, <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip_peak_finding_ChIPOTle:JL:CW1&oldid=18304">ChIP-chip peak finding ChIPOTle vCW1</a>
+     </li>
+ </ol>
+ <h2>Reagents</h2>
+ <ol>
+     <li>
+       <b>Animals:</b>
+       Caenorhabditis elegans, N2, UNC_jlieb_cwhittle_HTZ-1_N2emb_ChIP3, UNC_jlieb_cwhittle_HTZ-1_N2emb_ChIP4
+       , and 6 more.
+     </li>
+     <li>
+       <b>Antibodies:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Ab:HTZ-1:JL:BK0001&oldid=22099">C. elegans HTZ-1 mouse polycolonal</a>, <a href="http://wiki.modencode.org/project/index.php?title=Ab:No_Antibody_Control:1&oldid=17462">No Antibody Control</a>
+     </li>
+     <li>
+       <b>Arrays:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Array:NimbleGen_DesignName2006-05-08_C_elegans_SXGA_1&oldid=13560">Array:NimbleGen_DesignName2006-05-08_C_elegans_SXGA_1</a>, <a href="http://wiki.modencode.org/project/index.php?title=Array:NimbleGen_DesignName2006-05-08_C_elegans_SXGA_2&oldid=13562">Array:NimbleGen_DesignName2006-05-08_C_elegans_SXGA_2</a>
+     </li>
+     <li>
+       <b>External Links:</b>
+       <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM257465">GSM257465</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM257575">GSM257575</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM257582">GSM257582</a>, <a href="http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSM257584">GSM257584</a>
+       , and 17 more.
+     </li>
+ </ol>
+ <br />
+ <h2>Related modENCODE submissions:</h2>
+ <ul>
+ </ul>
+ <br />
+ <b>Release Date:</b> 2008-07-28
+
+
+[LIEB_WIG_CHIPCHIP_DC:40001]
+glyph        = wiggle_density
+height       = 8
+smoothing window  = 1
+
+[LIEB_WIG_CHIPCHIP_DC]
+feature      = WIG:247
+               WIG:1355
+               WIG:1360
+               WIG:1364
+               WIG:2099
+               WIG:2108
+               WIG:1718
+               WIG:1742
+               WIG:2073
+               WIG:2607
+               WIG:2620
+               WIG:2646
+               WIG:2648
+               WIG:2650
+               WIG:2653
+track source = 247 1355 1360 1364 2099 2108 1718 1742 2073 2607 2620 2646 2648 2650 2653
+data source  = 179 334 336 338 90 211 575 578 645 630 553 693 695 696 701
+glyph        = wiggle_xyplot
+glyph select = wiggle_density wiggle_xyplot
+autoscale     = local
+variance_band = 1
+graph type   = histogram
+database     = lieb
+bump density = 250
+select       = name IGG DPY-26 DPY-27_N2_L4 DPY-27_N2_MXEMB DPY-27_N2_MXEMB2 SDC-2_N2_MXEMB2 SDC-2_N2_MXEMB SDC-3_N2_MXEMB SDC-3_N2_MXEMB2 SDC-3_N2_MXEMB3 MIX-1
+category     = modENCODE Tracks: Lieb Group: Dosage Compensation and Chromosome Organization
+pos_color    = blue
+neg_color    = orange
+sort_order   = sub ($$) {int(shift->feature->{'attributes'}->{'rank'}[0]) <=> int(shift->feature->{'attributes'}->{'rank'}[0])}
+stranded     = 0
+height       = 20
+connector    = solid
+fgcolor      = black
+bgcolor      = lightgrey
+label density= 100
+smoothing    = mean
+smoothing_window = 10
+key          = ChIP-chip arrays
+group_on =
+bicolor_pivot= zero
+label_position= left
+label        = sub {  my $name = shift->name;
+		      $name =~s/^.+?_//;
+                      $name =~s/(.+)_N2(.*)/$1$2/;
+		      return $name =~/(.+)_(.+?)$/ ? sprintf "%-13s %-6s",$1,$2 : sprintf "%-15s",$name;
+                    }
+sort_order   = sub ($$) { my $n1 = shift->feature->name;
+                          my $n2 = shift->feature->name;
+			  $n1=~s/^.+?_//;
+			  $n2=~s/^.+?_//;
+			  return $n1 cmp $n2;}
+link         = sub { my $src = shift->source;
+                     my %subs =(247  => 179,
+                                1355 => 334,
+                                1360 => 336,
+                                1364 => 338,
+                                2099 => 90,
+                                2108 => 127,
+				1718 => 575,
+				1742 => 578,
+				2073 => 645,
+				2607 => 630,
+				2620 => 553,
+				2646 => 693,
+				2648 => 695,
+				2650 => 696,
+				2653 => 701);
+                     return "http://submit.modencode.org/submit/public/citation/$subs{$src}?wpName=Anonymous&wpPassword=modencode"; }
+citation = <h1>
+   Dosage Compensation and Chromosome Organization (Lieb project, Ahringer subgroup)
+ </h1>
+ <h2>General Description</h2>
+ The focus of our analysis will be elements that specify nucleosome positioning and occupancy, control domains of gene expression, induce repression of the X chromosome, guide mitotic segregation and genome duplication, govern homolog pairing and recombination during meiosis, and organize chromosome positioning within the nucleus. 126 strategically selected targets include key histone modifications, histone variants, RNA polymerase II isoforms, dosage-compensation proteins, centromere components, homolog-pairing facilitators, recombination markers, and nuclear-envelope constituents.<br/>
+ We will integrate information generated with existing knowledge on the biology of the targets, perform ChIP-chip analysis on mutant and RNAi extracts lacking selected target proteins, use extrachromosomal arrays to assess the ability of candidate identified sequence motifs to recruit targets in vivo, identify tissue-specific patterns of selected targets, and create integrated, quantitative models of transcription and whole-chromosome functions.
+ <br/><br/>
+ <h2>Protocols</h2>
+ <ol>
+     <li>
+       <b>Growth and isolation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Worm_embryo_extraction:JL:SE1&oldid=12808">Worm embryo extraction:JL:SE1</a>
+     </li>
+     <li>
+       <b>Sample preparation:</b>
+       <a href="http://modencode.oicr.on.ca/project/index.php?title=Worm_Chromatin_Immunoprecipitation:JL:PK1&oldid=13490">Worm Chromatin Immunoprecipitation:JL:PK1</a>, <a href="http://modencode.oicr.on.ca/project/index.php?title=Worm_LM-PCR_Amplification_for_ChIP-chip:JL:PK1&oldid=12788">Worm LM-PCR Amplification for ChIP-chip:JL:PK1</a>, <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip_label_hyb_nimblegen:JL:1&oldid=12740">ChIP-chip label hyb nimblegen:JL:1</a>, <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip_scanning_nimblegen:JL:1&oldid=15651">ChIP-chip scanning nimblegen:JL:1</a>
+     </li>
+     <li>
+       <b>Other Protocols:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Worm_embryo_growth_and_harvest:JL:SE1&oldid=12826">Worm embryo growth and harvest:JL:SE1</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip_normalization_standard_zscore:JL:2&oldid=15140">ChIP-chip normalization standard zscore:JL:2</a>,
+       <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip_peak_finding_ChIPOTle:JL:SE2&oldid=18208">ChIP-chip peak finding ChIPOTle:JL:SE2</a>
+     </li>
+ </ol>
+ <h2>Experimental Reagents</h2>
+ <ol>
+     <li>
+       <b>Antibodies:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Ab:DPY26:JL:1&oldid=18191">Ab:DPY26:JL:1</a>
+       <a href="http://wiki.modencode.org/project/index.php?title=Ab:JL0005_SDC2:JL:1&oldid=18194">Ab:JL0005_SDC2:JL:1</a>
+    </li>
+     <li>
+       <b>Arrays:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Array:NimbleGen_C_elegans_ChIP_HX1&oldid=15853">NimbleGen C elegans ChIP HX1</a>
+     </li>
+ </ol>
+ <h2> Sample Details </h2>
+ <ol>
+     <li>
+       <b>Animals/Lines:</b>
+       N2, JL00003_DPY26_N2_MXEMB_1, JL00003_DPY26_N2_MXEMB_2, JL00005_SDC2_N2_MXemb_1, JL00005_SDC2_N2_MXemb_2, JL00001_DPY27_N2_MXEMB_2, JL00001_DPY27_N2_MXEMB_3
+     </li>
+ </ol>
+ <br />
+ <ul>
+ </ul>
+ <br />
+ <b>Release Date:</b> 2009-07-27
+
+[LIEB_WIG_CHIPCHIP_CSP:40001]
+glyph        = wiggle_density
+height       = 8
+smoothing window  = 1
+
+[LIEB_WIG_CHIPCHIP_CSP]
+feature      = WIG:943
+track source = 943
+data source  = 194
+glyph        = wiggle_xyplot
+glyph select = wiggle_density wiggle_xyplot
+autoscale     = local
+variance_band = 1
+graph type   = histogram
+database     = lieb
+bump density = 250
+#select       = name HCP3
+category     = modENCODE Tracks: Lieb Group: Cenromere Specificaton and Kinetochore Function
+pos_color    = blue
+neg_color    = orange
+sort_order   = sub ($$) {int(shift->feature->{'attributes'}->{'rank'}[0]) <=> int(shift->feature->{'attributes'}->{'rank'}[0])}
+stranded     = 0
+height       = 20
+connector    = solid
+fgcolor      = black
+bgcolor      = lightgrey
+label density= 100
+smoothing    = mean
+smoothing_window = 10
+key          = ChIP-chip arrays
+group_on =
+bicolor_pivot= zero
+label_position= left
+label        = sub {  my $name = shift->name;
+                      $name =~s/^.+?_//;
+                      $name =~s/(.+)_N2(.*)/$1$2/;
+                      return $name =~/(.+)_(.+?)$/ ? sprintf "%-13s %-6s",$1,$2 : sprintf "%-15s",$name;
+                    }
+link         = sub { my $src = shift->source;
+                     my %subs =(943  => 194);
+                     return "http://submit.modencode.org/submit/public/citation/$subs{$src}?wpName=Anonymous&wpPassword=modencode"; }
+citation = <h1>
+   Cenromere Specificaton and Kinetochore Function (Lieb project, Desai subgroup)
+ </h1>
+ <h2>General Description</h2>
+ The focus of our analysis will be elements that specify nucleosome positioning and occupancy, control domains of gene expression, induce repression of the X chromosome, guide mitotic segregation and genome duplication, govern homolog pairing and recombination during meiosis, and organize chromosome positioning within the nucleus. 126 strategically selected targets include key histone modifications, histone variants, RNA polymerase II isoforms, dosage-compensation proteins, centromere components, homolog-pairing facilitators, recombination markers, and nuclear-envelope constituents.<br/>
+ We will integrate information generated with existing knowledge on the biology of the targets, perform ChIP-chip analysis on mutant and RNAi extracts lacking selected target proteins, use extrachromosomal arrays to assess the ability of candidate identified sequence motifs to recruit targets in vivo, identify tissue-specific patterns of selected targets, and create integrated, quantitative models of transcription and whole-chromosome functions. 
+ <br/><br/>
+ <h2>Protocols</h2>
+ <ol>
+     <li>
+       <b>Growth and isolation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Worm embryo extraction:JL:RG1">Worm embryo extraction:JL:RG1</a>
+     </li>
+     <li>
+       <b>Sample preparation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Worm Chromatin Immunoprecipitation:JL:RG1">Worm Chromatin Immunoprecipitation:JL:RG1</a>, <a href="http://wiki.modencode.org/project/index.php?title=Worm LM-PCR Amplification for ChIP-chip:JL:RG1">Worm LM-PCR Amplification for ChIP-chip:JL:RG1</a>, <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip label hyb nimblegen:JL:1">ChIP-chip label hyb nimblegen:JL:1</a>, <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip scanning nimblegen:JL:1">ChIP-chip scanning nimblegen:JL:1</a>
+     </li>
+     <li>
+       <b>Other Protocols:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Worm embryo growth and harvest:JL:RG1">Worm embryo growth and harvest:JL:RG1</a>, <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip normalization standard nimblegen:JL:1">ChIP-chip normalization standard nimblegen:JL:1</a>
+     </li>
+ </ol>
+ <h2>Reagents</h2>
+ <ol>
+     <li>
+       <b>Animals:</b>
+       N2, OD00001_HCP3_N2_MXEMB_2, OD00001_HCP3_N2_MXEMB_3
+     </li>
+     <li>
+       <b>Antibodies:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Ab:OD00001_HCP3:JL:1&oldid=17156">OD00001_HCP3</a>
+     </li>
+     <li>
+       <b>Arrays:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Array:NimbleGen_DesignName2006-07-18_C_elegans_ChIP01:JL:1&oldid=15256">NimbleGen DesignName2006-07-18 C elegans ChIP01</a>, <a href="http://wiki.modencode.org/project/index.php?title=Array:NimbleGen_DesignName2006-07-18_C_elegans_ChIP02:JL:1&oldid=15261">NimbleGen DesignName2006-07-18 C elegans ChIP02</a>, <a href="http://wiki.modencode.org/project/index.php?title=Array:NimbleGen_DesignName2006-07-18_C_elegans_ChIP03:JL:1&oldid=15263">NimbleGen DesignName2006-07-18 C elegans ChIP03</a>
+     </li>
+ </ol>
+ <b>Release Date:</b> 2009-01-06 
+
+
+[LIEB_WIG_CHIPCHIP_CHR:40001]
+glyph        = wiggle_density
+height       = 8
+smoothing window  = 1
+
+[LIEB_WIG_CHIPCHIP_CHR]
+feature      = WIG:249
+               WIG:1441
+track source = 249 1441
+data source  = 195 202
+glyph        = wiggle_xyplot
+glyph select = wiggle_density wiggle_xyplot
+autoscale     = local
+variance_band = 1
+graph type   = histogram
+database     = lieb
+bump density = 250
+select       = name MES4 MES4_NA
+category     = modENCODE Tracks: Lieb Group: Transcription and Chromatin
+pos_color    = blue
+neg_color    = orange
+sort_order   = sub ($$) {int(shift->feature->{'attributes'}->{'rank'}[0]) <=> int(shift->feature->{'attributes'}->{'rank'}[0])}
+stranded     = 0
+height       = 20
+connector    = solid
+fgcolor      = black
+bgcolor      = lightgrey
+label density= 100
+smoothing    = mean
+smoothing_window = 10
+key          = ChIP-chip arrays
+group_on =
+bicolor_pivot= zero
+label_position= left
+label        = sub {  my $name = shift->name;
+                      $name=~/^NOAB/ ? $name =~ s/(.+?_)(.+?)_/$2_NA_/ : $name =~ s/(.+?_)(.+?)_/$2_/;
+                      $name =~s/(.+)_N2(.*)/$1$2/;
+                      return $name =~/(.+)_(.+?)$/ ? sprintf "%-13s %-6s",$1,$2 : sprintf "%-15s",$name;
+                    }
+link         = sub { my $src = shift->source;
+                     my %subs =(249  => 195,
+                                1441 => 202);
+                     return "http://submit.modencode.org/submit/public/citation/$subs{$src}?wpName=Anonymous&wpPassword=modencode"; }
+citation = <h1>
+   Transcription and Chromatin(Lieb project, Strome subgroup)
+ </h1>
+ <h2>General Description</h2>
+ The focus of our analysis will be elements that specify nucleosome positioning and occupancy, control domains of gene expression, induce repression of the X chromosome, guide mitotic segregation and genome duplication, govern homolog pairing and recombination during meiosis, and organize chromosome positioning within the nucleus. 126 strategically selected targets include key histone modifications, histone variants, RNA polymerase II isoforms, dosage-compensation proteins, centromere components, homolog-pairing facilitators, recombination markers, and nuclear-envelope constituents.<br/>
+ We will integrate information generated with existing knowledge on the biology of the targets, perform ChIP-chip analysis on mutant and RNAi extracts lacking selected target proteins, use extrachromosomal arrays to assess the ability of candidate identified sequence motifs to recruit targets in vivo, identify tissue-specific patterns of selected targets, and create integrated, quantitative models of transcription and whole-chromosome functions. 
+ <br/><br/>
+ <h2>Protocols</h2>
+ <ol>
+     <li>
+       <b>Growth and isolation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Worm_embryo_extraction:JL:SS1&oldid=14818">Worm embryo extraction:JL:SS1</a>
+     </li>
+     <li>
+       <b>Sample preparation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Worm_chromatin_immunoprecipitation:JL:SS1&oldid=14817">Worm chromatin immunoprecipitation:JL:SS1</a>, <a href="http://wiki.modencode.org/project/index.php?title=Worm_LM-PCR_Amplification_for_ChIP-chip:JL:SS1&oldid=17374">Worm LM-PCR Amplification for ChIP-chip:JL:SS1</a>, <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip_label_hyb_nimblegen:JL:1&oldid=12740">ChIP-chip label hyb nimblegen:JL:1</a>, <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip_scanning_nimblegen:JL:1&oldid=15651">ChIP-chip scanning nimblegen:JL:1</a>
+     </li>
+     <li>
+       <b>Other Protocols:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Worm_embryo_growth_and_harvest:JL:SS1&oldid=14819">Worm embryo growth and harvest:JL:SS1</a>, <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip_normalization_standard_nimblegen:JL:1&oldid=15649">ChIP-chip normalization standard nimblegen:JL:1</a>, <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip_peak_finding_ChIPOTle:JL:SE1&oldid=15685">ChIP-chip_peak_finding_ChIPOTle:JL:SE1</a>
+     </li>
+ </ol>
+ <h2>Reagents</h2>
+ <ol>
+     <li>
+       <b>Animals:</b>
+       Caenorhabditis elegans, SGF3165_FLAG_MES4FLAG_EEMB_1, SGF3165_FLAG_MES4FLAG_EEMB_2
+       , and 14 more.
+     </li>
+     <li>
+       <b>Antibodies:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Ab:SGF3165_FLAG:JL:1&oldid=15804">SGF3165_FLAG</a>
+     </li>
+     <li>
+       <b>Arrays:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Array:NimbleGen_DesignName2007-05-17_C_elegans_ChIP_01:JL:1&oldid=17117">NimbleGen DesignName2007-05-17_C_elegans_ChIP_01</a>, <a href="http://wiki.modencode.org/project/index.php?title=Array:NimbleGen_DesignName2007-05-17_C_elegans_ChIP_02:JL:1&oldid=17119">NimbleGen DesignName2007-05-17_C_elegans_ChIP_02</a>, <a href="http://wiki.modencode.org/project/index.php?title=Array:NimbleGen_DesignName2007-05-17_C_elegans_ChIP_03:JL:1&oldid=17121">NimbleGen DesignName2007-05-17_C_elegans_ChIP_03</a>
+     </li>
+ </ol>
+ <b>Release Date:</b> 2009-04-03 
+
+[LIEB_WIG_CHIPCHIP:40001]
+glyph        = wiggle_density
+height       = 8
+smoothing window  = 1
+
+
+# PEAKS:
+
+[LIEB_binding_sites]
+feature    = binding_site:1358_DPY-26
+             binding_site:2102_DPY-27_N2MixEmb
+             binding_site:1367_SDC-2
+             binding_site:2111_SDC-3_N2MixEmb
+             binding_site:1363_MIX-1
+             binding_site:110_PolII-4H8
+             binding_site:2071_HTZ-1_N2MixEmb
+             binding_site:251_MES4
+glyph         = heat_map
+vary_fg       = 1
+fgcolor       = blue
+start_color   = blue
+end_color     = green
+max_score     = 4
+database      = lieb
+data_source_id = 212 90 211 334 336 338 174 195
+track_id      =  110 251 1358 1363 1367 2071 2102 2111
+select        = name DPY-26 DPY27 SDC-2 SDC3 MIX1 PolII HTZ1 MES4
+stranded      = 0
+connector     = false
+bump density  = 250
+label density = 100
+box_subparts  = 1
+database      = lieb
+category      = modENCODE Tracks: Lieb Group: Computed Peaks
+label         = sub{my $name = shift->name;
+                      $name =~s/^.+?_//;
+                      $name =~s/(.+)_N2(.*)/$1$2/;
+                      $name =~s/\-//g;
+                      return $name =~/(.+)_(.+?)$/ ? sprintf "%-13s %-6s",$1,$2 : sprintf "%-15s",$name;
+                    }
+label_position = left
+key           = ChIP-chip computed peaks
+group_on =
+balloon hover = sub {my $f = shift;
+                     my $score = $f->score;
+                     return $score ? join (" ",$f->name,"(Score:".$score.")") : $f->name;}
+citation   = <h1>
+   ChIP-chip array computed peaks
+   (Lieb project, Desai subgroup)
+ </h1>
+ <h2>General Description</h2>
+ The focus of our analysis will be elements that specify nucleosome positioning and occupancy, control domains of gene expression, induce repression of the X chromosome, guide mitotic segregation and genome duplication, govern homolog pairing and recombination during meiosis, and organize chromosome positioning within the nucleus. 126 strategically selected targets include key histone modifications, histone variants, RNA polymerase II isoforms, dosage-compensation proteins, centromere components, homolog-pairing facilitators, recombination markers, and nuclear-envelope constituents.<br/>
+ We will integrate information generated with existing knowledge on the biology of the targets, perform ChIP-chip analysis on mutant and RNAi extracts lacking selected target proteins, use extrachromosomal arrays to assess the ability of candidate identified sequence motifs to recruit targets in vivo, identify tissue-specific patterns of selected targets, and create integrated, quantitative models of transcription and whole-chromosome functions.
+ <br/><br/>
+ <h2>Protocols</h2>
+ <ol>
+     <li>
+       <b>Growth and isolation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Worm embryo extraction:JL:RG1">Worm embryo extraction:JL:RG1</a>
+     </li>
+     <li>
+       <b>Sample preparation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Worm Chromatin Immunoprecipitation:JL:RG1">Worm Chromatin Immunoprecipitation:JL:RG1</a>, <a href="http://wiki.modencode.org/project/index.php?title=Worm LM-PCR Amplification for ChIP-chip:JL:RG1">Worm LM-PCR Amplification for ChIP-chip:JL:RG1</a>, <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip label hyb nimblegen:JL:1">ChIP-chip label hyb nimblegen:JL:1</a>, <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip scanning nimblegen:JL:1">ChIP-chip scanning nimblegen:JL:1</a>
+     </li>
+     <li>
+       <b>Other Protocols:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Worm embryo growth and harvest:JL:RG1">Worm embryo growth and harvest:JL:RG1</a>, <a href="http://wiki.modencode.org/project/index.php?title=ChIP-chip normalization standard nimblegen:JL:1">ChIP-chip normalization standard nimblegen:JL:1</a>
+     </li>
+ </ol>
+ <h2>Reagents</h2>
+ <ol>
+     <li>
+       <b>Animals:</b>
+       N2, OD00001_HCP3_N2_MXEMB_2, OD00001_HCP3_N2_MXEMB_3
+     </li>
+     <li>
+       <b>Antibodies:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Ab:OD00001_HCP3:JL:1&oldid=17156">OD00001_HCP3</a>
+     </li>
+     <li>
+       <b>Arrays:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Array:NimbleGen_DesignName2006-07-18_C_elegans_ChIP01:JL:1&oldid=15256">NimbleGen DesignName2006-07-18 C elegans ChIP01</a>, <a href="http://wiki.modencode.org/project/index.php?title=Array:NimbleGen_DesignName2006-07-18_C_elegans_ChIP02:JL:1&oldid=15261">NimbleGen DesignName2006-07-18 C elegans ChIP02</a>, <a href="http://wiki.modencode.org/project/index.php?title=Array:NimbleGen_DesignName2006-07-18_C_elegans_ChIP03:JL:1&oldid=15263">NimbleGen DesignName2006-07-18 C elegans ChIP03</a>
+     </li>
+ </ol>
+ <b>Release Date:</b> 2009-01-06
+

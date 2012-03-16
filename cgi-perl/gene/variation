@@ -815,8 +815,8 @@ sub genetic_info {
     
     my @strains;
     foreach ($var->Strain) {
-	my @genes = $_->Gene;
-	my $cgc   = ($_->Location eq 'CGC') ? 1 : 0;
+	my @genes = eval { $_->Gene };
+	my $cgc   = (eval { $_->Location eq 'CGC' }) ? 1 : 0;
 	my $linked = a({-href=>Object2URL($_)},$_);
 	$linked = b($linked) if (@genes == 1);
 	$linked = i($linked) if $cgc;
@@ -1297,8 +1297,8 @@ sub polymorphism_details {
     # If this is an RFLP, extract digest conditions
     my $assay_table;
     if ($var->RFLP(0) && @ref_digests) {	
-	my ($ref_digest,$ref_bands)   = @{$ref_digests[$index]};
-	my ($poly_digest,$poly_bands) = @{$poly_digests[$index]};
+	my ($ref_digest,$ref_bands)   = eval { @{$ref_digests[$index]}   };
+	my ($poly_digest,$poly_bands) = eval { @{$poly_digests[$index]}  };
 	
 	$assay_table = 
 	    b('RFLP analysis') .

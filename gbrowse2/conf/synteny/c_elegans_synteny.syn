@@ -1,0 +1,58 @@
+[GENERAL]
+description   = C. elegans (WS204)
+db_adaptor    = Bio::DB::GFF
+db_args       = -adaptor dbi::mysql
+	        -dsn dbi:mysql:gbrowse_syn_compara_c_elegans_genes
+                -user www-data
+
+plugins = GFFDumper
+suppress_menu = 1
+
+aggregators = gene{coding_exon,five_prime_UTR,three_prime_UTR}
+
+# Web site configuration info
+buttons     = /gbrowse2/images/buttons
+tmpimages   = /gbrowse_syn/tmp
+
+
+# max and default segment sizes for detailed view
+max segment     = 400000
+
+automatic classes = CDS Transcript Sequence
+
+[CG]
+balloon hover  = <i>C. elegans</i> transcript $name.  <br>Click for more information...
+link          = http://www.wormbase.org/db/get?name=$name;class=$class
+label        = 1
+description  = 1
+feature      = gene
+category     = Genes
+glyph        = transcript2
+utr_color    = gray
+font2color   = blue
+height       = 6
+key          = Gene Models
+bgcolor      = sub {
+  my $flip = pop->panel->flip;
+  my $strand = shift->strand;
+  return $strand < 0 ? 'violet' : 'turquoise' if $flip;
+  return $strand > 0 ? 'violet' : 'turquoise';
+ }
+
+[CG:100001]
+label        = 0
+feature      = CDS
+description  = 0
+glyph        = generic
+strand_arrow = 1
+feature      = CDS
+
+[GERP]
+feature      = microarray_oligo
+glyph        = wiggle_xyplot
+description  = 1
+label        = 1
+height       = 10
+graph_type   = line
+bgcolor      = black
+bicolor_pivot = 1

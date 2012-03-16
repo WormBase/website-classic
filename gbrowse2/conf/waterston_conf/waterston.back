@@ -1,0 +1,1023 @@
+[Waterston_EST_match_all:100001]
+label         = 0
+desciption    = 0
+
+[Waterston_EST_match_all]
+feature       = match_part:382
+                match_part:385
+                match_part:392
+		match_part:924_details
+glyph         = segments
+database      = waterston
+data source   = 446 448 445 447
+track source  = 382 385 392 924
+sort_order    = name
+Category      = modENCODE Tracks: Waterston Group:Green Lab
+stranded      = 0
+height        = 5
+connector     = quill
+fgcolor       = black
+bgcolor       = limegreen
+label         = sub { my $f = shift;
+                return unless scalar($f->get_SeqFeatures);
+                my @ts = [$f->get_SeqFeatures]->[0]->each_tag_value("Target");
+                foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }
+bump density  = 250
+label density = 100
+select        = name IntronsS1 IntronsS2 IntronsS3 IntronsS4
+key           = Green Lab ESTs (all)
+group_on      = sub { my @ts = shift->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }
+citation      = <h1>
+   C. elegans Introns
+   (Waterston project, Green subgroup)
+ </h1>
+ <h2>General Description</h2>
+ This experiment identifies intron boundary coordinates in C. elegans<br/>
+ genomic sequence. Initially, we run genefinder to predict protein-coding<br/>
+ transcripts from the C. elegans chromosome sequences. We align<br/>
+ existing cDNA and EST sequences to the predicted transcript sequences<br/>
+ to confirm the transcript structure. Predicted splice junctions<br/>
+ unconfirmed by these alignments are tested for confirmation using<br/>
+ RT-PCR, DNA sequencing, and sequence alignment. These PCR experiments<br/>
+ use gene-specific/gene-specific, 5' RACE/gene-specific, and<br/>
+ gene-specific/3' RACE primer pairs.
+ <br/><br/>
+ <h2>Protocols</h2>
+ <ol>
+     <li>
+       <b>Growth and isolation:</b>
+       <a href="http://modencode.oicr.on.ca/project/index.php?title=Organism_Preparation:RW:Green.020401&oldid=15441">Organism_Preparation</a>, <a href="http://modencode.oicr.on.ca/project/index.php?title=RNA_Extraction:RW:Green.020401&oldid=15434">RNA_Extraction</a>
+     </li>
+     <li>
+       <b>Sample preparation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=CDNA_Preparation.RACE:RW:Green.070801&oldid=12969">CDNA_Preparation</a>, <a href="http://wiki.modencode.org/project/index.php?title=PCR.RACE:RW:Green.070601&oldid=15823">PCR</a>, <a href="http://wiki.modencode.org/project/index.php?title=DNA_Sequencing.RACE:RW:Green.070801&oldid=15830">DNA_Sequencing</a>
+     </li>
+     <li>
+       <b>Data Analysis:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Basecalling.phred.071220:RW:Green.071220&oldid=15632">Basecalling</a>, <a href="http://wiki.modencode.org/project/index.php?title=Intron_Confirmation_Alignment:RW:Green.080925&oldid=15843">Alignment</a>, <a href="http://wiki.modencode.org/project/index.php?title=Intron_Confirmation:RW:Green.080925&oldid=15842">Analysis</a>
+     </li>
+ </ol>
+ <h2>Reagents</h2>
+ <ol>
+     <li>
+       <b>Animals:</b>
+       Caenorhabditis elegans, <a href="http://wiki.modencode.org/project/index.php?title=DevStage:Mixed Larval Stages Grown 4-5 Days:RW:Green">Mixed Larval Stages Grown for 4-5 Days</a>, N2, <a href="http://wiki.modencode.org/project/index.php?title=Strain:N2">N2</a>
+     </li>
+ </ol>
+ <b>Release Date:</b> 2009-01-28
+
+
+[Waterston_intron_all]
+feature      = intron:382
+               intron:385
+               intron:392
+	       intron:924_details
+glyph        = box
+database     = waterston
+data source   = 446 448 445 447
+track source  = 382 385 392 924
+bgcolor      = lightgrey
+fgcolor      = black
+connector    = solid
+bump density = 250
+height       = 8
+stranded     = 0
+label        = 0
+label density= 100
+select       = name IntronsS1 IntronsS2 IntronsS3 IntronsS4
+Category     = modENCODE Tracks: Waterston Group:Green Lab
+key          = Green Lab confirmed introns (all)
+group_on     = name.source_tag
+citation     =<h1>
+   C. elegans Introns 
+   (Waterston project, Green subgroup)
+ </h1>
+ <h2>General Description</h2>
+ This experiment identifies intron boundary coordinates in C. elegans<br/>
+ genomic sequence. Initially, we run genefinder to predict protein-coding<br/>
+ transcripts from the C. elegans chromosome sequences. We align<br/>
+ existing cDNA and EST sequences to the predicted transcript sequences<br/>
+ to confirm the transcript structure. Predicted splice junctions<br/>
+ unconfirmed by these alignments are tested for confirmation using<br/>
+ RT-PCR, DNA sequencing, and sequence alignment. These PCR experiments<br/>
+ use gene-specific/gene-specific, 5' RACE/gene-specific, and<br/>
+ gene-specific/3' RACE primer pairs.
+ <br/><br/>   
+ <h2>Protocols</h2>
+ <ol>
+     <li>     
+       <b>Growth and isolation:</b>
+       <a href="http://modencode.oicr.on.ca/project/index.php?title=Organism_Preparation:RW:Green.020401&oldid=15441">Organism_Preparation</a>, <a href="http://modencode.oicr.on.ca/project/index.php?title=RNA_Extraction:RW:Green.020401&oldid=15434">RNA_Extraction</a>
+     </li>
+     <li>
+       <b>Sample preparation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=CDNA_Preparation.RACE:RW:Green.070801&oldid=12969">CDNA_Preparation</a>, <a href="http://wiki.modencode.org/project/index.php?title=PCR.RACE:RW:Green.070601&oldid=15823">PCR</a>, <a href="http://wiki.modencode.org/project/index.php?title=DNA_Sequencing.RACE:RW:Green.070801&oldid=15830">DNA_Sequencing</a>
+     </li>
+     <li>
+       <b>Data Analysis:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Basecalling.phred.071220:RW:Green.071220&oldid=15632">Basecalling</a>, <a href="http://wiki.modencode.org/project/index.php?title=Intron_Confirmation_Alignment:RW:Green.080925&oldid=15843">Alignment</a>, <a href="http://wiki.modencode.org/project/index.php?title=Intron_Confirmation:RW:Green.080925&oldid=15842">Analysis</a>
+     </li>
+ </ol>
+ <h2>Reagents</h2>
+ <ol>
+     <li>
+       <b>Animals:</b>
+       Caenorhabditis elegans, <a href="http://wiki.modencode.org/project/index.php?title=DevStage:Mixed Larval Stages Grown 4-5 Days:RW:Green">Mixed Larval Stages Grown for 4-5 Days</a>, N2, <a href="http://wiki.modencode.org/project/index.php?title=Strain:N2">N2</a>
+     </li>
+ </ol>
+ <b>Release Date:</b> 2009-01-28 
+
+[Waterston_match_part_392_184:100001]
+label         = 0
+desciption    = 0
+
+[Waterston_match_part_392_184]
+feature       = match_part:392
+glyph         = segments
+database      = waterston
+data source   = 446
+track source  = 392
+sort_order    = name
+Category      = modENCODE Tracks: Waterston Group:Green Lab
+stranded      = 0
+height        = 5
+connector     = quill
+fgcolor       = black
+bgcolor       = limegreen
+label         = sub { my $f = shift;
+                return unless scalar($f->get_SeqFeatures);
+                my @ts = [$f->get_SeqFeatures]->[0]->each_tag_value("Target");
+                foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }
+bump density  = 250
+label density = 100
+key           = Green Lab ESTs 2008-12-02 set 1
+citation      = ESTs (Waterston).  ESTs were sequenced as a result of targeted 5-RACE on N2 mixed-stage worms.
+group_on      = sub { my @ts = shift->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }
+
+[Waterston_match_part_924_189:100001]
+label         = 0
+desciption    = 0
+
+[Waterston_match_part_924_189]
+feature       = match_part:924_details
+glyph         = segments
+bump density  = 250
+category      = modENCODE Tracks: Waterston Group:Green Lab
+stranded      = 0
+database      = waterston
+data source   = 447
+track source  = 924
+label density = 100
+key           = Green Lab ESTs 2008-12-02 set 2
+group_on      = sub { my @ts = shift->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }
+height        = 5
+connector     = quill
+fgcolor       = black
+bgcolor       = limegreen
+label = sub { my $f = shift; return unless scalar($f->get_SeqFeatures); my @ts = [$f->get_SeqFeatures]->[0]->each_tag_value("Target");
+              foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }
+citation = <h1>
+   C. elegans Intron Identification set.20090106.2_3_2_2_4_3_3_2_2
+   (Waterston project, Green subgroup)
+ </h1>
+ <h2>General Description</h2>
+ This experiment identifies intron boundary coordinates in C. elegans<br/>
+ genomic sequence. Initially, we run genefinder to predict protein-coding<br/>
+ transcripts from the C. elegans chromosome sequences. We align<br/>
+ existing cDNA and EST sequences to the predicted transcript sequences<br/>
+ to confirm the transcript structure. Predicted splice junctions<br/>
+ unconfirmed by these alignments are tested for confirmation using<br/>
+ RT-PCR, DNA sequencing, and sequence alignment. These PCR experiments<br/>
+ use gene-specific/gene-specific, 5' RACE/gene-specific, and<br/>
+ gene-specific/3' RACE primer pairs.
+ <br/><br/>
+ <h2>Protocols</h2>
+ <ol>
+     <li>
+       <b>Growth and isolation:</b>
+       <a href="http://modencode.oicr.on.ca/project/index.php?title=Organism_Preparation:RW:Green.020401&oldid=15441">Organism_Preparation</a>, <a href="http://modencode.oicr.on.ca/project/index.php?title=RNA_Extraction:RW:Green.020401&oldid=15434">RNA_Extraction</a>
+     </li>
+     <li>
+       <b>Sample preparation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=CDNA_Preparation.RACE:RW:Green.070801&oldid=12969">CDNA_Preparation</a>, <a href="http://wiki.modencode.org/project/index.php?title=PCR.RACE:RW:Green.070601&oldid=15823">PCR</a>, <a href="http://wiki.modencode.org/project/index.php?title=DNA_Sequencing.RACE:RW:Green.070801&oldid=15830">DNA_Sequencing</a>
+     </li>
+     <li>
+       <b>Data Analysis:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Basecalling.phred.071220:RW:Green.071220&oldid=15632">Basecalling</a>, <a href="http://wiki.modencode.org/project/index.php?title=Intron_Confirmation_Alignment:RW:Green.080925&oldid=15843">Alignment</a>, <a href="http://wiki.modencode.org/project/index.php?title=Intron_Confirmation:RW:Green.080925&oldid=15842">Analysis</a>
+     </li>
+ </ol>
+ <h2>Reagents</h2>
+ <ol>
+     <li>
+       <b>Animals:</b>
+       Caenorhabditis elegans, <a href="http://wiki.modencode.org/project/index.php?title=DevStage:Mixed Larval Stages Grown 4-5 Days:RW:Green">Mixed Larval Stages Grown for 4-5 Days</a>, N2, <a href="http://wiki.modencode.org/project/index.php?title=Strain:N2">N2</a>
+     </li>
+ </ol>
+ <b>Release Date:</b> 2009-01-28
+
+[Waterston_match_part_382_186:100001]
+label         = 0
+desciption    = 0
+
+[Waterston_match_part_382_186]
+feature       = match_part:382
+database      = waterston
+data source   = 448
+track source  = 382
+glyph         = segments
+sort_order    = name
+Category      = modENCODE Tracks: Waterston Group:Green Lab
+stranded      = 0
+height        = 5
+connector     = quill
+fgcolor       = black
+bgcolor       = limegreen
+label         = sub { my $f = shift;
+                return unless scalar($f->get_SeqFeatures);
+                my @ts = [$f->get_SeqFeatures]->[0]->each_tag_value("Target");
+                foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }
+bump density  = 250
+label density = 100
+key           = Green Lab ESTs 2008-12-02 set 3
+citation      = ESTs (Waterston).  ESTs were sequenced as a result of targeted 5-RACE on N2 mixed-stage worms.
+group_on      = sub { my @ts = shift->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }
+
+[Waterston_match_part_385_187:100001]
+label         = 0
+desciption    = 0
+
+[Waterston_match_part_385_187]
+feature       = match_part:385
+database      = waterston
+data source   = 445
+track source  = 385
+glyph         = segments
+sort_order    = name
+Category      = modENCODE Tracks: Waterston Group:Green Lab
+stranded      = 0
+height        = 5
+connector     = quill
+fgcolor       = black
+bgcolor       = limegreen
+label         = sub { my $f = shift;
+                return unless scalar($f->get_SeqFeatures);
+                my @ts = [$f->get_SeqFeatures]->[0]->each_tag_value("Target");
+                foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }
+bump density  = 250
+label density = 100
+key           = Green Lab ESTs 2008-12-02 set 4
+citation      = ESTs (Waterston).  ESTs were sequenced as a result of targeted 5-RACE on N2 mixed-stage worms.
+group_on      = sub { my @ts = shift->each_tag_value("Target"); foreach my $t (@ts) { $t =~ s/\s+\d+\s+\d+\s*$//g; return $t; } }
+
+[Waterston_intron_392_184]
+feature      = intron:392
+database     = waterston
+glyph        = box
+bgcolor      = lightgrey
+fgcolor      = black
+connector    = solid
+bump density = 100
+height       = 8
+stranded     = 0
+label        = 0
+Category     = modENCODE Tracks: Waterston Group:Green Lab
+key          = Green Lab confirmed introns 2008-12-02 set 1
+citation     = Confirmed introns (Waterston).  Introns with support from targeted 5-RACE on N2 mixed-stage worms.
+
+[Waterston_intron_924_189]
+feature      = intron:924_details
+database     = waterston
+data source  = 447
+track source = 924
+glyph        = box
+bump density = 250
+category     = modENCODE Tracks: Waterston Group:Green Lab
+stranded     = 0
+height       = 8
+connector    = solid
+fgcolor      = black
+label density = 100
+key          = Green Lab confirmed introns 2008-12-02 set 2
+group_on     =
+bgcolor      = lightgrey
+label        = 0
+citation = <h1>
+   C. elegans Intron Identification set.20090106.2_3_2_2_4_3_3_2_2
+   (Waterston project, Green subgroup)
+ </h1>
+ <h2>General Description</h2>
+ This experiment identifies intron boundary coordinates in C. elegans<br/>
+ genomic sequence. Initially, we run genefinder to predict protein-coding<br/>
+ transcripts from the C. elegans chromosome sequences. We align<br/>
+ existing cDNA and EST sequences to the predicted transcript sequences<br/>
+ to confirm the transcript structure. Predicted splice junctions<br/>
+ unconfirmed by these alignments are tested for confirmation using<br/>
+ RT-PCR, DNA sequencing, and sequence alignment. These PCR experiments<br/>
+ use gene-specific/gene-specific, 5' RACE/gene-specific, and<br/>
+ gene-specific/3' RACE primer pairs.
+ <br/><br/>
+ <h2>Protocols</h2>
+ <ol>
+      <li>
+       <b>Growth and isolation:</b>
+       <a href="http://modencode.oicr.on.ca/project/index.php?title=Organism_Preparation:RW:Green.020401&oldid=15441">Organism_Preparation</a>, <a href="http://modencode.oicr.on.ca/project/index.php?title=RNA_Extraction:RW:Green.020401&oldid=15434">RNA_Extraction</a>
+     </li>
+     <li>
+       <b>Sample preparation:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=CDNA_Preparation.RACE:RW:Green.070801&oldid=12969">CDNA_Preparation</a>, <a href="http://wiki.modencode.org/project/index.php?title=PCR.RACE:RW:Green.070601&oldid=15823">PCR</a>, <a href="http://wiki.modencode.org/project/index.php?title=DNA_Sequencing.RACE:RW:Green.070801&oldid=15830">DNA_Sequencing</a>
+     </li>
+     <li>
+       <b>Data Analysis:</b>
+       <a href="http://wiki.modencode.org/project/index.php?title=Basecalling.phred.071220:RW:Green.071220&oldid=15632">Basecalling</a>, <a href="http://wiki.modencode.org/project/index.php?title=Intron_Confirmation_Alignment:RW:Green.080925&oldid=15843">Alignment</a>, <a href="http://wiki.modencode.org/project/index.php?title=Intron_Confirmation:RW:Green.080925&oldid=15842">Analysis</a>
+     </li>
+ </ol>
+ <h2>Reagents</h2>
+ <ol>
+     <li>
+       <b>Animals:</b>
+       Caenorhabditis elegans, <a href="http://wiki.modencode.org/project/index.php?title=DevStage:Mixed Larval Stages Grown 4-5 Days:RW:Green">Mixed Larval Stages Grown for 4-5 Days</a>, N2, <a href="http://wiki.modencode.org/project/index.php?title=Strain:N2">N2</a>
+     </li>
+ </ol>
+ <b>Release Date:</b> 2009-01-28
+
+
+
+[Waterston_intron_382_186]
+feature      = intron:382
+database     = waterston
+data source  = 448
+track source = 382
+glyph        = box
+bgcolor      = lightgrey
+fgcolor      = black
+connector    = solid
+bump density = 100
+height       = 8
+stranded     = 0
+label        = 0
+label density= 100
+Category     = modENCODE Tracks: Waterston Group:Green Lab
+key          = Green Lab confirmed introns 2008-12-02 set 3
+citation     = Confirmed introns (Waterston).  Introns with support from targeted 5-RACE on N2 mixed-stage worms.
+
+[Waterston_intron_385_187]
+feature      = intron:385
+database     = waterston
+data source  = 445
+track source = 385
+glyph        = box
+bgcolor      = lightgrey
+fgcolor      = black
+connector    = solid
+bump density = 100
+height       = 8
+stranded     = 0
+label        = 0
+label density= 100
+Category     = modENCODE Tracks: Waterston Group:Green Lab
+key          = Green Lab confirmed introns 2008-12-02 set 4
+citation     = Confirmed introns (Waterston).  Introns with support from targeted 5-RACE on N2 mixed-stage worms.
+
+
+
+## HILLIER GENELETS
+
+#GENELETS:
+
+[rainbow_genelet_L2:100000]
+glyph     = heat_map
+label     = 0
+vary_fg   = 1
+
+[rainbow_genelet_L2]
+feature       = transcript
+filter        = sub {shift->source_tag =~ /mid-L2_20dC_14hrs/}
+glyph         = rainbow_gene
+data source   = 636
+track source  = 147
+start_color   = #0000FF
+end_color     = #00FF00
+min_score     = 0
+max_score     = 2.5
+database     = hillier
+connector     = hat
+stranded      = ends
+sort_order    = name
+Category      = modENCODE Tracks: Waterston Group:Genelets
+height        = 10
+label         = sub{my $name = shift->load_id;
+                    $name=~s/Transcript\://;
+                    $name=~s/.*L1_//;
+                    $name;
+                    }
+bump density  = 250
+label density = 100
+box_subparts  = 2
+balloon hover = sub {my $f = shift;
+                     my @status = $f->each_tag_value('prediction_status');
+                     return join (" ","(Exon score:".$f->score.")",$status[0]);}
+key           = mid-L2 Genelets (colored by exon)
+
+[rainbow_genelet_L3:100000]
+glyph = heat_map
+label = 0
+vary_fg = 1
+
+[rainbow_genelet_L3]
+feature       = transcript
+filter        = sub {shift->source_tag =~ /mid-L3_20dC_25hrs/}
+glyph         = rainbow_gene
+data source   = 637
+track source  = 150
+start_color   = #0000FF
+end_color     = #00FF00
+min_score     = 0
+max_score     = 2.5
+database     = hillier
+connector     = hat
+stranded      = ends
+sort_order    = name
+Category      = modENCODE Tracks: Waterston Group:Genelets
+height        = 10
+label         = sub{my $name = shift->load_id;
+                    $name=~s/Transcript\://;
+                    $name=~s/.*L1_//;
+                    $name;
+                    }
+bump density  = 250
+label density = 100
+box_subparts  = 2
+balloon hover = sub {my $f = shift;
+                     my @status = $f->each_tag_value('prediction_status');
+                     return join (" ","(Exon score:".$f->score.")",$status[0]);}
+key           = mid-L3 Genelets (colored by exon)
+
+[rainbow_genelet_L4:100000]
+glyph = heat_map
+label = 0
+vary_fg = 1
+
+[rainbow_genelet_L4]
+feature       = transcript:mid-L4_20dC_36hrs_post-L1
+filter        = sub {shift->source_tag =~ /mid-L4_20dC_36hrs/}
+glyph         = rainbow_gene
+data source   = 638
+data source   = 146
+start_color   = #0000FF
+end_color     = #00FF00
+min_score     = 0
+max_score     = 2.5
+database     = hillier
+connector     = hat
+stranded      = ends
+sort_order    = name
+Category      = modENCODE Tracks: Waterston Group:Genelets
+height        = 10
+label         = sub{my $name = shift->load_id;
+                    $name=~s/Transcript\://;
+                    $name=~s/.*L1_//;
+                    $name;
+                    }
+bump density  = 250
+label density = 100
+box_subparts  = 2
+balloon hover = sub {my $f = shift;
+                     my @status = $f->each_tag_value('prediction_status');
+                     return join (" ","(Exon score:".$f->score.")",$status[0]);}
+key           = mid-L4 Genelets (colored by exon)
+
+
+[rainbow_genelet_YA:100000]
+glyph         = heat_map
+label         = 0
+vary_fg       = 1
+
+[rainbow_genelet_YA]
+feature       = transcript
+filter        = sub {shift->source_tag =~ /Young_Adult_25dC/}
+glyph         = rainbow_gene
+data source   = 639
+track source  = 148
+start_color   = #0000FF
+end_color     = #00FF00
+min_score     = 0
+max_score     = 2.5
+database      = hillier
+connector     = hat
+stranded      = ends
+sort_order    = name
+Category      = modENCODE Tracks: Waterston Group:Genelets
+height        = 10
+label         = sub{my $name = shift->load_id;
+                    $name=~s/Transcript\://;
+                    $name=~s/.*L1_//;
+                    $name;
+                    }
+bump density  = 250
+label density = 100
+box_subparts  = 2
+balloon hover = sub {my $f = shift;
+                     my @status = $f->each_tag_value('prediction_status');
+                     return join (" ","(Exon score:".$f->score.")",$status[0]);}
+key           = Young Adult Genelets (colored by exon)
+
+
+#TRANSCRIPTS:
+
+[rainbow_transcript_L2:100000]
+glyph         = heat_map
+vary_fg       = 1
+label         = 0
+
+[rainbow_transcript_L2]
+feature       = transcript
+filter        = sub {shift->source_tag =~ /mid-L2_20dC_14hrs/}
+glyph         = rainbow_gene
+data source   = 636
+track source  = 147
+start_color   = #0000FF
+end_color     = #00FF00
+transcript_only = 1 
+min_score     = 0   
+max_score     = 2.5 
+database      = hillier
+connector     = hat
+stranded      = ends
+sort_order    = name
+Category      = modENCODE Tracks: Waterston Group:Genelets
+height        = 10
+label         = sub{my $name = shift->load_id;
+                    $name=~s/Transcript\://;
+                    $name=~s/.*L1_//;
+                    $name;
+                    }
+bump density  = 250
+label density = 100 
+balloon hover = sub {my $f = shift;
+                     my $name   = $f->load_id;
+                     my @status = $f->each_tag_value('prediction_status');
+                     return join (" ",$name,"(Score:".$f->score.")",$status[0]);}
+key           = mid-L2 Genelets (colored my mRNA)
+
+
+[rainbow_transcript_L3:100000]
+glyph         = heat_map
+vary_fg       = 1
+label         = 0
+
+[rainbow_transcript_L3]
+feature       = transcript
+filter        = sub {shift->source_tag =~ /mid-L3_20dC_25hrs/}
+glyph         = rainbow_gene
+data source   = 637
+track source  = 150
+start_color   = #0000FF
+end_color     = #00FF00
+transcript_only = 1
+min_score     = 0
+max_score     = 2.5
+database     = hillier
+connector     = hat
+stranded      = ends
+sort_order    = name
+Category      = modENCODE Tracks: Waterston Group:Genelets
+height        = 10
+label         = sub{my $name = shift->load_id;
+                    $name=~s/Transcript\://;
+                    $name=~s/.*L1_//;
+                    $name;
+                    }
+bump density  = 250
+label density = 100
+balloon hover = sub {my $f = shift;
+                     my $name   = $f->load_id;
+                     my @status = $f->each_tag_value('prediction_status');
+                     return join (" ",$name,"(Score:".$f->score.")",$status[0]);}
+key           = mid-L3 Genelets (colored my mRNA)
+
+[rainbow_transcript_L4:100000]
+glyph         = heat_map
+vary_fg       = 1
+label         = 0
+
+[rainbow_transcript_L4]
+feature       = transcript:mid-L4_20dC_36hrs_post-L1
+filter        = sub {shift->source_tag =~ /mid-L4_20dC_36hrs/}
+glyph         = rainbow_gene
+data source   = 638
+track source  = 146
+start_color   = #0000FF
+end_color     = #00FF00
+transcript_only = 1 
+min_score     = 0   
+max_score     = 2.5 
+database     = hillier
+connector     = hat
+stranded      = ends
+sort_order    = name
+Category      = modENCODE Tracks: Waterston Group:Genelets
+height        = 10   
+label         = sub{my $name = shift->load_id;
+                    $name=~s/Transcript\://;
+                    $name=~s/.*L1_//;
+                    $name;
+                    }
+bump density  = 250
+label density = 100
+balloon hover = sub {my $f = shift;
+                     my $name   = $f->load_id;
+                     my @status = $f->each_tag_value('prediction_status');
+                     return join (" ",$name,"(Score:".$f->score.")",$status[0]);}
+key           = mid-L4 Genelets (colored my mRNA)
+
+[rainbow_transcript_YA:100000]
+glyph         = heat_map
+vary_fg       = 1
+label         = 0
+
+[rainbow_transcript_YA]
+feature       = transcript
+filter        = sub {shift->source_tag =~ /Young_Adult_25dC/}
+glyph         = rainbow_gene
+data source   = 639
+track source  = 148
+start_color   = #0000FF
+end_color     = #00FF00
+transcript_only = 1 
+min_score     = 0 
+max_score     = 2.5 
+database     = hillier
+connector     = hat 
+stranded      = ends
+sort_order    = name
+Category      = modENCODE Tracks: Waterston Group:Genelets
+height        = 10
+label         = sub{my $name = shift->load_id;
+                    $name=~s/Transcript\://;
+                    $name=~s/.*L1_//;
+                    $name;
+                    }
+bump density  = 250
+label density = 100
+balloon hover = sub {my $f = shift;
+                     my $name   = $f->load_id;
+                     my @status = $f->each_tag_value('prediction_status');
+                     return join (" ",$name,"(Score:".$f->score.")",$status[0]);}
+key           = Young Adult Genelets (colored my mRNA)
+
+# introns:
+
+[Hillier_confirmed_introns_L2:100000]
+label         = 0
+desciption    = 0
+
+[Hillier_confirmed_introns_L2]
+feature      = intron
+filter       = sub {shift->source_tag =~ /mid-L2_20dC_14hrs/}
+glyph        = box
+data source  = 636
+track source = 147
+database     = hillier
+bgcolor      = lightgrey
+fgcolor      = black
+connector    = solid
+bump density = 250
+height       = 8
+stranded     = 0
+label        = sub {my $id =  shift->load_id;
+                    $id =~ s/intron_(\w+?_\d+_\d+)_(.)_wb180/$1/;
+                    $id."($2)";}
+label density= 100
+category     = modENCODE Tracks: Waterston Group:Introns
+key          = mid-L2 confirmed introns
+group_on     =
+citation     = Test for confirmed introns
+balloon hover = sub {my $f = shift;
+                     my $name   = $f->load_id;
+                     my @status = $f->each_tag_value('prediction_status');
+                     return join (" ",$name,"(Score :".$f->score.")",$status[0]);}
+
+[Hillier_confirmed_introns_L3:100000]
+label         = 0
+desciption    = 0
+
+[Hillier_confirmed_introns_L3]
+feature      = intron
+filter       = sub {shift->source_tag =~ /mid-L3_20dC_25hrs/}
+glyph        = box
+data source  = 637
+track source = 150
+database     = hillier
+bgcolor      = lightgrey
+fgcolor      = black
+connector    = solid
+bump density = 250
+height       = 8
+stranded     = 0
+label        = sub {my $id =  shift->load_id;
+                    $id =~ s/intron_(\w+?_\d+_\d+)_(.)_wb180/$1/;
+                    $id."($2)";}
+label density= 100
+category     = modENCODE Tracks: Waterston Group:Introns
+key          = mid-L3 confirmed introns
+group_on     =
+citation     = Test for confirmed introns
+balloon hover = sub {my $f = shift;
+                     my $name   = $f->load_id;
+                     my @status = $f->each_tag_value('prediction_status');
+                     return join (" ",$name,"(Score :".$f->score.")",$status[0]);}
+
+[Hillier_confirmed_introns_L4:100000]
+label         = 0
+desciption    = 0
+
+[Hillier_confirmed_introns_L4]
+feature      = intron
+filter       = sub {shift->source_tag =~ /mid-L4_20dC_36hrs/}
+glyph        = box
+data source  = 638
+track source = 146
+database     = hillier
+bgcolor      = lightgrey
+fgcolor      = black
+connector    = solid
+bump density = 250
+height       = 8
+stranded     = 0
+label        = sub {my $id =  shift->load_id;
+                    $id =~ s/intron_(\w+?_\d+_\d+)_(.)_wb180/$1/;
+                    $id."($2)";}
+label density= 100
+category     = modENCODE Tracks: Waterston Group:Introns
+key          = mid-L4 confirmed introns
+group_on     =
+citation     = Test for confirmed introns
+balloon hover = sub {my $f = shift;
+                     my $name   = $f->load_id;
+                     my @status = $f->each_tag_value('prediction_status');
+                     return join (" ",$name,"(Score :".$f->score.")",$status[0]);}
+
+[Hillier_confirmed_introns_YA:100000]
+label         = 0
+desciption    = 0
+
+[Hillier_confirmed_introns_YA]
+feature      = intron
+filter       = sub {shift->source_tag =~ /Young_Adult_25dC/}
+glyph        = box
+data source  = 639
+track source = 148
+database     = hillier
+bgcolor      = lightgrey
+fgcolor      = black
+connector    = solid
+bump density = 250
+height       = 8
+stranded     = 0
+label        = sub {my $id =  shift->load_id;
+                    $id =~ s/intron_(\w+?_\d+_\d+)_(.)_wb180/$1/;
+                    $id."($2)";}
+label density= 100
+category     = modENCODE Tracks: Waterston Group:Introns
+key          = Young Adult confirmed introns
+group_on     = 
+citation     = Test for confirmed introns
+balloon hover = sub {my $f = shift;
+                     my $name   = $f->load_id;
+                     my @status = $f->each_tag_value('prediction_status');
+                     return join (" ",$name,"(Score :".$f->score.")",$status[0]);}
+
+# polyA:
+
+[Hillier_confirmed_polyA_L2:100000]
+label         = 0
+desciption    = 0
+
+[Hillier_confirmed_polyA_L2]
+feature       = polyA_site
+filter        = sub {shift->source_tag =~ /mid-L2_20dC_14hrs/}
+glyph         = dot
+data source   = 636
+track source  = 147
+category      = modENCODE Tracks: Waterston Group:PolyA
+height        = 3
+bgcolor       = red
+fgcolor       = red
+database      = hillier
+label         = sub {my $id = shift->load_id;
+                     $id =~ s/polyA_(\w+?_\d+_\d+)_(.)_wb180/$1/;
+                     $id."($2)";}
+bump density  = 250
+label density = 100
+key           = mid-L2 confirmed polyA
+citation      = Test for confirmed polyA
+balloon hover = sub {my $f = shift;
+                     my $name   = $f->load_id;
+                     my @status = $f->each_tag_value('prediction_status');
+                     return join (" ",$name,"(Score:".$f->score.")",$status[0]);}
+
+[Hillier_confirmed_polyA_L3:100000]
+label         = 0
+desciption    = 0
+
+[Hillier_confirmed_polyA_L3]
+feature      = polyA_site
+filter       = sub {shift->source_tag =~ /mid-L3_20dC_25hrs/}
+glyph        = box
+data source  = 637
+track source = 150
+database     = hillier
+bgcolor      = red
+fgcolor      = red
+connector    = solid
+bump density = 250
+label density= 100
+height       = 3
+stranded     = 0
+label        = sub {my $id =  shift->load_id;
+                    $id =~ s/polyA_(\w+?_\d+_\d+)_(.)_wb180/$1/;
+                    $id."($2)";}
+category     = modENCODE Tracks: Waterston Group:PolyA
+key          = mid-L3 confirmed polyA
+group_on     =
+citation     = Test for confirmed polyA
+balloon hover = sub {my $f = shift;
+                     my $name   = $f->load_id;
+                     my @status = $f->each_tag_value('prediction_status');
+                     return join (" ",$name,"(Score :".$f->score.")",$status[0]);}
+
+[Hillier_confirmed_polyA_L4:100000]
+label         = 0
+desciption    = 0
+
+[Hillier_confirmed_polyA_L4]
+feature      = polyA_site
+filter       = sub {shift->source_tag =~ /mid-L4_20dC_36hrs/}
+glyph        = box
+data source  = 638
+track source = 146
+database     = hillier
+bgcolor      = red
+fgcolor      = red
+connector    = solid
+bump density = 250
+height       = 3
+stranded     = 0
+label        = sub {my $id =  shift->load_id;
+                    $id =~ s/polyA_(\w+?_\d+_\d+)_(.)_wb180/$1/;
+                    $id."($2)";}
+label density= 100
+category     = modENCODE Tracks: Waterston Group:PolyA
+key          = mid-L4 confirmed polyA
+group_on     =
+citation     = Test for confirmed polyA
+balloon hover = sub {my $f = shift;
+                     my $name   = $f->load_id;
+                     my @status = $f->each_tag_value('prediction_status');
+                     return join (" ",$name,"(Score :".$f->score.")",$status[0]);}
+
+[Hillier_confirmed_polyA_YA:100000]
+label         = 0
+desciption    = 0
+
+[Hillier_confirmed_polyA_YA]
+feature      = polyA_site
+filter       = sub {shift->source_tag =~ /Young_Adult_25dC/}
+glyph        = box
+data source  = 639
+track source = 148
+database     = hillier
+bgcolor      = red
+fgcolor      = red
+connector    = solid
+bump density = 250
+height       = 3
+stranded     = 0
+label        = sub {my $id =  shift->load_id;
+                    $id =~ s/polyA_(\w+?_\d+_\d+)_(.)_wb180/$1/;
+                    $id."($2)";}
+label density= 100
+category     = modENCODE Tracks: Waterston Group:PolyA
+key          = Young Adult confirmed polyA
+group_on     =
+citation     = Test for confirmed introns
+
+# Splice leaders:
+
+[Hillier_confirmed_SL_L2:100000]
+label         = 0
+desciption    = 0
+
+[Hillier_confirmed_SL_L2]
+feature       = SL1_acceptor_site
+                SL2_acceptor_site
+filter        = sub {shift->source_tag =~ /mid-L2_20dC_14hrs/}
+glyph         = dot
+data source   = 636
+track source  = 147
+point         = 0
+category      = modENCODE Tracks: Waterston Group:Splice Leaders
+height        = 7
+bgcolor       = grey
+fgcolor       = grey
+database      = hillier
+label         = sub {my $id = shift->load_id;
+                     $id =~ s/(SL1_\w+?_\d+_\d+)_(.)_wb180/$1/;
+                     $id."($2)";}
+bump density  = 250
+label density = 100
+key           = mid-L2 confirmed SLs
+citation      = Test for confirmed Trans-splicing leaders
+balloon hover = sub {my $f = shift;
+                     my $name   = $f->load_id;
+                     my @status = $f->each_tag_value('prediction_status');
+                     return join (" ",$name,"(Score:".$f->score.")",$status[0]);}
+
+[Hillier_confirmed_SL_L3:100000]
+label         = 0
+desciption    = 0
+
+[Hillier_confirmed_SL_L3]
+feature       = SL1_acceptor_site
+                SL2_acceptor_site
+filter        = sub {shift->source_tag =~ /mid-L3_20dC_25hrs/}
+glyph         = dot
+data source   = 637
+track source  = 150
+point         = 0
+category      = modENCODE Tracks: Waterston Group:Splice Leaders
+height        = 7
+bgcolor       = grey
+fgcolor       = grey
+database      = hillier
+label         = sub {my $id = shift->load_id;
+                     $id =~ s/(SL1_\w+?_\d+_\d+)_(.)_wb180/$1/;
+                     $id."($2)";}
+bump density  = 250
+label density = 100
+key           = mid-L3 confirmed SLs
+citation      = Test for confirmed Trans-splicing leaders
+balloon hover = sub {my $f = shift;
+                     my $name   = $f->load_id;
+                     my @status = $f->each_tag_value('prediction_status');
+                     return join (" ",$name,"(Score:".$f->score.")",$status[0]);}
+
+[Hillier_confirmed_SL_L4:100000]
+label         = 0
+desciption    = 0
+
+[Hillier_confirmed_SL_L4]
+feature       = SL1_acceptor_site
+                SL2_acceptor_site
+filter        = sub {shift->source_tag =~ /mid-L4_20dC_36hrs/}
+glyph         = dot
+data source   = 638
+track source  = 146
+point         = 0
+category      = modENCODE Tracks: Waterston Group:Splice Leaders
+height        = 7
+bgcolor       = grey
+fgcolor       = grey
+database      = hillier
+label         = sub {my $id = shift->load_id;
+                     $id =~ s/(SL1_\w+?_\d+_\d+)_(.)_wb180/$1/;
+                     $id."($2)";}
+bump density  = 250
+label density = 100
+key           = mid-L4 confirmed SLs
+citation      = Test for confirmed Trans-splicing leaders
+balloon hover = sub {my $f = shift;
+                     my $name   = $f->load_id;
+                     my @status = $f->each_tag_value('prediction_status');
+                     return join (" ",$name,"(Score:".$f->score.")",$status[0]);}
+
+[Hillier_confirmed_SL_YA:100000]
+label         = 0
+desciption    = 0
+
+[Hillier_confirmed_SL_YA]
+feature       = SL1_acceptor_site
+                SL2_acceptor_site
+filter        = sub {shift->source_tag =~ /Young_Adult_25dC/}
+glyph         = dot
+data source   = 639
+track source  = 148
+point         = 0
+category      = modENCODE Tracks: Waterston Group:Splice Leaders
+height        = 7
+bgcolor       = grey
+fgcolor       = grey
+database      = hillier
+label         = sub {my $id = shift->load_id;
+                     $id =~ s/(SL1_\w+?_\d+_\d+)_(.)_wb180/$1/;
+                     $id."($2)";}
+bump density  = 250
+label density = 100
+key           = Young Adult confirmed SLs
+citation      = Test for confirmed Trans-splicing leaders
+balloon hover = sub {my $f = shift;
+                     my $name   = $f->load_id;
+                     my @status = $f->each_tag_value('prediction_status');
+                     return join (" ",$name,"(Score:".$f->score.")",$status[0]);}
+
+

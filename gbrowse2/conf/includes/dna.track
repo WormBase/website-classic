@@ -1,0 +1,43 @@
+[TranslationF]
+glyph        = translation
+global feature = 1
+frame0       = cadetblue
+frame1       = blue
+frame2       = darkblue
+height       = 20
+fgcolor      = purple
+start_codons = 0
+strand       = +1
+arrow_height = 2
+translation  = 3frame
+category     = DNA
+key          = 3-frame translation (forward)
+citation     = This track shows the position of stop codons at low magnifications,
+	and the 3-frame translation at high magnifications.  Only the forward strand
+	is shown.
+
+[DNA/GC Content]
+glyph          = dna
+global feature = 1
+strand         = both
+height         = 40
+fgcolor        = red
+category       = DNA
+
+[TranslationR]
+glyph        = translation
+global feature = 1
+frame0       = darkred
+frame1       = red
+frame2       = crimson
+height       = 20
+fgcolor      = blue
+strand       = -1
+start_codons = 0
+arrow_height = 2
+translation  = 3frame
+category     = DNA
+key          = 3-frame translation (reverse)
+citation     = This track shows the position of stop codons at low magnifications,
+	and the 3-frame translation at high magnifications.  Only the reverse
+	strand is shown.

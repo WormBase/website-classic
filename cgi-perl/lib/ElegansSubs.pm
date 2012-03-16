@@ -3934,14 +3934,14 @@ sub Bestname {
   my $gene = shift;
   return unless $gene && $gene->class eq 'Gene';
   my $name = $gene->Public_name ||
-      $gene->CGC_name || $gene->Molecular_name || eval { $gene->Corresponding_CDS->Corresponding_protein } || $gene;
+      eval { $gene->CGC_name } || $gene->Molecular_name || eval { $gene->Corresponding_CDS->Corresponding_protein } || $gene;
   return $name;
 }
 
 sub GeneName2Gene {
   my $gene_name = shift;
   return $gene_name unless $gene_name->class eq 'Gene_name';  # Bizarre hack
-  my $gene = $gene_name->CGC_name_for || $gene_name->Molecular_name_for || $gene_name->Public_name_for || $gene_name->Other_name_for;
+  my $gene = eval { $gene_name->CGC_name_for } || $gene_name->Molecular_name_for || $gene_name->Public_name_for || $gene_name->Other_name_for;
   return $gene;
 }
 

@@ -1,6 +1,4 @@
 User-agent: *
-Disallow: /
+Disallow: /db
 
-User-agent: Googlebot
-Allow: /
 
