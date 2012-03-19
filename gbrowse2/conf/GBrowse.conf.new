@@ -6,10 +6,10 @@
 config_base            = /usr/local/wormbase/website/legacy/gbrowse2/conf   # overridden by environment variable GBROWSE_CONF
 htdocs_base            = /usr/local/wormbase/website/legacy/gbrowse2/html
 url_base               = /gbrowse2
-tmp_base               = /usr/local/wormbase/website/legacy/tmp/gbrowse2
-persistent_base        = /usr/local/wormbase/website/legacy/tmp/gbrowse2/persistent
-userdata_base          = /usr/local/wormbase/website/legacy/tmp/gbrowse2/persistent/userdata
-db_base                = /usr/local/wormbase/website/legacy/tmp/gbrowse2/persistent/databases
+tmp_base               = /usr/local/wormbase/website/legacy/tmp/gbrowse
+persistent_base        = /usr/local/wormbase/website/legacy/tmp/gbrowse/persistent
+userdata_base          = /usr/local/wormbase/website/legacy/tmp/gbrowse/persistent/userdata
+db_base                = /usr/local/wormbase/website/legacy/tmp/gbrowse/persistent/databases
 
 # These paths are relative to the url base
 buttons       = images/buttons

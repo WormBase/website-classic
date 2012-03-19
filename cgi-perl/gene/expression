@@ -895,7 +895,7 @@ sub print_sanctioned_flickr_images {
     my @related;
     
     my $flickr   = Flickr::API::Simple->new({
-	config => '/usr/local/wormbase/website-classic/conf/flickr.conf'});
+	config => '/usr/local/wormbase/website/legacy/conf/flickr.conf'});
     
     # 1. Display sanctioned images from the WormBase user
     my $user     = $flickr->find_user({username => 'wormbase'});

@@ -7,11 +7,11 @@ use strict;
 use Ace::Browser::AceSubs;
 use ElegansSubs qw/:DEFAULT/;
 use CGI qw/:standard/;
-use lib '/usr/local/wormbase/website-classic/cgi-perl/lib/RSS';
+use lib '/usr/local/wormbase/website/legacy/cgi-perl/lib/RSS';
 use ObjectHistory;
 use vars qw/$class $name $file/;
 
-use constant RSS_ROOT => '/usr/local/wormbase/website-classic/html/rss';
+use constant RSS_ROOT => '/usr/local/wormbase/website/legacy/html/rss';
 
 $class  = param('class');
 $name   = param('name');

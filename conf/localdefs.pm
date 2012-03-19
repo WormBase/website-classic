@@ -33,7 +33,7 @@ $MIRROR      = '';
 $DEVELOPMENT = 0;       # 0 = false, 1 = true
 
 # Page caching.
-$CACHE = '/usr/local/wormbase/tmp/website-classic/cache';
+$CACHE = '/usr/local/wormbase/tmp/website/cache';
 
 # The following options control the location and
 # lifespan of acedb object caching.
@@ -45,7 +45,7 @@ $CACHE = '/usr/local/wormbase/tmp/website-classic/cache';
 # should be returned.  Normally, this is the name of the localhost
 # but may also be on a remote machine.
 #$WORMBASE2BLAST = 'http://dev.wormbase.org';
-$WORMBASE2BLAST = 'http://www.wormbase.org';
+$WORMBASE2BLAST = 'http://localhost';
 
 # where does the BLAST page go for its xrefs?
 #$BLAST2WORMBASE = 'http://dev.wormbase.org';

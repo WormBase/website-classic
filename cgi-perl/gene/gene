@@ -1017,9 +1017,10 @@ END
     my %motifs;
     for my $protein (@$PROTEINS) {
 	foreach my $motif ($protein->Motif_homol) {
-	    unless (defined $motifs{$motif->Title}) {
+	    my $title = eval { $motif->Title };
+	    unless ($title && defined $motifs{$title}) {
 		# Check if this is a PFAM motif, if so, select randomly an associated protein and make balloon content
-		my $motif_link = ObjectLink($motif,$motif->Title);
+		my $motif_link = ObjectLink($motif,$title);
 		
 #		my $trimmed_motif = $motif;
 #		$trimmed_motif =~ s/^PFAM://;
@@ -1057,12 +1058,12 @@ END
 #		    $motif_link .= qq[  ] . $balloon_tip;
 #		}  
 		
-		$motifs{$motif->Title} = { motif   => $motif_link, 
+		$motifs{$title} = { motif   => $motif_link, 
 					   start   => $motif->right(3),
 					   stop    => $motif->right(4),
-				       };
+				       };	    
+		push @{$motifs{$motif->Title}->{proteins}},ObjectLink($protein);
 	    }
-	    push @{$motifs{$motif->Title}->{proteins}},ObjectLink($protein);
 	}
     }
     
@@ -2665,7 +2666,7 @@ sub _build__phenotypes {
 
     # gather variation info
     for my $allele ($GENE->Allele) {
-        my $seq_status = $allele->SeqStatus;
+        my $seq_status = eval { $allele->SeqStatus };
 
         my $packed_allele = a({-href=>"/db/gene/variation?class=Variation;name=" . $allele,
 			    -boldface => $seq_status ? scalar($seq_status =~ /sequenced/i) : 0,}, $allele);
@@ -2705,7 +2706,7 @@ sub _build__rnai_results {
 	my %results;
 	for my $rnai ($GENE->RNAi_result) {
  
-		my $ref = $rnai->Reference || '';
+		my $ref = eval { $rnai->Reference } || '';
 	
 		my $genotype = $rnai->Genotype || eval { $rnai->Strain->Genotype } || '';
 

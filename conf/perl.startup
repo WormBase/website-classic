@@ -5,8 +5,8 @@ warn "loading wormbase perl definitions...";
 #use local::lib '/usr/local/wormbase/extlib/classic';
 
 use lib
-    '/usr/local/wormbase/website/legacy/extlib/lib/perl5/x86_64-linux-gnu-thread-multi',
-    '/usr/local/wormbase/website/legacy/extlib/lib/perl5',
+    '/usr/local/wormbase/extlib/lib/perl5/x86_64-linux-gnu-thread-multi',
+    '/usr/local/wormbase/extlib/lib/perl5',
     '/usr/local/wormbase/website/legacy/extlib',
     '/usr/local/wormbase/website/legacy/extlib/lib',
     '/usr/local/wormbase/website/legacy/lib',

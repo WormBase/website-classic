@@ -5,7 +5,6 @@
 
 use strict;
 use vars qw($DB $PmapGFF %SEQ_CACHE $GFF $WORMBASE $seq);
-use lib '/usr/local/wormbase/website-classic/extlib/lib/perl5', '../lib/';
 use Bio::Seq;
 use CGI qw(:standard :html3 escape *blockquote *table *TR *td *iframe *ul :imagemap);
 use CGI::Carp;

@@ -4,7 +4,7 @@
 
 use DB_File;
 use strict;
-use lib '/usr/local/wormbase/website-classic/cgi-perl/lib';
+use lib '/usr/local/wormbase/website/legacy/cgi-perl/lib';
 use vars qw/$query $query_type $ontology $obo $script_url $format %ontology2ace $target $DB/;
 use Ace::Browser::AceSubs qw/:DEFAULT/;
 use CGI qw/:standard *table *TR *td *div/;

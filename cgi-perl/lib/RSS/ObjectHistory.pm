@@ -15,7 +15,7 @@ use vars qw/$updatedb $objects_rs $history_rs $md5/;
 use constant UPDATEDB        => 'object_history';                # The history database
 use constant DEBUG           => 0;
 use constant BY_RELEASE_DATE => 1;
-use constant RSS_ROOT        => '/usr/local/wormbase/website-classic/html/rss';
+use constant RSS_ROOT        => '/usr/local/wormbase/website/legacy/html/rss';
 
 #$updatedb = DB::History->connect('DBI:mysql:database='  .  UPDATEDB,'root','kentwashere')
 #  or die "Couldn't connect to database";

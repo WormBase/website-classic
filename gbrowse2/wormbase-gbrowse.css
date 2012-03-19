@@ -63,6 +63,7 @@ A.nochange:visited { text-decoration: none;
 body              {  font-family:sans-serif;
                      background-color: white;
 		     z-index:0; 
+		     padding-top:100px;
 }
 
 div.tooltip        {text-decoration: none; 
@@ -1717,3 +1718,35 @@ font.highlighted {
     color:#FFFF99;
     font-weight:bold;
 }
+
+#top-system-message {
+  background: #406F9C;
+  color:white;
+  margin:0em;
+  text-align:center;
+  position:fixed;
+  top:0;
+  left:0;
+  z-index:999999;
+  border-bottom:1px solid black;
+}
+
+#top-system-message a{
+  color:white;
+  text-decoration:underline;
+}
+
+.system-message {
+  height:100px;
+  width:100%;
+  padding:0.2em 0;
+}
+
+#top-system-message p {
+    font-size:1.1em;
+    font-weight:bold;
+}
+
+#top-system-message .system-byline {
+  font-style:italic;
+}    

@@ -1099,7 +1099,7 @@ END
 # 	    ))
 #       , br({-clear=>'all'});
 
-  my $system_message = '<div id="top-system-message" class="system-message">Try <a href="http://beta.wormbase.org">WormBase 2 (beta)</a>!</div><div class="system-message" ></div>';
+  my $system_message = '<div id="top-system-message" class="system-message"><p>This is the legacy version of the <a href="http://www.wormbase.org"/>WormBase</a> website.</p><span class="system-byline">Development ceased on this version in March 2012;<br/>databases are frozen at release WS230.</span></div>';
   my $banner_image =  img({-src=>$image_right,-alt=>'WormBase Banner',-border=>0,-align=>'right'});
 
   if ($homepage || $searchpage) {
