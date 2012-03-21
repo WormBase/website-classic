@@ -439,6 +439,7 @@ sub fetch_sequences {
 # to save all this stuff.
 # Just need to fetch a span based on the CDS
 sub segments {
+    return unless $GFF;
     if (@$SEQUENCES && $SPECIES =~ /briggsae/) {
 	  my @tmp = map {$GFF->segment(CDS => "$_")} @$SEQUENCES;
 	  @tmp = map {$GFF->segment(Pseudogene => "$_")} @$SEQUENCES unless (@tmp);
@@ -2708,7 +2709,7 @@ sub _build__rnai_results {
  
 		my $ref = eval { $rnai->Reference } || '';
 	
-		my $genotype = $rnai->Genotype || eval { $rnai->Strain->Genotype } || '';
+		my $genotype = eval { $rnai->Genotype } || eval { $rnai->Strain->Genotype } || '';
 
 		my @phenotypes = (
 		    $rnai->Phenotype,

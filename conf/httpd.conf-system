@@ -1,8 +1,8 @@
-<VirtualHost *:8080>
+<VirtualHost *:80>
    ServerName legacy.wormbase.org
 #  PerlOptions +Parent
-  PerlSwitches -Mlib=/usr/local/wormbase/website/legacy/extlib/lib/perl5/x86_64-linux-gnu-thread-multi \
-               -Mlib=/usr/local/wormbase/website/legacy/extlib/extlib/lib/perl5 \
+  PerlSwitches -Mlib=/usr/local/wormbase/extlib/lib/perl5/x86_64-linux-gnu-thread-multi \
+               -Mlib=/usr/local/wormbase/extlib/lib/perl5 \
 	       -Mlib=/usr/local/wormbase/website/legacy/gbrowse2/lib \
 	       -Mlib=/usr/local/wormbase/website/legacy/gbrowse2/lib/Bio \
 	       -Mlib=/usr/local/wormbase/website/legacy/gbrowse2/lib/Bio/Graphics \
@@ -12,12 +12,12 @@
 
    ScriptAlias  "/gb2"     "/usr/local/wormbase/website/legacy/gbrowse2/cgi/gb2"
    Alias       "/gb2-support/"     "/usr/local/wormbase/website/legacy/gbrowse2/"
-   Alias       "/gbrowse2/i" "/usr/local/wormbase/website/legacy/tmp/gbrowse2/images"
+   Alias       "/gbrowse2/i" "/usr/local/wormbase/tmp/gbrowse2/images"
    Alias       "/gbrowse2"   "/usr/local/wormbase/website/legacy/gbrowse2/html"
 
 
    <Directory "/usr/local/wormbase/website/legacy/gbrowse2/cgi/gb2">
-       SetEnv PERL5LIB "/usr/local/wormbase/website/legacy/extlib/lib/perl5:/usr/local/wormbase/website/legacy/extlib/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website/legacy/gbrowse2/lib:/usr/local/wormbase/website/legacy/gbrowse2/lib/Bio:/usr/local/wormbase/website/legacy/gbrowse2/lib/Bio/Graphics:/usr/local/wormbase/website/legacy/gbrowse2/lib/Bio/Graphics/Glyph"
+       SetEnv PERL5LIB "/usr/local/wormbase/extlib/lib/perl5:/usr/local/wormbase/extlib/lib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website/legacy/gbrowse2/lib:/usr/local/wormbase/website/legacy/gbrowse2/lib/Bio:/usr/local/wormbase/website/legacy/gbrowse2/lib/Bio/Graphics:/usr/local/wormbase/website/legacy/gbrowse2/lib/Bio/Graphics/Glyph"
        SetEnv GBROWSE_CONF   "/usr/local/wormbase/website/legacy/gbrowse2/conf"
     </Directory>
 
@@ -32,10 +32,10 @@
         IdleTimeout 300
         FcgidInitialEnv GBROWSE_CONF /usr/local/wormbase/website/legacy/gbrowse2/conf
         FcgidInitialEnv DOCUMENT_ROOT /usr/local/wormbase/tmp/gbrowse/synteny
-	FcgidInitialEnv PERL5LIB "/usr/local/wormbase/website/legacy/extlib/lib/perl5:/usr/local/wormbase/website/legacy/extlib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website/legacy/gbrowse2/lib:/usr/local/wormbase/website/legacy/gbrowse2/lib/Bio:/usr/local/wormbase/website/legacy/gbrowse2/lib/Bio/Graphics:/usr/local/wormbase/website/legacy/gbrowse2/lib/Bio/Graphics/Glyph"
+	FcgidInitialEnv PERL5LIB "/usr/local/wormbase/extlib/lib/perl5:/usr/local/wormbase/extlib/perl5/x86_64-linux-gnu-thread-multi:/usr/local/wormbase/website/legacy/gbrowse2/lib:/usr/local/wormbase/website/legacy/gbrowse2/lib/Bio:/usr/local/wormbase/website/legacy/gbrowse2/lib/Bio/Graphics:/usr/local/wormbase/website/legacy/gbrowse2/lib/Bio/Graphics/Glyph"
     </IfModule>
 
 
-    Redirect /db/gb2 http://legacy.wormbase.org/gb2
+    Redirect /db/gb2 /gb2
 
 </VirtualHost>
