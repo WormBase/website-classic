@@ -32,6 +32,15 @@ StartCache();
 $WORMBASE = WormBase->new($DB);
 
 my $lab_name  = param('name');
+
+if ($lab_name) {
+    my $version = $DB->version;
+    my $is_precached = is_precached($version,'laboratory',$lab_name);
+    if ($is_precached) { 
+	exit;
+    }
+}
+
 @labs         = $DB->fetch(-class =>'Laboratory',
 			   -name  => $lab_name,
 			   -fill  => 1,

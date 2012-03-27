@@ -24,6 +24,16 @@ END {
 $DB = OpenDatabase() || AceError("Couldn't open database.");
 StartCache();
 
+# Are we precached?
+if (param('name')) {
+    my $version = $DB->version;
+    my $is_precached = is_precached($version,'gene_class',param('name'));
+    if ($is_precached) { 
+	exit;
+    }
+}
+
+
 @GENE_CLASS = fetch_gene_class();
 
 if (param('name') && @GENE_CLASS) {

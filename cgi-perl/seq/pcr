@@ -24,7 +24,13 @@ $DB = OpenDatabase() || AceError("Couldn't open database.");
 $WORMBASE = WormBase->new($DB);
 
 if ($name = param('name')) {
-  $object = get_object($name);
+    my $version = $DB->version;
+    my $is_precached = is_precached($version,'pcr',$name);
+    if ($is_precached) { 
+	exit;
+    }
+
+    $object = get_object($name);
 }
 
 # Assume that these are all derived from the elegans db

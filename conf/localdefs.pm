@@ -32,7 +32,7 @@ $MIRROR      = '';
 #$DEVELOPMENT = 1;       # 0 = false, 1 = true
 $DEVELOPMENT = 0;       # 0 = false, 1 = true
 
-# Page caching.
+# (Dynamic) page caching -- not to be confused with precaching. Ugh.
 $CACHE = '/usr/local/wormbase/tmp/website/cache';
 
 # The following options control the location and

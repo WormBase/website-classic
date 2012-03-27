@@ -37,6 +37,16 @@ $DB = OpenDatabase() || AceError("Couldn't open database.");
 $WORMBASE = WormBase->new($DB);
 
 $name  = param('name');
+
+if ($name) {
+    my $version = $DB->version;
+    my $is_precached = is_precached($version,'paper',$name);
+    if ($is_precached) { 
+	exit;
+    }
+}
+
+
 $paper = get_paper() if $name;
 
 if (param('citeulike')) {

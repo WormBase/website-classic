@@ -24,8 +24,21 @@ END {
 $DB = OpenDatabase() || AceError("Couldn't open database.");
 $WORMBASE = WormBase->new($DB);
 
+my $version = $DB->version;
 my ($clone_name, $clone);
 if ($clone_name = param('name')) {
+
+    
+# Have we been precached to disk?
+# For the final legacy version, we will just 
+# generate every single page over time.
+    my $is_precached = is_precached($version,'clone',$clone_name);
+    if ($is_precached) { 
+	exit;
+    }
+
+
+
   $clone = get_clone($clone_name);
 }
 

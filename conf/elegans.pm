@@ -107,8 +107,9 @@ $WORMVIEW_IMAGE = "$WORMBASE/html/images/expression/assembled";
 #   The URL and the physical location, which must be writable
 # by the web server.
 
-$tmpimages = tmpimages();
-@PICTURES = ("/dynamic_images/$tmpimages" => "/var/tmp/dynamic_images/$tmpimages");
+#$tmpimages = tmpimages();
+#@PICTURES = ("/dynamic_images/$tmpimages" => "/usr/local/wormbase/tmp/dynamic_images/$tmpimages");
+@PICTURES = ("/dynamic_images" => "/usr/local/wormbase/tmp/dynamic_images");
 
 $IMAGES = '/images';
 $EXPRESSION_IMAGES = "$IMAGES/expression/patterns";
@@ -642,14 +643,14 @@ $MY_FOOTER =
 
 
 
-sub tmpimages {
-#    my ($server) = $ENV{SERVER_NAME} =~ /(.*?)\..*/;
-#    $server    ||= 'local';
-    my $host = `hostname`;
-    chomp $host;
-    $host ||= 'local';
-    return $host;
-}
+#sub tmpimages {
+##    my ($server) = $ENV{SERVER_NAME} =~ /(.*?)\..*/;
+##    $server    ||= 'local';
+#    my $host = `hostname`;
+#    chomp $host;
+#    $host ||= 'local';
+#    return $host;
+#}
 
 # ========= &URL_MAPPER  =========
 # mapping from object type to URL.  Return empty list to fall through

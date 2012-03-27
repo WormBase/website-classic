@@ -23,6 +23,20 @@ END {
 }
 
 $DB = OpenDatabase() || AceError("Couldn't open database.");
+
+
+# Have we been precached to disk?
+# For the final legacy version, we will just 
+# generate every single page over time.
+if (param('name')) {
+    my $version = $DB->version;
+    my $is_precached = is_precached($version,'gene_regulation',param('name'));
+    if ($is_precached) { 
+	exit;
+    }
+}
+
+
 @GR = fetch_GR();
 
 if (param('name') && @GR) {

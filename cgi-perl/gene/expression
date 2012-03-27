@@ -90,6 +90,15 @@ if (param('draw')) {
 
 $ep_name = param('name');
 
+# Are we precached?
+if ($ep_name) {
+    my $version = $DB->version;
+    my $is_precached = is_precached($version,'expr_pattern',$ep_name);
+    if ($is_precached) { 
+	exit;
+    }
+}
+
 # get expression pattern from name if not empty
 ( $EP, $obj ) = get_ep($ep_name) if $ep_name;
 

@@ -92,33 +92,25 @@ $WORMBASE = WormBase->new($DB);
 
 my $request = param('name');
 
+if ($request) {
+    my $version = $DB->version;
+# Have we been precached to disk?
+# For the final legacy version, we will just 
+# generate every single page over time.
+    my $is_precached = is_precached($version,'variation',$var);
+    if ($is_precached) { 
+	exit;
+    }
+}
+
+
 # Fetch an ace object and a GFF segment in chrom coords
 ($data,$var,$GFFDB,$public_name) = get_variation($request);
 $CONFIG = Configuration();
 
-my $version = $DB->version;
-# Do we have a pre-cached version of this page?
-my $cache_root = sprintf(Configuration->Static_cache_root,$version);
 
-if (!param('details') && -e "$cache_root/variation/$var.html") {
-    open IN,"$cache_root/variation/$var.html";
 
-    # warn  "Serving a page from the precache ($GENE). Yay";
-    # print "Serving a page from $gene_root/gene/$GENE.html";
 
-    # This doesn't seem very efficient.
-    print header();
-    while (<IN>) {
-       print $_;
-    }
-    close IN;
-   
-    # Or just redirect
-    # redirect("/cache/$version/gene/$GENE.html");
-    # Or I will use apache-fu for redirection to /cache/
-    # redirect("/gene/$version/$GENE.html");
-    exit;
-}
 
 #redirect_to_sequence($request)       if (!$var and $request);
 redirect_to_locus($var->New_name) if   $var and eval {$var->New_name};

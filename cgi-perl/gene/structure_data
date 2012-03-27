@@ -26,6 +26,17 @@ use constant NONE => i('not available');
 $DB = OpenDatabase() || AceError("Couldn't open database.");
 $DB->class('Ace::Object::Wormbase');
 
+# Have we been precached to disk?
+# For the final legacy version, we will just 
+# generate every single page over time.
+if (param('name')) {
+    my $version = $DB->version;
+    my $is_precached = is_precached($version,'structure_data',param('name'));
+    if ($is_precached) { 
+	exit;
+    }
+}
+
 $structure_data = get_object();
 
 PrintTop($structure_data,'Structure_data',($structure_data) ? "Structure Data Report for: $structure_data" : 'Structure Data Report');

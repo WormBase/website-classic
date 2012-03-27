@@ -46,6 +46,16 @@ $WORMBASE = WormBase->new($DB);
 
 my (@rnai);
 if ( $rnai_name = param('name') ) {
+my $version = $DB->version;
+# Have we been precached to disk?
+# For the final legacy version, we will just 
+# generate every single page over time.
+my $is_precached = is_precached($version,'rnai',$rnai_name);
+if ($is_precached) { 
+    exit;
+}
+
+
     @rnai = get_rnai($rnai_name);
 }
 

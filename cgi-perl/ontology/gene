@@ -38,6 +38,15 @@ our $version = $DB->version;
 $WORMBASE = WormBase->new($DB);
 
 $NAME  = param('name') || param('query');
+if ($NAME) {
+    my $version = $DB->version;
+    my $is_precached = is_precached($version,'gene_ontology',$NAME);
+    if ($is_precached) { 
+	exit;
+    }
+}
+
+
 $CLASS = param('class');
 my $offset            = AceSearchOffset();
 ($TERMS,$COUNT,$FLAG) = get_term($offset) if $NAME;

@@ -37,6 +37,14 @@ use constant CONFIRM => 'mailto:cecilia@tazendra.caltech.edu';
 	      );
 
 
+if (param('name')) {
+    my $version = $DB->version;
+    my $is_precached = is_precached($version,'laboratory',param('name'));
+    if ($is_precached) { 
+	exit;
+    }
+}
+
 @people = FetchPeople($DB,param('name'));
 
 if (@people == 1) {

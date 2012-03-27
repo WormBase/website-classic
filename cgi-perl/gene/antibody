@@ -25,6 +25,15 @@ use constant NONE => i('not available');
 $DB = OpenDatabase() || AceError("Couldn't open database.");
 $DB->class('Ace::Object::Wormbase');
 
+# Check if we have been precached.
+if (param('name')) {
+    my $version = $DB->version;
+    my $is_precached = is_precached($version,'antibody',param('name'));
+    if ($is_precached) { 
+	exit;
+    }
+}
+
 $antibody = get_object();
 
 PrintTop($antibody,'Antibody',($antibody) ? "Antibody report for: $antibody" : 'Antibody Report');

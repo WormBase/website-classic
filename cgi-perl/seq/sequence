@@ -36,6 +36,18 @@ $DB = OpenDatabase() || AceError("Couldn't open database.");
 $DB->class('Ace::Object::Wormbase');
 
 $WORMBASE = WormBase->new($DB);
+my $seq_name  = param('name');
+
+if ($seq_name) {
+    my $version = $DB->version;
+# Have we been precached to disk?
+# For the final legacy version, we will just 
+# generate every single page over time.
+    my $is_precached = is_precached($version,'sequence',$seq_name);
+    if ($is_precached) { 
+	exit;
+    }
+}
 
 ###### l'cache #####
 my $cache_key = CGI->new->Vars;
@@ -49,10 +61,15 @@ my $seq_name  = param('name');
 my $seq_class = param('class');
 my $gb_acc    = param('gb');
 
+
 $seq = get_seq($seq_name,$seq_class) if $seq_name;
 $seq = get_acc($gb_acc)              if $gb_acc;
 $GFF     = OpenGFFDB($DB,get_species($seq)) if $seq;
 #$PmapGFF = OpenPmapGFF($DB) || AceError("Couldn't open PmapGFF database");
+
+
+
+
 
 my $d = param('details') ? 'Details' : 'Summary';
 PrintTop($seq,'Sequence',"Sequence $d for: $seq");

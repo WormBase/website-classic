@@ -20,12 +20,25 @@ $WORMBASE = WormBase->new($DB);
 
 $DB = OpenDatabase() || AceError("Couldn't open database.");
 
-$obj = get_object() if param('name');
+
+
+# Have we been precached to disk?
+# For the final legacy version, we will just 
+# generate every single page over time.
+if (param('name')) {
+    my $version = $DB->version;
+    my $is_precached = is_precached($version,'interaction',param('name'));
+    if ($is_precached) { 
+	exit;
+    }
+    
+    $obj = get_object() 
+}
 
 PrintTop("Interaction Summary");
 #print_prompt();
 
-display_interaction($obj);
+display_interaction($obj) if $obj;
 PrintWarning(param('name'),param('class')) if param('name') and !$obj;
 
 PrintBottom();

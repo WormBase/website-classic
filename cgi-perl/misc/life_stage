@@ -16,6 +16,18 @@ END {
 
 $DB = OpenDatabase() || AceError("Couldn't open database.");
 $WORMBASE = WormBase->new($DB);
+
+
+if (param('name')) {
+    my $version = $DB->version;
+    my $is_precached = is_precached($version,'life_stage',param('name'));
+    if ($is_precached) { 
+	exit;
+    }
+}
+
+
+
 $LIFESTAGE = $DB->fetch(-class=>'Life_stage',-name=>param('name')) if (param('name'));
 $DETAILS = param('details');
 $DETAILS =~ s/_/ /g;

@@ -24,6 +24,15 @@ END {
 $DB = OpenDatabase() || AceError("Couldn't open database.");
 my $version = $DB->version;
 
+if (param('name')) {
+    my $version = $DB->version;
+    my $is_precached = is_precached($version,'strain',param('name'));
+    if ($is_precached) { 
+	exit;
+    }
+}
+
+
 $query = param('name') || param('query');
 # Fudge - maybe somebody pressed search but didn't enter anything
 #$query = '*' if (param('search') && !$query);

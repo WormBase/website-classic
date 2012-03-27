@@ -25,6 +25,17 @@ use constant PICTURE_WIDTH => 800;
 $DB = OpenDatabase() || AceError("Couldn't open database.");
 $DB->class('Ace::Object::Wormbase');
 
+if (param('name')) {
+    my $version = $DB->version;
+# Have we been precached to disk?
+# For the final legacy version, we will just 
+# generate every single page over time.
+    my $is_precached = is_precached($version,'sage_tag',param('name'));
+    if ($is_precached) { 
+	exit;
+    }
+}
+
 
 ($sage,$gene,$best_name,$by_tag,@results) = get_object();
 $DBGFF = OpenGFFDB($DB,eval { get_species($sage) || 'c_elegans' }) || AceError("Couldn't open GFF database.") if $sage;

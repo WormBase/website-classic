@@ -25,6 +25,7 @@ END {
   undef $query;
 }
 
+
 $motif = GetAceObject();
 PrintTop($motif ? "Motif Summary: $motif" : "Motif Summary");
 

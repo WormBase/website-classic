@@ -19,6 +19,14 @@ BEGIN {
 $DB = OpenDatabase() || AceError("Couldn't open database.");
 $name = param('name');
 
+if ($name) {
+    my $version = $DB->version;
+    my $is_precached = is_precached($version,'laboratory',$name);
+    if ($is_precached) { 
+	exit;
+    }
+}
+
 @PHENOTYPES = fetch_phenotypes() if param('name');
 if (@PHENOTYPES) {
     $phenotype = (@PHENOTYPES == 1) ? $PHENOTYPES[0] : undef;  # : would be > 1

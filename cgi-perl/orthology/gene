@@ -19,6 +19,7 @@ END {
 #$gene = OpenPageGetObject('Homology','Homology Report',1);
 
 my $gene_id = param('name');
+
 if($gene_id) {
 	$DB = Ace->connect(-host=>'localhost', -port=>2005);
 	$gene = $DB->fetch(-class=>'Gene', -name=>$gene_id);

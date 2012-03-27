@@ -7,8 +7,8 @@ use Digest::MD5  'md5_hex';
 
 our @EXPORT = qw/toggle_one toggle_many toggle_self/;
 
-use constant PLUS      => '/gbrowse/images/buttons/plus.png';
-use constant MINUS     => '/gbrowse/images/buttons/minus.png';
+use constant PLUS      => '/gbrowse2/images/buttons/plus.png';
+use constant MINUS     => '/gbrowse2/images/buttons/minus.png';
 
 sub toggle_one {
   my %config = ref $_[0] eq 'HASH' ? %{shift()} : ();

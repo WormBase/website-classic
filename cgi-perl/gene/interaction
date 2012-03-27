@@ -29,6 +29,20 @@ END {
 
 
 $interaction = param('name');
+
+
+# Have we been precached to disk?
+# For the final legacy version, we will just 
+# generate every single page over time.
+if ($interaction) {
+    my $version = $DB->version;
+    my $is_precached = is_precached($version,'interaction',$interaction);
+    if ($is_precached) { 
+	exit;
+    }
+}
+
+
 $list = param('list');
 $sort_by = param('sort_by');
 my $demo = param('demo');
@@ -954,15 +968,15 @@ sub go_pie_charts{
 
     # HACK HACK HACK HACK!
     # This TOTALLY diverges from our normal tmpdir image handling
-    my ($server) = $ENV{SERVER_NAME} =~ /(.*?)\..*/;
-    $server    ||= 'local';
+#    my ($server) = $ENV{SERVER_NAME} =~ /(.*?)\..*/;
+#    $server    ||= 'local';
 
     # OLD WAY
     # my $temp_dir    = Configuration->Wormbase . '/html/blast_blat/tmp';
     # my $temp_dir_eq = "/blast_blat/tmp";
 
-    my $temp_dir_eq = "/dynamic_images/$server";
-    my $temp_dir = "/var/tmp/dynamic_images/$server";
+    my $temp_dir_eq = "/dynamic_images";
+    my $temp_dir = "/usr/local/wormbase/tmp/tmp/dynamic_images";
     system("mkdir $temp_dir");
 
     # Clean temp dir

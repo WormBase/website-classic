@@ -54,6 +54,7 @@ require Exporter;
 	      get_species
 		  InlineImage
               get_PMID
+              is_precached
 	    );
 @EXPORT_OK = qw(GetInterpolatedPosition PrintRefs
 		FindPosition PrintExpressionPattern PrintRNAiPattern PrintExpressionMap
@@ -3505,6 +3506,32 @@ sub human_readable_cache_key {
 		 :$_} @keys);
 }
 
+sub is_precached {
+    my ($version,$class,$object) = @_;
+# Do we have a pre-cached version of this page?
+    my $cache_root = sprintf(Configuration->Static_cache_root,$version);
+    if (!param('details') && -e "$cache_root/$class/$object.html") {
+	open IN,"$cache_root/$class/$object.html";
+	
+	# warn  "Serving a page from the precache ($GENE). Yay";
+	# print "Serving a page from $gene_root/gene/$GENE.html";
+	
+	# This doesn't seem very efficient.
+	print header();
+	while (<IN>) {
+	    print $_;
+	}
+	close IN;
+	
+	# Or just redirect
+	# redirect("/cache/$version/gene/$GENE.html");
+	# Or I will use apache-fu for redirection to /cache/
+	# redirect("/gene/$version/$GENE.html");
+	return 1;
+    } else {
+	return 0;
+    }
+}    
 
 # Generically fetch object(s) from the Autocomplete
 # database. Currently this is Gene class specific

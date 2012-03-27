@@ -94,6 +94,8 @@ $GENE = 0; # Initialize $GENE so that it doesn't passed on from previous process
 $BESTNAME = ''; # Initialize $BESTNAME for the same reason (displayed as title) - 13Jul2004/PC
 #if (url_param('name') || param('name')) {
 if (param('name')) { 
+
+
    
 # SILENTLY TESTING NEW FetchObject method
 #    if (url_param('test')) {
@@ -116,31 +118,17 @@ if (param('name')) {
 }
 
 
-# Do we have a pre-cached version of this page?
-my $gene_root = sprintf(Configuration->Static_cache_root,$version);
 
 unless(param('development')){ 
-if (!param('details') && -e "$gene_root/gene/$GENE.html") {
-    open IN,"$gene_root/gene/$GENE.html";
 
-    # warn  "Serving a page from the precache ($GENE). Yay";
-    # print "Serving a page from $gene_root/gene/$GENE.html";
-
-    # This doesn't seem very efficient.
-    print header();
-    while (<IN>) {
-       print $_;
-    }
-    close IN;
-   
-    # Or just redirect
-    # redirect("/cache/$version/gene/$GENE.html");
-    # Or I will use apache-fu for redirection to /cache/
-    # redirect("/gene/$version/$GENE.html");
+# Have we been precached to disk?
+# For the final legacy version, we will just 
+# generate every single page over time.
+my $is_precached = is_precached($version,'gene',$GENE);
+if ($is_precached) { 
     exit;
 }
 }
-
 
 
 # Norie: This should all be in config
@@ -1819,15 +1807,15 @@ sub go_pie_charts {
 
     # HACK HACK HACK HACK!
     # This TOTALLY diverges from our normal tmpdir image handling
-    my ($server) = $ENV{SERVER_NAME} =~ /(.*?)\..*/;
-    $server    ||= 'local';
+#    my ($server) = $ENV{SERVER_NAME} =~ /(.*?)\..*/;
+#    $server    ||= 'local';
 
     # OLD WAY
     # my $temp_dir    = Configuration->Wormbase . '/html/blast_blat/tmp';
     # my $temp_dir_eq = "/blast_blat/tmp";
 
-    my $temp_dir_eq = "/dynamic_images/$server";
-    my $temp_dir = "/var/tmp/dynamic_images/$server";
+    my $temp_dir_eq = "/dynamic_images";
+    my $temp_dir = "/usr/local/wormbase/tmp/dynamic_images";
     system("mkdir $temp_dir");
 
     # Clean temp dir
