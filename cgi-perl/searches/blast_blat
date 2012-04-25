@@ -35,9 +35,9 @@ die "Cannot determine version!" unless $WORMBASE_VERSION;
 # -----------------------------------------------
 
 # our $BLAST_EXEC_DIR     = "/usr/local/wublast.WB";
-our $BLAST_EXEC_DIR = "/usr/local/blast";
+our $BLAST_EXEC_DIR = "/usr/local/wormbase/services/blast";
 
-our $BLAT_CLIENT = "/usr/local/blat/bin/gfClient";
+our $BLAT_CLIENT = "/usr/local/wormbase/services/blat/bin/gfClient";
 
 our $BLAST_DIR   = "/usr/local/wormbase/databases/$WORMBASE_VERSION/blast";
 

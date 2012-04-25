@@ -60,7 +60,7 @@ $WORMBASE2WQL = 'http://localhost';
 $WQL2WORMBASE = 'http://localhost';
 
 # WormMart
-$WORMMART_URL = 'http://www.wormbase.org/biomart/martview';
+$WORMMART_URL = 'http://caprica.caltech.edu:9002/biomart/martview/';
 
 # Google Maps API related
 $GMAP_API_KEY = 'ABQIAAAAGB-Wqdj00NegDlW0aNTPQRT0kmb1hGpfTs2MOyy1b828YonADhTYLcGFlWLAmh79UVtQaartAy14gg';

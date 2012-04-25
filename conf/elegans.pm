@@ -269,7 +269,7 @@ $MY_FOOTER =
 			   size     => [100,20], 
 			 },
 	       synteny => { name      => '<font color="#FFFFFF">Synteny</font>',
-			    url      => "http://www.wormbase.org/db/gb2/gbrowse_syn/compara/",
+			    url      => "http://legacy.wormbase.org/db/gb2/gbrowse_syn/compara/",
 			    size     => [100,20],
 			  },
 	       blast => { name       => '<font color="#FFFFFF">Blast / Blat</font>',
@@ -314,7 +314,7 @@ $MY_FOOTER =
 # ========= %HOME  =========
 # Home page URL
 @HOME      = (
-	      'http://www.wormbase.org' => 'WormBase home'
+	      'http://legacy.wormbase.org' => 'WormBase home'
 	     );
 
 @HOME_BUTTON = ("$WB/buttons/home_bottom.gif" => [20,56]);
